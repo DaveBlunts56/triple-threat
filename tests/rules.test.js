@@ -235,3 +235,15 @@ test('nobody can pick up the ball or score during a dead phase', () => {
   run(s, 0.6);
   assert.deepEqual(s.score, [0, 0]);
 });
+
+test('a ball flying well past the sideline is out before it lands, and stays near the court', () => {
+  const s = live();
+  freeBall(s, { x: 0, y: 2, z: 7 }, { vz: 14, vy: 4 });
+  s.lastTouch = 0;
+  let furthest = 0;
+  const out = run(s, 0.4, st => { furthest = Math.max(furthest, Math.abs(st.ball.z)); return st.phase === 'dead'; });
+  assert.ok(out, 'still live with the ball in the stands');
+  run(s, 1, st => { furthest = Math.max(furthest, Math.abs(st.ball.z)); });
+  assert.ok(furthest < 11, `ball got to z=${furthest}`);
+  assert.equal(s.possession, 1);
+});

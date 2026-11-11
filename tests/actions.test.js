@@ -267,3 +267,27 @@ test('an inbounder cannot be stolen from', () => {
     assert.equal(s.ball.holder, 0);
   }
 });
+
+test('a lead pass to a teammate running toward the sideline is not aimed out of bounds', () => {
+  const s = setup();
+  Object.assign(s.players[2], { x: 8, z: 7, vz: 7 });
+  passBall(s, s.players[0], { ...emptyIntent(), moveZ: 1 });
+  const landing = s.ball.z + s.ball.vz * ((2 * s.ball.vy) / BALL.gravity);
+  assert.ok(landing <= 7.5, `aimed at z=${landing}`);
+});
+
+test('a defender right in front cannot snatch a pass the instant it leaves the hand', () => {
+  const s = setup();
+  Object.assign(s.players[3], { x: 8, z: 1 });   // directly between passer and receiver
+  tick(s, intents(0, { pass: true, moveZ: 1 }));
+  assert.equal(s.ball.holder, null);
+  assert.equal(s.ball.mode, 'pass');
+});
+
+test('a sprinting player who goes up for a shot does not fly on at full speed', () => {
+  const s = setup();
+  for (let i = 0; i < 30; i++) tick(s, intents(0, { moveX: 1, sprint: true }));
+  const x = s.players[0].x;
+  for (let t = 0; t < 2 && s.ball.holder === 0; t += DT) tick(s, intents(0, { moveX: 1, sprint: true, shoot: true }));
+  assert.ok(s.players[0].x - x < 1.5, `drifted ${s.players[0].x - x} m during the shot`);
+});

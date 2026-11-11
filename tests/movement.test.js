@@ -120,3 +120,21 @@ test('ball rises with a jumping holder', () => {
   carryBall(s, DT);
   assert.ok(s.ball.y >= standing + 0.5 - 1e-9);
 });
+
+test('jumping while sprinting keeps only a little of the run-up', () => {
+  const s = spread(), p = s.players[0];
+  run(s, 1, intentsFor(0, { moveZ: 1, sprint: true }));
+  const z = p.z;
+  jump(p);
+  run(s, 0.9, intentsFor(0, {}));
+  assert.equal(p.y, 0);
+  assert.ok(p.z - z < 1.6, `flew ${p.z - z} m`);
+});
+
+test('a ball carrier is slower than a free runner', () => {
+  const s = spread();
+  s.ball.holder = 0; s.ball.mode = 'held';
+  run(s, 1, [intentsFor(0, { moveZ: 1, sprint: true })[0], intentsFor(0, { moveZ: 1, sprint: true })[0], ...intentsFor(9, {}).slice(2)]);
+  assert.ok(speed(s.players[0]) < speed(s.players[1]) - 0.5, `${speed(s.players[0])} vs ${speed(s.players[1])}`);
+  assert.ok(Math.abs(speed(s.players[1]) - PLAYER.sprint) < 0.05);
+});

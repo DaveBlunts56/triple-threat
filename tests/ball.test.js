@@ -83,3 +83,10 @@ test('ball resting on top of the rim rolls off', () => {
   fly(b, 3);
   assert.ok(b.y < 2.5, `ball still up at y=${b.y}`);
 });
+
+test('a ball thrown from behind the backboard bounces off the back of it', () => {
+  const b = makeBall(13.4, 3.4, 0, { vx: -5 });
+  const e = fly(b, 0.3, ev => ev.hitBoard);
+  assert.equal(e.hitBoard, true);
+  assert.ok(b.vx > 0 && b.x > 12.8);
+});

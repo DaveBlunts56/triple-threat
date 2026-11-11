@@ -28,11 +28,12 @@ function substep(ball, dt, events) {
 
   const sign = ball.x >= 0 ? 1 : -1;   // only the hoop at the ball's end of the court can matter
 
-  // Backboard: front face only. shortcut: edges and back of the board are ignored, add when a shot from behind the board looks wrong
+  // Backboard: a thin plate hit from either side. shortcut: its edges are ignored, add edge bounces if shots clipping the corner look wrong
   if (Math.abs(ball.z) <= BOARD.halfWidth && ball.y >= BOARD.bottom && ball.y <= BOARD.top) {
-    const depth = sign * ball.x - (BOARD.x - BALL.radius);
-    if (depth > 0 && depth < BALL.radius && sign * ball.vx > 0) {
-      ball.x = sign * (BOARD.x - BALL.radius);
+    const gap = sign * ball.x - BOARD.x;              // negative on the court side, positive behind the board
+    const toward = sign * ball.vx * (gap < 0 ? 1 : -1) > 0;
+    if (Math.abs(gap) < BALL.radius && toward) {
+      ball.x = sign * (BOARD.x + Math.sign(gap || -1) * BALL.radius);
       ball.vx = -ball.vx * BALL.boardBounce;
       events.hitBoard = true;
     }

@@ -20,13 +20,20 @@ const sidelineSpot = o => ({ x: clamp(o.x, COURT.halfLength - 1), z: side(o.z) *
 
 // Stops play. If the period clock has run out, the period ends instead of restarting.
 function stopPlay(state, possession, spot) {
+  deadBall(state);
   state.possession = possession;
   state.inboundSpot = spot;
   if (state.gameClock <= 0) endPeriod(state);
   else { state.phase = 'dead'; state.phaseT = CLOCK.dead; }
 }
 
+// A dead ball drops where it is instead of bouncing off into the distance.
+function deadBall(state) {
+  if (state.ball.holder === null) state.ball.vx = state.ball.vz = 0;
+}
+
 function endPeriod(state) {
+  deadBall(state);
   state.phase = 'quarterEnd';
   state.phaseT = CLOCK.quarterBreak;
 }
@@ -69,7 +76,9 @@ export function startMatch(state) {
 function checkOut(state, events) {
   const { ball } = state;
   const holder = state.players[ball.holder];
-  if (holder ? !holder.inbounder && outOfBounds(holder) : events.hitFloor && outOfBounds(ball)) {
+  // A free ball is also out once it flies past the run-off around the court, without waiting for it to land.
+  const inStands = Math.abs(ball.x) > COURT.halfLength + COURT.margin || Math.abs(ball.z) > COURT.halfWidth + COURT.margin;
+  if (holder ? !holder.inbounder && outOfBounds(holder) : inStands || (events.hitFloor && outOfBounds(ball))) {
     const loser = holder ? holder.team : state.lastTouch ?? state.possession;
     stopPlay(state, 1 - loser, spotWhereOut(holder ?? ball));
     return true;

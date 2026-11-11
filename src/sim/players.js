@@ -8,15 +8,17 @@ export function jump(player) {
   if (!grounded(player)) return;
   player.vy = PLAYER.jumpV;
   player.jumpT = 0;
+  // Plant the feet: a jump goes mostly up, so nobody sails out of bounds off a sprint.
+  player.vx *= PLAYER.jumpCarry; player.vz *= PLAYER.jumpCarry;
 }
 
-function moveOne(p, intent, dt) {
+function moveOne(p, intent, dt, hasBall) {
   if (p.inbounder) { p.vx = p.vz = 0; return; }
 
   if (grounded(p)) {
     // Steer toward the wanted velocity. Diagonal input is scaled back to length 1.
     const len = Math.hypot(intent.moveX, intent.moveZ);
-    const scale = (intent.sprint ? PLAYER.sprint : PLAYER.run) / Math.max(len, 1);
+    const scale = ((intent.sprint ? PLAYER.sprint : PLAYER.run) * (hasBall ? PLAYER.dribbleSpeed : 1)) / Math.max(len, 1);
     const dvx = intent.moveX * scale - p.vx, dvz = intent.moveZ * scale - p.vz;
     const dv = Math.hypot(dvx, dvz), step = PLAYER.accel * dt;
     const k = dv <= step ? 1 : step / dv;
@@ -56,7 +58,7 @@ function clampToCourt(p) {
 }
 
 export function movePlayers(state, intents, dt) {
-  state.players.forEach((p, i) => moveOne(p, intents[i], dt));
+  state.players.forEach((p, i) => moveOne(p, intents[i], dt, state.ball.holder === p.id));
   separate(state.players);
   state.players.forEach(clampToCourt);
 }
@@ -151,8 +153,10 @@ export function passBall(state, player, intent) {
 
   // Aim where the receiver will be when the ball gets there.
   const lead = dist(mate, player) / PASS.speed;
-  const ax = mate.x + mate.vx * lead - player.x, az = mate.z + mate.vz * lead - player.z;
-  const d = Math.hypot(ax, az) || 1, t = d / PASS.speed;
+  const inCourt = (v, half) => clamp(v, -half + PLAYER.radius, half - PLAYER.radius);
+  const ax = inCourt(mate.x + mate.vx * lead, COURT.halfLength) - player.x;
+  const az = inCourt(mate.z + mate.vz * lead, COURT.halfWidth) - player.z;
+  const d = Math.hypot(ax, az) || 1, t = Math.max(0, d - PLAYER.carryDist) / PASS.speed;   // the ball starts a little ahead of the passer
   player.facing = Math.atan2(az, ax);
   ball.x = player.x + (ax / d) * PLAYER.carryDist; ball.z = player.z + (az / d) * PLAYER.carryDist;
   ball.y = player.y + PASS.height;
@@ -184,6 +188,7 @@ export function trySteal(state, player) {
 export function tryPickup(state) {
   const { ball } = state;
   if (ball.holder !== null || ball.mode === 'shot') return null;
+  if (ball.mode === 'pass' && ball.noPickupT > PASS.noPickup - PASS.clearTime) return null;
   let best = null;
   for (const p of state.players) {
     if (p.inbounder || (p.id === ball.noPickupId && ball.noPickupT > 0)) continue;
