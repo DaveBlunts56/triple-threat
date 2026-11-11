@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Browser capability probe</title>
+<body style="font: 16px/1.6 system-ui, sans-serif; margin: 2rem">
+<h1>Browser capability probe</h1>
+<pre id="out">Checking…</pre>
+<script type="module">
+const lines = [];
+lines.push(`navigator.gpu present: ${'gpu' in navigator}`);
+try {
+  const adapter = navigator.gpu ? await navigator.gpu.requestAdapter() : null;
+  const info = adapter?.info;
+  lines.push(`WebGPU adapter: ${adapter ? `yes (${info?.vendor || '?'} / ${info?.description || info?.architecture || '?'})` : 'no'}`);
+} catch (e) {
+  lines.push(`WebGPU adapter: error (${e.message})`);
+}
+lines.push(`WebGL 2: ${document.createElement('canvas').getContext('webgl2') ? 'yes' : 'no'}`);
+lines.push(`User agent: ${navigator.userAgent}`);
+document.getElementById('out').textContent = lines.join('\n');
+</script>
+</body>
+</html>
