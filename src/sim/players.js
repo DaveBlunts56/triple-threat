@@ -223,7 +223,10 @@ export function applyActions(state, intents, dt) {
       if (pressed('shoot') && !p.inbounder) jump(p);
       if (pressed('steal')) trySteal(state, p);
       const holder = state.players[ball.holder];
-      if (pressed('switch') && p.id === state.controlled && (!holder || holder.team !== 0)) {
+      // Not while your own team's pass is in the air: the pass key is also the switch key,
+      // and control has just moved to the receiver.
+      const ownPass = ball.mode === 'pass' && state.lastTouch === 0;
+      if (pressed('switch') && p.id === state.controlled && !ownPass && (!holder || holder.team !== 0)) {
         state.controlled = state.players.filter(m => m.team === 0).reduce((a, b) => (dist(b, ball) < dist(a, ball) ? b : a)).id;
       }
     }

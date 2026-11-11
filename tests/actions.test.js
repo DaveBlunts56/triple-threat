@@ -291,3 +291,13 @@ test('a sprinting player who goes up for a shot does not fly on at full speed', 
   for (let t = 0; t < 2 && s.ball.holder === 0; t += DT) tick(s, intents(0, { moveX: 1, sprint: true, shoot: true }));
   assert.ok(s.players[0].x - x < 1.5, `drifted ${s.players[0].x - x} m during the shot`);
 });
+
+test('holding the pass key does not bounce control back to the passer', () => {
+  const s = setup();
+  const held = () => { const its = intents(s.controlled, { pass: true, switch: true, moveZ: 1 }); return its; };
+  tick(s, held());
+  assert.equal(s.controlled, 2);
+  stepBall(s.ball, DT); tick(s, held());
+  stepBall(s.ball, DT); tick(s, held());
+  assert.equal(s.controlled, 2);
+});
