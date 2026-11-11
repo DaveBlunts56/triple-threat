@@ -1,4 +1,6 @@
-import { BALL, COURT, PLAYER } from './tuning.js';
+import { BALL, BLOCK, CLOCK, COURT, PASS, PLAYER, RIM, SHOT, STEAL, THREE_PT } from './tuning.js';
+import { attackSign, rand } from './state.js';
+import { rimCentre, solveShot } from './ball.js';
 
 const grounded = p => p.y === 0 && p.vy === 0;
 
@@ -71,4 +73,158 @@ export function carryBall(state, dt) {
   if (p.shooting) ball.y = p.y + PLAYER.releaseHeight;
   else if (dribbling) ball.y = BALL.radius + Math.abs(Math.sin(state.time * Math.PI * PLAYER.dribbleRate)) * (PLAYER.handHeight - BALL.radius);
   else ball.y = p.y + PLAYER.handHeight;
+}
+
+// ---------- actions ----------
+
+const rad = deg => (deg * Math.PI) / 180;
+const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+// Is `target` within `degrees` either side of the way `p` is facing?
+const inArc = (p, target, degrees) =>
+  Math.cos(p.facing) * (target.x - p.x) + Math.sin(p.facing) * (target.z - p.z) >= Math.cos(rad(degrees)) * dist(p, target);
+
+export function isThree(x, z, sign) {
+  return Math.abs(z) > THREE_PT.cornerZ || Math.hypot(x - sign * RIM.x, z) > THREE_PT.radius;
+}
+
+// The free ball leaves `player`'s hands: they cannot grab it straight back.
+function letGo(state, player, mode) {
+  const { ball } = state;
+  ball.holder = null; ball.mode = mode;
+  ball.noPickupId = player.id; ball.noPickupT = PASS.noPickup;
+  state.lastTouch = player.team;
+  player.shooting = false;
+}
+
+export function makeChance(state, player) {
+  const hoop = rimCentre(attackSign(player.team));
+  const byDistance = Math.max(SHOT.minChance, SHOT.nearChance + (SHOT.farChance - SHOT.nearChance) * (dist(player, hoop) / SHOT.farDist));
+
+  const apex = PLAYER.jumpV / BALL.gravity;
+  const byTiming = 1 - (1 - SHOT.worstTiming) * Math.min(1, Math.abs(player.jumpT - apex) / apex);
+
+  let nearest = null;
+  for (const o of state.players) if (o.team !== player.team && (!nearest || dist(o, player) < dist(nearest, player))) nearest = o;
+  const d = dist(nearest, player);
+  let byContest = clamp(SHOT.maxContest + (1 - SHOT.maxContest) * (d / SHOT.contestDist), SHOT.maxContest, 1);
+  if (nearest.y > 0 && d < SHOT.airContestDist) byContest *= SHOT.airContest;
+
+  return byDistance * byTiming * byContest;
+}
+
+export function releaseShot(state, player) {
+  const { ball } = state;
+  const sign = attackSign(player.team);
+  ball.x = player.x; ball.z = player.z; ball.y = player.y + PLAYER.releaseHeight;
+
+  const blocker = state.players.find(o => o.team !== player.team && o.y > BLOCK.minHeight
+    && dist(o, player) <= BLOCK.reach && inArc(player, o, BLOCK.cone));
+  if (blocker && rand(state) < BLOCK.chance) {
+    letGo(state, player, 'loose');
+    state.lastTouch = blocker.team;
+    ball.vx = -sign * BLOCK.deflect; ball.vy = 0; ball.vz = 0;
+    ball.shooter = null; ball.shotValue = 0;
+    return;
+  }
+
+  const target = rimCentre(sign);
+  if (rand(state) >= makeChance(state, player)) {
+    const off = SHOT.missMin + rand(state) * (SHOT.missMax - SHOT.missMin), angle = rand(state) * 2 * Math.PI;
+    target.x += off * Math.cos(angle); target.z += off * Math.sin(angle);
+  }
+  Object.assign(ball, solveShot(ball, target));
+  ball.shooter = player.id;
+  ball.shotValue = isThree(player.x, player.z, sign) ? 3 : 2;
+  letGo(state, player, 'shot');
+}
+
+export function passBall(state, player, intent) {
+  const { ball } = state;
+  const mates = state.players.filter(m => m.team === player.team && m !== player);
+  const len = Math.hypot(intent.moveX, intent.moveZ);
+  // With a direction held, the teammate most in line with it; otherwise the nearest.
+  const score = len > 0.1
+    ? m => (intent.moveX * (m.x - player.x) + intent.moveZ * (m.z - player.z)) / (dist(m, player) || 1)
+    : m => -dist(m, player);
+  const mate = mates.reduce((best, m) => (score(m) > score(best) ? m : best));
+
+  // Aim where the receiver will be when the ball gets there.
+  const lead = dist(mate, player) / PASS.speed;
+  const ax = mate.x + mate.vx * lead - player.x, az = mate.z + mate.vz * lead - player.z;
+  const d = Math.hypot(ax, az) || 1, t = d / PASS.speed;
+  player.facing = Math.atan2(az, ax);
+  ball.x = player.x + (ax / d) * PLAYER.carryDist; ball.z = player.z + (az / d) * PLAYER.carryDist;
+  ball.y = player.y + PASS.height;
+  ball.vx = (ax / d) * PASS.speed; ball.vz = (az / d) * PASS.speed;
+  ball.vy = (BALL.gravity * t) / 2;   // enough lift to arrive at the height it left
+  ball.shooter = null; ball.shotValue = 0;
+  letGo(state, player, 'pass');
+  if (player.team === 0) state.controlled = mate.id;
+}
+
+export function giveBall(state, player) {
+  const { ball } = state;
+  ball.holder = player.id; ball.mode = 'held';
+  ball.shooter = null; ball.shotValue = 0;
+  if (state.possession !== player.team) state.shotClock = CLOCK.shot;
+  state.possession = state.lastTouch = player.team;
+  if (player.team === 0) state.controlled = player.id;
+}
+
+export function trySteal(state, player) {
+  const holder = state.players[state.ball.holder];
+  if (player.stealCooldown > 0 || !holder || holder.team === player.team || holder.inbounder) return;
+  if (dist(holder, player) > STEAL.reach) return;
+  player.stealCooldown = STEAL.cooldown;
+  const chance = inArc(holder, player, STEAL.frontArc) ? STEAL.frontChance : STEAL.backChance;
+  if (rand(state) < chance) { holder.shooting = false; giveBall(state, player); }
+}
+
+export function tryPickup(state) {
+  const { ball } = state;
+  if (ball.holder !== null || ball.mode === 'shot') return null;
+  let best = null;
+  for (const p of state.players) {
+    if (p.inbounder || (p.id === ball.noPickupId && ball.noPickupT > 0)) continue;
+    if (dist(p, ball) > PLAYER.pickupRadius || p.y + PLAYER.reach < ball.y) continue;
+    if (!best || dist(p, ball) < dist(best, ball)) best = p;
+  }
+  return best;
+}
+
+// Turns this step's intents into shots, passes, steals, jumps, control switches and pickups.
+export function applyActions(state, intents, dt) {
+  const { ball } = state;
+  ball.noPickupT = Math.max(0, ball.noPickupT - dt);
+
+  state.players.forEach((p, i) => {
+    const intent = intents[i];
+    const pressed = key => intent[key] && !p.prev[key];
+    p.stealCooldown = Math.max(0, p.stealCooldown - dt);
+
+    if (ball.holder === p.id) {
+      if (pressed('pass')) passBall(state, p, intent);
+      else if (p.inbounder) { /* an inbounder may only pass */ }
+      else if (p.shooting) {
+        if (!intent.shoot || grounded(p)) releaseShot(state, p);
+      } else if (pressed('shoot') && grounded(p)) {
+        const hoop = rimCentre(attackSign(p.team));
+        p.facing = Math.atan2(hoop.z - p.z, hoop.x - p.x);
+        jump(p);
+        p.shooting = true;
+      }
+    } else {
+      if (pressed('shoot') && !p.inbounder) jump(p);
+      if (pressed('steal')) trySteal(state, p);
+      const holder = state.players[ball.holder];
+      if (pressed('switch') && p.id === state.controlled && (!holder || holder.team !== 0)) {
+        state.controlled = state.players.filter(m => m.team === 0).reduce((a, b) => (dist(b, ball) < dist(a, ball) ? b : a)).id;
+      }
+    }
+    p.prev = { ...intent };
+  });
+
+  const taker = tryPickup(state);
+  if (taker) giveBall(state, taker);
 }

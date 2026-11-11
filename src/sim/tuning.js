@@ -20,9 +20,9 @@ export const SHOT = f({
   minAngle: 50, minEntry: 45,   // degrees: lowest launch angle, shallowest angle the ball may drop into the rim
 });
 
-export const PASS = f({ speed: 14, noPickup: 0.3 });
-export const STEAL = f({ reach: 1.2, frontChance: 0.35, backChance: 0.1, cooldown: 1 });
-export const BLOCK = f({ reach: 1.2, minHeight: 0.3, chance: 0.5 });
+export const PASS = f({ speed: 14, noPickup: 0.3, height: 1.3 });
+export const STEAL = f({ reach: 1.2, frontChance: 0.35, backChance: 0.1, cooldown: 1, frontArc: 120 });
+export const BLOCK = f({ reach: 1.2, minHeight: 0.3, chance: 0.5, cone: 45, deflect: 4 });
 
 export const CLOCK = f({ quarters: 4, quarter: 180, overtime: 60, shot: 24, dead: 1.5, quarterBreak: 2 });
 
