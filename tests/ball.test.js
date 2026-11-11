@@ -90,3 +90,12 @@ test('a ball thrown from behind the backboard bounces off the back of it', () =>
   assert.equal(e.hitBoard, true);
   assert.ok(b.vx > 0 && b.x > 12.8);
 });
+
+test('solveShot clears the front of the rim from close range, even released low', () => {
+  for (const d of [0.6, 0.8, 1.0]) for (const y of [2.3, 3.1]) for (const [dx, dz] of [[-1, 0], [0, 1], [-0.7, -0.7]]) {
+    const from = { x: RIM.x + dx * d, y, z: dz * d };
+    const b = makeBall(from.x, from.y, from.z, solveShot(from, rimCentre(1), RIM.radius));
+    const e = fly(b, 4, ev => ev.first !== null);
+    assert.equal(e.first, 'scored', `from ${d} m at height ${y} (${dx}, ${dz}) touched ${e.first} first`);
+  }
+});

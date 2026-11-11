@@ -40,7 +40,7 @@ export function createMatch(seed = 1) {
     phase: 'start', phaseT: 0,
     quarter: 1, gameClock: CLOCK.quarter, shotClock: CLOCK.shot,
     score: [0, 0],
-    possession: 0, lastTouch: null, controlled: 0,
+    possession: 0, lastTouch: null, controlled: 0, lastControlled: 0,
     inboundSpot: { x: 0, z: 0 },
     players: Array.from({ length: 6 }, (_, id) => createPlayer(id)),
     ball: {

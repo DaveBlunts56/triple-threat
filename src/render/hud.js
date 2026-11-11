@@ -27,6 +27,7 @@ export function createHud(doc) {
     update(state, backend) {
       set('score0', String(state.score[0]));
       set('score1', String(state.score[1]));
+      set('announce', `You ${state.score[0]}, opponent ${state.score[1]}`);   // read out by screen readers
       set('quarter', periodLabel(state.quarter));
       set('gameClock', clockText(state.gameClock));
       set('shotClock', String(Math.ceil(state.shotClock)));

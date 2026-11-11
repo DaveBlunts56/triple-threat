@@ -162,3 +162,18 @@ test('team 1 plays the mirror image: an open handler in range of the -x hoop sho
   put(s, 3, -7, 0);
   assert.ok(run(s, 1.2, [3], st => st.players[3].shooting || st.ball.mode === 'shot'));
 });
+
+test('a pass thrown ahead of a running teammate is caught when the human touches nothing', () => {
+  const s = live();
+  put(s, 0, 0, 0); put(s, 2, -12, 5);
+  Object.assign(s.players[1], { x: 6, z: -3, vz: 5 });   // crossing the passer's view at a run
+  const frame = human => {
+    const all = aiIntents(s, DT);
+    all[s.controlled] = { ...emptyIntent(), ...human };
+    step(s, all, DT);
+  };
+  frame({ pass: true });
+  assert.equal(s.ball.mode, 'pass');
+  for (let t = 0; t < 2 && s.ball.holder === null && s.phase === 'live'; t += DT) frame({});
+  assert.equal(s.ball.holder, 1);
+});

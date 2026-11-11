@@ -23,6 +23,7 @@
   section.screen[hidden] { display: none; }
   section.screen h1 { font-size: 56px; margin: 0 0 12px; }
   section.screen p { font-size: 20px; margin: 6px 0; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -36,14 +37,15 @@
 <body>
 <canvas id="court"></canvas>
 
-<div id="hud" aria-live="polite">
-  <span class="score home" aria-label="Your score" id="score0">0</span>
+<div id="hud">
+  <span class="score home" id="score0">0</span>
   <div class="clock">
     <div><span id="quarter">Q1</span> · <span id="gameClock">3:00</span></div>
-    <div aria-label="Shot clock" id="shotClock">24</div>
+    <div id="shotClock">24</div>
   </div>
-  <span class="score away" aria-label="Opponent score" id="score1">0</span>
+  <span class="score away" id="score1">0</span>
 </div>
+<p id="announce" class="sr-only" aria-live="polite"></p>
 
 <div id="controls">WASD move · Shift sprint · Space shoot / jump · E pass / switch · Q steal · Esc pause</div>
 <div id="backend"></div>

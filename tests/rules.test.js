@@ -247,3 +247,24 @@ test('a ball flying well past the sideline is out before it lands, and stays nea
   assert.ok(furthest < 11, `ball got to z=${furthest}`);
   assert.equal(s.possession, 1);
 });
+
+test('a key held when control moves to a teammate is not a fresh press for him', () => {
+  const s = live();
+  freeBall(s, { x: s.players[1].x + 0.3, y: 0.12, z: s.players[1].z });
+  s.controlled = 0;
+  const held = () => intents(s.controlled, { shoot: true });   // the human is holding Space to jump
+  for (let i = 0; i < 10; i++) step(s, held(), DT);
+  assert.equal(s.ball.holder, 1);
+  assert.equal(s.controlled, 1);
+  assert.equal(s.players[1].shooting, false, 'the teammate went up for a shot nobody asked for');
+});
+
+test('a key already held when play resumes is not a fresh press', () => {
+  const s = live();
+  s.phase = 'dead'; s.phaseT = 10;
+  for (let i = 0; i < 6; i++) step(s, intents(1, { shoot: true }), DT);
+  s.phase = 'live';
+  for (let i = 0; i < 3; i++) step(s, intents(1, { shoot: true }), DT);
+  assert.equal(s.players[1].y, 0);
+  assert.equal(s.players[1].vy, 0);
+});

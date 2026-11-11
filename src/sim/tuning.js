@@ -17,7 +17,9 @@ export const SHOT = f({
   worstTiming: 0.6,
   contestDist: 2, maxContest: 0.5, airContest: 0.8, airContestDist: 1.5,
   missMin: 0.18, missMax: 0.32,
-  minAngle: 50, minEntry: 45,   // degrees: lowest launch angle, shallowest angle the ball may drop into the rim
+  minAngle: 50, minEntry: 45, maxAngle: 88,   // degrees: lowest launch angle, shallowest drop into the rim, steepest launch
+  rimClear: 0.02,     // extra room a made shot leaves between ball and front rim
+  minRelease: 0.6,    // a shot is never released closer to the rim centre than this
 });
 
 export const PASS = f({ speed: 14, noPickup: 0.3, height: 1.3, clearTime: 0.1 });   // clearTime: nobody can touch a pass this soon after it is thrown

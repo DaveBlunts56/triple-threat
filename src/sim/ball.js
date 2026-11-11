@@ -5,15 +5,34 @@ const rad = deg => (deg * Math.PI) / 180;
 export const rimCentre = sign => ({ x: sign * RIM.x, y: RIM.height, z: 0 });
 
 // Launch velocity that carries the ball centre from `from` through `target`.
-// The angle is steep enough that the ball drops into the target at SHOT.minEntry or more,
-// so a shot aimed at the rim centre clears the front of the rim.
-export function solveShot(from, target) {
+// The angle is steep enough that the ball drops into the target at SHOT.minEntry or more.
+// Pass `rimRadius` when the target is the centre of a rim: the arc is then steepened until
+// the ball also clears the front of that rim, which matters for lay-ups released low and close.
+export function solveShot(from, target, rimRadius = 0) {
   const dx = target.x - from.x, dz = target.z - from.z;
   const d = Math.max(Math.hypot(dx, dz), 0.05);
   const h = target.y - from.y;
-  const tan = Math.min(Math.max(Math.tan(rad(SHOT.minAngle)), Math.tan(rad(SHOT.minEntry)) + (2 * h) / d), Math.tan(rad(85)));
+  const drop = tan => Math.max(d * tan - h, 0.01) / (d * d);   // the arc is y = x·tan − drop·x²
+
+  // Smallest gap between the ball's centre and the nearest point of the rim, along the arc.
+  const rimGap = tan => {
+    let gap = Infinity;
+    for (let i = 0; i <= 40; i++) {
+      const x = (d * i) / 40;
+      gap = Math.min(gap, Math.hypot(x - (d - rimRadius), x * tan - drop(tan) * x * x - h));
+    }
+    return gap;
+  };
+
+  const steepest = Math.tan(rad(SHOT.maxAngle));
+  let tan = Math.max(Math.tan(rad(SHOT.minAngle)), Math.tan(rad(SHOT.minEntry)) + (2 * h) / d);
+  if (rimRadius > 0) {
+    const room = BALL.radius + RIM.tube + SHOT.rimClear;
+    while (tan < steepest && rimGap(tan) < room) tan *= 1.15;
+  }
+  tan = Math.min(tan, steepest);
   const cos2 = 1 / (1 + tan * tan);
-  const speed = Math.sqrt((BALL.gravity * d * d) / (2 * cos2 * Math.max(d * tan - h, 0.01)));
+  const speed = Math.sqrt(BALL.gravity / (2 * cos2 * drop(tan)));
   const horizontal = speed * Math.sqrt(cos2);
   return { vx: (horizontal * dx) / d, vy: horizontal * tan, vz: (horizontal * dz) / d };
 }

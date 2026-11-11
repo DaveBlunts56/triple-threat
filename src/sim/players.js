@@ -117,8 +117,17 @@ export function makeChance(state, player) {
 
 export function releaseShot(state, player) {
   const { ball } = state;
-  const sign = attackSign(player.team);
-  ball.x = player.x; ball.z = player.z; ball.y = player.y + PLAYER.releaseHeight;
+  const sign = attackSign(player.team), hoop = rimCentre(sign);
+  // Released from the player's position, but never from right under the rim, where no arc can get over it:
+  // a lay-up leaves the hand a little out in front of the hoop.
+  let rx = player.x - hoop.x, rz = player.z - hoop.z;
+  const r = Math.hypot(rx, rz);
+  if (r < SHOT.minRelease) {
+    const k = r > 1e-6 ? SHOT.minRelease / r : 0;
+    rx = r > 1e-6 ? -sign * Math.abs(rx * k) : -sign * SHOT.minRelease;   // always on the court side of the rim
+    rz *= k;
+  }
+  ball.x = hoop.x + rx; ball.z = hoop.z + rz; ball.y = player.y + PLAYER.releaseHeight;
 
   const blocker = state.players.find(o => o.team !== player.team && o.y > BLOCK.minHeight
     && dist(o, player) <= BLOCK.reach && inArc(player, o, BLOCK.cone));
@@ -130,12 +139,13 @@ export function releaseShot(state, player) {
     return;
   }
 
-  const target = rimCentre(sign);
-  if (rand(state) >= makeChance(state, player)) {
+  const target = hoop;
+  const made = rand(state) < makeChance(state, player);
+  if (!made) {
     const off = SHOT.missMin + rand(state) * (SHOT.missMax - SHOT.missMin), angle = rand(state) * 2 * Math.PI;
     target.x += off * Math.cos(angle); target.z += off * Math.sin(angle);
   }
-  Object.assign(ball, solveShot(ball, target));
+  Object.assign(ball, solveShot(ball, target, made ? RIM.radius : 0));
   ball.shooter = player.id;
   ball.shotValue = isThree(player.x, player.z, sign) ? 3 : 2;
   letGo(state, player, 'shot');
@@ -163,8 +173,7 @@ export function passBall(state, player, intent) {
   ball.vx = (ax / d) * PASS.speed; ball.vz = (az / d) * PASS.speed;
   ball.vy = (BALL.gravity * t) / 2;   // enough lift to arrive at the height it left
   ball.shooter = null; ball.shotValue = 0;
-  letGo(state, player, 'pass');
-  if (player.team === 0) state.controlled = mate.id;
+  letGo(state, player, 'pass');   // control moves to the receiver when they catch it (giveBall), so they keep running onto the pass
 }
 
 export function giveBall(state, player) {
@@ -188,9 +197,11 @@ export function trySteal(state, player) {
 export function tryPickup(state) {
   const { ball } = state;
   if (ball.holder !== null || ball.mode === 'shot') return null;
-  if (ball.mode === 'pass' && ball.noPickupT > PASS.noPickup - PASS.clearTime) return null;
+  // A pass just thrown cannot be snatched at the hand by a defender; teammates may catch it at any range.
+  const justThrown = ball.mode === 'pass' && ball.noPickupT > PASS.noPickup - PASS.clearTime;
   let best = null;
   for (const p of state.players) {
+    if (justThrown && p.team !== state.lastTouch) continue;
     if (p.inbounder || (p.id === ball.noPickupId && ball.noPickupT > 0)) continue;
     if (dist(p, ball) > PLAYER.pickupRadius || p.y + PLAYER.reach < ball.y) continue;
     if (!best || dist(p, ball) < dist(best, ball)) best = p;

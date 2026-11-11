@@ -10,8 +10,16 @@ export function step(state, intents, dt) {
   // While play is stopped players may reposition, but nobody can act on the ball and it cannot score.
   const stopped = state.phase === 'dead' || state.phase === 'quarterEnd';
 
+  // The human's held keys follow them to whichever player they now control,
+  // so a key still down across a hand-off is not read as a fresh press by the new player.
+  if (state.controlled !== state.lastControlled) {
+    state.players[state.controlled].prev = { ...state.players[state.lastControlled].prev };
+    state.lastControlled = state.controlled;
+  }
+
   movePlayers(state, intents, dt);
   if (!stopped) applyActions(state, intents, dt);
+  else state.players.forEach((p, i) => { p.prev = { ...intents[i] }; });   // keep key state current for when play resumes
 
   let events = NOTHING;
   if (state.ball.holder !== null) carryBall(state, dt);

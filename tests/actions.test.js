@@ -6,6 +6,7 @@ import {
   trySteal, tryPickup, giveBall, applyActions,
 } from '../src/sim/players.js';
 import { stepBall } from '../src/sim/ball.js';
+import { step } from '../src/sim/step.js';
 import { DT, RIM, PLAYER, BALL, SHOT, STEAL } from '../src/sim/tuning.js';
 
 const APEX = PLAYER.jumpV / BALL.gravity;   // seconds from take-off to the top of a jump
@@ -143,7 +144,7 @@ test('pass goes to the teammate in the input direction', () => {
   passBall(s, s.players[0], { ...emptyIntent(), moveZ: 1 });
   assert.equal(s.ball.mode, 'pass');
   assert.ok(s.ball.vz > 0);
-  assert.equal(s.controlled, 2);
+  assert.equal(s.controlled, 0, 'control stays with the passer until the catch');
 });
 
 test('pass with no input goes to the nearest teammate', () => {
@@ -151,7 +152,6 @@ test('pass with no input goes to the nearest teammate', () => {
   s.players[1].z = -2;
   passBall(s, s.players[0], emptyIntent());
   assert.ok(s.ball.vz < 0);
-  assert.equal(s.controlled, 1);
 });
 
 test('a pass reaches its receiver, who catches it', () => {
@@ -292,12 +292,39 @@ test('a sprinting player who goes up for a shot does not fly on at full speed', 
   assert.ok(s.players[0].x - x < 1.5, `drifted ${s.players[0].x - x} m during the shot`);
 });
 
-test('holding the pass key does not bounce control back to the passer', () => {
+test('control moves to the receiver on the catch, and a still-held pass key does not make him pass on', () => {
   const s = setup();
-  const held = () => { const its = intents(s.controlled, { pass: true, switch: true, moveZ: 1 }); return its; };
-  tick(s, held());
+  const held = () => intents(s.controlled, { pass: true, switch: true, moveZ: 1 });
+  step(s, held(), DT);
+  assert.equal(s.ball.mode, 'pass');
+  assert.equal(s.controlled, 0);
+  for (let t = 0; t < 1 && s.ball.holder === null; t += DT) step(s, held(), DT);
+  assert.equal(s.ball.holder, 2);
   assert.equal(s.controlled, 2);
-  stepBall(s.ball, DT); tick(s, held());
-  stepBall(s.ball, DT); tick(s, held());
-  assert.equal(s.controlled, 2);
+  for (let i = 0; i < 5; i++) step(s, held(), DT);
+  assert.equal(s.ball.holder, 2, 'receiver passed the ball straight on');
+});
+
+test('a teammate standing one metre away catches a short pass', () => {
+  const s = setup();
+  Object.assign(s.players[2], { x: 8, z: 1 });
+  tick(s, intents(0, { pass: true, moveZ: 1 }));
+  for (let t = 0; t < 0.5 && s.ball.holder === null; t += DT) { stepBall(s.ball, DT); tick(s, intents(0, {})); }
+  assert.equal(s.ball.holder, 2);
+});
+
+test('a lay-up from right at the rim, released on landing, still goes in a fair share of the time', () => {
+  let made = 0;
+  const tries = 200;
+  for (let seed = 1; seed <= tries; seed++) {
+    const s = setup(seed);
+    s.players[0].x = RIM.x - 0.4;
+    for (let t = 0; t < 2 && s.ball.holder === 0; t += DT) tick(s, intents(0, { shoot: true }));
+    for (let t = 0; t < 3; t += DT) {
+      const e = stepBall(s.ball, DT);
+      if (e.scored === 1) { made++; break; }
+      if (e.hitFloor) break;
+    }
+  }
+  assert.ok(made / tries > 0.35, `made ${made}/${tries}`);
 });
