@@ -8,7 +8,7 @@ export const RIM = f({ x: 12.425, height: 3.05, radius: 0.225, tube: 0.02 });
 export const BOARD = f({ x: 12.8, halfWidth: 0.9, bottom: 2.9, top: 3.95 });
 export const THREE_PT = f({ radius: 6.75, cornerZ: 6.6 });
 
-export const BALL = f({ radius: 0.12, gravity: 9.81, floorBounce: 0.75, rimBounce: 0.55, boardBounce: 0.6, restSpeed: 0.5 });
+export const BALL = f({ radius: 0.12, gravity: 9.81, floorBounce: 0.75, rimBounce: 0.55, boardBounce: 0.6, restSpeed: 0.5, floorGrip: 0.9, rollDecel: 2, substeps: 4 });
 
 export const PLAYER = f({ radius: 0.3, run: 5, sprint: 7, accel: 30, jumpV: 4, releaseHeight: 2.3, reach: 2.4, pickupRadius: 0.7 });
 
@@ -17,7 +17,7 @@ export const SHOT = f({
   worstTiming: 0.6,
   contestDist: 2, maxContest: 0.5, airContest: 0.8, airContestDist: 1.5,
   missMin: 0.18, missMax: 0.32,
-  minAngle: 50,
+  minAngle: 50, minEntry: 45,   // degrees: lowest launch angle, shallowest angle the ball may drop into the rim
 });
 
 export const PASS = f({ speed: 14, noPickup: 0.3 });
