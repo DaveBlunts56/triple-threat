@@ -6,12 +6,11 @@ import { DT } from './sim/tuning.js';
 import { createScene } from './render/scene.js';
 import { createActors } from './render/actors.js';
 import { loadPeople } from './render/people.js';
-import { createHud } from './render/hud.js';
+import { createHud, easeFrame } from './render/hud.js';
 import { createKeyboard } from './input.js';
 import { inPlay, pauseKey, setPaused } from './pause.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
-const FPS_EASE = 0.05;   // how fast the frame-rate readout follows the real rate: steady enough to read
 const newMatch = () => createMatch(Date.now() % 1e6);
 
 const view = await createScene(document.getElementById('court'));
@@ -36,10 +35,11 @@ if (view) {
   window.addEventListener('blur', () => pause(true));
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });
 
-  let last = performance.now(), owed = 0;
+  let last = performance.now(), owed = 0, frameMs = 1000 / game.fps;
   const frame = now => {
     const { state } = game;
-    if (now > last) game.fps += (1000 / (now - last) - game.fps) * FPS_EASE;
+    // A stall (a hidden tab) counts as one long frame at most, as it does for the match below.
+    if (now > last) game.fps = 1000 / (frameMs = easeFrame(frameMs, Math.min(now - last, MAX_FRAME * 1000)));
     owed = game.paused ? 0 : owed + Math.min((now - last) / 1000, MAX_FRAME);
     last = now;
     const before = state.time;

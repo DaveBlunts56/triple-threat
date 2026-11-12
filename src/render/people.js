@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { assetUrl } from './assets.js';
-import { legMotion, MOTION } from './motion.js';
+import { legMotion, fade, checkGaits, MOTION } from './motion.js';
 
 export const TEAM_COLOURS = [0x2f6fe0, 0xd83a3a];
 const MOTIONS = ['idle', 'walk', 'run', 'sprint', 'jump'];
@@ -27,6 +27,7 @@ export async function loadPeople() {
   if (!source) throw new Error('assets/players.glb holds no player');
   const clips = Object.fromEntries(motion.animations.map(clip => [clip.name, clip]));
   for (const name of MOTIONS) if (!clips[name]) throw new Error(`assets/motion.glb has no "${name}" motion`);
+  checkGaits(facts);
 
   // shortcut: all six court players are copies of the one stage 1 player; one model per person arrives in stage 2
   const slots = [0, 0, 0, 1, 1, 1].map(team => {
@@ -42,12 +43,10 @@ export async function loadPeople() {
     });
     const mixer = new THREE.AnimationMixer(model);
     const actions = Object.fromEntries(MOTIONS.map(name => [name, mixer.clipAction(clips[name])]));
-    for (const [name, action] of Object.entries(actions)) {
-      action.play();
-      action.setEffectiveWeight(name === 'idle' ? 1 : 0);
-    }
+    const weights = Object.fromEntries(MOTIONS.map(name => [name, name === 'idle' ? 1 : 0]));   // each motion's share of the pose
+    for (const name of MOTIONS) actions[name].play().setEffectiveWeight(weights[name]);
     actions.jump.timeScale = 0;   // held at the moment of the jump he is in, never played through
-    return { model, mixer, actions, last: 'idle' };
+    return { model, mixer, actions, weights, last: 'idle' };
   });
 
   return {
@@ -63,12 +62,8 @@ export async function loadPeople() {
         slots[i].last = motion.clip;
         if (motion.clip === 'jump') actions.jump.time = motion.at * actions.jump.getClip().duration;
         else actions[motion.clip].timeScale = motion.rate;
-        // Cross-fade: the chosen motion's weight rises to 1 and the others fall to 0 over MOTION.fade seconds.
-        const step = dt / MOTION.fade;
-        for (const [name, action] of Object.entries(actions)) {
-          const weight = action.getEffectiveWeight(), target = name === motion.clip ? 1 : 0;
-          action.setEffectiveWeight(weight + Math.sign(target - weight) * Math.min(Math.abs(target - weight), step));
-        }
+        const weights = fade(slots[i].weights, motion.clip, dt / MOTION.fade);
+        for (const name of MOTIONS) actions[name].setEffectiveWeight(weights[name]);
         mixer.update(dt);
       });
     },

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { periodLabel, clockText, createHud, callText, rosterLine, subNote } from '../src/render/hud.js';
+import { periodLabel, clockText, createHud, callText, rosterLine, subNote, easeFrame } from '../src/render/hud.js';
 import { createMatch } from '../src/sim/state.js';
 
 test('periods are Q1-Q4 then OT1, OT2', () => {
@@ -129,4 +129,10 @@ test('the corner label shows the renderer and the frame rate', () => {
   assert.equal(doc.els.backend.textContent, 'WebGL 2 (WebGPU not available) · 30 fps');
   hud.update(s, 'webgl2');
   assert.equal(doc.els.backend.textContent, 'WebGL 2 (WebGPU not available)');
+});
+
+test('the frame-rate readout follows the time frames really take, not the average of their rates', () => {
+  let ms = 1000 / 60;
+  for (let i = 0; i < 400; i++) ms = easeFrame(ms, i % 2 ? 66 : 16);
+  assert.ok(Math.abs(1000 / ms - 1000 / 41) < 1.5, `${1000 / ms} frames a second`);   // 16 ms and 66 ms in turn is 24 frames a second, not 37
 });

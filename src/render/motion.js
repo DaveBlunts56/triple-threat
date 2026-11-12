@@ -29,3 +29,20 @@ export function legMotion(player, gaits, last = null) {
   const rate = clip === 'idle' ? 1 : Math.min(MOTION.maxRate, Math.max(MOTION.minRate, speed / gaits[clip]));
   return { clip, rate };
 }
+
+// One frame of a cross-fade. `weights` is { clip: its share of the pose }; `step` is the share of a whole fade that
+// passed this frame. Every other motion fades out and the chosen one takes what is left, so the shares always add up
+// to 1: whatever is missing would be filled in with the rest pose, and limbs would flick toward it.
+export function fade(weights, chosen, step) {
+  let others = 0;
+  for (const name in weights) if (name !== chosen) others += weights[name] = Math.max(0, weights[name] - step);
+  weights[chosen] = 1 - others;
+  return weights;
+}
+
+// Throws unless `facts` (assets/motion.json) gives every gait a speed: without one a moving player cannot be drawn.
+export function checkGaits(facts) {
+  for (const gait of GAITS.slice(1)) {
+    if (!(facts?.gaits?.[gait] > 0)) throw new Error(`assets/motion.json has no speed for "${gait}"`);
+  }
+}

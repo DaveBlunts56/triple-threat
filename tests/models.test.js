@@ -121,3 +121,12 @@ test('the single file stays under 25 MB', () => {
   const size = Buffer.byteLength(pack('.'));
   assert.ok(size < 25e6, `${(size / 1e6).toFixed(1)} MB`);
 });
+
+test('each motion starts at time zero and lasts as long as its facts say', () => {
+  for (const animation of motion.json.animations) {
+    const times = animation.samplers.map(sampler => motion.json.accessors[sampler.input]);
+    const first = Math.min(...times.map(a => a.min[0])), last = Math.max(...times.map(a => a.max[0]));
+    assert.ok(Math.abs(first) < 1e-4, `${animation.name} starts at ${first} s`);
+    assert.ok(Math.abs(last - facts.clips[animation.name].duration) < 1e-3, `${animation.name} ends at ${last} s, facts say ${facts.clips[animation.name].duration}`);
+  }
+});

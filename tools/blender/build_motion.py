@@ -85,12 +85,15 @@ def airborne(frames, rig):
 
 
 def write_action(rig, name, frames):
-    """Keys the frames onto the rig as a new action: every bone's turn, and the position of the hips."""
+    """Keys the frames onto the rig as a new action: every bone's turn, and the position of the hips.
+
+    The first frame is frame 0, so that the clip starts at time zero in the file and is exactly as long as its frames.
+    """
     action = bpy.data.actions.new(name)
     rig.animation_data_create()
     rig.animation_data.action = action
     last = {}
-    for at, pose in enumerate(frames, start=1):
+    for at, pose in enumerate(frames):
         for bone in rig.pose.bones:
             rest = bone.bone.matrix_local
             if bone.parent:
@@ -107,10 +110,10 @@ def write_action(rig, name, frames):
                 bone.keyframe_insert('location', frame=at)
 
     scene = bpy.context.scene                    # self-check: the rig, played back, stands where the frames say
-    for at in sorted({1, (len(frames) + 1) // 2, len(frames)}):
+    for at in sorted({0, len(frames) // 2, len(frames) - 1}):
         scene.frame_set(at)
         bpy.context.view_layer.update()
-        worst = max((bone.matrix.translation - frames[at - 1][bone.name].translation).length for bone in rig.pose.bones)
+        worst = max((bone.matrix.translation - frames[at][bone.name].translation).length for bone in rig.pose.bones)
         assert worst < 0.003, f'{name}: frame {at} lands {worst:.4f} m from the clip'
     return action
 
@@ -163,13 +166,13 @@ def main():
         actions[name] = write_action(rig, name, frames)
         facts['clips'][name] = {'duration': round((len(frames) - 1) / FPS, 4), 'loop': loop}
         if shots:
-            filmstrip(os.path.join(shots, f'motion-{name}.png'), body, [round(1 + (len(frames) - 1) * i / 5) for i in range(6)], box)
+            filmstrip(os.path.join(shots, f'motion-{name}.png'), body, [round((len(frames) - 1) * i / 5) for i in range(6)], box)
 
     rig.animation_data.action = None
     for name, action in actions.items():
         track = rig.animation_data.nla_tracks.new()
         track.name = name
-        track.strips.new(name, 1, action).name = name
+        track.strips.new(name, 0, action).name = name
     bpy.ops.object.select_all(action='DESELECT')
     rig.select_set(True)
     bpy.context.view_layer.objects.active = rig

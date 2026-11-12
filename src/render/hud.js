@@ -2,6 +2,12 @@ import { CLOCK, FOUL } from '../sim/tuning.js';
 import { personOf } from '../sim/state.js';
 import { onCourt } from '../sim/roster.js';
 
+const FPS_EASE = 0.05;   // how fast the frame-rate readout follows the real rate: steady enough to read
+
+// The length of a frame in milliseconds, eased so the readout is steady. Easing the time and not the rate makes uneven
+// frames read as the rate they really give: 16 ms and 66 ms in turn is 24 frames a second, not 37.
+export const easeFrame = (eased, ms) => eased + (ms - eased) * FPS_EASE;
+
 export const periodLabel = quarter => (quarter <= CLOCK.quarters ? `Q${quarter}` : `OT${quarter - CLOCK.quarters}`);
 
 // Rounds up, so the clock only reads 0:00 once time has actually run out.
