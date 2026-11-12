@@ -2,6 +2,9 @@ import { BALL, CLOCK, ROSTER } from './tuning.js';
 
 export const attackSign = team => (team === 0 ? 1 : -1);
 
+// Standing on the floor, not in the middle of a jump.
+export const onFloor = p => p.y === 0 && p.vy === 0;
+
 export const emptyIntent = () => ({ moveX: 0, moveZ: 0, sprint: false, shoot: false, pass: false, steal: false, switch: false, hold: false });
 
 // What happened in one step, reported to the rules.

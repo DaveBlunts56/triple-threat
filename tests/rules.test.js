@@ -32,14 +32,23 @@ function freeBall(s, pos, extra = {}) {
 const shotAt = (s, pos, shotValue = 2) => freeBall(s, pos, { mode: 'shot', shooter: 0, shotValue });
 const aboveHoop = sign => ({ x: sign * RIM.x, y: 3.5, z: 0 });
 
-test('startMatch: team 0 inbounds at half court, clocks stopped', () => {
+// The start of quarter 2. The match itself now opens with a jump ball (tests/tip.test.js);
+// with no tip played, team 0 counts as its winner, so team 1 starts this quarter.
+function inbounding() {
   const s = createMatch();
   startMatch(s);
+  Object.assign(s, { phase: 'quarterEnd', phaseT: 0 });
+  step(s, idle(), DT);
+  return s;
+}
+
+test('a later period starts with an inbound at half court, clocks stopped', () => {
+  const s = inbounding();
   assert.equal(s.phase, 'inbound');
-  assert.equal(s.possession, 0);
+  assert.equal(s.possession, 1);
   const inbounders = s.players.filter(p => p.inbounder);
   assert.equal(inbounders.length, 1);
-  assert.equal(inbounders[0].team, 0);
+  assert.equal(inbounders[0].team, 1);
   assert.equal(inbounders[0].z, 8);
   assert.equal(s.ball.holder, inbounders[0].id);
   run(s, 2);
@@ -48,8 +57,7 @@ test('startMatch: team 0 inbounds at half court, clocks stopped', () => {
 });
 
 test('clock starts when the inbound pass is caught', () => {
-  const s = createMatch();
-  startMatch(s);
+  const s = inbounding();
   const k = s.players.find(p => p.inbounder).id;
   step(s, intents(k, { pass: true }), DT);
   assert.equal(s.ball.mode, 'pass');

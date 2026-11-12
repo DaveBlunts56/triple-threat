@@ -1,4 +1,4 @@
-import { AI, BALL, COURT, FT, PASS, PLAYER, STEAL } from './tuning.js';
+import { AI, BALL, COURT, FT, PASS, PLAYER, STEAL, TIP } from './tuning.js';
 import { ftChance } from './freethrow.js';
 import { attackSign, emptyIntent, rand } from './state.js';
 import { rimCentre } from './ball.js';
@@ -179,6 +179,14 @@ function act(state, p) {
 // One Intent per player. Each player re-plans every AI.interval seconds, not every step,
 // so the computer reacts with a human-like delay.
 export function aiIntents(state, dt) {
+  if (state.phase === 'jumpBall') {
+    // Only the jumpers act: each goes up when the falling ball reaches a height he picked, a little early or late.
+    return state.players.map(p => {
+      if (p.slot !== 1) return emptyIntent();
+      p.ai.tipAt ??= TIP.aiJumpAt + (rand(state) * 2 - 1) * TIP.aiError;
+      return { ...emptyIntent(), shoot: state.ball.vy < 0 && state.ball.y <= p.ai.tipAt };
+    });
+  }
   const ft = state.freeThrow;
   if (state.phase === 'freeThrow' && !ft.live) {
     // Nobody may move. Team 1's shooter is thrown for by the rules; a computer shooter on team 0 stops the meter

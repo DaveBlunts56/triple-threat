@@ -1,5 +1,7 @@
-import { CLOCK, COURT, PLAYER, VIOLATION } from './tuning.js';
-import { lineUp, personOf } from './state.js';
+import { CLOCK, COURT, PASS, PLAYER, STAMINA, TIP, VIOLATION } from './tuning.js';
+import { attackSign, lineUp, onFloor, personOf, rand } from './state.js';
+import { jump } from './players.js';
+import { spend } from './stamina.js';
 import { applySubs } from './roster.js';
 import { findViolation, trackCounters } from './violations.js';
 import { newFreeThrow, setupFreeThrow, stepFreeThrow } from './freethrow.js';
@@ -90,9 +92,55 @@ function beginPeriod(state) {
   state.shotClock = CLOCK.shot;
   if (state.quarter <= CLOCK.quarters) state.teamFouls = [0, 0];   // overtime carries on the 4th quarter's count
   lineUp(state);
-  state.possession = state.quarter % 2 === 1 ? 0 : 1;   // team 0 starts odd periods
+  if (state.quarter === 1) return setupTip(state);
+  // The team that lost the opening tip starts quarters 2 and 4, the winner quarter 3; overtime keeps alternating.
+  const winner = state.tipWinner ?? 0;
+  state.possession = state.quarter % 2 === 1 ? winner : 1 - winner;
   state.inboundSpot = { x: 0, z: COURT.halfWidth + OUTSIDE };
   setupInbound(state);
+}
+
+const jumpers = state => state.players.filter(p => p.slot === 1);
+
+// The opening jump ball: a jumper from each team either side of the centre spot, the ball held above it.
+function setupTip(state) {
+  for (const p of jumpers(state)) Object.assign(p, { x: -attackSign(p.team) * TIP.gap, z: 0 });
+  Object.assign(state.ball, {
+    holder: null, mode: 'loose', shooter: null, shotValue: 0, noPickupT: 0,
+    x: 0, y: TIP.height, z: 0, vx: 0, vy: 0, vz: 0,
+  });
+  state.controlled = jumpers(state).find(p => p.team === 0).id;
+  state.tipWinner = null;
+  state.phaseT = TIP.wait;
+  state.phase = 'jumpBall';
+}
+
+function tipOff(state, events, dt, intents) {
+  const { ball } = state;
+  if (state.phaseT > 0) {
+    state.phaseT -= dt;
+    if (state.phaseT <= 0) ball.vy = TIP.tossV;   // the toss
+    return;
+  }
+  // Each jumper gets one jump, and can tap the ball only while he is in the air and it is coming down.
+  for (const p of jumpers(state)) {
+    if (intents[p.id].shoot && onFloor(p) && p.jumpT === 0) { jump(p); spend(state, p, STAMINA.jump); }
+  }
+  const reaches = p => ball.vy < 0 && p.y > 0 && p.y + PLAYER.reach >= ball.y
+    && Math.hypot(p.x - ball.x, p.z - ball.z) <= PLAYER.pickupRadius;
+  const able = jumpers(state).filter(reaches);
+  if (able.length) {
+    const p = able.length > 1 && rand(state) < 0.5 ? able[1] : able[0];
+    const far = m => Math.hypot(m.x - ball.x, m.z - ball.z);
+    const mate = state.players.filter(m => m.team === p.team && m !== p).reduce((a, b) => (far(b) < far(a) ? b : a));
+    const d = far(mate) || 1;
+    Object.assign(ball, {
+      vx: ((mate.x - ball.x) / d) * TIP.speed, vy: 0, vz: ((mate.z - ball.z) / d) * TIP.speed,
+      mode: 'pass', noPickupId: p.id, noPickupT: PASS.noPickup,
+    });
+    state.lastTouch = state.possession = p.team;
+    state.phase = 'live';
+  } else if (events.hitFloor) state.phase = 'live';   // nobody got to it
 }
 
 export function startMatch(state) {
@@ -129,6 +177,7 @@ function shotTouched(state, events) {
 
 function livePlay(state, events, dt) {
   const { ball } = state;
+  if (state.tipWinner === null && ball.holder !== null) state.tipWinner = state.players[ball.holder].team;
   shotTouched(state, events);
   if (events.hitRim) state.shotClock = CLOCK.shot;
 
@@ -165,6 +214,9 @@ function livePlay(state, events, dt) {
 export function applyRules(state, events, dt, intents) {
   const { ball } = state;
   switch (state.phase) {
+    case 'jumpBall':
+      tipOff(state, events, dt, intents);
+      break;
     case 'inbound': {
       const holder = state.players[ball.holder];
       if (holder && !holder.inbounder) {

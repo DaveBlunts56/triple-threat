@@ -1,7 +1,5 @@
 import { COURT, PLAYER, VIOLATION } from './tuning.js';
-import { attackSign } from './state.js';
-
-const onFloor = p => p.y === 0 && p.vy === 0;
+import { attackSign, onFloor } from './state.js';
 
 // Inside the key at the hoop on side `sign`.
 export const keyContains = (x, z, sign) =>

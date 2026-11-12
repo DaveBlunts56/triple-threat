@@ -1,7 +1,5 @@
 import { FOUL } from './tuning.js';
-import { personOf, rand } from './state.js';
-
-const onFloor = p => p.y === 0 && p.vy === 0;
+import { onFloor, personOf, rand } from './state.js';
 
 // Decides whether any of this step's contacts is a foul. Returns the first one found: { kind, by, on } (player ids).
 export function judgeContacts(state, events, dt) {

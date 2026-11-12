@@ -1,9 +1,7 @@
 import { BALL, BLOCK, CLOCK, COURT, FOUL, PASS, PLAYER, RIM, SHOT, STAMINA, STEAL, THREE_PT } from './tuning.js';
-import { attackSign, personOf, rand } from './state.js';
+import { attackSign, onFloor as grounded, personOf, rand } from './state.js';
 import { shotFactor, speedFactor, spend } from './stamina.js';
 import { rimCentre, solveShot } from './ball.js';
-
-const grounded = p => p.y === 0 && p.vy === 0;
 
 export function jump(player) {
   if (!grounded(player)) return;
