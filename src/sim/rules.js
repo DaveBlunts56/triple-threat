@@ -1,5 +1,6 @@
 import { CLOCK, COURT, PLAYER } from './tuning.js';
 import { lineUp } from './state.js';
+import { applySubs } from './roster.js';
 
 const OUTSIDE = 0.5;        // how far behind the line an inbounder stands
 const BOARD_CLEAR = 1.5;    // baseline inbounds keep this far from the middle, clear of the backboard
@@ -130,10 +131,12 @@ export function applyRules(state, events, dt) {
       livePlay(state, events, dt);
       break;
     case 'dead':
+      applySubs(state);
       state.phaseT -= dt;
       if (state.phaseT <= 0) setupInbound(state);
       break;
     case 'quarterEnd':
+      applySubs(state);
       state.phaseT -= dt;
       if (state.phaseT > 0) break;
       if (state.quarter >= CLOCK.quarters && state.score[0] !== state.score[1]) state.phase = 'final';
