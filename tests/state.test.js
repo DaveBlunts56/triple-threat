@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createMatch, rand, attackSign, emptyIntent } from '../src/sim/state.js';
+import { createMatch, rand, attackSign, emptyIntent, emptyEvents, personOf } from '../src/sim/state.js';
 
 test('createMatch builds six players, three per team', () => {
   const s = createMatch();
@@ -36,5 +36,27 @@ test('attackSign', () => {
 });
 
 test('emptyIntent is all zeros and falses', () => {
-  assert.deepEqual(emptyIntent(), { moveX: 0, moveZ: 0, sprint: false, shoot: false, pass: false, steal: false, switch: false });
+  assert.deepEqual(emptyIntent(), { moveX: 0, moveZ: 0, sprint: false, shoot: false, pass: false, steal: false, switch: false, hold: false });
+});
+
+test('each team has five people, three of them on court', () => {
+  const s = createMatch();
+  assert.deepEqual(s.rosters.map(r => r.map(p => p.number)), [[4, 7, 11, 15, 23], [5, 8, 10, 21, 33]]);
+  assert.ok(s.rosters.flat().every(p => p.energy === 1 && p.fouls === 0));
+  assert.deepEqual(s.players.map(p => p.person), [0, 1, 2, 0, 1, 2]);
+  assert.equal(personOf(s, s.players[4]), s.rosters[1][1]);
+});
+
+test('a new match has nothing called, counted or queued', () => {
+  const s = createMatch();
+  assert.deepEqual([s.teamFouls, s.autoSubs, s.subQueue], [[0, 0], [true, true], []]);
+  assert.deepEqual([s.call, s.freeThrow, s.pendingFoul, s.tipWinner, s.controlTeam], [null, null, null, null, null]);
+  assert.deepEqual([s.frontcourt, s.backcourtT, s.inboundT], [false, 0, 0]);
+  for (const p of s.players) assert.deepEqual([p.held, p.steps, p.keyT, p.setT, p.foulCooldown], [false, 0, 0, 0, 0]);
+});
+
+test('an empty intent has hold off, and empty events report nothing', () => {
+  assert.equal(emptyIntent().hold, false);
+  assert.deepEqual(emptyEvents(), { hitFloor: false, hitRim: false, hitBoard: false, scored: 0,
+    travel: null, doubleDribble: null, stealMisses: [], release: null, contacts: [] });
 });

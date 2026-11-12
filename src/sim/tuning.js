@@ -10,7 +10,7 @@ export const THREE_PT = f({ radius: 6.75, cornerZ: 6.6 });
 
 export const BALL = f({ radius: 0.12, gravity: 9.81, floorBounce: 0.75, rimBounce: 0.55, boardBounce: 0.6, restSpeed: 0.5, floorGrip: 0.9, rollDecel: 2, substeps: 4 });
 
-export const PLAYER = f({ radius: 0.3, run: 5, sprint: 7, accel: 30, jumpV: 4, releaseHeight: 2.3, reach: 2.4, pickupRadius: 0.7, handHeight: 1, carryDist: 0.4, dribbleRate: 2, jumpCarry: 0.2, dribbleSpeed: 0.85 });   // jumpCarry: share of running speed kept when jumping; dribbleSpeed: share of top speed with the ball
+export const PLAYER = f({ radius: 0.3, run: 5, sprint: 7, accel: 30, jumpV: 4, releaseHeight: 2.3, reach: 2.4, pickupRadius: 0.7, handHeight: 1, carryDist: 0.4, dribbleRate: 2, jumpCarry: 0.2, dribbleSpeed: 0.85, gatherDist: 1.5 });   // jumpCarry: share of running speed kept when jumping; dribbleSpeed: share of top speed with the ball; gatherDist: metres a player may move after picking up his dribble
 
 export const SHOT = f({
   nearChance: 0.85, farChance: 0.35, farDist: 8, minChance: 0.05,
@@ -23,10 +23,10 @@ export const SHOT = f({
 });
 
 export const PASS = f({ speed: 14, noPickup: 0.3, height: 1.3, clearTime: 0.1, interceptRadius: 0.4 });   // clearTime: no opponent can touch a pass this soon after it is thrown; interceptRadius: how close to a pass a defender must be to pick it off
-export const STEAL = f({ reach: 1.2, frontChance: 0.25, backChance: 0.08, cooldown: 1, frontArc: 120 });
+export const STEAL = f({ reach: 1.2, frontChance: 0.25, backChance: 0.08, cooldown: 1, frontArc: 120, heldFactor: 0.4 });   // heldFactor: steal chance multiplier against a picked-up ball
 export const BLOCK = f({ reach: 1.2, minHeight: 0.3, chance: 0.5, cone: 45, deflect: 4 });
 
-export const CLOCK = f({ quarters: 4, quarter: 180, overtime: 60, shot: 24, dead: 1.5, quarterBreak: 2 });
+export const CLOCK = f({ quarters: 4, quarter: 180, overtime: 60, shot: 24, shotAfterFoul: 14, dead: 1.5, quarterBreak: 2 });
 
 export const AI = f({
   interval: 0.3, openDist: 1.8, shootRange: 7.5, laneWidth: 1, panicClock: 4,
@@ -43,4 +43,34 @@ export const AI = f({
   passRange: 10,          // longest pass the computer will try
   holdTime: 0.5,          // seconds a player keeps the ball after getting it before shooting or passing
   pickupX: 4,             // defenders wait this far inside their own half for an opponent still up the court
+  hurryAt: 5,             // seconds in the back court after which the handler stops looking for a pass and brings the ball up
+  lowSpotZ: 3.2,          // the low spacing spot sits this far from the middle, clear of the key
 });
+
+export const VIOLATION = f({ backcourt: 8, key: 3, inbound: 5, keyHalfWidth: 2.45, keyDepth: 5.8 });
+
+export const FOUL = f({
+  reachFront: 0.12, reachBack: 0.3,          // chance a failed steal is a foul
+  shooting: 0.25, contactDist: 0.8,          // chance, and how close an airborne defender must be at release
+  charge: 0.6, block: 0.15,                  // chance when a sprinting handler hits a set / a moving defender
+  chargeSpeed: 5.5, setTime: 0.4, setSpeed: 0.5, cooldown: 1,
+  limit: 3, bonus: 3,                        // personal fouls to foul out; team foul that starts the bonus
+});
+
+export const FT = f({
+  lineDist: 5.8, sweep: 1.5, centreChance: 0.95, edgeChance: 0.2,
+  limit: 5, aiDelay: 1, aiChance: 0.75, pause: 1,
+  // [metres from the baseline, z] for the five other players, mirrored for each hoop
+  defence: f([f([2.3, -2.75]), f([2.3, 2.75]), f([9, 2])]),
+  offence: f([f([3.7, -2.75]), f([3.7, 2.75])]),
+});
+
+export const STAMINA = f({
+  sprint: 0.025, run: 0.006, jump: 0.015, rest: 0.02, bench: 0.03,   // energy per second (jump: per jump)
+  restSpeed: 1, fadeBelow: 0.5, minSpeed: 0.75, minShot: 0.8,
+  subOut: 0.35, subIn: 0.7,
+});
+
+export const TIP = f({ wait: 1, height: 1.5, tossV: 6.6, gap: 0.6, speed: 7, aiJumpAt: 3.6, aiError: 0.25 });
+
+export const ROSTER = f({ numbers: f([f([4, 7, 11, 15, 23]), f([5, 8, 10, 21, 33])]) });

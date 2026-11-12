@@ -68,3 +68,9 @@ test('game keys are default-prevented, other keys are left alone', () => {
   assert.equal(space.defaultPrevented, true);
   assert.equal(f5.defaultPrevented, false);
 });
+
+test('F is the hold key', () => {
+  const { k, down, up } = keyboard();
+  down('KeyF'); assert.equal(k.intent().hold, true);
+  up('KeyF'); assert.equal(k.intent().hold, false);
+});

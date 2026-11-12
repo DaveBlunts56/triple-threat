@@ -1,4 +1,4 @@
-const GAME_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft', 'ShiftRight', 'Space', 'KeyE', 'KeyQ']);
+const GAME_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft', 'ShiftRight', 'Space', 'KeyE', 'KeyQ', 'KeyF']);
 
 // Tracks held keys on `target` (the window in the game) and reports them as an Intent.
 export function createKeyboard(target) {
@@ -23,6 +23,7 @@ export function createKeyboard(target) {
       pass: on('KeyE'),
       steal: on('KeyQ'),
       switch: on('KeyE'),
+      hold: on('KeyF'),
     }),
   };
 }
