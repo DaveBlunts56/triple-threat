@@ -3,8 +3,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { ROSTER } from '../sim/tuning.js';
 import { assetUrl } from './assets.js';
 import { legMotion, fade, checkGaits, personName, courtPeople, keepTrack, sized, missingPeople, MOTION } from './motion.js';
+import { KIT, kitOps, paintKit } from './kit.js';
 
-export const TEAM_COLOURS = [0x2f6fe0, 0xd83a3a];
 const MOTIONS = ['idle', 'walk', 'run', 'sprint', 'jump'];
 // cutout: hair, brows and lashes: a pixel is drawn if it is at least this opaque.
 const PEOPLE = Object.freeze({ cutout: 0.4 });
@@ -51,17 +51,22 @@ export async function loadPeople() {
   checkGaits(facts);
   const hipHeight = hipsOf(motion.scene).position.y;   // of the player the motions were made on, standing at rest
 
-  // shortcut: the file has one jersey and one shorts material for all ten, so each team gets a tinted copy of both;
-  // painted kits replace them
-  const kits = {};
-  function kit(material, team) {
-    const key = `${material.name}-${team}`;
-    if (!kits[key]) (kits[key] = material.clone()).color.set(TEAM_COLOURS[team]);
-    return kits[key];
+  // The file has one white jersey and one white shorts material for all ten. This is a copy of `material` with the
+  // kit of `team` painted on it, and on a jersey the `number`.
+  function painted(material, team, number) {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = KIT.size;
+    paintKit(canvas.getContext('2d'), KIT.size, kitOps(material.name, number), team);
+    const kit = material.clone();
+    kit.map = new THREE.CanvasTexture(canvas);
+    kit.map.flipY = false;   // as in the file, where the top row of a picture is v = 0
+    kit.map.colorSpace = THREE.SRGBColorSpace;
+    return kit;
   }
+  const shorts = [];   // one pair per team: shorts carry no number
 
   // One model, mixer and set of weights per person, made once: a substitution only changes who is shown.
-  function person(model, team) {
+  function person(model, team, number) {
     model.traverse(part => {
       // GLTFLoader numbers the bone names that repeat in the file (mixamorigHips_1); the motions look for the plain ones.
       if (part.isBone) part.name = THREE.PropertyBinding.sanitizeNodeName(part.userData.name);
@@ -69,7 +74,8 @@ export async function loadPeople() {
       const material = part.material;
       part.castShadow = SHADOWED.test(material.name);
       part.frustumCulled = false;   // its bounds are those of the rest pose, not of where the motion puts it
-      if (material.name === 'jersey' || material.name === 'shorts') part.material = kit(material, team);
+      if (material.name === 'jersey') part.material = painted(material, team, number);
+      if (material.name === 'shorts') part.material = shorts[team] ??= painted(material, team);
       // Cut-outs instead of blending: no sorting artefacts, and they write depth like everything else.
       if (material.transparent) Object.assign(material, { transparent: false, alphaTest: PEOPLE.cutout, depthWrite: true });
     });
@@ -82,7 +88,7 @@ export async function loadPeople() {
   const people = {};
   ROSTER.numbers.forEach((numbers, team) => numbers.forEach(number => {
     const name = personName(team, number);
-    people[name] = person(roots.find(root => root.name === name), team);
+    people[name] = person(roots.find(root => root.name === name), team, number);
   }));
 
   const models = Array.from({ length: 6 }, () => new THREE.Group());
