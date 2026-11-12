@@ -57,6 +57,7 @@ def snapshot(path, objects, views=('front', 'side', 'back', 'three_quarter'), ti
     scene.camera = camera
     scene.render.engine = 'BLENDER_WORKBENCH'
     scene.display.shading.light = 'STUDIO'
+    scene.display.shading.show_specular_highlight = False   # the light's shine reads as pale patches on hair and skin
     scene.display.shading.color_type = 'TEXTURE' if textured else 'MATERIAL'
     scene.render.resolution_x, scene.render.resolution_y = tile
     scene.render.resolution_percentage = 100

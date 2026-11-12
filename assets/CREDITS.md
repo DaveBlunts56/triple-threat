@@ -32,8 +32,9 @@ From the **MakeHuman system assets** pack, CC0:
 | `eyes/low-poly` | Eyes |
 | `eyebrows/eyebrow001` | Eyebrows |
 | `eyelashes/eyelashes01` | Eyelashes |
-| `hair/short02` | Hair of players 0-4, 0-15, 1-8 and 1-21 |
-| `hair/short04` | Hair of players 0-7, 0-23, 1-5 and 1-33 |
+| `hair/short01` | Hair of players 0-7 and 1-21 |
+| `hair/short02` | Hair of players 0-4, 0-15 and 1-8 |
+| `hair/short04` | Hair of players 0-23, 1-5 and 1-33 |
 | `hair/afro01` | Hair of player 1-10 |
 | `clothes/shoes05` | Trainers and socks |
 
