@@ -1,5 +1,6 @@
-import { BALL, BLOCK, CLOCK, COURT, PASS, PLAYER, RIM, SHOT, STEAL, THREE_PT } from './tuning.js';
-import { attackSign, rand } from './state.js';
+import { BALL, BLOCK, CLOCK, COURT, PASS, PLAYER, RIM, SHOT, STAMINA, STEAL, THREE_PT } from './tuning.js';
+import { attackSign, personOf, rand } from './state.js';
+import { shotFactor, speedFactor, spend } from './stamina.js';
 import { rimCentre, solveShot } from './ball.js';
 
 const grounded = p => p.y === 0 && p.vy === 0;
@@ -12,13 +13,13 @@ export function jump(player) {
   player.vx *= PLAYER.jumpCarry; player.vz *= PLAYER.jumpCarry;
 }
 
-function moveOne(p, intent, dt, hasBall) {
+function moveOne(p, intent, dt, hasBall, tired) {
   if (p.inbounder) { p.vx = p.vz = 0; return; }
 
   if (grounded(p)) {
     // Steer toward the wanted velocity. Diagonal input is scaled back to length 1.
     const len = Math.hypot(intent.moveX, intent.moveZ);
-    const scale = ((intent.sprint ? PLAYER.sprint : PLAYER.run) * (hasBall ? PLAYER.dribbleSpeed : 1)) / Math.max(len, 1);
+    const scale = ((intent.sprint ? PLAYER.sprint : PLAYER.run) * (hasBall ? PLAYER.dribbleSpeed : 1) * tired) / Math.max(len, 1);
     const dvx = intent.moveX * scale - p.vx, dvz = intent.moveZ * scale - p.vz;
     const dv = Math.hypot(dvx, dvz), step = PLAYER.accel * dt;
     const k = dv <= step ? 1 : step / dv;
@@ -58,7 +59,7 @@ function clampToCourt(p) {
 }
 
 export function movePlayers(state, intents, dt) {
-  state.players.forEach((p, i) => moveOne(p, intents[i], dt, state.ball.holder === p.id));
+  state.players.forEach((p, i) => moveOne(p, intents[i], dt, state.ball.holder === p.id, speedFactor(personOf(state, p).energy)));
   separate(state.players);
   state.players.forEach(clampToCourt);
 }
@@ -112,7 +113,7 @@ export function makeChance(state, player) {
   let byContest = clamp(SHOT.maxContest + (1 - SHOT.maxContest) * (d / SHOT.contestDist), SHOT.maxContest, 1);
   if (nearest.y > 0 && d < SHOT.airContestDist) byContest *= SHOT.airContest;
 
-  return byDistance * byTiming * byContest;
+  return byDistance * byTiming * byContest * shotFactor(personOf(state, player).energy);
 }
 
 export function releaseShot(state, player) {
@@ -232,11 +233,11 @@ export function applyActions(state, intents, dt) {
       } else if (pressed('shoot') && grounded(p)) {
         const hoop = rimCentre(attackSign(p.team));
         p.facing = Math.atan2(hoop.z - p.z, hoop.x - p.x);
-        jump(p);
+        jump(p); spend(state, p, STAMINA.jump);
         p.shooting = true;
       }
     } else {
-      if (pressed('shoot') && !p.inbounder) jump(p);
+      if (pressed('shoot') && !p.inbounder && grounded(p)) { jump(p); spend(state, p, STAMINA.jump); }
       if (pressed('steal')) trySteal(state, p);
       const holder = state.players[ball.holder];
       // Not while your own team's pass is in the air: the pass key is also the switch key,

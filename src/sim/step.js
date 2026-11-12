@@ -1,6 +1,7 @@
 import { movePlayers, applyActions, carryBall } from './players.js';
 import { stepBall } from './ball.js';
 import { applyRules } from './rules.js';
+import { tire } from './stamina.js';
 
 const NOTHING = Object.freeze({ hitFloor: false, hitRim: false, hitBoard: false, scored: 0 });
 
@@ -18,6 +19,7 @@ export function step(state, intents, dt) {
   }
 
   movePlayers(state, intents, dt);
+  tire(state, intents, dt);
   if (!stopped) applyActions(state, intents, dt);
   else state.players.forEach((p, i) => { p.prev = { ...intents[i] }; });   // keep key state current for when play resumes
 
