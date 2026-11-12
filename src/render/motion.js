@@ -1,5 +1,5 @@
 // Which motion a player shows, worked out from the match alone. No Three.js here, so it can be tested without a browser.
-import { BALL, PLAYER } from '../sim/tuning.js';
+import { BALL, PLAYER, ROSTER } from '../sim/tuning.js';
 
 // Seconds from leaving the floor to landing.
 export const AIR_TIME = (2 * PLAYER.jumpV) / BALL.gravity;
@@ -45,4 +45,24 @@ export function checkGaits(facts) {
   for (const gait of GAITS.slice(1)) {
     if (!(facts?.gaits?.[gait] > 0)) throw new Error(`assets/motion.json has no speed for "${gait}"`);
   }
+}
+
+// The name of a person's model in assets/players.glb.
+export const personName = (team, number) => `player-${team}-${number}`;
+
+// The model name for each court player, in `state.players` order.
+export const courtPeople = state => state.players.map(p => personName(p.team, state.rosters[p.team][p.person].number));
+
+// Whether a track of a motion is kept at load: every turn of a bone, and where the hips are. The other bones' positions
+// and every scale never change, and would stamp the bone lengths of the player the motions were made on onto everyone.
+export const keepTrack = name => name.endsWith('.quaternion') || name === 'mixamorigHips.position';
+
+// The gait speeds of a player `scale` times the size of the one they were measured on: longer legs cover more ground.
+export function sized(gaits, scale) {
+  return Object.fromEntries(Object.entries(gaits).map(([gait, speed]) => [gait, Math.round(speed * scale * 1000) / 1000]));
+}
+
+// Every person on a roster who has no model among `names`.
+export function missingPeople(names) {
+  return ROSTER.numbers.flatMap((numbers, team) => numbers.map(number => personName(team, number))).filter(name => !names.includes(name));
 }

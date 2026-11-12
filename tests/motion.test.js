@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { legMotion, fade, checkGaits, AIR_TIME, MOTION } from '../src/render/motion.js';
+import { legMotion, fade, checkGaits, AIR_TIME, MOTION, personName, courtPeople, keepTrack, sized, missingPeople } from '../src/render/motion.js';
+import { createMatch } from '../src/sim/state.js';
+import { substitute } from '../src/sim/roster.js';
+import { ROSTER } from '../src/sim/tuning.js';
 
 const gaits = { walk: 1.5, run: 4, sprint: 6.5 };
 const still = { vx: 0, vz: 0, y: 0, vy: 0, jumpT: 0 };
@@ -68,4 +71,25 @@ test('motion facts without a speed for every gait are refused, so the game falls
   for (const broken of [undefined, {}, { gaits: {} }, { gaits: { walk: 1.5, run: 4 } }, { gaits: { ...gaits, sprint: 0 } }, { gaits: { ...gaits, walk: 'fast' } }]) {
     assert.throws(() => checkGaits(broken), /motion\.json/, JSON.stringify(broken));
   }
+});
+
+test('each court player is drawn with the model of the person in that slot, also after a substitution', () => {
+  const s = createMatch(1);
+  assert.deepEqual(courtPeople(s), ['player-0-4', 'player-0-7', 'player-0-11', 'player-1-5', 'player-1-8', 'player-1-10']);
+  substitute(s, 1, 4);
+  assert.equal(courtPeople(s)[1], 'player-0-23');
+});
+
+test('a motion keeps every turn and the position of the hips, and nothing else', () => {
+  assert.deepEqual(['mixamorigHips.position', 'mixamorigLeftArm.quaternion', 'mixamorigLeftArm.position', 'mixamorigHips.scale'].map(keepTrack), [true, true, false, false]);
+});
+
+test('a taller player strides further: his gait speeds grow with him', () => {
+  assert.deepEqual(sized({ walk: 2, run: 5, sprint: 7 }, 1.1), { walk: 2.2, run: 5.5, sprint: 7.7 });
+});
+
+test('a player file that lacks someone on a roster is noticed', () => {
+  const all = [0, 1].flatMap(team => ROSTER.numbers[team].map(number => personName(team, number)));
+  assert.deepEqual(missingPeople(all), []);
+  assert.deepEqual(missingPeople(all.filter(name => name !== 'player-1-33')), ['player-1-33']);
 });

@@ -40,7 +40,9 @@ if (view) {
     const { state } = game;
     // A stall (a hidden tab) counts as one long frame at most, as it does for the match below.
     if (now > last) game.fps = 1000 / (frameMs = easeFrame(frameMs, Math.min(now - last, MAX_FRAME * 1000)));
-    owed = game.paused ? 0 : owed + Math.min((now - last) / 1000, MAX_FRAME);
+    // Real seconds since the last frame. Never negative: the first frame's time can be earlier than `last`.
+    const elapsed = Math.min(Math.max(now - last, 0) / 1000, MAX_FRAME);
+    owed = game.paused ? 0 : owed + elapsed;
     last = now;
     const before = state.time;
     for (; owed >= DT; owed -= DT) {
@@ -48,7 +50,9 @@ if (view) {
       intents[state.controlled] = keyboard.intent();   // the human replaces the computer for one player
       step(state, intents, DT);
     }
-    actors.sync(state, state.time - before);   // motion advances by the match time that passed: none while paused
+    // Motion advances by the match time that passed: none while paused. Before and after a match no match time
+    // passes, so it advances by real time and the players stand breathing.
+    actors.sync(state, inPlay(state) ? state.time - before : elapsed);
     view.follow(state.ball.x);
     view.render();
     hud.update(state, view.backend, game);

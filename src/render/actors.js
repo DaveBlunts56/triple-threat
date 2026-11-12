@@ -3,8 +3,9 @@ import { BALL, PLAYER } from '../sim/tuning.js';
 import { TEAM_COLOURS } from './people.js';
 
 const HEIGHT = 1.95, HEAD = 0.13;
-const LABEL_ABOVE = 0.35;   // metres between the top of a capsule and the middle of its number
-const LABEL_HEIGHT = 2.3;   // where the number floats above a generated player
+// above: metres between the top of a capsule and the middle of its number.
+// height: how high above the floor the number floats over a generated player.
+const LABEL = Object.freeze({ above: 0.35, height: 2.3 });
 
 // Placeholder player: a capsule body, a head, and a nose showing which way they face.
 function buildPlayer(team) {
@@ -49,7 +50,7 @@ export function createActors(scene, people = null) {
   // The number floats above each head and always faces the camera, so you can see who is on the floor.
   const labels = players.map(group => {
     const label = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true }));
-    label.position.y = people ? LABEL_HEIGHT : HEIGHT + LABEL_ABOVE;
+    label.position.y = people ? LABEL.height : HEIGHT + LABEL.above;
     label.scale.set(0.6, 0.6, 1);
     group.add(label);
     return label;
