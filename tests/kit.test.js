@@ -25,4 +25,6 @@ test('painting puts the colours and the number where the layout says, in pixels'
   assert.deepEqual(c.calls[0], ['rect', KIT.team[1], 0, 0, 512, 512]);
   const texts = c.calls.filter(call => call[0] === 'text');
   assert.deepEqual(texts.map(t => [t[1], t[2], t[3]]), [[KIT.trim, '7', 128], [KIT.trim, '7', 384]]);
+  // The chest number may be no wider than a digit's share of its height, so it never reaches the side bands.
+  assert.ok(Math.abs(texts[0][5] - 0.26 * 512 * 0.45) < 1e-9, `the chest number's maximum width is ${texts[0][5]}`);
 });
