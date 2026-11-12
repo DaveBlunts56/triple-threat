@@ -4,10 +4,13 @@
 
 Each person is generated with MPFB, given the Mixamo skeleton, dressed in a jersey and shorts made from the body's
 own "tights" helper surface, stripped of the skin the kit hides, scaled to his height and exported.
+People who share a skin, a hair style and colour, or the shoes, eyes, brows and lashes share that picture.
 With --shots, a contact sheet of each finished player is written to DIR so the result can be looked at.
 """
+import importlib
 import json
 import os
+import random
 import sys
 
 import bmesh
@@ -16,13 +19,14 @@ import numpy as np
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import bounds, clear_scene, project, service, snapshot  # noqa: E402
+from common import MPFB, bounds, clear_scene, project, service, snapshot  # noqa: E402
 
 BONE = 'mixamorig:'
 # Muscle and weight for each build (MPFB macros, 0 to 1).
 BUILDS = {'slim': (0.65, 0.38), 'athletic': (0.82, 0.45), 'strong': (0.95, 0.58)}
 # Longest side of each picture in pixels, by what it covers. The skin is seen close up; the rest is small on screen.
-TEXTURE = {'skin': 2048, 'hair': 512, 'shoes': 512, 'eyes': 256, 'brows': 256, 'lashes': 256}
+# A recoloured hair picture is smaller than one in its own colours, so that ten players fit the size the file may have.
+TEXTURE = {'skin': 2048, 'hair': 512, 'recoloured': 384, 'shoes': 512, 'eyes': 256, 'brows': 256, 'lashes': 256}
 OPAQUE = ('skin', 'shoes', 'eyes')   # the generator wires transparency into every material; these do not need it
 # How loosely the kit hangs: how far each ring of the surface is pushed out from the body, as a share of its radius.
 JERSEY = {'chest': 0.05, 'hem': 0.16, 'drop': 0.10}       # drop: metres the hem hangs below the hip joints
@@ -30,6 +34,10 @@ SHORTS = {'hip': 0.07, 'hem': 0.42, 'above_knee': 0.03, 'rise': 0.09}   # rise: 
 SKIN_MARGIN = 0.05   # metres of skin kept under the edge of the kit, so no gap shows when he moves
 # Share of triangles kept when a mesh is simplified. The face keeps all of its own.
 KEEP = {'body': 0.42, 'hair': 0.65, 'shoes': 0.65}
+# A face other than the generator's own: this many shapes from these folders of MPFB's targets, each this strong.
+# Targets ending in `sideways` move the whole head, nose or mouth to one side, so they are never used.
+FACE = {'parts': ('head', 'nose', 'chin', 'cheek', 'mouth', 'eyes', 'forehead'), 'shapes': 6, 'weight': (0.3, 0.8),
+        'sideways': ('-trans-in', '-trans-out')}
 
 
 def people():
@@ -44,23 +52,52 @@ def asset(fragment, subdir):
     return path
 
 
+def face_targets(seed):
+    """The shapes that make the face numbered `seed`, as [(path of the target, weight)]. 0 is the generator's own face.
+
+    The face stays symmetrical: a shape for the left side (l-...) always comes with its twin for the right (r-...) at
+    the same weight, and the two are one choice. A one-sided shape with no twin is never chosen, nor is one that moves
+    a whole feature sideways.
+    """
+    if not seed:
+        return []
+    folder = os.path.join(os.path.dirname(importlib.import_module(MPFB).__file__), 'data', 'targets')
+    groups = {}   # a shape and its opposite are one group: nose-hump-incr and nose-hump-decr are both "nose-hump"
+    for part in FACE['parts']:
+        names = sorted(name[:-len('.target.gz')] for name in os.listdir(os.path.join(folder, part)) if name.endswith('.target.gz'))
+        for name in names:
+            side, _, shape = name.partition('-')
+            twin = f'r-{shape}'
+            if side == 'r' or (side == 'l' and twin not in names) or (side != 'l' and name.endswith(FACE['sideways'])):
+                continue                                   # a right side is taken with its left; the rest would be lopsided
+            files, shape = ([name, twin], shape) if side == 'l' else ([name], name)
+            groups.setdefault(shape.rsplit('-', 1)[0], []).append([os.path.join(folder, part, f'{file}.target.gz') for file in files])
+    rng = random.Random(seed)
+    chosen = [(rng.choice(groups[group]), rng.uniform(*FACE['weight'])) for group in rng.sample(sorted(groups), FACE['shapes'])]
+    return [(path, weight) for paths, weight in chosen for path in paths]
+
+
 def make_body(row):
-    """The generated human with skin, skeleton, eyes, brows, lashes, hair and shoes. Returns (body, rig, parts)."""
-    HumanService = service('humanservice', 'HumanService')
-    macro = service('targetservice', 'TargetService').get_default_macro_info_dict()
+    """The generated human with skin, skeleton, eyes, brows, lashes, hair (unless bald) and shoes. Returns (body, rig, parts)."""
+    HumanService, TargetService = service('humanservice', 'HumanService'), service('targetservice', 'TargetService')
+    macro = TargetService.get_default_macro_info_dict()
     muscle, weight = BUILDS[row['build']]
     macro.update(gender=1.0, age=0.5, muscle=muscle, weight=weight, height=0.75, proportions=0.85)
-    macro['race'] = {name: 1.0 if name in row['skin'] else 0.0 for name in ('asian', 'caucasian', 'african')}
+    race = row['skin'].split('_')[1]   # skins are named <age>_<race>_male; "asian" must not be found inside "caucasian"
+    macro['race'] = {name: 1.0 if name == race else 0.0 for name in ('asian', 'caucasian', 'african')}
     body = HumanService.create_human(scale=0.1, macro_detail_dict=macro, detailed_helpers=True)
+    for path, strength in face_targets(row['face']):   # before anything is fitted, so that everything follows the face
+        TargetService.load_target(body, path, weight=strength)
     HumanService.set_character_skin(asset(f"{row['skin']}/{row['skin']}.mhmat", 'skins'), body, skin_type='GAMEENGINE', material_instances=False)
     rig = HumanService.add_builtin_rig(body, 'mixamo')   # before anything is fitted, or it will not follow the skeleton
 
+    hair = [('hair', 'hair', f"{row['hair']}/{row['hair']}.mhclo", 'Hair')] if row['hair'] else []
     parts = {}
     for name, subdir, fragment, kind in [
         ('eyes', 'eyes', 'low-poly/low-poly.mhclo', 'Eyes'),
         ('brows', 'eyebrows', 'eyebrow001/eyebrow001.mhclo', 'Eyebrows'),
         ('lashes', 'eyelashes', 'eyelashes01/eyelashes01.mhclo', 'Eyelashes'),
-        ('hair', 'hair', f"{row['hair']}/{row['hair']}.mhclo", 'Hair'),
+        *hair,
         ('shoes', 'clothes', 'shoes05/shoes05.mhclo', 'Clothes'),   # the white trainers, with socks
     ]:
         parts[name] = HumanService.add_mhclo_asset(asset(fragment, subdir), body, asset_type=kind, subdiv_levels=0, material_type='GAMEENGINE')
@@ -156,7 +193,9 @@ def simplify(obj, keep, protect=None):
 
 
 def plain_material(name):
-    """White and matte: the game tints it in the team's colour."""
+    """White and matte: the game tints it in the team's colour. There is one of each name, shared by every player."""
+    if name in bpy.data.materials:
+        return bpy.data.materials[name]
     material = bpy.data.materials.new(name)
     material.use_nodes = True
     shader = next(n for n in material.node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
@@ -267,8 +306,13 @@ def strip_body(body, mark, bones, shoes):
     bm.free()
 
 
+def part_names(row):
+    """What each mesh of a built person is, in the order build_person returns them."""
+    return ['skin', 'jersey', 'shorts', 'eyes', 'brows', 'lashes', *(['hair'] if row['hair'] else []), 'shoes']
+
+
 def build_person(row, with_doll=False):
-    """Returns (skeleton, [body, jersey, shorts, eyes, brows, lashes, hair, shoes], doll).
+    """Returns (skeleton, the meshes that part_names lists, doll).
 
     The doll is the whole body before any skin is removed, for Mixamo; None unless asked for.
     """
@@ -294,29 +338,65 @@ def build_person(row, with_doll=False):
         if groups.get(head, 0) > 0.5 and not skip & {g for g, w in groups.items() if w > 0}:
             face.add([v.index], 1.0, 'REPLACE')
     simplify(body, KEEP['body'], protect='face')
-    simplify(parts['hair'], KEEP['hair'])
+    if 'hair' in parts:
+        simplify(parts['hair'], KEEP['hair'])
     simplify(parts['shoes'], KEEP['shoes'])
     name = f"player-{row['team']}-{row['number']}"
     rig.name = name
     return rig, [body, jersey, shorts, *parts.values()], doll
 
 
-def blank_unused_skin(image, mesh, slot):
-    """Paint over every part of the skin picture that no remaining face uses, in the average skin colour.
+def pictures(material):
+    """The pictures a material shows."""
+    return [node.image for node in material.node_tree.nodes if node.type == 'TEX_IMAGE' and node.image]
 
-    The generator's skin pictures cover the whole unclothed body. Only what is seen is shipped.
+
+def fit(image, kind):
+    """Shrink a picture to the size its kind is shipped at."""
+    limit = TEXTURE[kind]
+    if max(image.size) > limit:
+        image.scale(*(int(d * limit / max(image.size)) for d in image.size))
+
+
+def recoloured(image, name, colour):
+    """The hair picture in another colour ('#rrggbb'), made once for each name.
+
+    Each pixel becomes the colour, as bright as that pixel is against the average of the hair that shows. Alpha is kept.
+    The result is shipped smaller than a hair picture in its own colours (see TEXTURE).
+    """
+    if name in bpy.data.images:
+        return bpy.data.images[name]
+    pixels = np.array(image.pixels[:], dtype=np.float32).reshape(-1, 4)
+    brightness = pixels[:, :3].mean(axis=1)
+    average = np.average(brightness, weights=pixels[:, 3])   # see-through pixels are not part of what is seen
+    rgb = np.array([int(colour[i:i + 2], 16) / 255 for i in (1, 3, 5)], dtype=np.float32)
+    pixels[:, :3] = np.clip(np.outer(brightness / average, rgb), 0, 1)
+    copy = bpy.data.images.new(name, *image.size, alpha=True)
+    copy.alpha_mode = image.alpha_mode
+    copy.pixels = pixels.ravel()
+    fit(copy, 'recoloured')
+    return copy
+
+
+def blank_unused_skin(image, bodies):
+    """Paint over every part of the skin picture that no remaining face of any player uses, in the average skin colour.
+
+    The generator's skin pictures cover the whole unclothed body. Only what is seen is shipped. Players with the same
+    skin share the picture, so it keeps what any one of them shows.
     """
     width, height = image.size
     pixels = np.array(image.pixels[:], dtype=np.float32).reshape(height, width, 4)
     used = np.zeros((height, width), dtype=bool)
-    uv = mesh.uv_layers.active.data
-    for polygon in mesh.polygons:
-        if polygon.material_index != slot:
-            continue
-        corners = np.array([[uv[i].uv.x * width, uv[i].uv.y * height] for i in polygon.loop_indices])
-        x0, y0 = np.floor(corners.min(axis=0)).astype(int) - 3
-        x1, y1 = np.ceil(corners.max(axis=0)).astype(int) + 3
-        used[max(0, y0):min(height, y1 + 1), max(0, x0):min(width, x1 + 1)] = True   # the face's box, with a margin
+    for mesh in [body.data for body in bodies]:
+        slots = {slot for slot, material in enumerate(mesh.materials) if image in pictures(material)}
+        uv = mesh.uv_layers.active.data
+        for polygon in mesh.polygons:
+            if polygon.material_index not in slots:
+                continue
+            corners = np.array([[uv[i].uv.x * width, uv[i].uv.y * height] for i in polygon.loop_indices])
+            x0, y0 = np.floor(corners.min(axis=0)).astype(int) - 3
+            x1, y1 = np.ceil(corners.max(axis=0)).astype(int) + 3
+            used[max(0, y0):min(height, y1 + 1), max(0, x0):min(width, x1 + 1)] = True   # the face's box, with a margin
     colour = pixels[used][:, :3].mean(axis=0)
     pixels[~used, :3] = colour
     pixels[~used, 3] = 1
@@ -326,11 +406,11 @@ def blank_unused_skin(image, mesh, slot):
 def finish(row, rig, meshes, extra=()):
     """One mesh on the skeleton, at his real height, feet on the floor, with pictures small enough to ship.
 
-    Objects in `extra` are scaled and placed with him.
+    Objects in `extra` are scaled and placed with him. The skin picture still shows the whole body: once everyone who
+    shares it is finished, blank_unused_skin must be run before anything is exported.
     """
     body = meshes[0]
-    names = ['skin', 'jersey', 'shorts', 'eyes', 'brows', 'lashes', 'hair', 'shoes']
-    for obj, name in zip(meshes, names):
+    for obj, name in zip(meshes, part_names(row)):
         material = obj.data.materials[0]
         if name not in ('jersey', 'shorts'):
             material.name = f'{name}-{rig.name}'
@@ -347,7 +427,7 @@ def finish(row, rig, meshes, extra=()):
     for polygon in body.data.polygons:
         polygon.use_smooth = True
 
-    for slot, material in enumerate(body.data.materials):
+    for material in body.data.materials:
         kind = material.name.split('-')[0]
         tree = material.node_tree
         if kind in OPAQUE:
@@ -358,11 +438,9 @@ def finish(row, rig, meshes, extra=()):
             material.use_backface_culling = True
         for node in tree.nodes:
             if node.type == 'TEX_IMAGE' and node.image:
-                image, limit = node.image, TEXTURE[kind]
-                if max(image.size) > limit:
-                    image.scale(*(int(d * limit / max(image.size)) for d in image.size))
-                if kind == 'skin':
-                    blank_unused_skin(image, body.data, slot)
+                fit(node.image, kind)
+                if kind == 'hair' and row['hairColour']:   # without a colour the hair keeps the picture it came with
+                    node.image = recoloured(node.image, f"{row['hair']}-{row['hairColour'][1:]}", row['hairColour'])
 
     bpy.context.view_layer.update()
     top = max((body.matrix_world @ v.co).z for v in body.data.vertices if any(g.group == body.vertex_groups['body'].index for g in v.groups))
@@ -389,18 +467,29 @@ def main():
     args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
     shots = args[args.index('--shots') + 1] if '--shots' in args else None
     clear_scene()
+    players = {}   # each finished mesh, by the name of its skeleton
     for row in people():
         rig, meshes, _ = build_person(row)
         report(rig.name, meshes)
-        body = finish(row, rig, meshes)
+        body = players[rig.name] = finish(row, rig, meshes)
         lo, hi = bounds([body])
         print(f'BUILD {rig.name}: stands {hi.z:.3f} m, feet at {lo.z:.3f} m, materials {[m.name for m in body.data.materials]}')
-        if shots:
-            snapshot(os.path.join(shots, f'{rig.name}.png'), [body])
-            snapshot(os.path.join(shots, f'{rig.name}.head.png'), [body], views=('front', 'three_quarter', 'side'), tile=(512, 512),
+    bodies = list(players.values())
+    skins = {image.name: image for body in bodies for m in body.data.materials if m.name.startswith('skin-') for image in pictures(m)}
+    for image in skins.values():
+        blank_unused_skin(image, bodies)
+    if shots:
+        for name, body in players.items():
+            for other in bodies:                  # they all stand on the same spot: show one at a time
+                other.hide_render = other is not body
+            lo, hi = bounds([body])
+            snapshot(os.path.join(shots, f'{name}.png'), [body])
+            snapshot(os.path.join(shots, f'{name}.head.png'), [body], views=('front', 'three_quarter', 'side'), tile=(512, 512),
                      box=(Vector((-0.2, lo.y, hi.z - 0.4)), Vector((0.2, hi.y, hi.z))))
-            snapshot(os.path.join(shots, f'{rig.name}.legs.png'), [body], views=('back', 'three_quarter', 'front'), tile=(512, 512),
+            snapshot(os.path.join(shots, f'{name}.legs.png'), [body], views=('back', 'three_quarter', 'front'), tile=(512, 512),
                      box=(Vector((-0.3, lo.y, 0.35)), Vector((0.3, hi.y, 1.15))))
+        for body in bodies:
+            body.hide_render = False
     bpy.ops.wm.save_as_mainfile(filepath=project('assets', 'source', 'players.blend'))
     bpy.ops.export_scene.gltf(
         filepath=project('assets', 'players.glb'), export_format='GLB', use_selection=False,

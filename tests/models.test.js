@@ -1,18 +1,27 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { readGlb, primitivesUnder, floatsOf } from './glb.js';
 import { pack } from '../tools/single-file.mjs';
+import { ROSTER } from '../src/sim/tuning.js';
 
 const players = readGlb('assets/players.glb');
 const people = JSON.parse(readFileSync('assets/source/people.json', 'utf8')).people;
 const rootName = p => `player-${p.team}-${p.number}`;
 const trianglesUnder = (gltf, name) => primitivesUnder(gltf, name).reduce((sum, p) => sum + gltf.accessors[p.indices].count / 3, 0);
-// The lowest and highest point of the player's meshes. Transforms are applied before export, so these are metres.
+// The lowest point of the player's meshes and the top of his skin: an afro or a bald head must not change how tall he measures.
+// Transforms are applied before export, so these are metres.
 function heightOf(gltf, name) {
-  const boxes = primitivesUnder(gltf, name).map(p => gltf.accessors[p.attributes.POSITION]);
-  return { minY: Math.min(...boxes.map(a => a.min[1])), maxY: Math.max(...boxes.map(a => a.max[1])) };
+  const primitives = primitivesUnder(gltf, name);
+  const skin = primitives.find(p => gltf.materials[p.material].name.startsWith('skin'));
+  return { minY: Math.min(...primitives.map(p => gltf.accessors[p.attributes.POSITION].min[1])), maxY: gltf.accessors[skin.attributes.POSITION].max[1] };
 }
+
+test('the table has the ten people the rosters name, each one different', () => {
+  for (const team of [0, 1]) assert.deepEqual(people.filter(p => p.team === team).map(p => p.number), [...ROSTER.numbers[team]]);
+  for (const p of people) assert.ok(p.height >= 1.85 && p.height <= 2.08, `${rootName(p)}: ${p.height} m`);
+  assert.equal(new Set(people.map(p => [p.skin, p.hair, p.hairColour, p.build, p.face].join())).size, 10);
+});
 
 test('the file holds every person in the table, named by team and number', () => {
   const roots = players.json.nodes.map(n => n.name ?? '').filter(n => /^player-\d+-\d+$/.test(n)).sort();
@@ -35,8 +44,12 @@ test('each player stands as tall as the table says, feet on the floor', () => {
   for (const person of people) {
     const { minY, maxY } = heightOf(players.json, rootName(person));
     assert.ok(Math.abs(minY) < 0.03, `${rootName(person)}: feet at ${minY}`);
-    assert.ok(Math.abs(maxY - person.height) < 0.06, `${rootName(person)}: top of the head at ${maxY}, table says ${person.height}`);
+    assert.ok(Math.abs(maxY - person.height) < 0.03, `${rootName(person)}: top of the head at ${maxY}, table says ${person.height}`);
   }
+});
+
+test('the player file leaves room in the single file: under 9 MB', () => {
+  assert.ok(statSync('assets/players.glb').size < 9e6, `${(statSync('assets/players.glb').size / 1e6).toFixed(1)} MB`);
 });
 
 test('textures are no larger than 2048 pixels a side', () => {
