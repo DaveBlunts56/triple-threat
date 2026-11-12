@@ -145,15 +145,20 @@ export function releaseShot(state, player) {
     return;
   }
 
-  const target = hoop;
-  const made = rand(state) < makeChance(state, player);
+  launchShot(state, player, rand(state) < makeChance(state, player), isThree(player.x, player.z, sign) ? 3 : 2);
+}
+
+// Throws the ball from where it is at the hoop `player` attacks: on target if `made`, otherwise nudged off it.
+export function launchShot(state, player, made, value) {
+  const { ball } = state;
+  const target = rimCentre(attackSign(player.team));
   if (!made) {
     const off = SHOT.missMin + rand(state) * (SHOT.missMax - SHOT.missMin), angle = rand(state) * 2 * Math.PI;
     target.x += off * Math.cos(angle); target.z += off * Math.sin(angle);
   }
   Object.assign(ball, solveShot(ball, target, made ? RIM.radius : 0));
   ball.shooter = player.id;
-  ball.shotValue = isThree(player.x, player.z, sign) ? 3 : 2;
+  ball.shotValue = value;
   letGo(state, player, 'shot');
 }
 

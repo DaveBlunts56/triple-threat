@@ -43,3 +43,16 @@ export function freeBall(s, pos, extra = {}) {
 export const shotAt = (s, pos, value = 2) => freeBall(s, pos, { mode: 'shot', shooter: 0, shotValue: value });
 
 export const ai = s => aiIntents(s, DT);
+
+// One step with Space up, then one with the free-throw shooter's Space down.
+export function press(s) {
+  step(s, idle(), DT);
+  step(s, only(s.freeThrow.shooter, { shoot: true }), DT);
+}
+
+// For run(): taps Space on alternate steps whenever a team 0 player is aiming a free throw.
+export const pressWhenAiming = s => {
+  const ft = s.freeThrow;
+  const tap = ft?.stage === 'aim' && s.players[ft.shooter].team === 0 && Math.round(s.time / DT) % 2 === 0;
+  return tap ? only(ft.shooter, { shoot: true }) : idle();
+};

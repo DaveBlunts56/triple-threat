@@ -1,4 +1,5 @@
-import { AI, BALL, COURT, PASS, PLAYER, STEAL } from './tuning.js';
+import { AI, BALL, COURT, FT, PASS, PLAYER, STEAL } from './tuning.js';
+import { ftChance } from './freethrow.js';
 import { attackSign, emptyIntent, rand } from './state.js';
 import { rimCentre } from './ball.js';
 
@@ -178,6 +179,13 @@ function act(state, p) {
 // One Intent per player. Each player re-plans every AI.interval seconds, not every step,
 // so the computer reacts with a human-like delay.
 export function aiIntents(state, dt) {
+  const ft = state.freeThrow;
+  if (state.phase === 'freeThrow' && !ft.live) {
+    // Nobody may move. Team 1's shooter is thrown for by the rules; a computer shooter on team 0 stops the meter
+    // himself, a little off centre, so both make about the same share.
+    return state.players.map(p => ({ ...emptyIntent(),
+      shoot: p.id === ft.shooter && ft.armed && ft.t >= FT.aiDelay && ftChance(ft.meter) <= FT.aiChance }));
+  }
   return state.players.map(p => {
     p.ai.timer -= dt;
     // Getting the ball is not something you take a moment to notice.

@@ -2,6 +2,7 @@ import { CLOCK, COURT, PLAYER, VIOLATION } from './tuning.js';
 import { lineUp } from './state.js';
 import { applySubs } from './roster.js';
 import { findViolation, trackCounters } from './violations.js';
+import { setupFreeThrow, stepFreeThrow } from './freethrow.js';
 
 const OUTSIDE = 0.5;        // how far behind the line an inbounder stands
 const BOARD_CLEAR = 1.5;    // baseline inbounds keep this far from the middle, clear of the backboard
@@ -19,6 +20,8 @@ function spotWhereOut(o) {
   return sidelineSpot(o);
 }
 const sidelineSpot = o => ({ x: clamp(o.x, COURT.halfLength - 1), z: side(o.z) * (COURT.halfWidth + OUTSIDE) });
+// Where the other team inbounds after a basket in the hoop on side `sign`.
+const underHoop = sign => ({ x: sign * (COURT.halfLength + OUTSIDE), z: 2 });
 
 // A whistle: `team` is penalised and the other team gets the ball. `extra` may set `number` and `shots`.
 const makeCall = (kind, team, extra = {}) => ({ kind, team, ball: 1 - team, number: null, shots: 0, ...extra });
@@ -97,21 +100,25 @@ function checkOut(state, events) {
   return false;
 }
 
-function livePlay(state, events, dt) {
+// A shot stops being a shot once it touches something; its value survives until the floor or a pickup.
+function shotTouched(state, events) {
   const { ball } = state;
-
-  // A shot stops being a shot once it touches something; its value survives until the floor or a pickup.
   if (ball.holder === null && (events.hitFloor || events.hitRim || events.hitBoard)) {
     ball.mode = 'loose';
     if (events.hitFloor) { ball.shooter = null; ball.shotValue = 0; }
   }
+}
+
+function livePlay(state, events, dt) {
+  const { ball } = state;
+  shotTouched(state, events);
   if (events.hitRim) state.shotClock = CLOCK.shot;
 
   if (events.scored) {
     const team = events.scored === 1 ? 0 : 1;
     state.score[team] += ball.shotValue || 2;
     ball.shooter = null; ball.shotValue = 0; ball.mode = 'loose';
-    stopPlay(state, 1 - team, { x: events.scored * (COURT.halfLength + OUTSIDE), z: 2 });
+    stopPlay(state, 1 - team, underHoop(events.scored));
     state.shotClock = CLOCK.shot;
     return;
   }
@@ -150,8 +157,19 @@ export function applyRules(state, events, dt, intents) {
     case 'dead':
       applySubs(state);
       state.phaseT -= dt;
-      if (state.phaseT <= 0) setupInbound(state);
+      if (state.phaseT <= 0) (state.freeThrow ? setupFreeThrow : setupInbound)(state);
       break;
+    case 'freeThrow': {
+      const ft = state.freeThrow, team = state.players[ft.shooter].team;
+      shotTouched(state, events);   // so a missed last attempt can be rebounded
+      const result = stepFreeThrow(state, intents, events, dt);
+      if (result) state.freeThrow = null;
+      if (result === 'scored') { stopPlay(state, 1 - team, underHoop(events.scored)); state.shotClock = CLOCK.shot; }
+      else if (result === 'live') state.phase = 'live';
+      else if (result === 'over') endPeriod(state);
+      else if (ft.live && checkOut(state, events)) state.freeThrow = null;
+      break;
+    }
     case 'quarterEnd':
       applySubs(state);
       state.phaseT -= dt;
