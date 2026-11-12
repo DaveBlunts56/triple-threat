@@ -13,11 +13,12 @@ const space = (state, p) => Math.min(...opponents(state, p).map(o => dist(o, p))
 
 export const isOpen = (state, player) => space(state, player) > AI.openDist;
 
-// No opponent near the straight line from the player to the hoop they attack.
-export function laneClear(state, player) {
-  const hoop = rimCentre(attackSign(player.team));
-  const lx = hoop.x - player.x, lz = hoop.z - player.z, len2 = lx * lx + lz * lz || 1;
+// No opponent near the straight line from the player to `target` (by default the hoop they attack).
+// `skip` ignores opponents this close to the player: a pass is already past them when it can first be touched.
+export function laneClear(state, player, target = rimCentre(attackSign(player.team)), skip = 0) {
+  const lx = target.x - player.x, lz = target.z - player.z, len2 = lx * lx + lz * lz || 1;
   return opponents(state, player).every(o => {
+    if (dist(o, player) < skip) return true;
     const t = Math.min(1, Math.max(0, ((o.x - player.x) * lx + (o.z - player.z) * lz) / len2));
     return Math.hypot(o.x - (player.x + lx * t), o.z - (player.z + lz * t)) > AI.laneWidth;
   });
@@ -55,10 +56,17 @@ function planWithBall(state, p) {
   };
   if (state.shotClock < AI.panicClock) return shoot();
   const settled = ai.heldT >= AI.holdTime;   // just caught it: gather before shooting or passing
-  if (settled && (toHoop < AI.layupDist || (isOpen(state, p) && toHoop <= AI.shootRange))) return shoot();
+  if (settled && toHoop < AI.layupDist) return shoot();
+  // Nobody between him and the hoop: take it all the way in, don't pull up for a jump shot.
   if (laneClear(state, p)) return goTo(ai, { x: sign * AI.driveX, z: 0 }, true);
+  if (settled && isOpen(state, p) && toHoop <= AI.shootRange) return shoot();
 
-  const open = mates(state, p).filter(m => isOpen(state, m) && dist(m, p) <= AI.passRange);
+  // A defender this close cannot reach the ball before it is past him.
+  const untouchable = PLAYER.carryDist + PASS.speed * PASS.clearTime - PLAYER.pickupRadius;
+  // With nobody on him he only passes to move the ball nearer the hoop; otherwise he brings it up himself.
+  const pressured = !isOpen(state, p);
+  const open = mates(state, p).filter(m => isOpen(state, m) && dist(m, p) <= AI.passRange
+    && (pressured || dist(m, hoop) < toHoop) && laneClear(state, p, m, untouchable));
   if (settled && open.length) passTo(ai, p, nearestTo(open, hoop));
   else goTo(ai, { x: sign * AI.topX, z: 0 });
 }
@@ -93,10 +101,16 @@ function planFreeBall(state, p) {
 function planOffBall(state, p) {
   const { ai } = p, sign = attackSign(p.team);
   const holder = state.players[state.ball.holder];
-  if (holder?.inbounder && nearestTo(mates(state, holder), holder) === p) {
-    const { x, z } = state.inboundSpot;
-    const inward = Math.abs(z) > COURT.halfWidth ? { x: 0, z: -Math.sign(z) } : { x: -Math.sign(x), z: 0 };
-    return goTo(ai, { x: x + inward.x * AI.inboundHelp, z: z + inward.z * AI.inboundHelp }, true);
+  const { x, z } = state.inboundSpot;
+  const inward = Math.abs(z) > COURT.halfWidth ? { x: 0, z: -Math.sign(z) } : { x: -Math.sign(x), z: 0 };
+  const help = { x: x + inward.x * AI.inboundHelp, z: z + inward.z * AI.inboundHelp };
+  if (state.phase === 'dead') {
+    // Nearest to the spot takes the inbound, next nearest comes to receive it, the third heads up the court.
+    const order = state.players.filter(m => m.team === p.team).sort((a, b) => dist(a, state.inboundSpot) - dist(b, state.inboundSpot));
+    if (order[0] === p) return goTo(ai, state.inboundSpot, true);
+    if (order[1] === p) return goTo(ai, help, true);
+  } else if (holder?.inbounder && nearestTo(mates(state, holder), holder) === p) {
+    return goTo(ai, help, true);
   }
   const spot = spots(sign)[(p.slot + Math.floor(state.time / AI.swapEvery)) % 3];
   goTo(ai, spot, dist(p, spot) > AI.farAway);
@@ -109,7 +123,13 @@ function planDefence(state, p) {
   const hasBall = state.ball.holder === man.id;
   const gap = hasBall ? AI.onBallGap : AI.offBallGap;
   const d = dist(hoop, man) || 1;
-  const guard = { x: man.x + ((hoop.x - man.x) / d) * gap, z: man.z + ((hoop.z - man.z) / d) * gap };
+  let guard = { x: man.x + ((hoop.x - man.x) / d) * gap, z: man.z + ((hoop.z - man.z) / d) * gap };
+  // No full-court press: while their man is still up the court, wait for him on the pick-up line, between him and the hoop.
+  const line = Math.sign(hoop.x) * AI.pickupX;
+  if (Math.abs(hoop.x - guard.x) > Math.abs(hoop.x - line)) {
+    const u = (line - man.x) / (hoop.x - man.x);
+    guard = { x: line, z: man.z + (hoop.z - man.z) * u };
+  }
   goTo(ai, guard, dist(p, guard) > AI.farAway);
 
   if (man.shooting && dist(p, man) < AI.contestDist) ai.action = 'jump';
@@ -120,6 +140,8 @@ function plan(state, p) {
   const holder = state.players[state.ball.holder];
   p.ai.action = null;
   if (holder === p) planWithBall(state, p);
+  // A dead ball is not chased: the team about to inbound sets up, the other gets back on defence.
+  else if (state.phase === 'dead') (p.team === state.possession ? planOffBall : planDefence)(state, p);
   else if (!holder) planFreeBall(state, p);
   else if (holder.team === p.team) planOffBall(state, p);
   else planDefence(state, p);
@@ -158,6 +180,10 @@ export function aiIntents(state, dt) {
     // Getting the ball is not something you take a moment to notice.
     const has = state.ball.holder === p.id;
     if (has && !p.ai.had) p.ai.timer = 0;
+    // Nor is a pass from a teammate: the receiver runs onto it at once.
+    const ownPass = state.ball.mode === 'pass' && state.lastTouch === p.team;
+    if (ownPass && !p.ai.sawPass) p.ai.timer = 0;
+    p.ai.sawPass = ownPass;
     p.ai.heldT = has ? (p.ai.had ? p.ai.heldT + dt : 0) : 0;
     p.ai.had = has;
     if (p.ai.timer <= 0) {

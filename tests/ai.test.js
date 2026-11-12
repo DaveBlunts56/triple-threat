@@ -50,15 +50,15 @@ test('spots mirror for each hoop', () => {
   assert.deepEqual(spots(-1), [{ x: -6.9, z: -4.5 }, { x: -6.9, z: 4.5 }, { x: -10.9, z: 2.5 }]);
 });
 
-test('an open handler in range decides to shoot', () => {
+test('an open handler in range, with a defender sagging into the lane, decides to shoot', () => {
   const s = live();
-  put(s, 0, 7, 0);
+  put(s, 0, 7, 0); put(s, 3, 10, 0);
   assert.ok(run(s, 1.2, [0], st => st.players[0].shooting || st.ball.mode === 'shot'));
 });
 
 test('an AI shot is released near the top of the jump', () => {
   const s = live();
-  put(s, 0, 7, 0);
+  put(s, 0, 7, 0); put(s, 3, 10, 0);
   assert.ok(run(s, 1.5, [0], st => st.ball.mode === 'shot'), 'never released');
   assert.ok(s.players[0].y > 0.5, `released at height ${s.players[0].y}`);
 });
@@ -159,7 +159,7 @@ test('a covered handler in the backcourt does not throw a full-court pass', () =
 test('team 1 plays the mirror image: an open handler in range of the -x hoop shoots', () => {
   const s = live(3);
   s.players.forEach(p => { if (p.id !== 3) put(s, p.id, 12, -6 + p.slot); });
-  put(s, 3, -7, 0);
+  put(s, 3, -7, 0); put(s, 0, -10, 0);                    // a defender sagging into the lane
   assert.ok(run(s, 1.2, [3], st => st.players[3].shooting || st.ball.mode === 'shot'));
 });
 
@@ -176,4 +176,95 @@ test('a pass thrown ahead of a running teammate is caught when the human touches
   assert.equal(s.ball.mode, 'pass');
   for (let t = 0; t < 2 && s.ball.holder === null && s.phase === 'live'; t += DT) frame({});
   assert.equal(s.ball.holder, 1);
+});
+
+test('a teammate who has just set off is led: he catches the pass without turning back for it', () => {
+  const s = live();
+  put(s, 0, -8, 0); put(s, 2, -12, -6);
+  put(s, 1, -4, 3);                                        // at rest; his spot is far up the court
+  const frame = human => {
+    const all = aiIntents(s, DT).map((intent, i) => (i === 1 ? intent : emptyIntent()));
+    all[0] = { ...emptyIntent(), ...human };
+    step(s, all, DT);
+  };
+  for (let i = 0; i < 6; i++) frame({});                   // a tenth of a second: he is barely moving yet
+  const mate = s.players[1], startX = mate.x;
+  let furthest = mate.x, turnedBack = 0;
+  frame({ pass: true });
+  for (let t = 0; t < 2 && s.ball.holder === null && s.phase === 'live'; t += DT) {
+    frame({});
+    furthest = Math.max(furthest, mate.x);
+    turnedBack = Math.max(turnedBack, furthest - mate.x);
+  }
+  assert.equal(s.ball.holder, 1);
+  assert.ok(mate.x > startX + 1, `caught at x=${mate.x}, started at ${startX}`);
+  assert.ok(turnedBack < 0.3, `he came back ${turnedBack} m for the ball`);
+});
+
+test('the receiver reacts to a pass the moment it is thrown, not at his next decision', () => {
+  const s = live();
+  put(s, 0, 0, 4.5); put(s, 2, -12, -6);
+  put(s, 1, 6.9, 3.5);                                     // a metre short of his spot, moving across the passer's view
+  const frame = human => {
+    const all = aiIntents(s, DT).map((intent, i) => (i === 1 ? intent : emptyIntent()));
+    all[0] = { ...emptyIntent(), ...human };
+    step(s, all, DT);
+  };
+  for (let i = 0; i < 4; i++) frame({});                   // he has just decided where to go
+  frame({ pass: true });
+  const { ball } = s, flight = (2 * ball.vy) / 9.81;
+  const landing = { x: ball.x + ball.vx * flight, z: ball.z + ball.vz * flight };
+  frame({});
+  const { ai } = s.players[1];
+  const off = Math.hypot(ai.targetX - landing.x, ai.targetZ - landing.z);
+  assert.ok(off < 0.5, `he is still heading ${off} m away from where the ball will land`);
+  for (let t = 0; t < 2 && s.ball.holder === null && s.phase === 'live'; t += DT) frame({});
+  assert.equal(s.ball.holder, 1);
+});
+
+test('a covered handler does not pass to a teammate when a defender stands in the passing lane', () => {
+  const s = live();
+  put(s, 0, 4, 0); put(s, 3, 5, 0);                        // handler and the man covering him
+  put(s, 1, 8, -4); put(s, 4, 6.5, -2.5);                  // the only teammate in range is open, but a defender is on the line to him
+  assert.ok(!run(s, 1.5, [0], st => st.ball.mode === 'pass'), 'he threw it through the defender');
+});
+
+test('a handler with nobody between him and the hoop goes all the way for the lay-up instead of pulling up', () => {
+  const s = live();
+  put(s, 0, 5, 1);                                         // open, in shooting range, nothing but floor ahead
+  assert.ok(run(s, 4, [0], st => st.players[0].shooting));
+  const from = Math.hypot(RIM.x - s.players[0].x, s.players[0].z);
+  assert.ok(from < AI.layupDist, `he pulled up from ${from} m`);
+});
+
+// Team 0 has just scored at the +x hoop: the ball is dead under it and team 1 will inbound from that baseline.
+function afterBasket() {
+  const s = live();
+  [[0, 11, -2], [1, 9, 3], [2, 12, 1], [3, 10, -3], [4, 10, 4], [5, 12.5, -1]].forEach(([id, x, z]) => put(s, id, x, z));
+  Object.assign(s.ball, { holder: null, mode: 'loose', x: RIM.x, y: 0.12, z: 0, vx: 0, vy: 0, vz: 0 });
+  Object.assign(s, { phase: 'dead', phaseT: 1.5, possession: 1, inboundSpot: { x: 14.5, z: 2 } });
+  return s;
+}
+
+test('after a basket the team that scored runs back to its own half instead of pressing the inbound', () => {
+  const s = afterBasket();
+  run(s, 3.5);
+  for (const p of s.players.filter(q => q.team === 0)) assert.ok(p.x < 0, `player ${p.id} is still up the court at x=${p.x}`);
+});
+
+test('while the ball is dead the player nearest the inbound spot walks to it, so he is there when play restarts', () => {
+  const s = afterBasket();
+  let before;
+  run(s, 2, undefined, st => { if (st.phase === 'dead') before = st.players.map(p => ({ x: p.x, z: p.z })); return st.phase === 'inbound'; });
+  const inbounder = s.players.find(p => p.inbounder), was = before[inbounder.id];
+  const jumped = Math.hypot(was.x - 14.5, was.z - 2);
+  assert.ok(jumped < 1.5, `the inbounder was moved ${jumped} m to the spot`);
+});
+
+test('an unpressured handler brings the ball up himself instead of passing it around the backcourt', () => {
+  const s = live();
+  put(s, 0, -9, 0); put(s, 1, -9, 4);                      // a teammate level with him, both unguarded
+  put(s, 3, 4, 0); put(s, 4, 4, 2); put(s, 5, 4, -2);      // the defence waiting in its own half, in his lane
+  assert.ok(!run(s, 2, [0], st => st.ball.mode === 'pass'), 'he passed sideways with nobody near him');
+  assert.ok(s.players[0].x > -4, `he only got to x=${s.players[0].x}`);
 });

@@ -22,15 +22,15 @@ export const SHOT = f({
   minRelease: 0.6,    // a shot is never released closer to the rim centre than this
 });
 
-export const PASS = f({ speed: 14, noPickup: 0.3, height: 1.3, clearTime: 0.1 });   // clearTime: nobody can touch a pass this soon after it is thrown
-export const STEAL = f({ reach: 1.2, frontChance: 0.35, backChance: 0.1, cooldown: 1, frontArc: 120 });
+export const PASS = f({ speed: 14, noPickup: 0.3, height: 1.3, clearTime: 0.1, interceptRadius: 0.4 });   // clearTime: no opponent can touch a pass this soon after it is thrown; interceptRadius: how close to a pass a defender must be to pick it off
+export const STEAL = f({ reach: 1.2, frontChance: 0.25, backChance: 0.08, cooldown: 1, frontArc: 120 });
 export const BLOCK = f({ reach: 1.2, minHeight: 0.3, chance: 0.5, cone: 45, deflect: 4 });
 
 export const CLOCK = f({ quarters: 4, quarter: 180, overtime: 60, shot: 24, dead: 1.5, quarterBreak: 2 });
 
 export const AI = f({
   interval: 0.3, openDist: 1.8, shootRange: 7.5, laneWidth: 1, panicClock: 4,
-  stealRate: 0.05, inboundDelay: 1, swapEvery: 6, onBallGap: 1, offBallGap: 1.5,
+  stealRate: 0.03, inboundDelay: 1, swapEvery: 6, onBallGap: 1, offBallGap: 1.5,
   jitter: 0.1,            // random extra seconds between decisions
   arrive: 0.3,            // close enough to a target to stop
   layupDist: 2.5,         // this close to the rim, just shoot
@@ -42,4 +42,5 @@ export const AI = f({
   farAway: 2,             // sprint when further than this from where you need to be
   passRange: 10,          // longest pass the computer will try
   holdTime: 0.5,          // seconds a player keeps the ball after getting it before shooting or passing
+  pickupX: 4,             // defenders wait this far inside their own half for an opponent still up the court
 });

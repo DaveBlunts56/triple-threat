@@ -161,8 +161,11 @@ export function passBall(state, player, intent) {
     : m => -dist(m, player);
   const mate = mates.reduce((best, m) => (score(m) > score(best) ? m : best));
 
-  // Aim where the receiver will be when the ball gets there.
-  const lead = dist(mate, player) / PASS.speed;
+  // Aim at the point where the ball and the receiver meet: |r + v t| = speed * t + carryDist, solved for t.
+  const rx = mate.x - player.x, rz = mate.z - player.z;
+  const a = PASS.speed ** 2 - mate.vx ** 2 - mate.vz ** 2;   // positive: the ball is faster than any player
+  const b = rx * mate.vx + rz * mate.vz - PASS.speed * PLAYER.carryDist;
+  const lead = Math.max(0, (b + Math.sqrt(Math.max(0, b * b + a * (rx * rx + rz * rz - PLAYER.carryDist ** 2)))) / a);
   const inCourt = (v, half) => clamp(v, -half + PLAYER.radius, half - PLAYER.radius);
   const ax = inCourt(mate.x + mate.vx * lead, COURT.halfLength) - player.x;
   const az = inCourt(mate.z + mate.vz * lead, COURT.halfWidth) - player.z;
@@ -203,7 +206,9 @@ export function tryPickup(state) {
   for (const p of state.players) {
     if (justThrown && p.team !== state.lastTouch) continue;
     if (p.inbounder || (p.id === ball.noPickupId && ball.noPickupT > 0)) continue;
-    if (dist(p, ball) > PLAYER.pickupRadius || p.y + PLAYER.reach < ball.y) continue;
+    // A pass is caught by the team it was meant for at arm's length; a defender must be right in its path.
+    const radius = ball.mode === 'pass' && p.team !== state.lastTouch ? PASS.interceptRadius : PLAYER.pickupRadius;
+    if (dist(p, ball) > radius || p.y + PLAYER.reach < ball.y) continue;
     if (!best || dist(p, ball) < dist(best, ball)) best = p;
   }
   return best;

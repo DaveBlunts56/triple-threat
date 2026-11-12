@@ -328,3 +328,27 @@ test('a lay-up from right at the rim, released on landing, still goes in a fair 
   }
   assert.ok(made / tries > 0.35, `made ${made}/${tries}`);
 });
+
+test('a pass to a teammate sprinting away from the passer arrives where he is, not behind him', () => {
+  const s = setup();
+  Object.assign(s.players[0], { x: -6, z: 0 });
+  Object.assign(s.players[1], { x: -1, z: 0, vx: PLAYER.sprint });
+  Object.assign(s.players[2], { x: -13, z: 6 });
+  carryBall(s, DT);
+  passBall(s, s.players[0], { ...emptyIntent(), moveX: 1 });
+  const flight = (2 * s.ball.vy) / BALL.gravity;           // the ball comes back down to the height it left at
+  const behind = s.players[1].x + PLAYER.sprint * flight - (s.ball.x + s.ball.vx * flight);
+  assert.ok(Math.abs(behind) < 0.3, `the ball arrives ${behind} m behind him`);
+});
+
+test('a defender has to be right in the path of a pass to pick it off; a near miss goes through to the receiver', () => {
+  const thrownPast = offLine => {
+    const s = setup();
+    Object.assign(s.players[3], { x: 8 + offLine, z: 2.5 });   // beside the line from the passer (8, 0) to the receiver (8, 4)
+    tick(s, intents(0, { pass: true, moveZ: 1 }));
+    for (let t = 0; t < 1 && s.ball.holder === null; t += DT) { stepBall(s.ball, DT); tick(s, intents(0, {})); }
+    return s.ball.holder;
+  };
+  assert.equal(thrownPast(0.6), 2, 'a defender 0.6 m off the line still got it');
+  assert.equal(thrownPast(0.1), 3, 'a defender standing on the line let it through');
+});
