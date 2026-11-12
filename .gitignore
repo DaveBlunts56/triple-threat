@@ -1,2 +1,8 @@
 node_modules/
 .superpowers/
+dist/
+assets/source/mixamo/
+assets/source/packs/
+assets/source/*.blend
+assets/source/*.blend1
+assets/source/*.fbx
