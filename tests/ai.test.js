@@ -5,7 +5,8 @@ import { giveBall } from '../src/sim/players.js';
 import { startMatch } from '../src/sim/rules.js';
 import { step } from '../src/sim/step.js';
 import { aiIntents, isOpen, laneClear, spots } from '../src/sim/ai.js';
-import { DT, RIM, AI } from '../src/sim/tuning.js';
+import { keyContains } from '../src/sim/violations.js';
+import { DT, RIM, AI, VIOLATION } from '../src/sim/tuning.js';
 
 // Live play with everyone parked out of the way; tests then place the players they care about.
 function live(holderId = 0) {
@@ -46,8 +47,8 @@ test('laneClear is false with a defender standing on the line to the hoop', () =
 });
 
 test('spots mirror for each hoop', () => {
-  assert.deepEqual(spots(1), [{ x: 6.9, z: -4.5 }, { x: 6.9, z: 4.5 }, { x: 10.9, z: 2.5 }]);
-  assert.deepEqual(spots(-1), [{ x: -6.9, z: -4.5 }, { x: -6.9, z: 4.5 }, { x: -10.9, z: 2.5 }]);
+  assert.deepEqual(spots(1), [{ x: 6.9, z: -4.5 }, { x: 6.9, z: 4.5 }, { x: 10.9, z: 3.2 }]);
+  assert.deepEqual(spots(-1), [{ x: -6.9, z: -4.5 }, { x: -6.9, z: 4.5 }, { x: -10.9, z: 3.2 }]);
 });
 
 test('an open handler in range, with a defender sagging into the lane, decides to shoot', () => {
@@ -273,4 +274,24 @@ test('the computer never picks up its dribble', () => {
   const s = live(); let held = false;
   for (let t = 0; t < 60; t += DT) { const its = aiIntents(s, DT); held ||= its.some(i => i.hold); step(s, its, DT); }
   assert.equal(held, false);
+});
+
+// A regression test: it passed before the low spot moved, because no spacing spot was inside the key.
+test('a computer player left in the key steps out before 3 seconds', () => {
+  const s = live(); put(s, 0, 6, 5); put(s, 1, 11, 0);
+  run(s, 4, [1]);
+  assert.notEqual(s.call?.kind, 'threeSeconds');
+  assert.equal(keyContains(s.players[1].x, s.players[1].z, 1), false);
+});
+
+test('the low spacing spot is clear of the key', () => {
+  for (const sign of [1, -1]) for (const spot of spots(sign)) assert.equal(keyContains(spot.x, spot.z, sign), false);
+  assert.ok(Math.abs(spots(1)[2].z) >= VIOLATION.keyHalfWidth + 0.6);
+});
+
+test('with 5 seconds gone in the back court the handler stops looking for a pass and brings it up', () => {
+  const s = live(); put(s, 0, -8, 0); put(s, 3, -7, 0); put(s, 1, -4, 4);   // covered, with an open teammate ahead
+  s.backcourtT = 5.5; s.controlTeam = 0;
+  assert.ok(!run(s, 1.5, [0], st => st.ball.mode === 'pass'));
+  assert.ok(s.players[0].x > -8);
 });

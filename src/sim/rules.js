@@ -1,7 +1,7 @@
 import { CLOCK, COURT, PLAYER, VIOLATION } from './tuning.js';
 import { lineUp } from './state.js';
 import { applySubs } from './roster.js';
-import { findViolation } from './violations.js';
+import { findViolation, trackCounters } from './violations.js';
 
 const OUTSIDE = 0.5;        // how far behind the line an inbounder stands
 const BOARD_CLEAR = 1.5;    // baseline inbounds keep this far from the middle, clear of the backboard
@@ -64,6 +64,7 @@ function setupInbound(state) {
   state.lastTouch = state.possession;
   if (state.possession === 0) state.controlled = inbounder.id;
   state.inboundT = 0;
+  state.controlTeam = null;   // the backcourt, 8-second and 3-second counts start afresh
   state.phase = 'inbound';
 }
 
@@ -114,6 +115,7 @@ function livePlay(state, events, dt) {
     state.shotClock = CLOCK.shot;
     return;
   }
+  trackCounters(state, dt);
   const violation = findViolation(state, events);
   if (violation) return stopPlay(state, 1 - violation.team, sidelineSpot(ball), makeCall(violation.kind, violation.team));
   if (checkOut(state, events)) return;

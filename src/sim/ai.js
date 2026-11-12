@@ -5,7 +5,7 @@ import { rimCentre } from './ball.js';
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const nearestTo = (list, point) => list.reduce((a, b) => (dist(b, point) < dist(a, point) ? b : a));
 
-export const spots = sign => [{ x: sign * 6.9, z: -4.5 }, { x: sign * 6.9, z: 4.5 }, { x: sign * 10.9, z: 2.5 }];
+export const spots = sign => [{ x: sign * 6.9, z: -4.5 }, { x: sign * 6.9, z: 4.5 }, { x: sign * 10.9, z: AI.lowSpotZ }];
 
 const opponents = (state, p) => state.players.filter(o => o.team !== p.team);
 const mates = (state, p) => state.players.filter(m => m.team === p.team && m !== p);
@@ -60,6 +60,9 @@ function planWithBall(state, p) {
   // Nobody between him and the hoop: take it all the way in, don't pull up for a jump shot.
   if (laneClear(state, p)) return goTo(ai, { x: sign * AI.driveX, z: 0 }, true);
   if (settled && isOpen(state, p) && toHoop <= AI.shootRange) return shoot();
+
+  // Running out of time to cross half court: stop looking for a pass and bring it up.
+  if (state.backcourtT > AI.hurryAt && !state.frontcourt) return goTo(ai, { x: sign * AI.topX, z: 0 }, true);
 
   // A defender this close cannot reach the ball before it is past him.
   const untouchable = PLAYER.carryDist + PASS.speed * PASS.clearTime - PLAYER.pickupRadius;
