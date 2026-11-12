@@ -1,6 +1,7 @@
 import { CLOCK, COURT, PLAYER, VIOLATION } from './tuning.js';
 import { lineUp } from './state.js';
 import { applySubs } from './roster.js';
+import { findViolation } from './violations.js';
 
 const OUTSIDE = 0.5;        // how far behind the line an inbounder stands
 const BOARD_CLEAR = 1.5;    // baseline inbounds keep this far from the middle, clear of the backboard
@@ -51,7 +52,7 @@ function setupInbound(state) {
   const { ball, inboundSpot: spot } = state;
   const d = p => Math.hypot(p.x - spot.x, p.z - spot.z);
   const inbounder = state.players.filter(p => p.team === state.possession).reduce((a, b) => (d(b) < d(a) ? b : a));
-  for (const p of state.players) { p.inbounder = false; p.shooting = false; }
+  for (const p of state.players) { p.inbounder = false; p.shooting = false; p.held = false; p.steps = 0; }
   Object.assign(inbounder, {
     x: spot.x, z: spot.z, y: 0, vx: 0, vy: 0, vz: 0, inbounder: true,
     facing: Math.atan2(-spot.z, spot.x * 0.7 - spot.x),   // toward the middle of the court
@@ -113,6 +114,8 @@ function livePlay(state, events, dt) {
     state.shotClock = CLOCK.shot;
     return;
   }
+  const violation = findViolation(state, events);
+  if (violation) return stopPlay(state, 1 - violation.team, sidelineSpot(ball), makeCall(violation.kind, violation.team));
   if (checkOut(state, events)) return;
 
   // Both clocks wait at zero for a shot that is still in the air.
@@ -123,7 +126,7 @@ function livePlay(state, events, dt) {
   else if (state.shotClock <= 0 && !shotInAir) stopPlay(state, 1 - state.possession, sidelineSpot(ball), makeCall('shotClock', state.possession));
 }
 
-export function applyRules(state, events, dt) {
+export function applyRules(state, events, dt, intents) {
   const { ball } = state;
   switch (state.phase) {
     case 'inbound': {

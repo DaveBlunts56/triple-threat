@@ -59,7 +59,12 @@ function clampToCourt(p) {
 }
 
 export function movePlayers(state, intents, dt) {
-  state.players.forEach((p, i) => moveOne(p, intents[i], dt, state.ball.holder === p.id, speedFactor(personOf(state, p).energy)));
+  state.players.forEach((p, i) => {
+    const hasBall = state.ball.holder === p.id;
+    moveOne(p, intents[i], dt, hasBall, speedFactor(personOf(state, p).energy));
+    // Once he has picked up his dribble, every metre on the floor counts toward a travel.
+    if (hasBall && p.held && grounded(p)) p.steps += Math.hypot(p.vx, p.vz) * dt;
+  });
   separate(state.players);
   state.players.forEach(clampToCourt);
 }
@@ -72,7 +77,7 @@ export function carryBall(state, dt) {
   ball.x = p.x + Math.cos(p.facing) * PLAYER.carryDist;
   ball.z = p.z + Math.sin(p.facing) * PLAYER.carryDist;
   ball.vx = p.vx; ball.vy = 0; ball.vz = p.vz;
-  const dribbling = grounded(p) && !p.shooting && !p.inbounder && Math.hypot(p.vx, p.vz) > 0.5;
+  const dribbling = grounded(p) && !p.shooting && !p.inbounder && !p.held && Math.hypot(p.vx, p.vz) > 0.5;
   if (p.shooting) ball.y = p.y + PLAYER.releaseHeight;
   else if (dribbling) ball.y = BALL.radius + Math.abs(Math.sin(state.time * Math.PI * PLAYER.dribbleRate)) * (PLAYER.handHeight - BALL.radius);
   else ball.y = p.y + PLAYER.handHeight;
@@ -184,6 +189,7 @@ export function giveBall(state, player) {
   const { ball } = state;
   ball.holder = player.id; ball.mode = 'held';
   ball.shooter = null; ball.shotValue = 0;
+  player.held = false; player.steps = 0;   // a live dribble
   if (state.possession !== player.team) state.shotClock = CLOCK.shot;
   state.possession = state.lastTouch = player.team;
   if (player.team === 0) state.controlled = player.id;
@@ -194,7 +200,7 @@ export function trySteal(state, player) {
   if (player.stealCooldown > 0 || !holder || holder.team === player.team || holder.inbounder) return;
   if (dist(holder, player) > STEAL.reach) return;
   player.stealCooldown = STEAL.cooldown;
-  const chance = inArc(holder, player, STEAL.frontArc) ? STEAL.frontChance : STEAL.backChance;
+  const chance = (inArc(holder, player, STEAL.frontArc) ? STEAL.frontChance : STEAL.backChance) * (holder.held ? STEAL.heldFactor : 1);
   if (rand(state) < chance) { holder.shooting = false; giveBall(state, player); }
 }
 
@@ -216,8 +222,10 @@ export function tryPickup(state) {
 }
 
 // Turns this step's intents into shots, passes, steals, jumps, control switches and pickups.
+// Returns what the rules may want to judge: it reports, and never calls anything itself.
 export function applyActions(state, intents, dt) {
   const { ball } = state;
+  const report = { travel: null, doubleDribble: null, stealMisses: [], release: null };
   ball.noPickupT = Math.max(0, ball.noPickupT - dt);
 
   state.players.forEach((p, i) => {
@@ -229,12 +237,16 @@ export function applyActions(state, intents, dt) {
       if (pressed('pass')) passBall(state, p, intent);
       else if (p.inbounder) { /* an inbounder may only pass */ }
       else if (p.shooting) {
-        if (!intent.shoot || grounded(p)) releaseShot(state, p);
+        if (grounded(p)) { p.shooting = false; report.travel = p.id; }   // came down still holding the ball
+        else if (!intent.shoot) releaseShot(state, p);
       } else if (pressed('shoot') && grounded(p)) {
         const hoop = rimCentre(attackSign(p.team));
         p.facing = Math.atan2(hoop.z - p.z, hoop.x - p.x);
         jump(p); spend(state, p, STAMINA.jump);
         p.shooting = true;
+      } else if (pressed('hold') && grounded(p)) {
+        if (p.held) report.doubleDribble = p.id;
+        else p.held = true;
       }
     } else {
       if (pressed('shoot') && !p.inbounder && grounded(p)) { jump(p); spend(state, p, STAMINA.jump); }
@@ -252,4 +264,5 @@ export function applyActions(state, intents, dt) {
 
   const taker = tryPickup(state);
   if (taker) giveBall(state, taker);
+  return report;
 }

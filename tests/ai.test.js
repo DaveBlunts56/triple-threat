@@ -268,3 +268,9 @@ test('an unpressured handler brings the ball up himself instead of passing it ar
   assert.ok(!run(s, 2, [0], st => st.ball.mode === 'pass'), 'he passed sideways with nobody near him');
   assert.ok(s.players[0].x > -4, `he only got to x=${s.players[0].x}`);
 });
+
+test('the computer never picks up its dribble', () => {
+  const s = live(); let held = false;
+  for (let t = 0; t < 60; t += DT) { const its = aiIntents(s, DT); held ||= its.some(i => i.hold); step(s, its, DT); }
+  assert.equal(held, false);
+});

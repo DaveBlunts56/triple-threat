@@ -131,12 +131,59 @@ test('pressing shoot jumps; releasing it in the air shoots', () => {
   assert.equal(s.ball.mode, 'shot');
 });
 
-test('holding shoot through landing releases the ball', () => {
+test('landing with the ball is reported as a travel, and no shot leaves the hand', () => {
+  const s = setup(); let travelled = null;
+  for (let t = 0; t < 1.2 && travelled === null; t += DT) {
+    movePlayers(s, intents(0, { shoot: true }), DT);
+    travelled = applyActions(s, intents(0, { shoot: true }), DT).travel;
+    carryBall(s, DT);
+  }
+  assert.equal(travelled, 0);
+  assert.deepEqual([s.ball.holder, s.players[0].shooting], [0, false]);
+});
+
+test('F picks up the dribble: the ball stops bouncing and his steps are counted', () => {
   const s = setup();
-  for (let t = 0; t < 2; t += DT) tick(s, intents(0, { shoot: true }));
-  assert.equal(s.ball.holder, null);
-  assert.equal(s.players[0].shooting, false);
-  assert.equal(s.players[0].y, 0);
+  tick(s, intents(0, { hold: true }));
+  assert.equal(s.players[0].held, true);
+  for (let i = 0; i < 30; i++) tick(s, intents(0, { moveX: 1 }));
+  assert.ok(s.players[0].steps > 1, `steps ${s.players[0].steps}`);
+  assert.equal(s.ball.y, PLAYER.handHeight);
+});
+
+test('getting the ball gives a live dribble', () => {
+  const s = setup(); Object.assign(s.players[1], { held: true, steps: 1.2 });
+  giveBall(s, s.players[1]);
+  assert.deepEqual([s.players[1].held, s.players[1].steps], [false, 0]);
+});
+
+test('F does nothing in the air or for an inbounder', () => {
+  const s = setup(); Object.assign(s.players[0], { y: 0.5, vy: 1 });
+  tick(s, intents(0, { hold: true }));
+  assert.equal(s.players[0].held, false);
+  const t = setup(); t.players[0].inbounder = true;
+  tick(t, intents(0, { hold: true }));
+  assert.equal(t.players[0].held, false);
+});
+
+test('a picked-up ball is stolen 40% as often', () => {
+  let won = 0;
+  for (let seed = 1; seed <= 300; seed++) {
+    const s = setup(seed);
+    Object.assign(s.players[0], { facing: 0, held: true });
+    Object.assign(s.players[3], { x: 9, z: 0 });
+    trySteal(s, s.players[3]);
+    if (s.ball.holder === 3) won++;
+  }
+  assert.ok(Math.abs(won / 300 - STEAL.frontChance * STEAL.heldFactor) < 0.05, `rate ${won / 300}`);
+});
+
+test('pressing F again after picking up is reported as a double dribble', () => {
+  const s = setup();
+  const act = intent => { movePlayers(s, intents(0, intent), DT); const r = applyActions(s, intents(0, intent), DT); carryBall(s, DT); return r; };
+  assert.equal(act({ hold: true }).doubleDribble, null);
+  assert.equal(act({}).doubleDribble, null);
+  assert.equal(act({ hold: true }).doubleDribble, 0);
 });
 
 test('pass goes to the teammate in the input direction', () => {
@@ -288,7 +335,8 @@ test('a sprinting player who goes up for a shot does not fly on at full speed', 
   const s = setup();
   for (let i = 0; i < 30; i++) tick(s, intents(0, { moveX: 1, sprint: true }));
   const x = s.players[0].x;
-  for (let t = 0; t < 2 && s.ball.holder === 0; t += DT) tick(s, intents(0, { moveX: 1, sprint: true, shoot: true }));
+  // From the press until he is back on the floor (he lands still holding the ball, which no longer releases it).
+  for (let t = 0; t === 0 || s.players[0].shooting; t += DT) tick(s, intents(0, { moveX: 1, sprint: true, shoot: true }));
   assert.ok(s.players[0].x - x < 1.5, `drifted ${s.players[0].x - x} m during the shot`);
 });
 
@@ -313,13 +361,14 @@ test('a teammate standing one metre away catches a short pass', () => {
   assert.equal(s.ball.holder, 2);
 });
 
-test('a lay-up from right at the rim, released on landing, still goes in a fair share of the time', () => {
+test('a lay-up from right at the rim, released late on the way down, still goes in a fair share of the time', () => {
   let made = 0;
   const tries = 200;
   for (let seed = 1; seed <= tries; seed++) {
     const s = setup(seed);
     s.players[0].x = RIM.x - 0.4;
-    for (let t = 0; t < 2 && s.ball.holder === 0; t += DT) tick(s, intents(0, { shoot: true }));
+    const p = s.players[0];
+    for (let t = 0; t < 2 && s.ball.holder === 0; t += DT) tick(s, intents(0, { shoot: !p.shooting || p.jumpT < 0.7 }));
     for (let t = 0; t < 3; t += DT) {
       const e = stepBall(s.ball, DT);
       if (e.scored === 1) { made++; break; }

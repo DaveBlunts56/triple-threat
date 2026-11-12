@@ -2,8 +2,7 @@ import { movePlayers, applyActions, carryBall } from './players.js';
 import { stepBall } from './ball.js';
 import { applyRules } from './rules.js';
 import { tire } from './stamina.js';
-
-const NOTHING = Object.freeze({ hitFloor: false, hitRim: false, hitBoard: false, scored: 0 });
+import { emptyEvents } from './state.js';
 
 // Advances the whole match by one fixed step. `intents` holds one Intent per player, by id.
 export function step(state, intents, dt) {
@@ -20,13 +19,14 @@ export function step(state, intents, dt) {
 
   movePlayers(state, intents, dt);
   tire(state, intents, dt);
-  if (!stopped) applyActions(state, intents, dt);
+  // Everything that happened this step, for the rules to judge.
+  const events = emptyEvents();
+  if (!stopped) Object.assign(events, applyActions(state, intents, dt));
   else state.players.forEach((p, i) => { p.prev = { ...intents[i] }; });   // keep key state current for when play resumes
 
-  let events = NOTHING;
   if (state.ball.holder !== null) carryBall(state, dt);
-  else events = stepBall(state.ball, dt);
+  else Object.assign(events, stepBall(state.ball, dt));
 
-  applyRules(state, stopped ? NOTHING : events, dt);
+  applyRules(state, stopped ? emptyEvents() : events, dt, intents);
   state.time += dt;
 }
