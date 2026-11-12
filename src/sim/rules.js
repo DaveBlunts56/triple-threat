@@ -1,8 +1,9 @@
 import { CLOCK, COURT, PLAYER, VIOLATION } from './tuning.js';
-import { lineUp } from './state.js';
+import { lineUp, personOf } from './state.js';
 import { applySubs } from './roster.js';
 import { findViolation, trackCounters } from './violations.js';
-import { setupFreeThrow, stepFreeThrow } from './freethrow.js';
+import { newFreeThrow, setupFreeThrow, stepFreeThrow } from './freethrow.js';
+import { judgeContacts, recordFoul } from './fouls.js';
 
 const OUTSIDE = 0.5;        // how far behind the line an inbounder stands
 const BOARD_CLEAR = 1.5;    // baseline inbounds keep this far from the middle, clear of the backboard
@@ -37,6 +38,19 @@ function stopPlay(state, possession, spot, call = null) {
   state.inboundSpot = spot;
   if (state.gameClock <= 0 && !state.freeThrow) endPeriod(state);
   else { state.phase = 'dead'; state.phaseT = CLOCK.dead; }
+}
+
+// A foul stops play. `shots` overrides the free throws the foul earns by itself: a shooting foul's depend on the shot.
+function callFoul(state, foul, shots) {
+  const fouler = state.players[foul.by];
+  const number = personOf(state, fouler).number;   // read now: he may be substituted during the stoppage
+  const given = recordFoul(state, foul);
+  const n = shots ?? given.shots;
+  if (n) state.freeThrow = newFreeThrow(foul.on, n);
+  stopPlay(state, given.ball, sidelineSpot(state.ball), makeCall(foul.kind, fouler.team, { number, shots: n }));
+  // After a defensive foul the offence has at least 14 seconds left to shoot.
+  if (!n && foul.kind !== 'charge') state.shotClock = Math.max(state.shotClock, CLOCK.shotAfterFoul);
+  state.pendingFoul = null;
 }
 
 // A dead ball drops where it is instead of bouncing off into the distance.
@@ -74,6 +88,7 @@ function setupInbound(state) {
 function beginPeriod(state) {
   state.gameClock = state.quarter <= CLOCK.quarters ? CLOCK.quarter : CLOCK.overtime;
   state.shotClock = CLOCK.shot;
+  if (state.quarter <= CLOCK.quarters) state.teamFouls = [0, 0];   // overtime carries on the 4th quarter's count
   lineUp(state);
   state.possession = state.quarter % 2 === 1 ? 0 : 1;   // team 0 starts odd periods
   state.inboundSpot = { x: 0, z: COURT.halfWidth + OUTSIDE };
@@ -87,17 +102,20 @@ export function startMatch(state) {
 }
 
 // Out of bounds: a free ball on the floor outside the lines, or a ball carrier standing outside them.
-function checkOut(state, events) {
+function isOut(state, events) {
   const { ball } = state;
   const holder = state.players[ball.holder];
   // A free ball is also out once it flies past the run-off around the court, without waiting for it to land.
   const inStands = Math.abs(ball.x) > COURT.halfLength + COURT.margin || Math.abs(ball.z) > COURT.halfWidth + COURT.margin;
-  if (holder ? !holder.inbounder && outOfBounds(holder) : inStands || (events.hitFloor && outOfBounds(ball))) {
-    const loser = holder ? holder.team : state.lastTouch ?? state.possession;
-    stopPlay(state, 1 - loser, spotWhereOut(holder ?? ball), makeCall('out', loser));
-    return true;
-  }
-  return false;
+  return holder ? !holder.inbounder && outOfBounds(holder) : inStands || (events.hitFloor && outOfBounds(ball));
+}
+
+function checkOut(state, events) {
+  if (!isOut(state, events)) return false;
+  const holder = state.players[state.ball.holder];
+  const loser = holder ? holder.team : state.lastTouch ?? state.possession;
+  stopPlay(state, 1 - loser, spotWhereOut(holder ?? state.ball), makeCall('out', loser));
+  return true;
 }
 
 // A shot stops being a shot once it touches something; its value survives until the floor or a pickup.
@@ -114,14 +132,23 @@ function livePlay(state, events, dt) {
   shotTouched(state, events);
   if (events.hitRim) state.shotClock = CLOCK.shot;
 
+  // When several things happen in one step the call is, in order: a foul, a basket, a violation, out of bounds, the clocks.
+  const foul = judgeContacts(state, events, dt);
+  if (foul?.kind === 'shooting') state.pendingFoul = { by: foul.by, on: foul.on, shots: ball.shotValue };   // the shot carries on
+  else if (foul) return callFoul(state, foul);
+  const fouledShot = state.pendingFoul && { kind: 'shooting', ...state.pendingFoul };
+
   if (events.scored) {
     const team = events.scored === 1 ? 0 : 1;
     state.score[team] += ball.shotValue || 2;
     ball.shooter = null; ball.shotValue = 0; ball.mode = 'loose';
+    if (fouledShot) return callFoul(state, fouledShot, 1);   // the basket counts, and one free throw
     stopPlay(state, 1 - team, underHoop(events.scored));
     state.shotClock = CLOCK.shot;
     return;
   }
+  // A fouled shot that missed: the whistle waits until it has been touched, landed or left the court.
+  if (fouledShot && (ball.shooter === null || isOut(state, events))) return callFoul(state, fouledShot, fouledShot.shots);
   trackCounters(state, dt);
   const violation = findViolation(state, events);
   if (violation) return stopPlay(state, 1 - violation.team, sidelineSpot(ball), makeCall(violation.kind, violation.team));

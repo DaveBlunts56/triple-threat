@@ -1,4 +1,4 @@
-import { BALL, BLOCK, CLOCK, COURT, PASS, PLAYER, RIM, SHOT, STAMINA, STEAL, THREE_PT } from './tuning.js';
+import { BALL, BLOCK, CLOCK, COURT, FOUL, PASS, PLAYER, RIM, SHOT, STAMINA, STEAL, THREE_PT } from './tuning.js';
 import { attackSign, personOf, rand } from './state.js';
 import { shotFactor, speedFactor, spend } from './stamina.js';
 import { rimCentre, solveShot } from './ball.js';
@@ -35,12 +35,14 @@ function moveOne(p, intent, dt, hasBall, tired) {
   if (Math.hypot(p.vx, p.vz) > 0.5) p.facing = Math.atan2(p.vz, p.vx);
 }
 
+// Pushes overlapping players apart. Returns the pairs of ids that overlapped.
 function separate(players) {
-  const min = 2 * PLAYER.radius;
+  const min = 2 * PLAYER.radius, touched = [];
   for (let i = 0; i < players.length; i++) for (let j = i + 1; j < players.length; j++) {
     const a = players[i], b = players[j];
     const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);
     if (d >= min) continue;
+    touched.push([a.id, b.id]);
     // Exactly on top of each other there is no direction to push along: pick +x.
     const nx = d < 1e-6 ? 1 : dx / d, nz = d < 1e-6 ? 0 : dz / d;
     const push = min - d;
@@ -49,6 +51,7 @@ function separate(players) {
     a.x -= nx * push * shareA; a.z -= nz * push * shareA;
     b.x += nx * push * (1 - shareA); b.z += nz * push * (1 - shareA);
   }
+  return touched;
 }
 
 function clampToCourt(p) {
@@ -58,15 +61,19 @@ function clampToCourt(p) {
   if (Math.abs(p.z) > maxZ) { p.z = Math.sign(p.z) * maxZ; p.vz = 0; }
 }
 
+// Moves everyone one step. Returns the pairs of player ids that ran into each other.
 export function movePlayers(state, intents, dt) {
   state.players.forEach((p, i) => {
     const hasBall = state.ball.holder === p.id;
     moveOne(p, intents[i], dt, hasBall, speedFactor(personOf(state, p).energy));
     // Once he has picked up his dribble, every metre on the floor counts toward a travel.
-    if (hasBall && p.held && grounded(p)) p.steps += Math.hypot(p.vx, p.vz) * dt;
+    const speed = Math.hypot(p.vx, p.vz);
+    if (hasBall && p.held && grounded(p)) p.steps += speed * dt;
+    p.setT = speed < FOUL.setSpeed ? p.setT + dt : 0;   // how long he has stood his ground
   });
-  separate(state.players);
+  const contacts = separate(state.players);
   state.players.forEach(clampToCourt);
+  return contacts;
 }
 
 // Keeps a held ball in the holder's hand; bounces it while they run (looks only).
@@ -135,6 +142,10 @@ export function releaseShot(state, player) {
   }
   ball.x = hoop.x + rx; ball.z = hoop.z + rz; ball.y = player.y + PLAYER.releaseHeight;
 
+  // The nearest opponent in the air and close enough to have made contact, for the rules to judge.
+  const close = state.players.filter(o => o.team !== player.team && o.y > 0 && dist(o, player) <= FOUL.contactDist);
+  const defender = close.length ? close.reduce((a, b) => (dist(b, player) < dist(a, player) ? b : a)).id : null;
+
   const blocker = state.players.find(o => o.team !== player.team && o.y > BLOCK.minHeight
     && dist(o, player) <= BLOCK.reach && inArc(player, o, BLOCK.cone));
   if (blocker && rand(state) < BLOCK.chance) {
@@ -142,10 +153,11 @@ export function releaseShot(state, player) {
     state.lastTouch = blocker.team;
     ball.vx = -sign * BLOCK.deflect; ball.vy = 0; ball.vz = 0;
     ball.shooter = null; ball.shotValue = 0;
-    return;
+    return { shooter: player.id, defender, blocked: true };
   }
 
   launchShot(state, player, rand(state) < makeChance(state, player), isThree(player.x, player.z, sign) ? 3 : 2);
+  return { shooter: player.id, defender, blocked: false };
 }
 
 // Throws the ball from where it is at the hoop `player` attacks: on target if `made`, otherwise nudged off it.
@@ -200,13 +212,16 @@ export function giveBall(state, player) {
   if (player.team === 0) state.controlled = player.id;
 }
 
+// Returns null when no attempt was made, otherwise whether it won the ball and whether it came from in front.
 export function trySteal(state, player) {
   const holder = state.players[state.ball.holder];
-  if (player.stealCooldown > 0 || !holder || holder.team === player.team || holder.inbounder) return;
-  if (dist(holder, player) > STEAL.reach) return;
+  if (player.stealCooldown > 0 || !holder || holder.team === player.team || holder.inbounder) return null;
+  if (dist(holder, player) > STEAL.reach) return null;
   player.stealCooldown = STEAL.cooldown;
-  const chance = (inArc(holder, player, STEAL.frontArc) ? STEAL.frontChance : STEAL.backChance) * (holder.held ? STEAL.heldFactor : 1);
-  if (rand(state) < chance) { holder.shooting = false; giveBall(state, player); }
+  const front = inArc(holder, player, STEAL.frontArc);
+  const won = rand(state) < (front ? STEAL.frontChance : STEAL.backChance) * (holder.held ? STEAL.heldFactor : 1);
+  if (won) { holder.shooting = false; giveBall(state, player); }
+  return { won, front };
 }
 
 export function tryPickup(state) {
@@ -243,7 +258,7 @@ export function applyActions(state, intents, dt) {
       else if (p.inbounder) { /* an inbounder may only pass */ }
       else if (p.shooting) {
         if (grounded(p)) { p.shooting = false; report.travel = p.id; }   // came down still holding the ball
-        else if (!intent.shoot) releaseShot(state, p);
+        else if (!intent.shoot) report.release = releaseShot(state, p);
       } else if (pressed('shoot') && grounded(p)) {
         const hoop = rimCentre(attackSign(p.team));
         p.facing = Math.atan2(hoop.z - p.z, hoop.x - p.x);
@@ -255,7 +270,11 @@ export function applyActions(state, intents, dt) {
       }
     } else {
       if (pressed('shoot') && !p.inbounder && grounded(p)) { jump(p); spend(state, p, STAMINA.jump); }
-      if (pressed('steal')) trySteal(state, p);
+      if (pressed('steal')) {
+        const victim = ball.holder;
+        const attempt = trySteal(state, p);
+        if (attempt && !attempt.won) report.stealMisses.push({ by: p.id, on: victim, front: attempt.front });
+      }
       const holder = state.players[ball.holder];
       // Not while your own team's pass is in the air: the pass key is also the switch key,
       // and control has just moved to the receiver.

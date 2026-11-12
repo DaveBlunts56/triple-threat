@@ -19,10 +19,10 @@ export function step(state, intents, dt) {
     state.lastControlled = state.controlled;
   }
 
-  if (!frozen) movePlayers(state, intents, dt);
-  tire(state, intents, dt);
   // Everything that happened this step, for the rules to judge.
   const events = emptyEvents();
+  if (!frozen) events.contacts = movePlayers(state, intents, dt);
+  tire(state, intents, dt);
   if (!stopped && !frozen) Object.assign(events, applyActions(state, intents, dt));
   else state.players.forEach((p, i) => { p.prev = { ...intents[i] }; });   // keep key state current for when play resumes
 
