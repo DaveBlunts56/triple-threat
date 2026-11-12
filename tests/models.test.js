@@ -40,6 +40,27 @@ test('every player is skinned, under 20,000 triangles, and wears a jersey and sh
   assert.equal(players.json.animations, undefined);
 });
 
+// One player's kit piece: positions, normals and texture coordinates of the primitive whose material is `name`.
+function piece(person, name) {
+  const p = primitivesUnder(players.json, rootName(person)).find(q => players.json.materials[q.material].name === name);
+  const rows = (attribute, width) => { const flat = floatsOf(players, p.attributes[attribute]); return Array.from({ length: flat.length / width }, (_, i) => flat.slice(i * width, (i + 1) * width)); };
+  return { at: rows('POSITION', 3), normal: rows('NORMAL', 3), uv: rows('TEXCOORD_0', 2) };
+}
+const mean = list => list.reduce((sum, v) => sum + v, 0) / list.length;
+
+test('jersey and shorts are laid out as a front panel and a back panel, the right way round', () => {
+  for (const person of people) for (const name of ['jersey', 'shorts']) {
+    const { at, normal, uv } = piece(person, name);
+    assert.ok(uv.every(([u, v]) => u >= 0 && u <= 1 && v >= 0 && v <= 1), `${rootName(person)} ${name}: outside the picture`);
+    const front = uv.map(([u], i) => (u < 0.5 ? i : -1)).filter(i => i >= 0), back = uv.map(([u], i) => (u > 0.5 ? i : -1)).filter(i => i >= 0);
+    assert.ok(mean(front.map(i => normal[i][2])) > 0.3 && mean(back.map(i => normal[i][2])) < -0.3, `${rootName(person)} ${name}: panels face the wrong way`);
+    const lean = list => { const x = mean(list.map(i => at[i][0])), u = mean(list.map(i => uv[i][0])); return mean(list.map(i => (at[i][0] - x) * (uv[i][0] - u))); };
+    assert.ok(lean(front) > 0 && lean(back) < 0, `${rootName(person)} ${name}: a panel is mirrored`);
+    const top = Math.max(...at.map(p => p[1])), high = uv[at.findIndex(p => p[1] === top)][1];
+    assert.ok(high < 0.1, `${rootName(person)} ${name}: the top edge is at v ${high}`);
+  }
+});
+
 test('each player stands as tall as the table says, feet on the floor', () => {
   for (const person of people) {
     const { minY, maxY } = heightOf(players.json, rootName(person));

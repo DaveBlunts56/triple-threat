@@ -32,6 +32,9 @@ OPAQUE = ('skin', 'shoes', 'eyes')   # the generator wires transparency into eve
 JERSEY = {'chest': 0.05, 'hem': 0.16, 'drop': 0.10}       # drop: metres the hem hangs below the hip joints
 SHORTS = {'hip': 0.07, 'hem': 0.42, 'above_knee': 0.03, 'rise': 0.09}   # rise: metres the waistband sits above the hip bone's root
 SKIN_MARGIN = 0.05   # metres of skin kept under the edge of the kit, so no gap shows when he moves
+# Where the two panels of a kit piece sit in its picture, as shares of the picture's width: the middle of the front panel,
+# the middle of the back panel, and how wide each is. The game paints the colour, the trim and the number onto them.
+PANEL = {'front': 0.25, 'back': 0.75, 'width': 0.46}
 # Share of triangles kept when a mesh is simplified. The face keeps all of its own.
 KEEP = {'body': 0.42, 'hair': 0.65, 'shoes': 0.65}
 # A face other than the generator's own: this many shapes from these folders of MPFB's targets, each this strong.
@@ -218,6 +221,24 @@ def dress(piece, material, levels):
         polygon.use_smooth = True
 
 
+def panel_uvs(piece):
+    """Lay the piece out in its picture as two panels side by side: the front on the left, the back on the right.
+
+    Each face corner is placed by where it is: across its panel by its x, up it by its z, so the top edge of the piece
+    is the top of the picture. A face is on the front when it faces forward (humans face -Y). Across the front the
+    picture runs toward his left and across the back toward his right, so both read the right way round from outside.
+    """
+    mesh = piece.data
+    xs, zs = [v.co.x for v in mesh.vertices], [v.co.z for v in mesh.vertices]
+    width, lowest, height = max(xs) - min(xs), min(zs), max(zs) - min(zs)
+    corners = mesh.uv_layers.active.data   # the layer the piece was cut out with, so the joined mesh still has only one
+    for polygon in mesh.polygons:
+        front = polygon.normal.y < 0
+        for corner, vertex in zip(polygon.loop_indices, polygon.vertices):
+            across = PANEL['width'] * xs[vertex] / width
+            corners[corner].uv = (PANEL['front'] + across if front else PANEL['back'] - across, (zs[vertex] - lowest) / height)
+
+
 def make_jersey(body, mark, bones, tights):
     """A sleeveless jersey: the torso of the tights surface, hung loose, with a scooped neck and arm holes."""
     hem = mark['hip'] - JERSEY['drop']
@@ -328,6 +349,8 @@ def build_person(row, with_doll=False):
     tidy_border(shorts, flat=[mark['knee'] + SHORTS['above_knee'], mark['pelvis'] + SHORTS['rise']])
     dress(jersey, plain_material('jersey'), levels=0)
     dress(shorts, plain_material('shorts'), levels=0)
+    panel_uvs(jersey)
+    panel_uvs(shorts)
     strip_body(body, mark, bones, parts['shoes'])
 
     # The face keeps every triangle; hands, limbs, ears and the scalp under the hair give up most of theirs.

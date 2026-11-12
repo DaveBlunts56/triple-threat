@@ -29,7 +29,7 @@ export function primitivesUnder(gltf, name) {
 // The numbers of a FLOAT accessor, in file order.
 export function floatsOf({ json, bin }, index) {
   const accessor = json.accessors[index], view = json.bufferViews[accessor.bufferView];
-  const width = { SCALAR: 1, VEC3: 3, VEC4: 4 }[accessor.type];
+  const width = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 }[accessor.type];
   const start = (view.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
   return Array.from({ length: accessor.count * width }, (_, i) => bin.readFloatLE(start + 4 * i));
 }
