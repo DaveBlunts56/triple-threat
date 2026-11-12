@@ -1,6 +1,6 @@
 # Triple Threat — Milestone 3, stage 3: motion that feels like the reference
 
-Date: 2026-11-12 · Status: awaiting review · Amends `2026-11-12-realistic-players-design.md` (sections "Motion", "The ball in the hand" and "Controls"). Where the two differ, this document wins.
+Date: 2026-11-12 · Status: approved by the owner on 2026-11-12, with the green-window rule added at their request · Amends `2026-11-12-realistic-players-design.md` (sections "Motion", "The ball in the hand" and "Controls"). Where the two differ, this document wins.
 
 **Why.** The owner gave a gameplay video of a commercial basketball game as the reference for how players should look and feel. It was studied frame by frame: `docs/superpowers/research/2026-11-12-animation-reference.md`. The video is a reference for timing and feel only. Nothing from it is copied, and the shot meter described here is this game's own design.
 
@@ -10,8 +10,8 @@ Date: 2026-11-12 · Status: awaiting review · Amends `2026-11-12-realistic-play
 
 - **A gather and a smaller jump when shooting.** Approved on 2026-11-12 ("Yes, add it").
 - **The video is the reference for look and feel** (owner's instruction, 2026-11-12).
-
-Proposed here and not yet confirmed: everything else in "Changes to the rules".
+- **A green release always goes in, and the green window depends on how closely the shot is contested.** The owner's change when approving this document. The owner attached a fan-made guide to the reference game's eight contest tiers; this game uses four levels of its own.
+- **The rest of this document**, approved with that change.
 
 ## Changes to the rules
 
@@ -33,7 +33,7 @@ These are the only changes under `src/sim/` in stage 3. Walking to spots (stage 
 - Free throws stay as they are.
 - A pump fake (a gather that is called off) is not added. It can be considered after this has been played.
 - **The computer.** A computer shooter lets go around the new best moment, with the same spread as today. A computer defender puts a hand up when his man gathers and jumps when his man leaves the floor, not at the gather.
-- **Balance.** Because the ball now leaves from lower down and later, blocks and contested shots will shift. Fifty computer matches are measured before and after; points, makes from each range, blocks and shooting fouls per match must stay within a tenth of today's, and the numbers in `SHOT` and `BLOCK` are adjusted until they do.
+- **Balance.** Because the ball now leaves from lower down and later, and because a green release always goes in, scoring will shift. Fifty computer matches are measured before and after; points, makes from each range, blocks and shooting fouls per match must stay within a tenth of today's, and the numbers in `SHOT` and `BLOCK` and the computer's release spread are adjusted until they do. How easy shooting is for the owner cannot be measured this way; it is judged in the play-test, and the window widths in the table above are the numbers to change.
 
 ### Computer players slow down as they arrive
 
@@ -43,9 +43,23 @@ A computer player within 1.5 m of where he wants to be asks for part speed, in p
 
 `passBall` records the receiver on the ball until it is caught or goes loose. Nothing behaves differently; it lets the receiver's hands and the passer's head be drawn correctly.
 
-### What does not change
+### A green release always goes in
 
-A well-timed shot is not made more likely than it is today. The meter shows the rule as it is.
+Decided by the owner on 2026-11-12: "If you green the shot meter it should ALWAYS go in, but the green window should change depending on the contest of the shot."
+
+- **The green window** is a stretch of time around the best moment to let go. A shot let go inside it goes in, every time. A shot let go outside it has the chance the rules give today (distance, timing, contest and tiredness).
+- **How wide the window is depends first on how closely the shooter is guarded.** There are four levels, worked out from the same defender numbers the rules already use for a contested shot (how near the nearest defender is, and whether he is in the air):
+
+| Level | The nearest defender | Window, either side of the best moment |
+|---|---|---|
+| Open | further than about 1.8 m | 0.050 s (three steps of the game) |
+| Guarded | within about 1.8 m | 0.033 s (two steps) |
+| Contested | within about 1 m, or in the air within 1.5 m | 0.017 s (one step) |
+| Smothered | on top of him, or in the air within about 0.6 m | the best step only |
+
+- **Range and tiredness narrow it further.** The window is full width up to 4 m from the hoop, half width at 8 m and gone at 12 m, so a long shot is harder to green than a lay-up. A tired shooter's window is up to a fifth narrower. (These two are Claude's additions, so that a perfect release is not automatic from anywhere; the owner asked only for contest.)
+- **A blocked shot is still blocked**, and a shooting foul is still called as today. "Always" means: if the ball leaves his hand, it goes in.
+- **The computer plays by the same rule.** How precisely a computer shooter times his release is tuned in the balance step, so that computer-against-computer scoring stays where it is today.
 
 ## The shot meter
 
@@ -53,8 +67,8 @@ Shown for the owner's team only, beside the shooter, drawn in the same visual la
 
 - **Appears** when he gathers.
 - **Fills** from the bottom to the top over the 0.48 s to the best moment, in step with the ball rising, so the body and the bar teach the same timing. After the best moment the fill drains again.
-- **The target** is a marked band at the top end. Its length shows how hard the shot is: longer for a close, open shot, shorter for a long or contested one, from the same distance and defender numbers the rules already use.
-- **At the release** the bar freezes. In the band: it turns green and shows a tick. Outside it: a small mark says "early" or "late". Colour is never the only signal.
+- **The target** is a marked band at the top end. It is the green window, drawn to scale: long when he is open and close, short when he is guarded or far out. A one-word label under the bar names the contest level (Open, Guarded, Contested, Smothered), and the band changes as the defender closes while he gathers.
+- **At the release** the bar freezes. In the band: it turns green and shows a tick, and the shot goes in. Outside it: a small mark says "early" or "late". Colour is never the only signal.
 - **Stays** beside him for 1.2 s, then goes. If he lands still holding the ball it goes at once.
 - It does not rise with his jump and never covers the ball.
 
@@ -106,7 +120,8 @@ These are drawn only; none touches the rules.
 
 - **Shooting:** the gather lasts 0.3 s and he cannot steer during it; the jump peaks near 0.25 m; the best release is 0.48 s after the press and earns the full chance; letting go during the gather releases at take-off; landing with the ball is still a travel; a blocker must still be in the air and in reach.
 - **Balance:** the before-and-after measurement above.
-- **The meter:** fill and band from a match state; frozen and marked at release; gone on a travel; never shown for the other team.
+- **The green window:** each contest level gives its width; range and tiredness narrow it; a release inside it goes in for every seed tried; a release one step outside it can miss; a block still stops it.
+- **The meter:** fill and band from a match state, the band matching the green window exactly; the level's label; frozen and marked at release; gone on a travel; never shown for the other team.
 - **Motion choice:** each new row (hand up, land, reaching for a pass, dribbling hand by defender side); the eased heading and the lean stay within their limits; a head target for every situation.
 - **By eye:** every motion in the game, and the shot beside its meter.
 
