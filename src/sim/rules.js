@@ -1,4 +1,4 @@
-import { CLOCK, COURT, PLAYER } from './tuning.js';
+import { CLOCK, COURT, PLAYER, VIOLATION } from './tuning.js';
 import { lineUp } from './state.js';
 import { applySubs } from './roster.js';
 
@@ -19,12 +19,19 @@ function spotWhereOut(o) {
 }
 const sidelineSpot = o => ({ x: clamp(o.x, COURT.halfLength - 1), z: side(o.z) * (COURT.halfWidth + OUTSIDE) });
 
-// Stops play. If the period clock has run out, the period ends instead of restarting.
-function stopPlay(state, possession, spot) {
+// A whistle: `team` is penalised and the other team gets the ball. `extra` may set `number` and `shots`.
+const makeCall = (kind, team, extra = {}) => ({ kind, team, ball: 1 - team, number: null, shots: 0, ...extra });
+
+// Every stoppage goes through here. `call` says why the whistle blew; a basket has none.
+// The shot clock keeps its time unless the ball changes hands.
+// If the period clock has run out, the period ends instead of restarting, once any free throws are shot.
+function stopPlay(state, possession, spot, call = null) {
   deadBall(state);
+  state.call = call;
+  if (possession !== state.possession) state.shotClock = CLOCK.shot;
   state.possession = possession;
   state.inboundSpot = spot;
-  if (state.gameClock <= 0) endPeriod(state);
+  if (state.gameClock <= 0 && !state.freeThrow) endPeriod(state);
   else { state.phase = 'dead'; state.phaseT = CLOCK.dead; }
 }
 
@@ -55,12 +62,13 @@ function setupInbound(state) {
   });
   state.lastTouch = state.possession;
   if (state.possession === 0) state.controlled = inbounder.id;
-  state.shotClock = CLOCK.shot;
+  state.inboundT = 0;
   state.phase = 'inbound';
 }
 
 function beginPeriod(state) {
   state.gameClock = state.quarter <= CLOCK.quarters ? CLOCK.quarter : CLOCK.overtime;
+  state.shotClock = CLOCK.shot;
   lineUp(state);
   state.possession = state.quarter % 2 === 1 ? 0 : 1;   // team 0 starts odd periods
   state.inboundSpot = { x: 0, z: COURT.halfWidth + OUTSIDE };
@@ -81,7 +89,7 @@ function checkOut(state, events) {
   const inStands = Math.abs(ball.x) > COURT.halfLength + COURT.margin || Math.abs(ball.z) > COURT.halfWidth + COURT.margin;
   if (holder ? !holder.inbounder && outOfBounds(holder) : inStands || (events.hitFloor && outOfBounds(ball))) {
     const loser = holder ? holder.team : state.lastTouch ?? state.possession;
-    stopPlay(state, 1 - loser, spotWhereOut(holder ?? ball));
+    stopPlay(state, 1 - loser, spotWhereOut(holder ?? ball), makeCall('out', loser));
     return true;
   }
   return false;
@@ -102,6 +110,7 @@ function livePlay(state, events, dt) {
     state.score[team] += ball.shotValue || 2;
     ball.shooter = null; ball.shotValue = 0; ball.mode = 'loose';
     stopPlay(state, 1 - team, { x: events.scored * (COURT.halfLength + OUTSIDE), z: 2 });
+    state.shotClock = CLOCK.shot;
     return;
   }
   if (checkOut(state, events)) return;
@@ -111,7 +120,7 @@ function livePlay(state, events, dt) {
   state.shotClock = Math.max(0, state.shotClock - dt);
   state.gameClock = Math.max(0, state.gameClock - dt);
   if (state.gameClock <= 0 && !shotInAir) endPeriod(state);
-  else if (state.shotClock <= 0 && !shotInAir) stopPlay(state, 1 - state.possession, sidelineSpot(ball));
+  else if (state.shotClock <= 0 && !shotInAir) stopPlay(state, 1 - state.possession, sidelineSpot(ball), makeCall('shotClock', state.possession));
 }
 
 export function applyRules(state, events, dt) {
@@ -122,7 +131,10 @@ export function applyRules(state, events, dt) {
       if (holder && !holder.inbounder) {
         for (const p of state.players) p.inbounder = false;
         state.phase = 'live';
-      } else if (!holder) {
+      } else if (holder) {
+        state.inboundT += dt;
+        if (state.inboundT > VIOLATION.inbound) stopPlay(state, 1 - state.possession, state.inboundSpot, makeCall('fiveSeconds', state.possession));
+      } else {
         checkOut(state, events);   // an inbound pass thrown away goes to the other team
       }
       break;
