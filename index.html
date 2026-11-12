@@ -15,6 +15,23 @@
   #hud .clock { text-align: center; }
   #gameClock { font-size: 22px; font-weight: 600; }
   #shotClock { color: #ffd257; font-size: 22px; font-weight: 600; }
+  [hidden] { display: none !important; }
+  #hud .fouls { font-size: 14px; }
+  #hud .energy { display: flex; flex-direction: column; font-size: 12px; }
+  progress { width: 90px; height: 10px; accent-color: #6fdc8c; }
+  #call, #ftBox { position: fixed; left: 50%; transform: translateX(-50%); padding: 8px 18px; background: rgba(0, 0, 0, .9);
+                  border: 2px solid #fff; border-radius: 8px; text-align: center; }
+  #call { top: 88px; margin: 0; font-size: 20px; font-weight: 700; }
+  #ftBox { bottom: 70px; }
+  #ftText { margin: 0 0 8px; font-size: 18px; font-weight: 600; }
+  /* The meter: the marker sweeps the bar; the centre zone is marked by its border as well as its colour. */
+  #ftBar { position: relative; width: 320px; height: 22px; background: #23262e; border: 2px solid #fff; }
+  #ftZone { position: absolute; left: 40%; width: 20%; top: 0; bottom: 0; box-sizing: border-box; background: #2e8b57;
+            border-left: 3px solid #fff; border-right: 3px solid #fff; }
+  #ftMarker { position: absolute; top: -6px; bottom: -6px; width: 4px; margin-left: -2px; background: #ffd257; outline: 1px solid #000; }
+  #roster { list-style: none; padding: 0; margin: 14px 0 6px; text-align: left; font-size: 18px; font-variant-numeric: tabular-nums; }
+  #roster li { display: flex; gap: 14px; justify-content: space-between; align-items: center; margin: 4px 0; }
+  section.screen p.help { font-size: 15px; }
   #controls, #backend { position: fixed; bottom: 12px; padding: 6px 12px; background: rgba(0, 0, 0, .8); border-radius: 8px; font-size: 13px; }
   #controls { left: 12px; }
   #backend { right: 12px; }
@@ -38,16 +55,24 @@
 <canvas id="court"></canvas>
 
 <div id="hud">
+  <span class="fouls" id="fouls0">Fouls 0</span>
   <span class="score home" id="score0">0</span>
   <div class="clock">
     <div><span id="quarter">Q1</span> · <span id="gameClock">3:00</span></div>
     <div id="shotClock">24</div>
   </div>
   <span class="score away" id="score1">0</span>
+  <span class="fouls" id="fouls1">Fouls 0</span>
+  <label class="energy">Energy <progress id="energy" max="1" value="1"></progress></label>
+</div>
+<p id="call" hidden></p>
+<div id="ftBox" hidden>
+  <p id="ftText"></p>
+  <div id="ftBar"><div id="ftZone"></div><div id="ftMarker"></div></div>
 </div>
 <p id="announce" class="sr-only" aria-live="polite"></p>
 
-<div id="controls">WASD move · Shift sprint · Space shoot / jump · E pass / switch · Q steal · Esc pause</div>
+<div id="controls">WASD move · Shift sprint · Space shoot / jump · E pass / switch · Q steal · F hold ball · Esc pause</div>
 <div id="backend"></div>
 
 <section class="screen" id="screenStart" hidden>
@@ -57,6 +82,15 @@
 <section class="screen" id="screenPause" hidden>
   <h1>Paused</h1>
   <p>Press Esc to resume</p>
+  <ol id="roster">
+    <li><span id="roster0"></span> <progress id="rosterEnergy0" max="1" value="1" aria-label="Energy"></progress></li>
+    <li><span id="roster1"></span> <progress id="rosterEnergy1" max="1" value="1" aria-label="Energy"></progress></li>
+    <li><span id="roster2"></span> <progress id="rosterEnergy2" max="1" value="1" aria-label="Energy"></progress></li>
+    <li><span id="roster3"></span> <progress id="rosterEnergy3" max="1" value="1" aria-label="Energy"></progress></li>
+    <li><span id="roster4"></span> <progress id="rosterEnergy4" max="1" value="1" aria-label="Energy"></progress></li>
+  </ol>
+  <p id="subNote"></p>
+  <p class="help">1 to 5 choose two players to swap · A automatic substitutions</p>
 </section>
 <section class="screen" id="screenFinal" hidden>
   <h1 id="finalTitle">Final</h1>

@@ -49,8 +49,15 @@ test('either Shift key sprints; releasing one while the other is held keeps spri
 
 test('keyup clears the key', () => {
   const { k, down, up } = keyboard();
-  down('KeyD'); up('KeyD');
+  down('KeyD'); k.intent(); up('KeyD');
   assert.deepEqual(k.intent(), emptyIntent());
+});
+
+test('a key tapped and released between two reads is still seen, once', () => {
+  const { k, down, up } = keyboard();
+  down('Space'); up('Space');                           // a slow frame: the whole tap happened before the game looked
+  assert.equal(k.intent().shoot, true);
+  assert.equal(k.intent().shoot, false);
 });
 
 test('blur releases every held key', () => {
