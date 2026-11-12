@@ -120,3 +120,13 @@ test('the page has every element the scoreboard writes to', () => {
     ...[0, 1, 2, 3, 4].flatMap(i => [`roster${i}`, `rosterEnergy${i}`])]) assert.match(html, new RegExp(`id="${id}"`), id);
   assert.match(html, /F hold ball/);
 });
+
+test('the corner label shows the renderer and the frame rate', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch();
+  hud.update(s, 'webgpu', { paused: false, pick: null, fps: 58.6 });
+  assert.equal(doc.els.backend.textContent, 'WebGPU · 59 fps');
+  hud.update(s, 'webgl2', { paused: false, pick: null, fps: 30 });
+  assert.equal(doc.els.backend.textContent, 'WebGL 2 (WebGPU not available) · 30 fps');
+  hud.update(s, 'webgl2');
+  assert.equal(doc.els.backend.textContent, 'WebGL 2 (WebGPU not available)');
+});

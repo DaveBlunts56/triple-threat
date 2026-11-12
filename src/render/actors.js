@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { BALL, PLAYER } from '../sim/tuning.js';
+import { TEAM_COLOURS } from './people.js';
 
-const TEAM_COLOURS = [0x2f6fe0, 0xd83a3a];
 const HEIGHT = 1.95, HEAD = 0.13;
+const LABEL_ABOVE = 0.35;   // metres between the top of a capsule and the middle of its number
+const LABEL_HEIGHT = 2.3;   // where the number floats above a generated player
 
 // Placeholder player: a capsule body, a head, and a nose showing which way they face.
 function buildPlayer(team) {
@@ -40,13 +42,14 @@ function numberTexture(number) {
   return numberTextures.get(number);
 }
 
-// Meshes for the six players, the ball and the ring under the player you control.
-export function createActors(scene) {
-  const players = [0, 0, 0, 1, 1, 1].map(buildPlayer);
+// The six players, the ball and the ring under the player you control.
+// `people` are the generated, animated players (see people.js); without them the capsules stand in.
+export function createActors(scene, people = null) {
+  const players = people ? people.models : [0, 0, 0, 1, 1, 1].map(buildPlayer);
   // The number floats above each head and always faces the camera, so you can see who is on the floor.
   const labels = players.map(group => {
     const label = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true }));
-    label.position.y = HEIGHT + 0.35;
+    label.position.y = people ? LABEL_HEIGHT : HEIGHT + LABEL_ABOVE;
     label.scale.set(0.6, 0.6, 1);
     group.add(label);
     return label;
@@ -58,10 +61,14 @@ export function createActors(scene) {
   scene.add(...players, ball, ring);
 
   return {
-    sync(state) {
+    // dt: the match time that passed this frame, which drives the players' motion.
+    sync(state, dt = 0) {
+      if (people) people.update(state, dt);
       state.players.forEach((p, i) => {
-        players[i].position.set(p.x, p.y, p.z);
-        players[i].rotation.y = -p.facing;   // facing is measured from +x toward +z; three.js turns the other way
+        if (!people) {
+          players[i].position.set(p.x, p.y, p.z);
+          players[i].rotation.y = -p.facing;   // facing is measured from +x toward +z; three.js turns the other way
+        }
         const { number } = state.rosters[p.team][p.person];
         if (labels[i].userData.number !== number) {   // a substitution: a different player now wears this capsule
           labels[i].userData.number = number;

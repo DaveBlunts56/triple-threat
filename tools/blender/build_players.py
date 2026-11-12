@@ -267,11 +267,17 @@ def strip_body(body, mark, bones, shoes):
     bm.free()
 
 
-def build_person(row):
+def build_person(row, with_doll=False):
+    """Returns (skeleton, [body, jersey, shorts, eyes, brows, lashes, hair, shoes], doll).
+
+    The doll is the whole body before any skin is removed, for Mixamo; None unless asked for.
+    """
     body, rig, parts = make_body(row)
     for obj in [body, *parts.values()]:
         bake_shape(obj)
     mark, bones, tights = landmarks(rig), dominant_bones(body), in_group(body, 'helper-tights')
+    is_skin = in_group(body, 'body')
+    doll = cut_out(body, 'doll', lambda i: is_skin[i]) if with_doll else None
     jersey = make_jersey(body, mark, bones, tights)
     shorts = make_shorts(body, mark, bones, tights)
     tidy_border(jersey, flat=[mark['hip'] - JERSEY['drop']])
@@ -292,7 +298,7 @@ def build_person(row):
     simplify(parts['shoes'], KEEP['shoes'])
     name = f"player-{row['team']}-{row['number']}"
     rig.name = name
-    return rig, [body, jersey, shorts, *parts.values()]
+    return rig, [body, jersey, shorts, *parts.values()], doll
 
 
 def blank_unused_skin(image, mesh, slot):
@@ -317,8 +323,11 @@ def blank_unused_skin(image, mesh, slot):
     image.pixels = pixels.ravel()
 
 
-def finish(row, rig, meshes):
-    """One mesh on the skeleton, at his real height, feet on the floor, with pictures small enough to ship."""
+def finish(row, rig, meshes, extra=()):
+    """One mesh on the skeleton, at his real height, feet on the floor, with pictures small enough to ship.
+
+    Objects in `extra` are scaled and placed with him.
+    """
     body = meshes[0]
     names = ['skin', 'jersey', 'shorts', 'eyes', 'brows', 'lashes', 'hair', 'shoes']
     for obj, name in zip(meshes, names):
@@ -360,8 +369,8 @@ def finish(row, rig, meshes):
     scale = Matrix.Scale(row['height'] / top, 4)
     lowest = min((body.matrix_world @ v.co).z for v in body.data.vertices) * row['height'] / top
     place = Matrix.Translation((0, 0, -lowest)) @ scale
-    body.data.transform(place)
-    rig.data.transform(place)
+    for obj in [body, rig, *extra]:
+        obj.data.transform(place)
     body.data.update()
     return body
 
@@ -381,7 +390,7 @@ def main():
     shots = args[args.index('--shots') + 1] if '--shots' in args else None
     clear_scene()
     for row in people():
-        rig, meshes = build_person(row)
+        rig, meshes, _ = build_person(row)
         report(rig.name, meshes)
         body = finish(row, rig, meshes)
         lo, hi = bounds([body])
@@ -401,4 +410,5 @@ def main():
     print('BUILD wrote assets/players.glb', os.path.getsize(project('assets', 'players.glb')), 'bytes')
 
 
-main()
+if __name__ == '__main__':
+    main()

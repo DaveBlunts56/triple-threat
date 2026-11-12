@@ -67,7 +67,7 @@ export function createHud(doc) {
       set('quarter', periodLabel(state.quarter));
       set('gameClock', clockText(state.gameClock));
       set('shotClock', String(Math.ceil(state.shotClock)));
-      set('backend', BACKEND_NAMES[backend]);
+      set('backend', BACKEND_NAMES[backend] + (typeof ui.fps === 'number' ? ` · ${Math.round(ui.fps)} fps` : ''));
 
       // The whistle: a banner during the stoppage. Screen readers hear a new call, or else a change of score.
       const banner = state.phase === 'dead' && state.call !== null;
