@@ -417,6 +417,8 @@ test('in the real game no import is left pointing at a file', () => {
 
 # Stage 3: basketball moves
 
+> **Superseded on 2026-11-12.** Tasks 7 to 12 below are replaced by `docs/superpowers/plans/2026-11-12-realistic-players-stage-3.md`, written after the owner's reference video was studied and the stage 3 design was amended. They are kept here only as a record. Stage 4 (Tasks 13 to 16) still stands.
+
 ### Task 7: Four more clips from Mixamo
 
 **Files:**

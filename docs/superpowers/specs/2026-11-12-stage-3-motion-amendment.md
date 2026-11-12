@@ -55,10 +55,11 @@ Decided by the owner on 2026-11-12: "If you green the shot meter it should ALWAY
 | Open | further than about 1.8 m | 0.050 s (three steps of the game) |
 | Guarded | within about 1.8 m | 0.033 s (two steps) |
 | Contested | within about 1 m, or in the air within 1.5 m | 0.017 s (one step) |
-| Smothered | on top of him, or in the air within about 0.6 m | the best step only |
+| Smothered | on top of him, or in the air within about 0.75 m | the best step only |
 
 - **Range and tiredness narrow it further.** The window is full width up to 4 m from the hoop, half width at 8 m and gone at 12 m, so a long shot is harder to green than a lay-up. A tired shooter's window is up to a fifth narrower. (These two are Claude's additions, so that a perfect release is not automatic from anywhere; the owner asked only for contest.)
 - **A blocked shot is still blocked**, and a shooting foul is still called as today. "Always" means: if the ball leaves his hand, it goes in.
+- **Nothing is green from behind the backboard**, where no ball can go in. The meter shows no band there.
 - **The computer plays by the same rule.** How precisely a computer shooter times his release is tuned in the balance step, so that computer-against-computer scoring stays where it is today.
 
 ## The shot meter
