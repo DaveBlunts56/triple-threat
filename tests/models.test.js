@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readGlb, primitivesUnder, floatsOf } from './glb.js';
+import { pack } from '../tools/single-file.mjs';
 
 const players = readGlb('assets/players.glb');
 const people = JSON.parse(readFileSync('assets/source/people.json', 'utf8')).people;
@@ -114,4 +115,9 @@ test('a looping motion ends in the pose it starts in', () => {
 test('the jump leaves the lifting to the game: its hips never climb above where they start', () => {
   const heights = track('jump', 'translation').map(key => key[1]);
   assert.ok(Math.max(...heights) - heights[0] < 0.05, `the hips climb ${Math.max(...heights) - heights[0]} m`);
+});
+
+test('the single file stays under 25 MB', () => {
+  const size = Buffer.byteLength(pack('.'));
+  assert.ok(size < 25e6, `${(size / 1e6).toFixed(1)} MB`);
 });
