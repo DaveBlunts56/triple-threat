@@ -86,6 +86,35 @@ test('a swap queued for the free-throw shooter waits until he has shot', () => {
   assert.deepEqual([s.players[1].person, s.subQueue.length], [3, 0]);
 });
 
+test('a player you bring on yourself is not taken back off by the automatic rules', () => {
+  for (const benched of [{ fouls: 2 }, { energy: 0.2 }]) {   // in foul trouble, or tired: the computer would not have picked him
+    const s = live(); Object.assign(s.rosters[0][3], benched);
+    queueSub(s, 0, 0, 3);
+    applySubs(s);
+    assert.deepEqual([s.players[0].person, s.subQueue.length], [3, 0]);
+    applySubs(s);                                       // nor at the next stoppage
+    assert.equal(s.players[0].person, 3);
+  }
+});
+
+test('once he comes off, the automatic rules apply to him again; and he is still replaced if he fouls out', () => {
+  const s = live(); s.rosters[0][4].energy = 0;         // person 4 plays no part
+  queueSub(s, 0, 0, 3); applySubs(s);
+  queueSub(s, 0, 3, 0); applySubs(s);                   // you take him off again
+  assert.equal(s.players[0].person, 0);
+  s.rosters[0][1].energy = 0.1;
+  applySubs(s);                                         // this time the automatic rule brings him on, for the tired person 1
+  assert.equal(s.players[1].person, 3);
+  s.rosters[0][3].energy = 0.1; s.rosters[0][1].energy = 0.9;
+  applySubs(s);                                         // so it may take him off again
+  assert.equal(s.players[1].person, 1);
+
+  const t = live(); queueSub(t, 0, 0, 3); applySubs(t);
+  t.rosters[0][3].fouls = 3;
+  applySubs(t);
+  assert.notEqual(t.players[0].person, 3);
+});
+
 test('the computer team is substituted by the same rules', () => {
   const s = live(); s.rosters[1][2].energy = 0.2;
   applySubs(s);

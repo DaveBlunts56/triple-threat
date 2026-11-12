@@ -2,12 +2,12 @@ import { createMatch } from './sim/state.js';
 import { startMatch } from './sim/rules.js';
 import { step } from './sim/step.js';
 import { aiIntents } from './sim/ai.js';
-import { queueSub } from './sim/roster.js';
 import { DT } from './sim/tuning.js';
 import { createScene } from './render/scene.js';
 import { createActors } from './render/actors.js';
 import { createHud } from './render/hud.js';
 import { createKeyboard } from './input.js';
+import { inPlay, pauseKey, setPaused } from './pause.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
 const newMatch = () => createMatch(Date.now() % 1e6);
@@ -20,23 +20,12 @@ if (view) {
   const game = { state: newMatch(), paused: false, pick: null };   // pick: the roster row chosen first on the pause screen
   globalThis.game = game;   // handle for poking at the match from the browser console
 
-  const inPlay = () => game.state.phase !== 'start' && game.state.phase !== 'final';
-  const pause = on => { game.paused = on && inPlay(); game.pick = null; };
-
-  // Pause screen: 1 to 5 pick two of your players to swap at the next stoppage; A turns automatic substitutions on or off.
-  const ROWS = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'];
-  const pauseKey = code => {
-    const row = ROWS.indexOf(code);
-    if (code === 'KeyA') game.state.autoSubs[0] = !game.state.autoSubs[0];
-    else if (row < 0) return;
-    else if (game.pick === null) game.pick = row;
-    else { if (game.pick !== row) queueSub(game.state, 0, game.pick, row); game.pick = null; }
-  };
+  const pause = on => setPaused(game, keyboard, on);
 
   window.addEventListener('keydown', e => {
     if (e.code === 'Escape') pause(!game.paused);
-    else if (game.paused) pauseKey(e.code);
-    if (e.code !== 'Enter' || inPlay()) return;
+    else if (game.paused) pauseKey(game, e.code);
+    if (e.code !== 'Enter' || inPlay(game.state)) return;
     if (game.state.phase === 'final') game.state = newMatch();
     startMatch(game.state);
   });

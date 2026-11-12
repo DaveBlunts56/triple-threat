@@ -54,7 +54,8 @@ export function createMatch(seed = 1) {
     score: [0, 0],
     possession: 0, lastTouch: null, controlled: 0, lastControlled: 0,
     inboundSpot: { x: 0, z: 0 },
-    rosters: ROSTER.numbers.map(team => team.map(number => ({ number, energy: 1, fouls: 0 }))),
+    // manual: you brought him on yourself, so the automatic substitutions leave him alone until he comes off
+    rosters: ROSTER.numbers.map(team => team.map(number => ({ number, energy: 1, fouls: 0, manual: false }))),
     subQueue: [], autoSubs: [true, true], teamFouls: [0, 0],
     call: null, freeThrow: null, pendingFoul: null, tipWinner: null,
     frontcourt: false, backcourtT: 0, inboundT: 0, controlTeam: null,

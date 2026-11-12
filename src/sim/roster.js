@@ -16,6 +16,7 @@ export function benchOf(state, team) {
 export function substitute(state, playerId, person) {
   const player = state.players[playerId];
   if (!benchOf(state, player.team).includes(person)) return false;
+  state.rosters[player.team][player.person].manual = false;   // whoever comes off is the computer's to pick again
   player.person = person;
   return true;
 }
@@ -51,13 +52,14 @@ export function applySubs(state) {
       if (q.team !== team) return true;
       const p = courtPlayers(state, team).find(c => c.person === q.out);
       if (p?.id === shooter) return true;
-      if (p) substitute(state, p.id, q.in);
+      if (p && substitute(state, p.id, q.in)) roster[q.in].manual = true;
       return false;
     });
 
     if (!state.autoSubs[team]) continue;
     for (const p of players) {
       const person = roster[p.person];
+      if (person.manual) continue;   // your own choice stands until you take him off or he fouls out
       const tired = person.energy < STAMINA.subOut, inTrouble = person.fouls === FOUL.limit - 1;
       if (!tired && !inTrouble) continue;
       const sub = freshest(b => b.energy > STAMINA.subIn && (tired || b.fouls < person.fouls));
