@@ -1,0 +1,29 @@
+{
+  "gaits": {
+    "walk": 1.844,
+    "run": 5.207,
+    "sprint": 7.273
+  },
+  "clips": {
+    "idle": {
+      "duration": 9.9333,
+      "loop": true
+    },
+    "walk": {
+      "duration": 1.1667,
+      "loop": true
+    },
+    "run": {
+      "duration": 0.7333,
+      "loop": true
+    },
+    "sprint": {
+      "duration": 0.5333,
+      "loop": true
+    },
+    "jump": {
+      "duration": 0.4667,
+      "loop": false
+    }
+  }
+}

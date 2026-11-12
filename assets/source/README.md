@@ -1,4 +1,4 @@
-# Rebuilding the player models
+# Rebuilding the player models and their motion
 
 Everything under `assets/` that the game loads is built by the scripts in `tools/blender/`. Nothing is edited by hand.
 
@@ -27,6 +27,25 @@ npm test
 ```
 
 `build_players.py` reads `people.json` and writes `assets/players.glb`. With `--shots` it also renders each player from four sides, his head and his legs, so the result can be looked at. Blender runs without a window.
+
+## Motion
+
+```bash
+blender-4.5 --background --python tools/blender/export_mixamo_doll.py
+blender-4.5 --background --python tools/blender/build_motion.py -- --shots /some/folder
+npm test
+```
+
+1. `export_mixamo_doll.py` writes `assets/source/mixamo-upload.fbx`: the first player, clothed and plain grey, on the game's skeleton.
+2. On mixamo.com (signed in), "Upload Character" takes that file. Mixamo recognises the skeleton and asks for no markers.
+3. Each clip in the table in `assets/CREDITS.md` is downloaded with Format "FBX Binary (.fbx)", Skin **"With Skin"**, 30 frames per second, Keyframe Reduction "none", and **"In Place" left unticked**, then saved in `assets/source/mixamo/` as `idle.fbx`, `walk.fbx`, `run.fbx`, `sprint.fbx` and `jump.fbx`. That folder is not committed.
+4. `build_motion.py` puts the clips on the player's skeleton and writes `assets/motion.glb` and `assets/motion.json`. With `--shots` it renders six frames of each motion from two sides.
+
+Why those settings:
+
+- **With Skin.** Without the skin, Mixamo sends the skeleton back resting in a T-pose instead of the player's own rest pose, and the motion can no longer be carried over exactly. `build_motion.py` refuses a clip whose rest pose is more than 5 mm from the player's.
+- **Not in place.** The script measures how fast each gait really travels (the `gaits` in `motion.json`, which the game uses to stop feet sliding) and then takes the travel out itself.
+- **The jump** must take off and land in the clip. Only the frames with both feet off the floor are kept, and the climb is removed, because the game lifts the player.
 
 ## What the scripts rely on in MPFB
 
