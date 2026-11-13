@@ -67,3 +67,16 @@ test('the loader hands the packed files to the game before it starts', () => {
   assert.ok(html.includes('TT_ASSETS'), 'the loader never sets TT_ASSETS');
   assert.ok(html.indexOf('TT_ASSETS') < html.indexOf("import(urls['src/main.js'])"));
 });
+
+// An import or re-export statement that starts a line and whose first quoted name is still a relative path or three.
+// Not the packer's own pattern: it runs on to the statement's first quote, so it also sees the imports that span lines
+// (GLTFLoader's does) and any form the packer does not know. Three's comments show imports too, but never at the start of a line.
+const BY_PATH = /^(?:import|export)\b[^'";]*['"](?:\.{1,2}\/|three)/m;
+
+test('in the real game no import is left pointing at a file', () => {
+  const modules = modulesIn(pack('.'));
+  assert.ok(modules.some(([path]) => path === 'node_modules/three/examples/jsm/loaders/GLTFLoader.js'), 'the real game was not packed');
+  for (const [path, source] of modules) {
+    assert.equal(BY_PATH.test(source), false, `${path} still imports by path`);
+  }
+});
