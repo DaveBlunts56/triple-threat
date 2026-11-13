@@ -22,7 +22,7 @@ const arms = (s, marks, id) => armMotion(s.players[id], s, marks, facts);
 
 test('a defender within 4 m of his man is drawn facing him; beyond that, or at a run, he faces where he goes', () => {
   const [s, marks] = watched();                         // team 0 has the ball; player 3 guards player 0
-  const face = () => { noteChanges(marks, s, DT); return drawnFacing(s, s.players[3], marks); };
+  const face = () => { noteChanges(marks, s, MOTION.guardHold); return drawnFacing(s, s.players[3], marks); };   // half a second apart (ruling A after Task 11)
   at(s, 0, 5, 0); at(s, 3, 3, 0); s.players[3].facing = 2;
   assert.ok(near(face(), 0));                           // his man is toward +x
   at(s, 3, 0.5, 0);
@@ -35,7 +35,7 @@ test('a defender within 4 m of his man is drawn facing him; beyond that, or at a
 test('a defender shuffling near walking pace does not flip between facing his man and facing his run', () => {
   const [s, marks] = watched();
   at(s, 0, 5, 0); at(s, 3, 3, 0);
-  const guarding = v => { s.players[3].vx = v; noteChanges(marks, s, DT); return marks.guard[3]; };
+  const guarding = v => { s.players[3].vx = v; noteChanges(marks, s, MOTION.guardHold); return marks.guard[3]; };   // half a second apart (ruling A after Task 11)
   assert.deepEqual([guarding(2.1), guarding(2.5), guarding(2.7), guarding(2.3), guarding(2.1)], [true, true, false, false, true]);
 });
 
@@ -371,7 +371,7 @@ test('a guarding step is kept past its edge: a back-step out to 60 degrees from 
 test('once he guards his man he keeps guarding him out to 4.4 m', () => {
   const [s, marks] = watched();
   at(s, 0, 5, 0);
-  const guarding = x => { at(s, 3, x, 0); noteChanges(marks, s, DT); return marks.guard[3]; };
+  const guarding = x => { at(s, 3, x, 0); noteChanges(marks, s, MOTION.guardHold); return marks.guard[3]; };   // half a second apart (ruling A after Task 11)
   // 4.2 m away, 3.8, 4.2 again, 4.5, 4.2, 3.8
   assert.deepEqual([guarding(0.8), guarding(1.2), guarding(0.8), guarding(0.5), guarding(0.8), guarding(1.2)], [false, true, true, false, false, true]);
 });
@@ -383,4 +383,21 @@ test('a slow side-step may play slower than any other gait, so the feet cover no
   assert.deepEqual(moving(0, -0.45), { clip: 'strafeLeft', rate: 0.35 }); // 0.3 would be too slow to read as a step
   assert.deepEqual(moving(-0.5, 0), { clip: 'backpedal', rate: 0.6 });    // only the side-steps
   assert.equal(MOTION.minRateStep, 0.35);
+});
+
+// ---- rulings after the first review of Task 11 ----
+
+test('a defender keeps guarding, or not guarding, for at least half a second, until his team has the ball', () => {
+  const s = live(), marks = newMarks(), p = s.players[3];
+  at(s, 0, 5, 0); at(s, 3, 3, 0);                                          // 2 m from his man, standing
+  noteChanges(marks, s, DT);
+  assert.deepEqual([MOTION.guardHold, marks.guard[3], marks.guarded[3]], [0.5, true, 0]);   // the first decision is free
+  const after = (seconds, vx) => { p.vx = vx; for (let t = DT / 2; t < seconds; t += DT) noteChanges(marks, s, DT); return marks.guard[3]; };
+  assert.equal(after(0.45, 3), true);                                      // running off: he keeps guarding for now
+  assert.equal(after(0.1, 3), false);                                      // half a second on, he turns and runs
+  assert.ok(marks.guarded[3] < 0.1);                                       // seconds since it changed
+  assert.equal(after(0.45, 0), false);                                     // stopping beside his man: not yet
+  assert.equal(after(0.1, 0), true);
+  s.possession = 1;                                                        // his team gets the ball: he guards nobody, at once
+  assert.equal(after(DT, 0), false);
 });

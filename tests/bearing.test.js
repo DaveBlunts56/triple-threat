@@ -45,8 +45,8 @@ test('each head has something to look at: the ball, his man, the hoop, the neare
   at(s, 3, 7, -3);
   assert.deepEqual(look(0), eyes(s.players[3]));         // his defender is close
   assert.deepEqual(look(3), eyes(s.players[0]));         // a defender within 4 m of his man watches him
-  assert.deepEqual(look(4), { x: s.ball.x, y: s.ball.y, z: s.ball.z });   // his man is 10 m away: he watches the ball
-  assert.deepEqual(look(1), { x: s.ball.x, y: s.ball.y, z: s.ball.z });   // a team-mate without the ball
+  assert.deepEqual(look(4), { x: s.ball.x, y: MOTION.ballHeld, z: s.ball.z });   // his man is 10 m away: he watches the ball (held: at 1.1 m, ruling C)
+  assert.deepEqual(look(1), { x: s.ball.x, y: MOTION.ballHeld, z: s.ball.z });   // a team-mate without the ball
   s.players[0].shooting = true;
   assert.deepEqual(look(0), hoop);                       // a shooter looks at the hoop, whoever is near
   s.players[0].shooting = false;
@@ -62,14 +62,15 @@ test('the head turns up to 70 degrees sideways and 30 up or down, and eases ther
   assert.deepEqual(headTurn(p, 0, null), { yaw: 0, pitch: 0 });
   const right = headTurn(p, 0, { x: 3, y: MOTION.eye, z: 3 });
   assert.ok(near(deg(right.yaw), 45) && near(right.pitch, 0));             // +z is to the right of a player facing +x
-  assert.ok(near(deg(headTurn(p, 0, { x: -3, y: MOTION.eye, z: -1 }).yaw), -70));       // behind him on the left: as far as the neck goes
+  assert.ok(near(deg(headTurn(p, 0, { x: -1, y: MOTION.eye, z: -3 }).yaw), -70));       // on his left, a little behind: as far as the neck goes (ruling B)
+  assert.deepEqual(headTurn(p, 0, { x: -3, y: MOTION.eye, z: -1 }), { yaw: 0, pitch: 0 });   // behind him on the left: he looks where he is going (ruling B)
   assert.ok(near(deg(headTurn(p, Math.PI / 2, { x: 0, y: MOTION.eye, z: 5 }).yaw), 0));  // measured from where he is drawn facing
   assert.ok(near(deg(headTurn(p, 0, { x: 1, y: 3.05, z: 0 }).pitch), 30));               // under the hoop: 30 at most
   assert.ok(near(deg(headTurn(p, 0, { x: 4, y: 0.12, z: 0 }).pitch), deg(Math.atan2(0.12 - MOTION.eye, 4))));
   assert.ok(near(deg(headTurn({ ...p, y: 0.5 }, 0, { x: 4, y: MOTION.eye + 0.5, z: 0 }).pitch), 0));   // his eyes rise with his jump
   let head = { yaw: 0, pitch: 0 };
-  for (let i = 0; i < 15; i++) head = easeHead(head, { yaw: 1, pitch: -0.5 }, 1 / 60);   // a quarter of a second
-  assert.ok(near(head.yaw, 1 - Math.exp(-2), 1e-6) && near(head.pitch, -0.5 * (1 - Math.exp(-2)), 1e-6));
+  for (let i = 0; i < 15; i++) head = easeHead(head, { yaw: 0.5, pitch: -0.25 }, 1 / 60);   // a quarter of a second (half the turn: ruling B)
+  assert.ok(near(head.yaw, 0.5 * (1 - Math.exp(-2)), 1e-6) && near(head.pitch, -0.25 * (1 - Math.exp(-2)), 1e-6));
   assert.deepEqual(easeHead(head, { yaw: 0, pitch: 0 }, 0), head);
 });
 
@@ -90,4 +91,33 @@ test('the chest bends to a dribble on upright legs and comes up under a hand-mad
   }
   assert.ok(near(tip(5, { dribble: 0.5, walk: 0.5 }), rad(dribble - 5) / 2));                 // half shown: half the bend
   assert.ok(near(tip(made + 8, { dribble: 0.25, catch: 0.75 }), 0.25 * rad(dribble - made - 8) - 0.75 * rad(8)));
+});
+
+// ---- rulings after the first review of Task 11 ----
+
+test('a head never cranes at what is behind him, and never turns faster than 360 degrees a second', () => {
+  const p = { x: 0, y: 0, z: 0 }, toward = degrees => ({ x: Math.cos(rad(degrees)) * 4, y: MOTION.eye + 1, z: Math.sin(rad(degrees)) * 4 });
+  assert.equal(MOTION.headBehind, 120);
+  assert.ok(near(deg(headTurn(p, 0, toward(119)).yaw), 70) && headTurn(p, 0, toward(119)).pitch > 0);   // within 120 degrees: as far as the neck goes
+  assert.deepEqual(headTurn(p, 0, toward(121)), { yaw: 0, pitch: 0 });     // further round: he looks where he is going
+  assert.ok(near(deg(headTurn(p, rad(90), toward(-10)).yaw), -70));        // measured from where he is drawn facing
+  assert.deepEqual(headTurn(p, rad(90), toward(220)), { yaw: 0, pitch: 0 });
+  const step = easeHead({ yaw: 0, pitch: 0 }, { yaw: Math.PI / 2, pitch: -1 }, 1 / 60);   // the easing alone would turn 11 and 7 degrees
+  assert.ok(near(deg(step.yaw), 6) && near(deg(step.pitch), -6));          // 360 / 60 each, however far there is to go
+  const small = easeHead({ yaw: 0, pitch: 0 }, { yaw: 0.1, pitch: 0.05 }, 1 / 60), k = 1 - Math.exp(-MOTION.headEase / 60);
+  assert.ok(near(small.yaw, 0.1 * k) && near(small.pitch, 0.05 * k));      // a short way: the easing alone
+  let head = { yaw: rad(70), pitch: 0 }, frames = 0;
+  while (head.yaw > rad(-70) + 1e-9 && frames < 200) { head = easeHead(head, { yaw: rad(-70), pitch: 0 }, 1 / 60); frames++; }
+  assert.ok(frames >= 140 / 6, `${frames} frames from one shoulder to the other`);
+});
+
+test('a watcher looks at a held ball at the height of the hands, not at the floor it is bounced on', () => {
+  const s = live(), ball = s.ball;
+  assert.equal(MOTION.ballHeld, 1.1);
+  ball.y = 0.2;                                                            // the rules bounce a dribbled ball at his hip
+  assert.deepEqual(lookTarget(s, s.players[1]), { x: ball.x, y: 1.1, z: ball.z });
+  ball.y = 0.9;
+  assert.deepEqual(lookTarget(s, s.players[1]), { x: ball.x, y: 1.1, z: ball.z });
+  passBall(s, s.players[0], { ...emptyIntent(), moveZ: 1 });
+  assert.deepEqual(lookTarget(s, s.players[2]), { x: ball.x, y: ball.y, z: ball.z });   // nobody holds it: where it is
 });

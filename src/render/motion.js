@@ -29,6 +29,9 @@ export const AIR_TIME = (2 * PLAYER.jumpV) / BALL.gravity;
 // degrees the head turns at most, to either side and up or down. headEase: how quickly the head follows, a second.
 // eye: metres from his feet up to his eyes. chestDribble: degrees forward the chest leans in the dribble, which was made
 // on legs that lean; chestMade: degrees forward it leans at most under the poses made by hand, made on upright legs.
+// guardHold: seconds a defender keeps guarding, or not guarding, before he may change. headBehind: degrees round from
+// the way he is drawn facing beyond which he does not look at a thing but where he is going. headRate: degrees a second
+// the head turns at most, each way. ballHeld: metres up a ball somebody holds is looked at, whatever its bounce.
 export const MOTION = Object.freeze({
   idleBelow: 0.3, walkBelow: 2.2, runBelow: 5.6, stick: 0.2, minRate: 0.6, maxRate: 1.5, fade: 0.15,
   guardDist: 4, guardSpeed: 2.2, guardStick: 0.4, sideways: 50,
@@ -39,6 +42,7 @@ export const MOTION = Object.freeze({
   dribbleHold: 0.55, handSwitch: 0.2, freeThrowSet: 0.45,
   turnRate: 900, leanForward: 12, leanSide: 10, leanEase: 0.15, headYaw: 70, headPitch: 30, headEase: 8, eye: 1.7,
   chestDribble: 30, chestMade: 15,
+  guardHold: 0.5, headBehind: 120, headRate: 360, ballHeld: 1.1,
 });
 
 // The ball as it is drawn in a holder's hands. blend: seconds over which it is drawn across to a new place whenever
@@ -97,9 +101,9 @@ export function dribbleHand(state, player, last = 'right') {
 const HAPPENINGS = ['pass', 'release', 'catch', 'reach', 'land', 'switched'];
 
 // What the renderer remembers from frame to frame, by player id. For each of HAPPENINGS, the seconds since it last
-// happened to him (Infinity if never); `guard`, whether he is guarding his man; `hand`, the hand the ball goes in;
-// `was`, what the last frame looked like.
-export const newMarks = () => ({ pass: {}, release: {}, catch: {}, reach: {}, land: {}, switched: {}, guard: {}, hand: {}, was: null });
+// happened to him (Infinity if never); `guard`, whether he is guarding his man, and `guarded`, the seconds since that
+// last changed; `hand`, the hand the ball goes in; `was`, what the last frame looked like.
+export const newMarks = () => ({ pass: {}, release: {}, catch: {}, reach: {}, land: {}, switched: {}, guard: {}, guarded: {}, hand: {}, was: null });
 
 // One frame of noticing: `dt` seconds have passed since the last. The first frame has nothing to compare with, so
 // nothing counts as having just happened.
@@ -109,11 +113,15 @@ export function noteChanges(marks, state, dt) {
     const id = p.id, before = was?.players[id];
     for (const what of HAPPENINGS) marks[what][id] = (marks[what][id] ?? Infinity) + dt;
 
-    // Past walking pace, or far from his man, he turns and runs; near either edge he stays as he is, so he does not
-    // flip between the two.
+    // Past walking pace, or far from his man, he turns and runs; near either edge he stays as he is, and either way he
+    // keeps to it for MOTION.guardHold seconds, so he does not flip between the two. Once his team has the ball he
+    // guards nobody, at once.
     const pace = MOTION.guardSpeed + (marks.guard[id] ? MOTION.guardStick : 0);
     const reach = MOTION.guardDist + (marks.guard[id] ? MOTION.guardFar : 0);
-    marks.guard[id] = defending(state, p) && onFloor(p) && dist(p, manOf(state, p)) <= reach && Math.hypot(p.vx, p.vz) < pace;
+    const guarding = defending(state, p) && onFloor(p) && dist(p, manOf(state, p)) <= reach && Math.hypot(p.vx, p.vz) < pace;
+    marks.guarded[id] = (marks.guarded[id] ?? 0) + dt;
+    const free = marks.guard[id] === undefined || !defending(state, p) || marks.guarded[id] >= MOTION.guardHold;
+    if (free && guarding !== marks.guard[id]) [marks.guard[id], marks.guarded[id]] = [guarding, 0];
     // A hand just changed to is kept for a while, so a defender crossing in front does not make the ball flutter.
     const kept = marks.hand[id], settled = kept === undefined || marks.switched[id] >= MOTION.handStick;
     const hand = settled ? dribbleHand(state, p, kept ?? 'right') : kept;
@@ -187,7 +195,8 @@ const eyes = player => ({ x: player.x, y: player.y + MOTION.eye, z: player.z });
 // What `player` looks at, { x, y, z }, or null on the start and final screens, where the motion's own head stays. The
 // first that fits: a shooter looks at the rim he attacks; the ball handler at the nearest opponent's eyes if he is within
 // MOTION.guardDist, otherwise at that rim; the passer, while his pass is in the air, at his receiver's eyes; a defender
-// within MOTION.guardDist of his man at his man's eyes; anyone else, a shooter once the ball has left too, at the ball.
+// within MOTION.guardDist of his man at his man's eyes; anyone else, a shooter once the ball has left too, at the ball:
+// a ball somebody holds at MOTION.ballHeld up, so that heads do not nod with its bounce, any other where it is.
 export function lookTarget(state, player) {
   if (state.phase === 'start' || state.phase === 'final') return null;
   const { ball } = state, rim = rimCentre(attackSign(player.team));
@@ -199,26 +208,27 @@ export function lookTarget(state, player) {
   if (ball.mode === 'pass' && ball.noPickupId === player.id && ball.target !== null) return eyes(state.players[ball.target]);
   const man = manOf(state, player);
   if (defending(state, player) && dist(man, player) <= MOTION.guardDist) return eyes(man);
-  return { x: ball.x, y: ball.y, z: ball.z };
+  return { x: ball.x, y: ball.holder === null ? ball.y : MOTION.ballHeld, z: ball.z };
 }
 
 // How far his head turns from the heading he is drawn with, `facing`, to look at `target` from his eyes, MOTION.eye
 // above his feet: { yaw, pitch } in radians, yaw toward his right and pitch upward, held within MOTION.headYaw and
-// MOTION.headPitch. No target: no turn.
+// MOTION.headPitch. No target, or one more than MOTION.headBehind round from his heading: no turn, he looks where he
+// is going.
 export function headTurn(player, facing, target) {
   if (!target) return { yaw: 0, pitch: 0 };
   const dx = target.x - player.x, dz = target.z - player.z, up = target.y - (player.y + MOTION.eye);
-  return {
-    yaw: within(wrap(Math.atan2(dz, dx) - facing), rad(MOTION.headYaw)),
-    pitch: within(Math.atan2(up, Math.hypot(dx, dz)), rad(MOTION.headPitch)),
-  };
+  const round = wrap(Math.atan2(dz, dx) - facing);
+  if (Math.abs(round) > rad(MOTION.headBehind)) return { yaw: 0, pitch: 0 };
+  return { yaw: within(round, rad(MOTION.headYaw)), pitch: within(Math.atan2(up, Math.hypot(dx, dz)), rad(MOTION.headPitch)) };
 }
 
 // The head one frame of `dt` seconds after `head`, both { yaw, pitch }: each covers the share
-// 1 - exp(-MOTION.headEase * dt) of the way to `wanted`.
+// 1 - exp(-MOTION.headEase * dt) of the way to `wanted`, and MOTION.headRate times `dt` at most.
 export function easeHead(head, wanted, dt) {
-  const k = 1 - Math.exp(-MOTION.headEase * dt);
-  return { yaw: head.yaw + (wanted.yaw - head.yaw) * k, pitch: head.pitch + (wanted.pitch - head.pitch) * k };
+  const k = 1 - Math.exp(-MOTION.headEase * dt), most = rad(MOTION.headRate) * dt;
+  const toward = (from, to) => from + within((to - from) * k, most);
+  return { yaw: toward(head.yaw, wanted.yaw), pitch: toward(head.pitch, wanted.pitch) };
 }
 
 const SIDE_STEPS = ['strafeLeft', 'strafeRight'];
