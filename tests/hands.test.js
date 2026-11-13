@@ -51,10 +51,18 @@ test('the ball is drawn across again when the way it is carried changes, but cro
   assert.notEqual(carrying(2, 'both'), carrying(2, null));                 // held, then the final screen
 });
 
-test('a ball the rules hand over as the phase changes is drawn there at once; any other change of holder is drawn across', () => {
+test('a ball the rules put with an inbounder or a free-throw shooter is drawn there at once; any other change of holder is drawn across', () => {
   const drawn = { x: 9, y: 1, z: 0 };
-  assert.equal(blendFrom(drawn, { holder: null, phase: 'dead' }, { holder: 2, phase: 'inbound' }), null);     // an inbound set up
-  assert.equal(blendFrom(drawn, { holder: 4, phase: 'dead' }, { holder: 0, phase: 'freeThrow' }), null);      // a free throw set up
+  const placed = (before, after) => blendFrom(drawn, before, after) === null;
+  assert.ok(placed({ holder: null, phase: 'dead' }, { holder: 2, phase: 'inbound' }));            // an inbound set up
+  assert.ok(placed({ holder: 1, phase: 'quarterEnd' }, { holder: 4, phase: 'inbound' }));         // a period begun
+  assert.ok(placed({ holder: 4, phase: 'dead' }, { holder: 0, phase: 'freeThrow' }));             // a free throw set up
+  assert.ok(placed({ holder: null, phase: 'freeThrow' }, { holder: 0, phase: 'freeThrow' }));     // handed back for the second
+  assert.ok(!placed({ holder: null, phase: 'inbound' }, { holder: 3, phase: 'live' }));           // the inbound pass caught
+  assert.ok(!placed({ holder: null, phase: 'freeThrow' }, { holder: 4, phase: 'live' }));         // a missed last free throw rebounded
+  assert.ok(!placed({ holder: null, phase: 'live' }, { holder: 3, phase: 'quarterEnd' }));        // picked up as the period ends
+  assert.ok(!placed({ holder: 2, phase: 'inbound' }, { holder: null, phase: 'inbound' }));        // the inbound pass thrown
+  assert.ok(!placed({ holder: 0, phase: 'freeThrow' }, { holder: null, phase: 'freeThrow' }));    // a free throw let go
   assert.deepEqual(blendFrom(drawn, { holder: 2, phase: 'live' }, { holder: 5, phase: 'live' }), drawn);      // a steal, however far
   assert.deepEqual(blendFrom(drawn, { holder: 1, phase: 'live' }, { holder: 1, phase: 'dead' }), drawn);      // the whistle: he keeps it
   const from = blendFrom(drawn, { holder: null, phase: 'live' }, { holder: 3, phase: 'live' });

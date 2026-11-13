@@ -85,7 +85,7 @@ export function createActors(scene, people = null) {
       if (people) {
         // In its holder's hands, not at his hip where the rules keep it; drawn across over a moment whenever it
         // comes to a player, leaves one, goes from one to another or from one hand to both, so it never jumps. A ball
-        // the rules hand over as the phase changes is put there at once.
+        // the rules put with an inbounder or a free-throw shooter is put there at once.
         const now = people.heldBall(state, ball.position) ?? state.ball, how = carrying(state.ball.holder, people.hands(state));
         const before = seen;
         seen = { holder: state.ball.holder, phase: state.phase };

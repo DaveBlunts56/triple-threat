@@ -325,10 +325,12 @@ export function crossFrom(cross, id, side, share, drawn) {
 }
 
 // Where a blend starts, for a ball drawn at `drawn` on a frame on which it is carried otherwise: a copy of `drawn`, or
-// null, for no blend, when the rules handed it over: its holder changed on the same frame as the phase (an inbound or
-// a free throw being set up). `before` and `after` are the last frame's and this frame's { holder, phase }.
+// null, for no blend, when the rules put it with a player: it came to him and the phase is now `inbound` or
+// `freeThrow` (an inbounder, a free-throw shooter, or the ball handed back for his next attempt). A ball caught as the
+// phase changes (the inbound pass, a missed last free throw) is caught, not put. `before` and `after` are the last
+// frame's and this frame's { holder, phase }.
 export function blendFrom(drawn, before, after) {
-  const placed = before.holder !== after.holder && before.phase !== after.phase;
+  const placed = after.holder !== null && after.holder !== before.holder && (after.phase === 'inbound' || after.phase === 'freeThrow');
   return placed ? null : { x: drawn.x, y: drawn.y, z: drawn.z };
 }
 
