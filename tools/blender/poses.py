@@ -6,7 +6,7 @@ is on top of its parent's, so a raised upper arm carries the forearm with it. A 
 
 Which way a turn goes (he faces -Y, and at rest his arms hang out to the sides with the forearms forward):
     x: plus bends the trunk forward and swings a hanging limb back; minus lifts a thigh or an arm to the front
-    y: plus tips him to his right, lowers his left arm and raises his right
+    y: plus tips him to his left, lowers his left arm and raises his right
     z: plus turns him, or a limb held out in front, to his left
 """
 from math import radians
@@ -82,10 +82,11 @@ HAND_UP = {'Spine1': (3, 0, 0),
            'LeftArm': (16, 8, -22), 'LeftForeArm': (-9, 28, 22), 'LeftHand': (-11, 28, 20)}
 # Both arms straight up, palms to the front.
 ARMS_UP = both({'RightShoulder': (0, 15, 0), 'RightArm': (-141, 40, -51), 'RightForeArm': (24, 5, -13), 'RightHand': (7, 8, -5)})
-# Reaching for a tip: the right arm as high as it goes, the trunk tipped to lift that shoulder, head back; the left arm low.
-TIP = {'Spine1': (0, -3, 0), 'Spine2': (0, -3, 0), 'Neck': (-10, 0, 0), 'Head': (-12, 0, 0),
-       'RightShoulder': (0, 22, 0), 'RightArm': (-150, 39, -57), 'RightForeArm': (26, 3, -21), 'RightHand': (5, 5, -9),
-       'LeftArm': (30, 18, -7), 'LeftForeArm': (-15, 14, 0), 'LeftHand': (-6, 12, 13)}
+# Reaching for a tip: the right arm as high as it goes, the trunk tipped to his left to lift that shoulder, head back;
+# the left arm low.
+TIP = {'Spine1': (0, 3, 0), 'Spine2': (0, 3, 0), 'Neck': (-10, 0, 0), 'Head': (-12, 0, 0),
+       'RightShoulder': (0, 22, 0), 'RightArm': (-138, 32, -51), 'RightForeArm': (26, 3, -21), 'RightHand': (5, 5, -9),
+       'LeftArm': (31, 7, -7), 'LeftForeArm': (-16, 13, -1), 'LeftHand': (-6, 11, 13)}
 
 # ---- The motions. name: kind (as in motion.json), length in seconds, and keys: (share of the length, key pose). ----
 # `pass` and `reach` show what follows the action, which the rules have already taken: neither has a wind-up, and the

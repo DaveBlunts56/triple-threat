@@ -64,7 +64,7 @@ What `assets/motion.json` says about each clip, besides how long it is:
 
 How a pose is written:
 
-- A key pose is `{ bone: (x, y, z) }`. The bone is named without its `mixamorig:` prefix. `(x, y, z)` are degrees turned about the rig's own axes as it stands at rest (X toward his left, Y toward his back, Z up), applied in that order. He faces -Y, so a plus `x` bends the trunk forward, a plus `y` tips him to his right and a plus `z` turns him to his left.
+- A key pose is `{ bone: (x, y, z) }`. The bone is named without its `mixamorig:` prefix. `(x, y, z)` are degrees turned about the rig's own axes as it stands at rest (X toward his left, Y toward his back, Z up), applied in that order. He faces -Y, so a plus `x` bends the trunk forward, a plus `y` tips him to his left (and lowers his left arm, raises his right) and a plus `z` turns him to his left.
 - A bone's turn is on top of its parent's: a raised upper arm carries the forearm with it. A bone the pose leaves out is at rest, and at rest the arms hang out to the sides with the forearms forward, not straight down.
 - `both({...})` takes the turns of his right side and adds the same for his left.
 - A motion is `{ 'kind', 'seconds', 'keys': [(share of the length, key pose), ...] }`. The first key is at 0 and the last at 1; for a loop they are the same pose. Between keys each bone turns the short way round, easing in and out, so every key is a moment of rest.
