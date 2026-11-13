@@ -64,8 +64,10 @@ if (view) {
       step(state, intents, DT);
     }
     // Motion advances by the match time that passed: none while paused. Before and after a match no match time
-    // passes, so it advances by real time and the players stand breathing.
-    actors.sync(state, inPlay(state) ? state.time - before : elapsed);
+    // passes, so it advances by real time and the players stand breathing. The nets swing on the same time.
+    const passed = inPlay(state) ? state.time - before : elapsed;
+    actors.sync(state, passed);
+    view.swayNets(state.ball, passed);
     view.follow(state.ball.x);
     view.render();
     const m = shotMeter(state);
