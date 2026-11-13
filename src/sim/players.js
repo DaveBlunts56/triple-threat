@@ -113,7 +113,7 @@ export function isThree(x, z, sign) {
 // The free ball leaves `player`'s hands: they cannot grab it straight back.
 function letGo(state, player, mode) {
   const { ball } = state;
-  ball.holder = null; ball.mode = mode;
+  ball.holder = null; ball.mode = mode; ball.target = null;
   ball.noPickupId = player.id; ball.noPickupT = PASS.noPickup;
   state.lastTouch = player.team;
   player.shooting = false;
@@ -245,11 +245,12 @@ export function passBall(state, player, intent) {
   ball.vy = (BALL.gravity * t) / 2;   // enough lift to arrive at the height it left
   ball.shooter = null; ball.shotValue = 0;
   letGo(state, player, 'pass');   // control moves to the receiver when they catch it (giveBall), so they keep running onto the pass
+  ball.target = mate.id;
 }
 
 export function giveBall(state, player) {
   const { ball } = state;
-  ball.holder = player.id; ball.mode = 'held';
+  ball.holder = player.id; ball.mode = 'held'; ball.target = null;
   ball.shooter = null; ball.shotValue = 0;
   player.held = false; player.steps = 0;   // a live dribble
   if (state.possession !== player.team) state.shotClock = CLOCK.shot;

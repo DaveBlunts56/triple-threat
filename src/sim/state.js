@@ -66,6 +66,7 @@ export function createMatch(seed = 1) {
       x: 0, y: BALL.radius, z: 0, vx: 0, vy: 0, vz: 0,
       holder: null, mode: 'loose', shooter: null, shotValue: 0,
       noPickupId: null, noPickupT: 0,
+      target: null,   // the id of the team-mate a pass in the air is for
     },
   };
   lineUp(state);

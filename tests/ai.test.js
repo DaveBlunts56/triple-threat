@@ -110,6 +110,56 @@ test('a defender jumps when the player they guard shoots', () => {
   assert.ok(jumped);
 });
 
+test('a computer defender stays down through his man\'s gather and goes up once he has left the floor', () => {
+  const s = live(3);
+  put(s, 3, -6, 0); put(s, 0, -7, 0);
+  let early = false, up = null;
+  for (let i = 0; i < 44; i++) {
+    const all = aiIntents(s, DT).map((intent, id) => (id === 0 ? intent : emptyIntent()));
+    all[3] = { ...emptyIntent(), shoot: true };
+    step(s, all, DT);
+    const d = s.players[0];
+    if (i < 18) early ||= d.y > 0 || d.vy !== 0;
+    else if (up === null && d.vy !== 0) up = i;
+  }
+  assert.equal(early, false, 'he jumped at the gather');
+  assert.ok(up !== null && up - 18 <= AI.contestDelay / DT + 2, `he left the floor at step ${up}`);
+});
+
+// The same, with his next decision falling in the middle of the gather: he lets it pass, and still reacts to the take-off.
+test('a computer defender who decides during the gather keeps his feet, and reacts to the take-off before his next decision', () => {
+  const s = live(3);
+  put(s, 3, -6, 0); put(s, 0, -7, 0);
+  let early = false, up = null;
+  for (let i = 0; i < 44; i++) {
+    const all = aiIntents(s, DT).map((intent, id) => (id === 0 ? intent : emptyIntent()));
+    all[3] = { ...emptyIntent(), shoot: true };
+    step(s, all, DT);
+    if (i === 0) s.players[0].ai.timer = 13 * DT;
+    const d = s.players[0];
+    if (i < 18) early ||= d.y > 0 || d.vy !== 0;
+    else if (up === null && d.vy !== 0) up = i;
+  }
+  assert.equal(early, false, 'he jumped at the gather');
+  assert.ok(up !== null && up - 18 <= AI.contestDelay / DT + 2, `he left the floor at step ${up}`);
+});
+
+test('a computer player eases into his spot: full speed far away, part speed in proportion inside 1.5 m, stopped on arrival', () => {
+  const eased = dx => {
+    const s = live(4);                                     // team 1 has the ball; player 0 guards player 3, off the ball
+    put(s, 3, -5, 2); put(s, 4, -8, -5);
+    aiIntents(s, DT);                                      // he picks his guard spot
+    const p = s.players[0];
+    put(s, 0, p.ai.targetX + dx, p.ai.targetZ);
+    const m = aiIntents(s, DT)[0];
+    return [Math.hypot(m.moveX, m.moveZ), m.moveX];
+  };
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  assert.ok(near(eased(3)[0], 1) && near(eased(1.5)[0], 1) && near(eased(0.75)[0], 0.5) && near(eased(0.45)[0], 0.3), `${eased(0.75)}`);
+  assert.ok(eased(0.75)[1] < 0);                           // toward the spot
+  assert.equal(eased(0.2)[0], 0);                          // inside AI.arrive: he stands
+});
+
 test('the AI inbounder passes within 2 s', () => {
   const s = createMatch();
   startMatch(s);

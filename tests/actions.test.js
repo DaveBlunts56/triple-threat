@@ -7,7 +7,7 @@ import {
 } from '../src/sim/players.js';
 import { stepBall } from '../src/sim/ball.js';
 import { step } from '../src/sim/step.js';
-import { DT, RIM, PLAYER, BALL, SHOT, STEAL } from '../src/sim/tuning.js';
+import { DT, RIM, PLAYER, BALL, BLOCK, SHOT, STEAL } from '../src/sim/tuning.js';
 
 // Team 0 near the +x hoop, team 1 parked far away at the other end. Player 0 has the ball.
 function setup(seed = 1) {
@@ -97,7 +97,7 @@ test('an open close-range shot let go a tenth of a second early goes in as often
   assert.ok(Math.abs(made / tries - chance) < 0.1, `made ${made}/${tries}, chance ${chance}`);
 });
 
-test('an airborne defender in front blocks about half of shots', () => {
+test('an airborne defender in front blocks his share of shots', () => {
   let blocked = 0;
   const tries = 200;
   for (let seed = 1; seed <= tries; seed++) {
@@ -107,7 +107,7 @@ test('an airborne defender in front blocks about half of shots', () => {
     releaseShot(s, p);
     if (s.ball.mode === 'loose') { blocked++; assert.equal(s.lastTouch, 1); assert.equal(s.ball.holder, null); }
   }
-  assert.ok(blocked / tries > 0.35 && blocked / tries < 0.65, `blocked ${blocked}/${tries}`);
+  assert.ok(Math.abs(blocked / tries - BLOCK.chance) < 0.12, `blocked ${blocked}/${tries}`);
 });
 
 test('a defender standing on the floor cannot block', () => {

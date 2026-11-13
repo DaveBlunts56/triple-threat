@@ -1,7 +1,7 @@
 import { AI, BALL, COURT, DT, FT, PASS, PLAYER, SHOT, STEAL, TIP } from './tuning.js';
 import { SHOT_BEST, SHOT_LANDS } from './players.js';
 import { ftChance } from './freethrow.js';
-import { attackSign, emptyIntent, rand } from './state.js';
+import { attackSign, emptyIntent, onFloor, rand } from './state.js';
 import { rimCentre } from './ball.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -14,6 +14,10 @@ const mates = (state, p) => state.players.filter(m => m.team === p.team && m !==
 const space = (state, p) => Math.min(...opponents(state, p).map(o => dist(o, p)));
 
 export const isOpen = (state, player) => space(state, player) > AI.openDist;
+
+const manOf = (state, p) => state.players.find(o => o.team !== p.team && o.slot === p.slot);
+// In the air for a shot: still holding the ball, or having just let it go.
+const shotJump = (state, man) => !onFloor(man) && (man.shooting || (state.ball.mode === 'shot' && state.ball.shooter === man.id));
 
 // No opponent near the straight line from the player to `target` (by default the hoop they attack).
 // `skip` ignores opponents this close to the player: a pass is already past them when it can first be touched.
@@ -124,7 +128,7 @@ function planOffBall(state, p) {
 
 function planDefence(state, p) {
   const { ai } = p;
-  const man = state.players.find(o => o.team !== p.team && o.slot === p.slot);
+  const man = manOf(state, p);
   const hoop = rimCentre(-attackSign(p.team));   // the hoop this player defends
   const hasBall = state.ball.holder === man.id;
   const gap = hasBall ? AI.onBallGap : AI.offBallGap;
@@ -138,7 +142,8 @@ function planDefence(state, p) {
   }
   goTo(ai, guard, dist(p, guard) > AI.farAway);
 
-  if (man.shooting && dist(p, man) < AI.contestDist) ai.action = 'jump';
+  // A gather does not draw him off the floor: he goes up when his man does.
+  if (shotJump(state, man) && dist(p, man) < AI.contestDist) ai.action = 'jump';
   else if (hasBall && !man.inbounder && p.stealCooldown <= 0 && dist(p, man) <= STEAL.reach && rand(state) < AI.stealRate) ai.action = 'steal';
 }
 
@@ -157,7 +162,10 @@ function plan(state, p) {
 function act(state, p) {
   const { ai } = p, intent = emptyIntent();
   const dx = ai.targetX - p.x, dz = ai.targetZ - p.z, d = Math.hypot(dx, dz);
-  if (d > AI.arrive) { intent.moveX = dx / d; intent.moveZ = dz / d; intent.sprint = ai.sprint; }
+  if (d > AI.arrive) {
+    const part = Math.min(1, d / AI.slowDist);   // he eases into his spot instead of stopping dead on it
+    intent.moveX = (dx / d) * part; intent.moveZ = (dz / d) * part; intent.sprint = ai.sprint;
+  }
 
   const hasBall = state.ball.holder === p.id;
   if (ai.action === 'shoot' && hasBall) {
@@ -206,6 +214,10 @@ export function aiIntents(state, dt) {
     const ownPass = state.ball.mode === 'pass' && state.lastTouch === p.team;
     if (ownPass && !p.ai.sawPass) p.ai.timer = 0;
     p.ai.sawPass = ownPass;
+    // His man going up for a shot: he reacts within AI.contestDelay, not at his next decision.
+    const up = shotJump(state, manOf(state, p));
+    if (up && !p.ai.sawJump) p.ai.timer = Math.min(p.ai.timer, rand(state) * AI.contestDelay);
+    p.ai.sawJump = up;
     p.ai.heldT = has ? (p.ai.had ? p.ai.heldT + dt : 0) : 0;
     p.ai.had = has;
     if (p.ai.timer <= 0) {

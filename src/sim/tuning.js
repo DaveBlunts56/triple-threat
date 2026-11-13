@@ -13,7 +13,7 @@ export const BALL = f({ radius: 0.12, gravity: 9.81, floorBounce: 0.75, rimBounc
 export const PLAYER = f({ radius: 0.3, run: 5, sprint: 7, accel: 30, jumpV: 4, shotJumpV: 2.2, releaseHeight: 2.3, reach: 2.4, pickupRadius: 0.7, handHeight: 1, carryDist: 0.4, dribbleRate: 2, jumpCarry: 0.2, dribbleSpeed: 0.85, gatherDist: 1.5 });   // shotJumpV: the smaller jump of a shot; jumpCarry: share of running speed kept when jumping; dribbleSpeed: share of top speed with the ball; gatherDist: metres a player may move after picking up his dribble
 
 export const SHOT = f({
-  nearChance: 0.85, farChance: 0.35, farDist: 8, minChance: 0.05,
+  nearChance: 0.85, farChance: 0.15, farDist: 8, minChance: 0.05,
   gather: 0.3,        // seconds on the floor between pressing shoot and leaving it
   bestAt: 0.8,        // the best moment to let go, as a share of the way up the jump
   worstTiming: 0.6,   // share of the chance kept at the press and at the landing
@@ -35,20 +35,22 @@ export const SHOT = f({
 
 export const PASS = f({ speed: 14, noPickup: 0.3, height: 1.3, clearTime: 0.1, interceptRadius: 0.4 });   // clearTime: no opponent can touch a pass this soon after it is thrown; interceptRadius: how close to a pass a defender must be to pick it off
 export const STEAL = f({ reach: 1.2, frontChance: 0.25, backChance: 0.08, cooldown: 1, frontArc: 120, heldFactor: 0.4 });   // heldFactor: steal chance multiplier against a picked-up ball
-export const BLOCK = f({ reach: 1.2, minHeight: 0.3, chance: 0.5, cone: 45, deflect: 4 });
+export const BLOCK = f({ reach: 1.2, minHeight: 0.3, chance: 0.38, cone: 45, deflect: 4 });
 
 export const CLOCK = f({ quarters: 4, quarter: 180, overtime: 60, shot: 24, shotAfterFoul: 14, dead: 1.5, quarterBreak: 2 });
 
 export const AI = f({
   interval: 0.3, openDist: 1.8, shootRange: 7.5, laneWidth: 1, panicClock: 4,
-  stealRate: 0.03, inboundDelay: 1, swapEvery: 6, onBallGap: 1, offBallGap: 1.5,
+  stealRate: 0.03, inboundDelay: 1, swapEvery: 6, onBallGap: 1.35, offBallGap: 1.8,
   jitter: 0.1,            // random extra seconds between decisions
   arrive: 0.3,            // close enough to a target to stop
+  slowDist: 1.5,          // within this of a target a player asks for part speed, in proportion to the distance left
   layupDist: 2.5,         // this close to the rim, just shoot
   releaseJitter: 0.12,    // seconds either side of the best moment that a shot may be released
   driveX: 11.2, topX: 5.5, safetyX: 4,   // distances from centre court: drive target, top of the key, the player who gets back
   inboundHelp: 4,         // how far into the court a teammate comes to receive an inbound pass
   contestDist: 2,         // jump to contest a shooter this close
+  contestDelay: 0.15,     // the longest a defender takes to react to his man leaving the floor
   reboundDist: 1, reboundHeight: 3.3,    // jump for a falling ball this close and this low
   farAway: 2,             // sprint when further than this from where you need to be
   passRange: 10,          // longest pass the computer will try

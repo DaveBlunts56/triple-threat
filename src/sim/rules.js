@@ -58,6 +58,7 @@ function callFoul(state, foul, shots) {
 // A dead ball drops where it is instead of bouncing off into the distance, and a whistle ends any shot still in the hand.
 function deadBall(state) {
   if (state.ball.holder === null) state.ball.vx = state.ball.vz = 0;
+  state.ball.target = null;
   for (const p of state.players) p.shooting = false;
 }
 
@@ -171,7 +172,7 @@ function checkOut(state, events) {
 function shotTouched(state, events) {
   const { ball } = state;
   if (ball.holder === null && (events.hitFloor || events.hitRim || events.hitBoard)) {
-    ball.mode = 'loose';
+    ball.mode = 'loose'; ball.target = null;
     if (events.hitFloor) { ball.shooter = null; ball.shotValue = 0; }
   }
 }
