@@ -89,7 +89,8 @@ export function createActors(scene, people = null) {
         const now = people.heldBall(state, ball.position) ?? state.ball, how = carrying(state.ball.holder, people.hands(state));
         const before = seen;
         seen = { holder: state.ball.holder, phase: state.phase };
-        if (how !== carried) [last, since] = [carried === undefined ? null : blendFrom(ball.position, before, seen), 0];
+        // On the frame it changes the blend is already dt under way, so the ball never stands still for a frame.
+        if (how !== carried) [last, since] = [carried === undefined ? null : blendFrom(ball.position, before, seen), dt];
         else since += dt;
         carried = how;
         ball.position.copy(ballSpot(last, now, since));

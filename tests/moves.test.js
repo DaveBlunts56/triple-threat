@@ -139,7 +139,7 @@ test('a shooter who lands still holding the ball stops shooting, and one who is 
   assert.equal(arms(t, seen, 0).clip, 'follow');
 });
 
-test('at the line he holds the ball, and a free throw is a set shot', () => {
+test('at the line he waits at the set point, and a free throw is a set shot from there', () => {
   const s = live(), marks = newMarks();
   s.freeThrow = newFreeThrow(0, 2); setupFreeThrow(s);
   noteChanges(marks, s, DT);

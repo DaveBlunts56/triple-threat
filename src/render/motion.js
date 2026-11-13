@@ -33,8 +33,9 @@ export const MOTION = Object.freeze({
   dribbleHold: 0.55, handSwitch: 0.2, freeThrowSet: 0.45,
 });
 
-// The ball as it is drawn in a holder's hands. blend: seconds over which it is drawn across to a new place, when it
-// comes into a hand or leaves one. palm: metres from the wrist bone, toward the fingers, to where the ball sits.
+// The ball as it is drawn in a holder's hands. blend: seconds over which it is drawn across to a new place whenever
+// the way it is carried changes (see carrying): it comes to a player, leaves one, or goes from one hand to both or back.
+// palm: metres from the wrist bone, toward the fingers, to where the ball sits.
 export const BALL_IN_HAND = Object.freeze({ blend: 0.1, palm: 0.1 });
 
 // The shot meter. stay: seconds it is kept after the release. aside: metres it stands from the shooter, on the side
@@ -301,8 +302,18 @@ export function switchSpot(from, to, share, radius) {
   return spot;
 }
 
-// Where the ball is drawn `since` seconds after its holder changed: it was drawn at `last` then (null on the first
-// frame), and belongs at `now`. It is drawn straight across from one to the other over BALL_IN_HAND.blend seconds.
+// Where a dribbled ball is: under the hand whose palm is at `palm` this frame, at the height dribbleHeight gives for
+// the dribble's `phase` (`dribble` its facts, `radius` the ball's). While it crosses from the other hand (`cross` as
+// crossFrom remembers it, `share` of the way), it is on its way from where it set off to that same place, so the last
+// frame of the crossing and the first of the dribble are one place.
+export function dribbleSpot(palm, phase, dribble, radius, cross = null, share = 1) {
+  const spot = { x: palm.x, y: dribbleHeight(phase, dribble, palm.y, radius), z: palm.z };
+  return cross ? switchSpot(cross.from, spot, share, radius) : spot;
+}
+
+// Where the ball is drawn `since` seconds after the way it is carried last changed (see carrying): it was drawn at
+// `last` then (null when it is not drawn across), and belongs at `now`. It is drawn straight across from one to the
+// other over BALL_IN_HAND.blend seconds.
 export function ballSpot(last, now, since) {
   return last && since < BALL_IN_HAND.blend ? between(last, now, since / BALL_IN_HAND.blend) : now;
 }
@@ -361,6 +372,14 @@ export function checkFacts(facts) {
   for (const gait of STRIDES) {
     const { left, right } = clips[gait].strike ?? {};
     if (!(left >= 0 && right >= 0)) throw new Error(`assets/motion.json does not say where each foot lands in "${gait}"`);
+  }
+}
+
+// Throws unless the model of person `name` has both hand bones, `hands` being { left, right } as found in it: the ball
+// is drawn in them.
+export function checkHands(name, hands) {
+  for (const side of ['Left', 'Right']) {
+    if (!hands[side.toLowerCase()]) throw new Error(`assets/players.glb: ${name} has no mixamorig${side}Hand`);
   }
 }
 

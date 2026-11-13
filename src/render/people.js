@@ -4,7 +4,7 @@ import { BALL, ROSTER } from '../sim/tuning.js';
 import { assetUrl } from './assets.js';
 import {
   MOTION, BALL_IN_HAND, legMotion, armMotion, legLook, newMarks, noteChanges, checkGaits, checkMotions, checkFacts, personName,
-  courtPeople, sized, missingPeople, ballHands, dribbleHeight, switchSpot, crossFrom,
+  courtPeople, sized, missingPeople, ballHands, crossFrom, dribbleSpot, checkHands,
 } from './motion.js';
 import { createAnimator } from './animator.js';
 import { KIT, kitOps, paintKit } from './kit.js';
@@ -114,6 +114,7 @@ export async function loadPeople() {
     });
     const scale = hipsOf(model).position.y / hipHeight;   // his size against the player the motions were made on
     const hands = { left: model.getObjectByName('mixamorigLeftHand'), right: model.getObjectByName('mixamorigRightHand') };
+    checkHands(model.name, hands);   // so a broken file falls back to capsules at load, not on the first possession
     // arms: the arm motion he was given on the last frame, or null when his arms followed his legs.
     return { model, hands, animator: createAnimator(model, clips, facts, scale, index), gaits: sized(facts.gaits, scale), last: 'idle', arms: null };
   }
@@ -197,10 +198,7 @@ export async function loadPeople() {
         const left = palmOf(hands.left), right = palmOf(hands.right);
         return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2, z: (left.z + right.z) / 2 };
       }
-      const palm = palmOf(hands[side]);
-      if (cross) return switchSpot(cross.from, palm, crossing, BALL.radius);
-      palm.y = dribbleHeight(animator.phase(arms.clip), facts.clips.dribble, palm.y, BALL.radius);
-      return palm;
+      return dribbleSpot(palmOf(hands[side]), animator.phase(arms.clip), facts.clips.dribble, BALL.radius, cross, crossing);
     },
   };
 }

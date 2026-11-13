@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dribbleHeight, switchSpot, ballSpot, ballHands, BALL_IN_HAND, carrying, blendFrom, crossFrom } from '../src/render/motion.js';
+import { dribbleHeight, switchSpot, ballSpot, ballHands, BALL_IN_HAND, carrying, blendFrom, crossFrom, dribbleSpot, checkHands } from '../src/render/motion.js';
 
 const near = (a, b, by = 1e-9) => Math.abs(a - b) < by;
 
@@ -63,6 +63,7 @@ test('a ball the rules put with an inbounder or a free-throw shooter is drawn th
   assert.ok(!placed({ holder: null, phase: 'live' }, { holder: 3, phase: 'quarterEnd' }));        // picked up as the period ends
   assert.ok(!placed({ holder: 2, phase: 'inbound' }, { holder: null, phase: 'inbound' }));        // the inbound pass thrown
   assert.ok(!placed({ holder: 0, phase: 'freeThrow' }, { holder: null, phase: 'freeThrow' }));    // a free throw let go
+  assert.ok(!placed({ holder: 2, phase: 'inbound' }, { holder: 2, phase: 'inbound' }));           // he already had it: nothing came to him
   assert.deepEqual(blendFrom(drawn, { holder: 2, phase: 'live' }, { holder: 5, phase: 'live' }), drawn);      // a steal, however far
   assert.deepEqual(blendFrom(drawn, { holder: 1, phase: 'live' }, { holder: 1, phase: 'dead' }), drawn);      // the whistle: he keeps it
   const from = blendFrom(drawn, { holder: null, phase: 'live' }, { holder: 3, phase: 'live' });
@@ -81,4 +82,24 @@ test('a change of dribbling hand crosses from where the ball was drawn, not from
   assert.deepEqual(crossFrom(cross, 2, 'right', 0.3, other).from, other);  // the other hand: another crossing
   assert.deepEqual(crossFrom(cross, 3, 'left', 0.3, other).from, other);   // another player
   assert.deepEqual(crossFrom(cross, 2, 'left', 0.1, other).from, other);   // a new crossing to the same hand
+});
+
+// ---- review of Task 10 ----
+
+test('a crossing ends where the dribble goes on, wherever the new hand is in its bounce', () => {
+  const d = { push: 0.25, bounces: 3 }, palm = { x: 0.3, y: 0.9, z: 0.2 }, cross = { from: { x: -0.3, y: 0.4, z: 0.1 } };
+  const same = (a, b) => near(a.x, b.x) && near(a.y, b.y) && near(a.z, b.z);
+  for (const phase of [0, 0.1, 0.27, 0.33, 0.4, 0.5, 0.62, 0.71, 0.9, 0.99]) {
+    const dribbled = dribbleSpot(palm, phase, d, 0.12);
+    assert.deepEqual(dribbled, { x: 0.3, y: dribbleHeight(phase, d, 0.9, 0.12), z: 0.2 });   // no crossing: the dribble
+    assert.ok(same(dribbleSpot(palm, phase, d, 0.12, cross, 0), cross.from));               // it sets off where it was
+    assert.ok(same(dribbleSpot(palm, phase, d, 0.12, cross, 1), dribbled), `phase ${phase}`); // and ends in the dribble
+    assert.ok(near(dribbleSpot(palm, phase, d, 0.12, cross, 0.5).y, 0.12));                  // with one bounce midway
+  }
+});
+
+test('a player whose model lacks a hand bone cannot be drawn: the game falls back to capsules', () => {
+  assert.doesNotThrow(() => checkHands('player-0-4', { left: {}, right: {} }));
+  assert.throws(() => checkHands('player-0-4', { left: {}, right: undefined }), /player-0-4 has no mixamorigRightHand/);
+  assert.throws(() => checkHands('player-1-7', { left: undefined, right: {} }), /player-1-7 has no mixamorigLeftHand/);
 });
