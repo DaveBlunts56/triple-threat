@@ -1,5 +1,7 @@
-// Which motion a player shows, worked out from the match alone. No Three.js here, so it can be tested without a browser.
-import { BALL, PLAYER, ROSTER } from '../sim/tuning.js';
+// Which motion a player shows, and what the shot meter shows, worked out from the match alone. No Three.js here, so it can be tested without a browser.
+import { BALL, DT, PLAYER, ROSTER } from '../sim/tuning.js';
+import { attackSign } from '../sim/state.js';
+import { shotWindow } from '../sim/players.js';
 
 // Seconds from leaving the floor to landing.
 export const AIR_TIME = (2 * PLAYER.jumpV) / BALL.gravity;
@@ -7,6 +9,10 @@ export const AIR_TIME = (2 * PLAYER.jumpV) / BALL.gravity;
 // Speeds in metres per second. stick: how far past an edge he must go before the gait changes.
 // minRate, maxRate: limits on how slow or fast a clip is played. fade: seconds to blend from one motion to the next.
 export const MOTION = Object.freeze({ idleBelow: 0.3, walkBelow: 2.2, runBelow: 5.6, stick: 0.2, minRate: 0.6, maxRate: 1.5, fade: 0.15 });
+
+// The shot meter. stay: seconds it is kept after the release. aside: metres it stands from the shooter, on the side
+// away from the hoop he attacks. low, high: the heights of its two ends, about knee and shoulder; it does not rise with his jump.
+export const SHOT_METER = Object.freeze({ stay: 1.2, aside: 0.6, low: 0.55, high: 1.45 });
 
 const GAITS = ['idle', 'walk', 'run', 'sprint'];
 const EDGES = [MOTION.idleBelow, MOTION.walkBelow, MOTION.runBelow];   // EDGES[i] lies between GAITS[i] and GAITS[i + 1]
@@ -65,4 +71,32 @@ export function sized(gaits, scale) {
 // Every person on a roster who has no model among `names`.
 export function missingPeople(names) {
   return ROSTER.numbers.flatMap((numbers, team) => numbers.map(number => personName(team, number))).filter(name => !names.includes(name));
+}
+
+// The meter of a shot `t` seconds after its press, beside `player`. `window` is what shotWindow gave, or the record of
+// the release, which carries the same fields. The fill is inside the band exactly when a release at `t` is green.
+function meterOf(player, t, window, frozen) {
+  const { best, half } = window;
+  return {
+    player: player.id,
+    x: player.x - attackSign(player.team) * SHOT_METER.aside, z: player.z,
+    fill: Math.min(1, Math.max(0, 1 - Math.abs(t - best) / best)),   // empty at the press, full at the best moment, then draining
+    band: window.inRange ? { from: Math.max(0, 1 - (half + DT / 2) / best), to: 1 } : null,
+    level: window.level,
+    frozen,
+  };
+}
+
+// The shot meter to draw, or null for none. Only team 0 gets one: live while one of them is in his shooting motion,
+// then frozen as the rules judged the release, for SHOT_METER.stay seconds of match time.
+export function shotMeter(state) {
+  if (state.phase === 'start' || state.phase === 'final') return null;
+  const shooter = state.players.find(p => p.team === 0 && p.shooting);
+  if (shooter) return meterOf(shooter, shooter.shotT, shotWindow(state, shooter), null);
+
+  // The record outlives the shot, until the next press: only a fresh release by team 0 is shown.
+  const { shot } = state;
+  if (!shot || state.players[shot.shooter].team !== 0 || state.time - shot.at > SHOT_METER.stay) return null;
+  const verdict = shot.green ? 'green' : shot.t < shot.best ? 'early' : 'late';
+  return meterOf(state.players[shot.shooter], shot.t, shot, { verdict, blocked: shot.blocked });
 }

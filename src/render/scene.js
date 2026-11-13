@@ -128,6 +128,7 @@ export async function createScene(canvas) {
   };
   window.addEventListener('resize', resize);
   resize(); aim();
+  const point = new THREE.Vector3();
 
   return {
     scene, camera, backend, setQuality,
@@ -136,6 +137,11 @@ export async function createScene(canvas) {
     follow(x) {
       followX += (Math.min(Math.max(x, -CAMERA.maxX), CAMERA.maxX) - followX) * CAMERA.ease;
       aim();
+    },
+    // Where the point (x, y, z) of the court is on the page as last drawn, in CSS pixels from the top left.
+    toScreen(x, y, z) {
+      point.set(x, y, z).project(camera);
+      return { x: (point.x + 1) / 2 * window.innerWidth, y: (1 - point.y) / 2 * window.innerHeight };
     },
   };
 }

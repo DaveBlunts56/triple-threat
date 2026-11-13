@@ -149,3 +149,35 @@ test('the frame-rate readout follows the time frames really take, not the averag
   for (let i = 0; i < 400; i++) ms = easeFrame(ms, i % 2 ? 66 : 16);
   assert.ok(Math.abs(1000 / ms - 1000 / 41) < 1.5, `${1000 / ms} frames a second`);   // 16 ms and 66 ms in turn is 24 frames a second, not 37
 });
+
+test('the shot meter is drawn beside the shooter: how full, the band, the level, and after the release a tick or a word', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els;
+  const show = meter => hud.update(s, 'webgl2', { paused: false, pick: null, meter });
+  const live = { fill: 0.5, band: { from: 0.8, to: 1 }, level: 'Guarded', frozen: null, foot: { x: 400, y: 380.4 }, head: { x: 402.2, y: 290 } };
+  show(live);
+  assert.deepEqual([e.shotMeter.hidden, e.shotMeter.style.left, e.shotMeter.style.top, e.shotBar.style.height], [false, '402px', '290px', '90px']);
+  assert.deepEqual([e.shotFill.style.height, e.shotBand.hidden, e.shotBand.style.height, e.shotLabel.textContent, e.shotMark.hidden, e.shotMeter.className],
+    ['50%', false, '20%', 'Guarded', true, '']);
+  show({ ...live, fill: 0.97, frozen: { verdict: 'green', blocked: false } });
+  assert.deepEqual([e.shotFill.style.height, e.shotMark.hidden, e.shotMark.textContent, e.shotMeter.className], ['97%', false, '\u2713', 'green']);
+  show({ ...live, frozen: { verdict: 'early', blocked: false } });
+  assert.deepEqual([e.shotMark.textContent, e.shotMeter.className], ['Early', '']);
+  show({ ...live, frozen: { verdict: 'late', blocked: false } });
+  assert.equal(e.shotMark.textContent, 'Late');
+  show({ ...live, fill: 0.97, frozen: { verdict: 'green', blocked: true } });
+  assert.deepEqual([e.shotMark.textContent, e.shotMeter.className], ['Blocked', '']);            // a block is never shown as a make
+  show({ ...live, band: null, level: 'Open' });
+  assert.deepEqual([e.shotBand.hidden, e.shotLabel.textContent, e.shotMark.hidden], [true, 'Open', true]);
+  show({ ...live, foot: { x: 400, y: 300 } });
+  assert.equal(e.shotBar.style.height, '40px');                                                  // far from the camera it is still readable
+  show(null);
+  assert.equal(e.shotMeter.hidden, true);
+  hud.update(s, 'webgl2');
+  assert.equal(e.shotMeter.hidden, true);
+});
+
+test('the page has the shot meter, and it is not announced', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  for (const id of ['shotMeter', 'shotBar', 'shotBand', 'shotFill', 'shotMark', 'shotLabel']) assert.match(html, new RegExp(`id="${id}"`), id);
+  assert.match(html, /<div id="shotMeter"[^>]*aria-hidden="true"/);
+});

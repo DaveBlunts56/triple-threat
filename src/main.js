@@ -5,6 +5,7 @@ import { aiIntents } from './sim/ai.js';
 import { DT } from './sim/tuning.js';
 import { createScene } from './render/scene.js';
 import { createActors } from './render/actors.js';
+import { shotMeter, SHOT_METER } from './render/motion.js';
 import { loadPeople } from './render/people.js';
 import { createHud, easeFrame } from './render/hud.js';
 import { createQuality, autoQuality, toggleQuality } from './render/quality.js';
@@ -23,7 +24,8 @@ if (view) {
   const keyboard = createKeyboard(window);
   const quality = createQuality();
   // pick: the roster row chosen first on the pause screen. quality: the level the game is drawn at, 'high' or 'low'.
-  const game = { state: newMatch(), paused: false, pick: null, fps: 60, quality: quality.level };
+  // meter: the shot meter and where its two ends are on the page, or null.
+  const game = { state: newMatch(), paused: false, pick: null, fps: 60, quality: quality.level, meter: null };
   globalThis.game = game;   // handle for poking at the match from the browser console
 
   const pause = on => setPaused(game, keyboard, on);
@@ -66,6 +68,8 @@ if (view) {
     actors.sync(state, inPlay(state) ? state.time - before : elapsed);
     view.follow(state.ball.x);
     view.render();
+    const m = shotMeter(state);
+    game.meter = m && { ...m, foot: view.toScreen(m.x, SHOT_METER.low, m.z), head: view.toScreen(m.x, SHOT_METER.high, m.z) };
     hud.update(state, view.backend, game);
     hud.show(state.phase === 'start' ? 'start' : state.phase === 'final' ? 'final' : game.paused ? 'pause' : null);
     requestAnimationFrame(frame);
