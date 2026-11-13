@@ -4,20 +4,23 @@ import { BALL, DT, RIM } from '../sim/tuning.js';
 
 // strings: strings round the rim. knots: knots below the rim on each string. length: metres from the rim to the bottom
 // row at rest. bottom: the bottom row's radius at rest, less than the ball's, so every make opens it. stretch: the most a
-// string's segment (from one knot to the next one down) may be of its rest length. give: the most a tie (between
-// neighbouring strings in one row) may be of its rest length: the ties are elastic, which is what lets the ball open a
-// net narrower than itself. skin: metres added to the ball's radius where it pushes knots. jump: metres: a ball that
+// string's segment (from one knot to the next one down) may be of its rest length: the strings stretch as a real net's
+// mesh does, so the ball can drag the net down, and spring back. give: the most a tie (between neighbouring strings in
+// one row) may be of its rest length: the ties are elastic, which is what lets the ball open a net narrower than itself. skin: metres added to the ball's radius where it pushes knots. jump: metres: a ball that
 // moved farther than this in one call was placed, not thrown.
 // drag: how quickly a knot loses its speed, per second (it keeps e^-drag of it after a second). pull: how hard a tie
 // pulls back for each metre it is stretched past its rest length, per unit mass of a knot (1/s²); it pushes back as
-// hard if it is squeezed. passes: rounds of the ties, the ball and the strings in each sub-step. jolt: m/s: a change in
-// the ball's velocity, beyond what gravity explains, larger than this while it touches the rim is a rim hit. shake: the
-// share of that change the free knots are given as velocity. kick: m/s: the most a rim hit gives them. side: the share
-// of the sideways part of that the knots keep: pushed up, the net only lifts against its strings and drops back, but
-// pushed sideways the whole of it swings like a pendulum, and a miss must not look like a make.
+// hard if it is squeezed. spring: the same for a string segment, firmer, so that it springs back quickly and throws the
+// bottom of the net up past where it hangs; a string pushes nothing, and goes slack. grip: the share of the ball's
+// downward speed a knot it touches takes, so a make drags the net down with it. passes: rounds of the ties, the ball and
+// the strings in each sub-step. jolt: m/s: a change in the ball's velocity, beyond what gravity explains, larger than
+// this while it touches the rim is a rim hit. shake: the share of that change the free knots are given as velocity.
+// kick: m/s: the most a rim hit gives them, enough that a miss shivers the net (about 1.5 cm) where a make drags it 10 to
+// 23 cm. side: the share of the sideways part of that the knots keep: pushed up, the net only lifts against its strings
+// and drops back, but pushed sideways the whole of it swings like a pendulum, and a miss must not look like a make.
 export const NET = Object.freeze({
-  strings: 12, knots: 5, length: 0.40, bottom: 0.09, stretch: 1.1, give: 3.5, skin: 0.01, jump: 2,
-  drag: 4, pull: 8000, passes: 20, jolt: 1, shake: 0.1, kick: 0.6, side: 0.2,
+  strings: 12, knots: 5, length: 0.40, bottom: 0.09, stretch: 1.5, give: 2.5, skin: 0.01, jump: 2,
+  drag: 4, pull: 2500, spring: 3000, grip: 0.65, passes: 12, jolt: 1, shake: 0.1, kick: 0.25, side: 0.4,
 });
 
 const N = NET.strings, K = NET.knots, COUNT = (K + 1) * N, FREE = 3 * N, END = 3 * COUNT;
@@ -32,20 +35,24 @@ const TIE_MOST = TIE.map(l => l * NET.give * (1 - HAIR));
 // The strings slope inward, so gravity swings every knot outward and the ties must hold each row in. At rest every tie
 // pulls this hard (per unit mass), on top of its elastic pull, so the net hangs still in the shape it was made in.
 const HOLD = BALL.gravity * (RIM.radius - NET.bottom) / NET.length / (2 * Math.sin(Math.PI / N));
+// Each string segment carries the knots below it, so at rest it pulls this hard (per unit mass), on top of its elastic
+// pull. Shorter than SLACK[row] it has let go of all of that and is slack.
+const TENSION = Array.from({ length: K + 1 }, (_, row) => (K - row + 1) * BALL.gravity * SEG / (NET.length / K));
+const SLACK = TENSION.map(t => SEG - t / NET.spring);
 const COS = Array.from({ length: N }, (_, s) => Math.cos(2 * Math.PI * s / N));
 const SIN = Array.from({ length: N }, (_, s) => Math.sin(2 * Math.PI * s / N));
 
 // The net of the hoop at x = sign * RIM.x. `points` and `rest` hold three world coordinates per knot, row by row from
 // the rim down: knot `row * NET.strings + string`. Row 0 is on the rim and never moves. The work is done in 64-bit
 // `at` (where the knots are) and `last` (where they were a sub-step ago); `h` is that sub-step's length, and `pulled`
-// is room for each tie's elastic pull through the passes of one sub-step.
+// and `strung` are room for each tie's and each string segment's elastic pull through the passes of one sub-step.
 export function createNet(sign) {
   const rest = new Float32Array(END);
   for (let row = 0; row <= K; row++) for (let s = 0; s < N; s++) {
     const i = 3 * (row * N + s);
     rest[i] = sign * RIM.x + radius(row) * COS[s]; rest[i + 1] = RIM.height - NET.length * row / K; rest[i + 2] = radius(row) * SIN[s];
   }
-  return { x: sign * RIM.x, points: Float32Array.from(rest), rest, at: Float64Array.from(rest), last: Float64Array.from(rest), h: DT, pulled: new Float64Array(K * N) };
+  return { x: sign * RIM.x, points: Float32Array.from(rest), rest, at: Float64Array.from(rest), last: Float64Array.from(rest), h: DT, pulled: new Float64Array(K * N), strung: new Float64Array(K * N) };
 }
 
 // Advances the net by `dt` seconds while the ball goes from `from` to `to` (`from` null: the ball stays at `to`), in
@@ -64,13 +71,14 @@ export function stepNet(net, from, to, dt) {
       kx = NET.side * f * dx; ky = f * dy; kz = NET.side * f * dz;
     }
   }
-  const keep = Math.exp(-NET.drag * h), soft = 1 / (NET.pull * h * h);
+  const keep = Math.exp(-NET.drag * h), soft = 1 / (NET.pull * h * h), springy = 1 / (NET.spring * h * h);
   for (let k = 1; k <= n; k++) {
     move(net, keep * h / net.h, h, kx * h, ky * h, kz * h);
     net.h = h; kx = ky = kz = 0;
     const t = k / n, bx = b.x + (to.x - b.x) * t, by = b.y + (to.y - b.y) * t, bz = b.z + (to.z - b.z) * t;
-    net.pulled.fill(0);
-    for (let pass = 0; pass < NET.passes; pass++) { ties(net, soft); push(net, bx, by, bz); cap(net); strings(net); }
+    const drop = placed ? 0 : NET.grip * Math.min(0, (to.y - b.y) / n);   // the gripped share of the ball's fall in this sub-step
+    net.pulled.fill(0); net.strung.fill(0);
+    for (let pass = 0; pass < NET.passes; pass++) { ties(net, soft); push(net, bx, by, bz, drop); strings(net, springy); }
     follow(net);
     limit(net);
   }
@@ -84,8 +92,9 @@ function onRim(cx, ball, dt) {
 }
 
 // Verlet: each free knot goes on as it was going, less drag (`scale` also turns the last sub-step's move into one of
-// this sub-step's length), falls, and takes the kick `dx, dy, dz`. Then each tie draws its two knots together by its
-// steady pull at rest.
+// this sub-step's length), falls, and takes the kick `dx, dy, dz`. Then each tie and each string segment that is not
+// slack draws its two knots together by its steady pull at rest: these and gravity cancel in the made shape, so the net
+// hangs still in it.
 function move(net, scale, h, dx, dy, dz) {
   const { at, last } = net, fall = BALL.gravity * h * h, draw = HOLD * h * h;
   for (let i = FREE; i < END; i += 3) {
@@ -100,6 +109,14 @@ function move(net, scale, h, dx, dy, dz) {
     const f = draw / d;
     at[i] += ex * f; at[i + 1] += ey * f; at[i + 2] += ez * f;
     at[j] -= ex * f; at[j + 1] -= ey * f; at[j + 2] -= ez * f;
+  }
+  for (let row = 1; row <= K; row++) for (let s = 0; s < N; s++) {
+    const i = 3 * ((row - 1) * N + s), j = 3 * (row * N + s);
+    const ex = last[j] - last[i], ey = last[j + 1] - last[i + 1], ez = last[j + 2] - last[i + 2], d = Math.sqrt(ex * ex + ey * ey + ez * ez);
+    if (d <= SLACK[row]) continue;
+    const f = TENSION[row] * h * h / d;
+    at[j] -= ex * f; at[j + 1] -= ey * f; at[j + 2] -= ez * f;
+    if (row > 1) { at[i] += ex * f; at[i + 1] += ey * f; at[i + 2] += ez * f; }
   }
 }
 
@@ -120,10 +137,10 @@ function ties(net, soft) {
   }
 }
 
-// A free knot inside the ball (its radius plus the skin) goes out to its surface, and its last place goes with it: the
-// ball carries it but does not fling it, so when the ball has gone the knot has no speed of its own and the ties and
-// gravity bring it back. (Left with the push as speed, the knots flew on past the ball and the ties ran to their limit.)
-function push(net, bx, by, bz) {
+// A free knot inside the ball (its radius plus the skin) goes out to its surface, and its last place goes with it, so it
+// keeps none of the push as speed (left with it, the knots flew on past the ball and the ties ran to their limit). It
+// keeps only the ball's grip: `drop`, the gripped share of the ball's fall in this sub-step, is its speed downward.
+function push(net, bx, by, bz, drop) {
   const { at, last } = net;
   for (let i = FREE; i < END; i += 3) {
     const dx = at[i] - bx, dy = at[i + 1] - by, dz = at[i + 2] - bz, d2 = dx * dx + dy * dy + dz * dz;
@@ -131,55 +148,46 @@ function push(net, bx, by, bz) {
     const d = Math.sqrt(d2), s = (i / 3) % N;
     if (d > 1e-9) { at[i] = bx + dx * REACH / d; at[i + 1] = by + dy * REACH / d; at[i + 2] = bz + dz * REACH / d; }
     else { at[i] = bx + COS[s] * REACH; at[i + 1] = by; at[i + 2] = bz + SIN[s] * REACH; }   // at its very centre: out the way its string hangs
-    last[i] = at[i]; last[i + 1] = at[i + 1]; last[i + 2] = at[i + 2];
+    last[i] = at[i]; last[i + 1] = at[i + 1] - drop; last[i + 2] = at[i + 2];
   }
 }
 
-// After the ball, a tie it took past its limit is drawn back to it, both knots moving alike.
-function cap(net) {
-  const { at } = net;
+// Each string segment, from the rim down, pulls its two knots back toward its rest length like a firm spring, as a tie
+// does (`springy` being 1 / (spring * h²) and `strung` its pull so far in this sub-step; the knot on the rim does not
+// move), unless it is slack. It never ends a pass past `stretch` times its rest length.
+function strings(net, springy) {
+  const { at, strung } = net;
   for (let row = 1; row <= K; row++) for (let s = 0; s < N; s++) {
-    const i = 3 * (row * N + s), j = 3 * (row * N + (s + 1) % N);
-    const dx = at[i] - at[j], dy = at[i + 1] - at[j + 1], dz = at[i + 2] - at[j + 2], d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    if (d <= TIE_MOST[row]) continue;
-    const f = (TIE_MOST[row] - d) / 2 / d;
-    at[i] += dx * f; at[i + 1] += dy * f; at[i + 2] += dz * f;
-    at[j] -= dx * f; at[j + 1] -= dy * f; at[j + 2] -= dz * f;
-  }
-}
-
-// Each string segment, from the rim down, is pulled back to its rest length if it is longer, both of its knots moving
-// alike (the one on the rim does not move). A string can go slack, but does not stretch.
-function strings(net) {
-  const { at } = net;
-  for (let row = 1; row <= K; row++) for (let s = 0; s < N; s++) {
-    const i = 3 * ((row - 1) * N + s), j = 3 * (row * N + s);
+    const i = 3 * ((row - 1) * N + s), j = 3 * (row * N + s), t = (row - 1) * N + s, moving = row === 1 ? 1 : 2;
     const dx = at[j] - at[i], dy = at[j + 1] - at[i + 1], dz = at[j + 2] - at[i + 2], d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    if (d <= SEG) continue;
-    const f = (d - SEG) / d, up = row === 1 ? 0 : f / 2, down = f - up;
-    at[i] += dx * up; at[i + 1] += dy * up; at[i + 2] += dz * up;
-    at[j] -= dx * down; at[j + 1] -= dy * down; at[j + 2] -= dz * down;
+    if (d <= SLACK[row]) continue;
+    let step = (SEG - d - springy * strung[t]) / (moving + springy);
+    if (d + moving * step > SEG_MOST) step = (SEG_MOST - d) / moving;
+    strung[t] += step;
+    const f = step / d;
+    at[j] += dx * f; at[j + 1] += dy * f; at[j + 2] += dz * f;
+    if (row > 1) { at[i] -= dx * f; at[i + 1] -= dy * f; at[i + 2] -= dz * f; }
   }
 }
 
-// Last, the strings have their way: from the rim down, a knot still too far from the one above it is drawn up to it.
-// This takes out what the passes left over, so the strings neither creep nor let the net sag.
+// Last, the strings have their way: from the rim down, a knot still farther from the one above it than its string may
+// stretch is drawn up to it, whatever the ball and the ties did.
 function follow(net) {
   const { at } = net;
   for (let row = 1; row <= K; row++) for (let s = 0; s < N; s++) {
     const i = 3 * ((row - 1) * N + s), j = 3 * (row * N + s);
     const dx = at[j] - at[i], dy = at[j + 1] - at[i + 1], dz = at[j + 2] - at[i + 2], d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    if (d <= SEG) continue;
-    const f = (d - SEG) / d;
+    if (d <= SEG_MOST) continue;
+    const f = (d - SEG_MOST) / d;
     at[j] -= dx * f; at[j + 1] -= dy * f; at[j + 2] -= dz * f;
   }
 }
 
-// In about one make in thirty, on one of its sub-steps, a tie is still past its limit after all that (the last pass on
-// the strings, drawing knots up, stretches it again), as it can be when a ball is driven across the net. Then the whole
-// net goes back toward its rest shape by the least share that brings every segment and tie within its limit (over a
-// batch of simulated makes, a median of 1% of the way, at most 8%): a length between one within a limit and one at rest
-// is within it too. Its speed shrinks by the same share.
+// Rarely (a ball driven across the net; never in a simulated batch of makes) a tie is still past its limit after all
+// that, the last pass on the strings having stretched it again. Then the whole net goes back toward its rest shape by the
+// least share that brings every segment and tie within its limit: a length between one within a limit and one at rest is
+// within it too. Its speed shrinks by the same share. A string the last pass left exactly at its limit can come out a
+// rounding error over it, which is not counted.
 function limit(net) {
   const { at, last, rest } = net;
   let share = 0;
@@ -187,7 +195,7 @@ function limit(net) {
     const i = 3 * ((tie ? row : row - 1) * N + s), j = 3 * (row * N + (tie ? (s + 1) % N : s)), most = tie ? TIE_MOST[row] : SEG_MOST;
     let dx = at[i] - at[j], dy = at[i + 1] - at[j + 1], dz = at[i + 2] - at[j + 2];
     const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    if (d <= most) continue;
+    if (d <= most * (1 + 1e-9)) continue;
     dx = rest[i] - rest[j]; dy = rest[i + 1] - rest[j + 1]; dz = rest[i + 2] - rest[j + 2];
     share = Math.max(share, (d - most) / (d - Math.sqrt(dx * dx + dy * dy + dz * dz)));
   }

@@ -60,7 +60,7 @@ test('left alone the net hangs where it was made and is still', () => {
   assert.ok(moved < 0.001, `still moving ${moved} m`);
 });
 
-test('a ball falling through pushes the net out, never stretches a string more than a tenth or a tie to more than three and a half times, and the net settles within two seconds', () => {
+test('a ball falling through pushes the net out, never stretches a string to more than one and a half times or a tie to more than two and a half times, and the net settles within two seconds', () => {
   for (const sign of [1, -1]) {
     const net = createNet(sign), { most, held } = swish(net, sign);
     assert.ok(most >= 0.03, `pushed ${most} m`);
@@ -152,8 +152,38 @@ test('a make that comes in at an angle carries the net with it but does not flin
   assert.ok(most < 0.15, `after the ball had gone a knot swung ${most} m from rest`);
 });
 
+// A made shot as it falls in the game: once it is in, the ball keeps no sideways speed and drops straight down through the
+// middle of the hoop at +x. Returns how far the bottom row was dragged below where it rests while the ball passed, how far
+// it then rose above it, whether every string and tie kept within its limit, and how far the net was from rest two
+// seconds after the ball had gone (below every knot's reach).
+function make(speed) {
+  const net = createNet(1), bottom = side => Math.max(...Array.from({ length: NET.strings }, (_, s) => side * (p(net, NET.knots, s)[1] - r(net, NET.knots, s)[1])));
+  let last = ball(RIM.x, RIM.height + 0.3, 0, 0, -speed, 0), down = 0, up = 0, held = true;
+  while (last.y > RIM.height - 0.8) {
+    const now = ball(RIM.x, last.y - speed * DT, 0, 0, -speed, 0);
+    stepNet(net, last, now, DT); last = now; down = Math.max(down, bottom(-1)); held &&= firm(net);
+  }
+  for (let i = 0; i < 120; i++) { stepNet(net, far, far, DT); up = Math.max(up, bottom(1)); held &&= firm(net); }
+  return { down, up, held, left: off(net) };
+}
+
+test('a make drags the bottom of the net down, and when the ball is through it springs back up past where it hangs', () => {
+  const { down, up, held, left } = make(6);
+  assert.ok(down >= 0.1, `dragged down ${down} m`);
+  assert.ok(up >= 0.05, `sprang up ${up} m`);
+  assert.ok(held, 'a string or a tie stretched past its limit');
+  assert.ok(left < 0.01, `${left} m from rest two seconds after the ball had gone`);
+});
+
+test('a slow make still drags the net down', () => {
+  const { down, held, left } = make(3);
+  assert.ok(down >= 0.05, `dragged down ${down} m`);
+  assert.ok(held, 'a string or a tie stretched past its limit');
+  assert.ok(left < 0.01, `${left} m from rest two seconds after the ball had gone`);
+});
+
 test('a frame a hair longer than the sim\'s step is one step', () => {
   const a = createNet(1), b = createNet(1), from = ball(RIM.x, RIM.height - 0.25, 0, 0, -5, 0), to = ball(RIM.x, RIM.height - 0.25 - 5 * DT, 0, 0, -5, 0);
   stepNet(a, from, to, DT); stepNet(b, from, to, DT * (1 + 1e-12));
-  assert.deepEqual(b.points, a.points);
+  assert.ok(b.points.every((v, i) => Math.abs(v - a.points[i]) < 1e-9));                      // the same, but for rounding (two steps differ by millimetres)
 });
