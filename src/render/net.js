@@ -17,7 +17,7 @@ import { BALL, DT, RIM } from '../sim/tuning.js';
 // pushed sideways the whole of it swings like a pendulum, and a miss must not look like a make.
 export const NET = Object.freeze({
   strings: 12, knots: 5, length: 0.40, bottom: 0.09, stretch: 1.1, give: 3.5, skin: 0.01, jump: 2,
-  drag: 3, pull: 2500, passes: 12, jolt: 1, shake: 0.1, kick: 0.6, side: 0.2,
+  drag: 4, pull: 8000, passes: 20, jolt: 1, shake: 0.1, kick: 0.6, side: 0.2,
 });
 
 const N = NET.strings, K = NET.knots, COUNT = (K + 1) * N, FREE = 3 * N, END = 3 * COUNT;
@@ -120,15 +120,18 @@ function ties(net, soft) {
   }
 }
 
-// A free knot inside the ball (its radius plus the skin) goes out to its surface.
+// A free knot inside the ball (its radius plus the skin) goes out to its surface, and its last place goes with it: the
+// ball carries it but does not fling it, so when the ball has gone the knot has no speed of its own and the ties and
+// gravity bring it back. (Left with the push as speed, the knots flew on past the ball and the ties ran to their limit.)
 function push(net, bx, by, bz) {
-  const { at } = net;
+  const { at, last } = net;
   for (let i = FREE; i < END; i += 3) {
     const dx = at[i] - bx, dy = at[i + 1] - by, dz = at[i + 2] - bz, d2 = dx * dx + dy * dy + dz * dz;
     if (d2 >= REACH * REACH) continue;
     const d = Math.sqrt(d2), s = (i / 3) % N;
     if (d > 1e-9) { at[i] = bx + dx * REACH / d; at[i + 1] = by + dy * REACH / d; at[i + 2] = bz + dz * REACH / d; }
     else { at[i] = bx + COS[s] * REACH; at[i + 1] = by; at[i + 2] = bz + SIN[s] * REACH; }   // at its very centre: out the way its string hangs
+    last[i] = at[i]; last[i + 1] = at[i + 1]; last[i + 2] = at[i + 2];
   }
 }
 
@@ -172,11 +175,11 @@ function follow(net) {
   }
 }
 
-// In about a third of makes, on one to three of their sub-steps, a tie is still past its limit after all that (the last
-// pass on the strings, drawing knots up, stretches it again), as it is when a ball is driven across the net. Then the
-// whole net goes back toward its rest shape by the least share that brings every segment and tie within its limit (over
-// a batch of simulated makes, a median of 4% of the way, at most 9%): a length between one within a limit and one at
-// rest is within it too. Its speed shrinks by the same share.
+// In about one make in thirty, on one of its sub-steps, a tie is still past its limit after all that (the last pass on
+// the strings, drawing knots up, stretches it again), as it can be when a ball is driven across the net. Then the whole
+// net goes back toward its rest shape by the least share that brings every segment and tie within its limit (over a
+// batch of simulated makes, a median of 1% of the way, at most 8%): a length between one within a limit and one at rest
+// is within it too. Its speed shrinks by the same share.
 function limit(net) {
   const { at, last, rest } = net;
   let share = 0;

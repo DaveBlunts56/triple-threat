@@ -143,6 +143,15 @@ test('a ball that clangs off the front of the rim and goes back out only shivers
   assert.ok(most < 0.03, `swung ${most} m`);
 });
 
+test('a make that comes in at an angle carries the net with it but does not fling it', () => {
+  const net = createNet(1), vx = 2.5, vy = -5;                                                    // through the middle of the rim, going away from the shooter
+  let last = ball(RIM.x - vx * 0.3 / -vy, RIM.height + 0.3, 0, vx, vy, 0);
+  while (last.y > RIM.height - 1) { const now = ball(last.x + vx * DT, last.y + vy * DT, 0, vx, vy, 0); stepNet(net, last, now, DT); last = now; }
+  let most = 0;
+  for (let i = 0; i < 60; i++) { stepNet(net, far, far, DT); most = Math.max(most, off(net)); }
+  assert.ok(most < 0.15, `after the ball had gone a knot swung ${most} m from rest`);
+});
+
 test('a frame a hair longer than the sim\'s step is one step', () => {
   const a = createNet(1), b = createNet(1), from = ball(RIM.x, RIM.height - 0.25, 0, 0, -5, 0), to = ball(RIM.x, RIM.height - 0.25 - 5 * DT, 0, 0, -5, 0);
   stepNet(a, from, to, DT); stepNet(b, from, to, DT * (1 + 1e-12));
