@@ -45,8 +45,9 @@
     transparent calc(var(--ro) - 2px), var(--edge) calc(var(--ro) - 2px), var(--edge) var(--ro), transparent var(--ro)); }
   /* The band's white edge lies below it, outside its height, so every band shows some green. */
   #shotBand { position: absolute; left: 0; right: 0; top: 0; min-height: 3px; background: #2e8b57; border-bottom: 3px solid #fff; }
-  /* The fill is a narrower ring (.6 of the track's thickness) so the track shows either side of it. */
-  #shotFill { --fill: radial-gradient(circle at var(--c) 50%, transparent calc(var(--tall) * 1.0477), #000 calc(var(--tall) * 1.0477),
+  /* The fill is a narrower ring (.6 of the track's thickness) so the track shows either side of it;
+     its centre is the bar's middle, measured up from the fill's bottom, since the fill's own height changes. */
+  #shotFill { --fill: radial-gradient(circle at var(--c) calc(100% - var(--tall) / 2), transparent calc(var(--tall) * 1.0477), #000 calc(var(--tall) * 1.0477),
                 #000 calc(var(--tall) * 1.1557), transparent calc(var(--tall) * 1.1557));
               position: absolute; left: 0; right: 0; bottom: 0; background: #ffd257; -webkit-mask: var(--fill); mask: var(--fill); }
   #shotMeter.green { --edge: #6fdc8c; }
