@@ -5,7 +5,7 @@ import { createMatch } from '../src/sim/state.js';
 import { substitute } from '../src/sim/roster.js';
 import { ROSTER } from '../src/sim/tuning.js';
 
-const gaits = { walk: 1.5, run: 4, sprint: 6.5 };
+const gaits = { walk: 1.5, run: 4, sprint: 6.5, strafeLeft: 1.5, strafeRight: 1.5, backpedal: 1.3 };
 const still = { vx: 0, vz: 0, y: 0, vy: 0, jumpT: 0 };
 const clip = (speed, last) => legMotion({ ...still, vx: speed }, gaits, last).clip;
 
@@ -68,7 +68,7 @@ test('a cross-fade takes one whole fade to finish, and the old motion fades out 
 
 test('motion facts without a speed for every gait are refused, so the game falls back to capsules', () => {
   assert.doesNotThrow(() => checkGaits({ gaits }));
-  for (const broken of [undefined, {}, { gaits: {} }, { gaits: { walk: 1.5, run: 4 } }, { gaits: { ...gaits, sprint: 0 } }, { gaits: { ...gaits, walk: 'fast' } }]) {
+  for (const broken of [undefined, {}, { gaits: {} }, { gaits: { walk: 1.5, run: 4 } }, { gaits: { ...gaits, sprint: 0 } }, { gaits: { ...gaits, walk: 'fast' } }, { gaits: { ...gaits, backpedal: undefined } }]) {
     assert.throws(() => checkGaits(broken), /motion\.json/, JSON.stringify(broken));
   }
 });
