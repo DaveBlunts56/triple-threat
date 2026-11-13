@@ -6,7 +6,7 @@ import { startMatch } from '../src/sim/rules.js';
 import { step } from '../src/sim/step.js';
 import { aiIntents, isOpen, laneClear, spots } from '../src/sim/ai.js';
 import { keyContains } from '../src/sim/violations.js';
-import { DT, RIM, AI, VIOLATION, SHOT } from '../src/sim/tuning.js';
+import { DT, RIM, AI, VIOLATION, SHOT, PASS, BALL } from '../src/sim/tuning.js';
 
 // Live play with everyone parked out of the way; tests then place the players they care about.
 function live(holderId = 0) {
@@ -158,6 +158,32 @@ test('a computer player eases into his spot: full speed far away, part speed in 
   assert.ok(near(eased(3)[0], 1) && near(eased(1.5)[0], 1) && near(eased(0.75)[0], 0.5) && near(eased(0.45)[0], 0.3), `${eased(0.75)}`);
   assert.ok(eased(0.75)[1] < 0);                           // toward the spot
   assert.equal(eased(0.2)[0], 0);                          // inside AI.arrive: he stands
+});
+
+test('easing is for spots only: a computer player going for a free ball, or running onto a pass to him, asks for full speed all the way', () => {
+  const asked = (s, id) => { const m = aiIntents(s, DT)[id]; return Math.hypot(m.moveX, m.moveZ); };
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+
+  const loose = live();
+  put(loose, 0, 6, 0);
+  Object.assign(loose.ball, { holder: null, mode: 'loose', x: 7, y: 0.12, z: 0, vx: 0, vy: 0, vz: 0 });   // lying on the floor 1 m from him
+  assert.ok(near(asked(loose, 0), 1), `he asked for ${asked(loose, 0)} of full speed toward the free ball`);
+
+  const pass = live();
+  put(pass, 0, 4, 0); put(pass, 1, 10, -3);                // the pass comes down at (10, -4), 1 m from its receiver
+  const d = Math.hypot(6, -4), t = d / PASS.speed;
+  Object.assign(pass.ball, {
+    holder: null, mode: 'pass', noPickupId: 0, noPickupT: PASS.noPickup,
+    x: 4, y: PASS.height, z: 0, vx: (6 / d) * PASS.speed, vy: (BALL.gravity * t) / 2, vz: (-4 / d) * PASS.speed,
+  });
+  pass.lastTouch = 0;
+  assert.ok(near(asked(pass, 1), 1), `he asked for ${asked(pass, 1)} of full speed onto the pass`);
+
+  const guard = live(4);                                   // team 1 has the ball; player 0 guards player 3, off the ball
+  put(guard, 3, -5, 2); put(guard, 4, -8, -5);
+  aiIntents(guard, DT);                                    // he picks his guard spot
+  put(guard, 0, guard.players[0].ai.targetX + 1, guard.players[0].ai.targetZ);
+  assert.ok(near(asked(guard, 0), 1 / AI.slowDist), `he asked for ${asked(guard, 0)} of full speed toward his guard spot`);
 });
 
 test('the AI inbounder passes within 2 s', () => {

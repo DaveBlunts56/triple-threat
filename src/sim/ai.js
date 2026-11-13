@@ -16,8 +16,8 @@ const space = (state, p) => Math.min(...opponents(state, p).map(o => dist(o, p))
 export const isOpen = (state, player) => space(state, player) > AI.openDist;
 
 const manOf = (state, p) => state.players.find(o => o.team !== p.team && o.slot === p.slot);
-// In the air for a shot: still holding the ball, or having just let it go.
-const shotJump = (state, man) => !onFloor(man) && (man.shooting || (state.ball.mode === 'shot' && state.ball.shooter === man.id));
+// In the air for a shot he has not let go yet. Once the ball has left his hand a jump can no longer trouble it.
+const shotJump = man => !onFloor(man) && man.shooting;
 
 // No opponent near the straight line from the player to `target` (by default the hoop they attack).
 // `skip` ignores opponents this close to the player: a pass is already past them when it can first be touched.
@@ -94,6 +94,7 @@ function planFreeBall(state, p) {
       if (receiver !== p) return planOffBall(state, p);
       // Run to where the ball comes back down to catching height.
       const t = (ball.vy + Math.sqrt(ball.vy ** 2 + 2 * BALL.gravity * Math.max(0, ball.y - PASS.height))) / BALL.gravity;
+      ai.chase = true;
       return goTo(ai, { x: ball.x + ball.vx * t, z: ball.z + ball.vz * t }, true);
     }
     return planDefence(state, p);
@@ -104,7 +105,7 @@ function planFreeBall(state, p) {
   const chasers = [...team].sort((a, b) => dist(a, focus) - dist(b, focus)).slice(0, 2);
   if (!chasers.includes(p)) return goTo(ai, { x: -sign * AI.safetyX, z: 0 }, true);
 
-  goTo(ai, ball, true);
+  goTo(ai, ball, true); ai.chase = true;
   if (dist(p, ball) < AI.reboundDist && ball.y < AI.reboundHeight && ball.y > PLAYER.reach && ball.vy < 0) ai.action = 'jump';
 }
 
@@ -143,13 +144,13 @@ function planDefence(state, p) {
   goTo(ai, guard, dist(p, guard) > AI.farAway);
 
   // A gather does not draw him off the floor: he goes up when his man does.
-  if (shotJump(state, man) && dist(p, man) < AI.contestDist) ai.action = 'jump';
+  if (shotJump(man) && dist(p, man) < AI.contestDist) ai.action = 'jump';
   else if (hasBall && !man.inbounder && p.stealCooldown <= 0 && dist(p, man) <= STEAL.reach && rand(state) < AI.stealRate) ai.action = 'steal';
 }
 
 function plan(state, p) {
   const holder = state.players[state.ball.holder];
-  p.ai.action = null;
+  p.ai.action = null; p.ai.chase = false;
   if (holder === p) planWithBall(state, p);
   // A dead ball is not chased: the team about to inbound sets up, the other gets back on defence.
   else if (state.phase === 'dead') (p.team === state.possession ? planOffBall : planDefence)(state, p);
@@ -163,7 +164,8 @@ function act(state, p) {
   const { ai } = p, intent = emptyIntent();
   const dx = ai.targetX - p.x, dz = ai.targetZ - p.z, d = Math.hypot(dx, dz);
   if (d > AI.arrive) {
-    const part = Math.min(1, d / AI.slowDist);   // he eases into his spot instead of stopping dead on it
+    // He eases into a spot instead of stopping dead on it, but goes flat out for a ball that is there to be won.
+    const part = ai.chase ? 1 : Math.min(1, d / AI.slowDist);
     intent.moveX = (dx / d) * part; intent.moveZ = (dz / d) * part; intent.sprint = ai.sprint;
   }
 
@@ -215,7 +217,7 @@ export function aiIntents(state, dt) {
     if (ownPass && !p.ai.sawPass) p.ai.timer = 0;
     p.ai.sawPass = ownPass;
     // His man going up for a shot: he reacts within AI.contestDelay, not at his next decision.
-    const up = shotJump(state, manOf(state, p));
+    const up = shotJump(manOf(state, p));
     if (up && !p.ai.sawJump) p.ai.timer = Math.min(p.ai.timer, rand(state) * AI.contestDelay);
     p.ai.sawJump = up;
     p.ai.heldT = has ? (p.ai.had ? p.ai.heldT + dt : 0) : 0;
