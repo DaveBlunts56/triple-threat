@@ -4,6 +4,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { readGlb, primitivesUnder, floatsOf } from './glb.js';
 import { pack } from '../tools/single-file.mjs';
 import { ROSTER } from '../src/sim/tuning.js';
+import { LEG_CLIPS, ARM_CLIPS } from '../src/render/motion.js';
 
 const players = readGlb('assets/players.glb');
 const people = JSON.parse(readFileSync('assets/source/people.json', 'utf8')).people;
@@ -220,4 +221,9 @@ test('the hand-made motions are in the file, each with its kind and its length',
     assert.equal(facts.clips[name].kind, kind, name);
     assert.ok(Math.abs(facts.clips[name].duration - LENGTHS[name]) < 0.035, `${name}: ${facts.clips[name].duration} s`);
   }
+});
+
+test('the motion file holds every motion the two tables name', () => {
+  const names = motion.json.animations.map(a => a.name);
+  assert.deepEqual([...LEG_CLIPS, ...ARM_CLIPS].filter(name => !names.includes(name)), []);
 });

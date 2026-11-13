@@ -1,0 +1,171 @@
+// The real mixer, in Node, on the real motion file.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createAnimator } from '../src/render/animator.js';
+import { LEG_CLIPS, ARM_CLIPS, crossFade, layerOf, checkMotions, outOfStep, stridePhase } from '../src/render/motion.js';
+
+const data = readFileSync('assets/motion.glb');
+const gltf = await new Promise((ok, bad) => new GLTFLoader().parse(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength), '', ok, bad));
+const facts = JSON.parse(readFileSync('assets/motion.json', 'utf8'));
+const clips = Object.fromEntries(gltf.animations.map(c => [c.name, c]));
+const fresh = (index = 0) => createAnimator(gltf.scene, clips, facts, 1, index);
+const whole = layer => Math.abs(Object.values(layer).reduce((sum, w) => sum + w, 0) - 1) < 1e-9;
+const FRAME = 1 / 60, run = { clip: 'run', rate: 1 }, idle = { clip: 'idle', rate: 1 };
+const frames = (a, n, legs, arms, head) => { for (let i = 0; i < n; i++) a.update(legs, arms, FRAME, head); };
+const bone = name => gltf.scene.getObjectByName(name);
+const facing = name => { gltf.scene.updateMatrixWorld(true); return new THREE.Vector3(0, 0, 1).applyQuaternion(bone(name).getWorldQuaternion(new THREE.Quaternion())); };
+
+test('both layers stay one whole pose through a start, a dribble, a pass, a catch, a gather, a shot, a landing and a stop', () => {
+  const a = fresh();
+  const script = [[{ clip: 'walk', rate: 1 }, null], [run, { clip: 'dribble', rate: 1 }], [run, { clip: 'pass', at: 0.2 }], [run, { clip: 'catch', at: 0.5 }],
+    [{ clip: 'gather', at: 0.5 }, { clip: 'shoot', at: 0.5 }], [{ clip: 'jump', at: 0.3 }, { clip: 'shoot', at: 1 }], [{ clip: 'jump', at: 0.6 }, { clip: 'follow', at: 0.4 }],
+    [{ clip: 'land', at: 0.5 }, { clip: 'follow', at: 0.8 }], [{ clip: 'stance', rate: 1 }, { clip: 'handUp', rate: 1 }], [idle, null]];
+  for (const [legs, arms] of script) for (let i = 0; i < 3; i++) {        // three frames each: every fade is cut short
+    a.update(legs, arms, FRAME);
+    assert.ok(whole(a.weights.legs) && whole(a.weights.arms), JSON.stringify(a.weights));
+  }
+});
+
+test('every motion the two tables name has its place on a layer', () => {
+  const a = fresh();
+  assert.deepEqual(Object.keys(a.weights.legs).sort(), [...LEG_CLIPS].sort());
+  assert.deepEqual(Object.keys(a.weights.arms).sort(), [...LEG_CLIPS, ...ARM_CLIPS].sort());
+});
+
+test('with nothing for the arms to do they follow the legs', () => {
+  const a = fresh();
+  frames(a, 30, run, null);
+  assert.deepEqual([a.weights.legs.run, a.weights.arms.run], [1, 1]);
+});
+
+test('a person who has just come on starts from a whole idle pose, also when he has been on before', () => {
+  const a = fresh();
+  assert.deepEqual([a.weights.legs.idle, a.weights.arms.idle], [1, 1]);
+  frames(a, 4, run, { clip: 'dribble', rate: 1 });                        // substituted off in the middle of a fade
+  a.reset();
+  assert.deepEqual([a.weights.legs.idle, a.weights.arms.idle, whole(a.weights.legs), whole(a.weights.arms)], [1, 1, true, true]);
+});
+
+test('a ball handler keeps the lean of his run: the lower spine follows the legs whatever the arms do', () => {
+  const a = fresh(), b = fresh();
+  frames(a, 30, run, null);
+  const leaning = bone('mixamorigSpine').quaternion.clone();
+  frames(b, 30, run, { clip: 'hold', rate: 1 });
+  assert.ok(Math.abs(bone('mixamorigSpine').quaternion.dot(leaning)) > 0.9999, 'the lower spine left the run');
+});
+
+test('a one-off move is fully shown within 0.07 s and is gone 0.22 s after it ends', () => {
+  const a = fresh();
+  frames(a, 30, idle, { clip: 'dribble', rate: 1 });
+  frames(a, 5, idle, { clip: 'pass', at: 0.1 });                          // 0.083 s
+  assert.ok(Math.abs(a.weights.arms.pass - 1) < 1e-9);
+  frames(a, 12, idle, null);                                              // 0.2 s later
+  assert.ok(a.weights.arms.pass > 0.05 && a.weights.arms.pass < 0.15, `${a.weights.arms.pass}`);
+  frames(a, 2, idle, null);
+  assert.equal(a.weights.arms.pass, 0);
+});
+
+test('from one gait to the next the legs carry on from the same point of the stride', () => {
+  const a = fresh();
+  frames(a, 20, run, null);
+  const before = a.phase('run');
+  a.update({ clip: 'sprint', rate: 1 }, null, FRAME);
+  const gap = Math.abs(a.phase('sprint') - before);
+  assert.ok(Math.min(gap, 1 - gap) < 0.05, `run at ${before}, sprint starts at ${a.phase('sprint')}`);
+});
+
+test('at a run the dribble is tied to the stride: the push comes as the same-side foot lands', () => {
+  const a = fresh(), { push, bounces } = facts.clips.dribble, strike = facts.clips.run.strike.right;
+  for (let i = 0; i < 40; i++) {
+    a.update(run, { clip: 'dribble', rate: 1 }, FRAME);
+    const want = (((push + (a.phase('run') - strike) / bounces) % 1) + 1) % 1, gap = Math.abs(a.phase('dribble') - want);
+    assert.ok(Math.min(gap, 1 - gap) < 0.06, `frame ${i}: dribble at ${a.phase('dribble')}, stride wants ${want}`);
+  }
+});
+
+test('no two people idle in step', () => {
+  const a = fresh(0), first = a.phase('idle');
+  const b = fresh(3);
+  assert.ok(Math.abs(b.phase('idle') - first) > 0.05);
+});
+
+test('the arm that does not dribble follows the legs: only the hand with the ball leaves their motion', () => {
+  const turn = name => bone(`mixamorig${name}`).quaternion.clone(), same = (q, name) => Math.abs(bone(`mixamorig${name}`).quaternion.dot(q)) > 0.9999;
+  frames(fresh(), 30, run, null);
+  const running = { left: turn('LeftArm'), right: turn('RightArm'), finger: turn('LeftHandIndex1'), head: turn('Head') };
+  frames(fresh(), 30, run, { clip: 'dribble', rate: 1 });
+  assert.ok(same(running.left, 'LeftArm') && same(running.finger, 'LeftHandIndex1'), 'the left arm left the run');
+  assert.ok(!same(running.right, 'RightArm') && !same(running.head, 'Head'), 'the right arm and the head do not dribble');
+  const c = fresh();
+  frames(c, 30, run, { clip: 'dribbleLeft', rate: 1 });
+  assert.ok(same(running.right, 'RightArm') && !same(running.left, 'LeftArm'), 'dribbleLeft is not dribble in a mirror');
+  for (let i = 0; i < 12; i++) {                                           // a change of hand and of gait, each cut short
+    c.update({ clip: i < 4 ? 'walk' : 'sprint', rate: 1 }, { clip: i % 5 ? 'dribble' : 'dribbleLeft', rate: 1 }, FRAME);
+    assert.ok(whole(c.weights.legs) && whole(c.weights.arms), JSON.stringify(c.weights));
+  }
+});
+
+test('a dribble that is showing when the run takes it over catches the stride up: the hand is never thrown to its place', () => {
+  const { bounces } = facts.clips.dribble, strike = facts.clips.run.strike.right, dribble = { clip: 'dribble', rate: 1 };
+  const round = gap => Math.abs(gap - Math.round(gap));                    // the way round the cycle that is shorter
+  for (let lead = 20; lead < 150; lead += 7) {                             // he stands dribbling for a while, then runs
+    const a = fresh();
+    frames(a, lead, idle, dribble);
+    let before = a.phase('dribble');
+    for (let i = 0; i < 60; i++) {
+      a.update(run, dribble, FRAME);
+      assert.ok(round(a.phase('dribble') - before) < 0.02, `after ${lead} frames standing, frame ${i} of the run: from ${before} to ${a.phase('dribble')}`);
+      before = a.phase('dribble');
+    }
+    const off = (a.phase('dribble') - facts.clips.dribble.push - (a.phase('run') - strike) / bounces) * bounces;   // in bounces
+    assert.ok(round(off) < 0.02, `a second on, the push is ${round(off)} of a bounce from the foot's landing`);
+  }
+});
+
+// ---- the plain logic the animator leans on ----
+
+const near = (a, b, by = 1e-9) => Math.abs(a - b) < by;
+
+test('the lower spine goes with the legs; the upper spine, neck, head and arms are the arms layer', () => {
+  assert.deepEqual(['mixamorigHips.position', 'mixamorigHips.quaternion', 'mixamorigLeftUpLeg.quaternion', 'mixamorigRightToeBase.quaternion', 'mixamorigSpine.quaternion',
+    'mixamorigSpine1.quaternion', 'mixamorigSpine2.quaternion', 'mixamorigNeck.quaternion', 'mixamorigHead.quaternion', 'mixamorigLeftShoulder.quaternion', 'mixamorigRightHandIndex1.quaternion'].map(layerOf),
+  ['legs', 'legs', 'legs', 'legs', 'legs', 'arms', 'arms', 'arms', 'arms', 'arms', 'arms']);
+});
+
+test('a motion file that lacks a motion the tables name is refused', () => {
+  assert.doesNotThrow(() => checkMotions([...LEG_CLIPS, ...ARM_CLIPS]));
+  assert.throws(() => checkMotions(LEG_CLIPS), /dribble/);
+  assert.throws(() => checkMotions([...LEG_CLIPS, ...ARM_CLIPS].filter(name => name !== 'handUp')), /handUp/);
+});
+
+test('no two of the ten people idle in step', () => {
+  const ten = Array.from({ length: 10 }, (_, i) => outOfStep(i));
+  for (const { start, rate } of ten) assert.ok(start >= 0 && start < 1 && rate >= 0.92 && rate <= 1.08, `${start} ${rate}`);
+  assert.equal(new Set(ten.map(o => o.start.toFixed(3))).size, 10);
+  assert.equal(new Set(ten.map(o => o.rate.toFixed(3))).size, 10);
+});
+
+test('when the run carries the dribble, there is one bounce per stride and the push comes as that foot lands', () => {
+  const d = { push: 0.25, bounces: 2 };
+  assert.ok(near(stridePhase(0.3, 0.3, d), 0.25));                         // the foot lands: the ball leaves the hand
+  assert.ok(near(stridePhase(0.8, 0.3, d), 0.5) && near(stridePhase(0.1, 0.3, d), 0.15));
+  assert.ok(near(stridePhase(1.3, 0.3, d), 0.75));                         // a whole stride later: one bounce on (half of a two-bounce clip)
+});
+
+test('one-off moves fade in over 0.07 s and out over 0.22 s; everything else keeps 0.15 s; the shares always make one whole pose', () => {
+  const w = { idle: 0, dribble: 1, pass: 0, run: 0 }, total = () => Object.values(w).reduce((sum, v) => sum + v, 0);
+  crossFade(w, 'pass', 0.035);
+  assert.ok(near(w.dribble, 0.5) && near(w.pass, 0.5));                   // half way in after half of 0.07 s
+  crossFade(w, 'pass', 0.035);
+  assert.ok(near(w.pass, 1) && near(w.dribble, 0));
+  crossFade(w, 'dribble', 0.11);
+  assert.ok(near(w.pass, 0.5) && near(w.dribble, 0.5));                   // half way out after half of 0.22 s
+  crossFade(w, 'run', 0.03);
+  assert.ok(near(w.pass, 0.5 - 0.03 / 0.22) && near(w.dribble, 0.3) && near(total(), 1));   // each leaves at its own pace
+  crossFade(w, 'run', 0.2);
+  assert.deepEqual(w, { idle: 0, dribble: 0, pass: 0, run: 1 });
+  assert.deepEqual(crossFade({ idle: 0.4, run: 0.6 }, 'run', 0), { idle: 0.4, run: 0.6 });   // paused: nothing moves
+});

@@ -2,33 +2,22 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { ROSTER } from '../sim/tuning.js';
 import { assetUrl } from './assets.js';
-import { legMotion, fade, checkGaits, personName, courtPeople, keepTrack, sized, missingPeople, MOTION } from './motion.js';
+import { legMotion, armMotion, legLook, newMarks, noteChanges, checkGaits, checkMotions, checkFacts, personName, courtPeople, sized, missingPeople } from './motion.js';
+import { createAnimator } from './animator.js';
 import { KIT, kitOps, paintKit } from './kit.js';
 import { QUALITY } from './quality.js';
 
-const MOTIONS = ['idle', 'walk', 'run', 'sprint', 'jump'];
 // cutout: hair, brows and lashes: a pixel is drawn if it is at least this opaque.
 const PEOPLE = Object.freeze({ cutout: 0.4 });
 const SHADOWED = /^(skin|jersey|shorts|hair|shoes)/;   // materials of the parts that cast a shadow: not eyes, brows or lashes
 
-const resting = () => Object.fromEntries(MOTIONS.map(name => [name, name === 'idle' ? 1 : 0]));   // each motion's share of the pose
+const IDLE = Object.freeze({ clip: 'idle', rate: 1 });   // what everyone's legs do before and after a match
 const hipsOf = root => root.getObjectByProperty('isBone', true);   // the first bone under a root: the others hang from it
 
 async function json(path) {
   const response = await fetch(assetUrl(path));
   if (!response.ok) throw new Error(`${path}: ${response.status}`);
   return response.json();
-}
-
-// A copy of `clip` for a player `scale` times the size of the one it was made on. Only where the hips are differs
-// (the one position `keepTrack` leaves in), so every turn is shared with the original.
-function sizedClip(clip, scale) {
-  return new THREE.AnimationClip(clip.name, clip.duration, clip.tracks.map(track => {
-    if (!track.name.endsWith('.position')) return track;
-    const hips = track.clone();
-    hips.values = hips.values.map(value => value * scale);
-    return hips;
-  }));
 }
 
 // A copy of `picture` that is `scale` times as wide and as tall, and alike in everything else: colour space, wrapping,
@@ -50,7 +39,7 @@ function shrunk(picture, scale, pending) {
 const atEachLevel = make => ({ high: make(QUALITY.high.textures), low: make(QUALITY.low.textures) });
 
 // Loads the generated players and their motions. Resolves to six groups, one per court player, an `update` that
-// places each from the match, puts the model of whoever plays there in it and plays the motion his state calls for,
+// places each from the match, puts the model of whoever plays there in it and plays the motions his state calls for,
 // and a `setQuality` that dresses all ten for a quality level. Rejects if a file is missing or incomplete.
 export async function loadPeople() {
   const loader = new GLTFLoader();
@@ -63,11 +52,9 @@ export async function loadPeople() {
   const missing = missingPeople(roots.map(root => root.name));
   if (missing.length) throw new Error(`assets/players.glb lacks ${missing.join(', ')}`);
   const clips = Object.fromEntries(motion.animations.map(clip => [clip.name, clip]));
-  for (const name of MOTIONS) {
-    if (!clips[name]) throw new Error(`assets/motion.glb has no "${name}" motion`);
-    clips[name].tracks = clips[name].tracks.filter(track => keepTrack(track.name));
-  }
+  checkMotions(Object.keys(clips));
   checkGaits(facts);
+  checkFacts(facts);
   const hipHeight = hipsOf(motion.scene).position.y;   // of the player the motions were made on, standing at rest
 
   // Every picture the players wear, as it is at each quality level: { high, low }, found by the picture a material
@@ -96,8 +83,9 @@ export async function loadPeople() {
   }
   const shorts = [];   // one pair per team: shorts carry no number
 
-  // One model, mixer and set of weights per person, made once: a substitution only changes who is shown.
-  function person(model, team, number) {
+  // One model and animator per person, made once: a substitution only changes who is shown. `index` is his place
+  // among the ten.
+  function person(model, team, number, index) {
     model.traverse(part => {
       // GLTFLoader numbers the bone names that repeat in the file (mixamorigHips_1); the motions look for the plain ones.
       if (part.isBone) part.name = THREE.PropertyBinding.sanitizeNodeName(part.userData.name);
@@ -111,15 +99,12 @@ export async function loadPeople() {
       if (material.transparent) Object.assign(material, { transparent: false, alphaTest: PEOPLE.cutout, depthWrite: true });
     });
     const scale = hipsOf(model).position.y / hipHeight;   // his size against the player the motions were made on
-    const mixer = new THREE.AnimationMixer(model);
-    const actions = Object.fromEntries(MOTIONS.map(name => [name, mixer.clipAction(sizedClip(clips[name], scale)).play()]));
-    actions.jump.timeScale = 0;   // held at the moment of the jump he is in, never played through
-    return { model, mixer, actions, gaits: sized(facts.gaits, scale), weights: resting(), last: 'idle' };
+    return { model, animator: createAnimator(model, clips, facts, scale, index), gaits: sized(facts.gaits, scale), last: 'idle' };
   }
   const people = {};
-  ROSTER.numbers.forEach((numbers, team) => numbers.forEach(number => {
+  ROSTER.numbers.forEach((numbers, team) => numbers.forEach((number, row) => {
     const name = personName(team, number);
-    people[name] = person(roots.find(root => root.name === name), team, number);
+    people[name] = person(roots.find(root => root.name === name), team, number, team * numbers.length + row);
   }));
 
   // Each place a picture is worn, on the bench too: [material, the property it is in, the picture at each level].
@@ -139,6 +124,7 @@ export async function loadPeople() {
 
   const models = Array.from({ length: 6 }, () => new THREE.Group());
   const shown = [];   // the person whose model is in each group
+  let marks = newMarks();   // what is remembered from frame to frame, for one match
 
   return {
     models,
@@ -148,26 +134,27 @@ export async function loadPeople() {
     },
     // dt: the time that passed this frame, in seconds (zero while paused, so the motion pauses too).
     update(state, dt) {
-      // Before and after a match nobody moves, whatever speed the last step left him with: everyone stands.
+      // Before and after a match nobody moves, whatever speed the last step left him with: everyone stands, and
+      // nothing of that match is remembered into the next.
       const standing = state.phase === 'start' || state.phase === 'final';
+      if (!standing) noteChanges(marks, state, dt);
+      else if (marks.was) marks = newMarks();
       courtPeople(state).forEach((who, i) => {
         const player = state.players[i], group = models[i], he = people[who];
         if (shown[i] !== he) {   // the first frame, or a substitution: he comes on standing
           if (shown[i]) group.remove(shown[i].model);
           group.add(he.model);
-          Object.assign(he, { weights: resting(), last: 'idle' });
+          he.animator.reset();
+          he.last = 'idle';
           shown[i] = he;
         }
+        const look = standing ? null : legLook(state, player, marks);
+        const legs = standing ? IDLE : legMotion(player, he.gaits, he.last, look);
+        he.last = legs.clip;
         group.position.set(player.x, player.y, player.z);
-        group.rotation.y = Math.PI / 2 - player.facing;   // the model faces +z; facing is measured from +x toward +z
-
-        const motion = legMotion(standing ? { ...player, vx: 0, vz: 0 } : player, he.gaits, he.last);
-        he.last = motion.clip;
-        if (motion.clip === 'jump') he.actions.jump.time = motion.at * he.actions.jump.getClip().duration;
-        else he.actions[motion.clip].timeScale = motion.rate;
-        const weights = fade(he.weights, motion.clip, dt / MOTION.fade);
-        for (const name of MOTIONS) he.actions[name].setEffectiveWeight(weights[name]);
-        he.mixer.update(dt);
+        // The model faces +z; facing is measured from +x toward +z. A defender guarding his man is turned to him.
+        group.rotation.y = Math.PI / 2 - (look ? look.facing : player.facing);
+        he.animator.update(legs, standing ? null : armMotion(player, state, marks, facts), dt);
       });
     },
   };

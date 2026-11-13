@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { legMotion, fade, checkGaits, AIR_TIME, MOTION, personName, courtPeople, keepTrack, sized, missingPeople } from '../src/render/motion.js';
+import { readFileSync } from 'node:fs';
+import { legMotion, fade, checkGaits, checkFacts, AIR_TIME, MOTION, personName, courtPeople, keepTrack, sized, missingPeople } from '../src/render/motion.js';
 import { createMatch } from '../src/sim/state.js';
 import { substitute } from '../src/sim/roster.js';
 import { ROSTER } from '../src/sim/tuning.js';
@@ -71,6 +72,21 @@ test('motion facts without a speed for every gait are refused, so the game falls
   for (const broken of [undefined, {}, { gaits: {} }, { gaits: { walk: 1.5, run: 4 } }, { gaits: { ...gaits, sprint: 0 } }, { gaits: { ...gaits, walk: 'fast' } }, { gaits: { ...gaits, backpedal: undefined } }]) {
     assert.throws(() => checkGaits(broken), /motion\.json/, JSON.stringify(broken));
   }
+});
+
+test('motion facts without a length for every motion, the dribble\'s push and bounces or a stride\'s foot strikes are refused', () => {
+  const real = JSON.parse(readFileSync('assets/motion.json', 'utf8'));
+  const without = change => { const copy = structuredClone(real); change(copy.clips); return copy; };
+  assert.doesNotThrow(() => checkFacts(real));
+  assert.throws(() => checkFacts(without(c => delete c.pass)), /motion\.json.*"pass"/);                 // armMotion reads these four every frame
+  assert.throws(() => checkFacts(without(c => delete c.follow.duration)), /motion\.json.*"follow"/);
+  assert.throws(() => checkFacts(without(c => { c.freeThrow.duration = 0; })), /"freeThrow"/);
+  assert.throws(() => checkFacts(without(c => { c.reach.duration = null; })), /"reach"/);
+  assert.throws(() => checkFacts(without(c => delete c.dribble.push)), /motion\.json.*dribble/);        // and the animator these
+  assert.throws(() => checkFacts(without(c => { c.dribble.bounces = 0; })), /dribble/);
+  assert.throws(() => checkFacts(without(c => delete c.run.strike)), /motion\.json.*"run"/);
+  assert.throws(() => checkFacts(without(c => delete c.sprint.strike.left)), /"sprint"/);
+  for (const broken of [undefined, {}, { clips: {} }]) assert.throws(() => checkFacts(broken), /motion\.json/);
 });
 
 test('each court player is drawn with the model of the person in that slot, also after a substitution', () => {

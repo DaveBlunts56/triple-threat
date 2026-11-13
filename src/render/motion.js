@@ -15,10 +15,15 @@ export const AIR_TIME = (2 * PLAYER.jumpV) / BALL.gravity;
 // reachBefore: seconds before a pass arrives that the hands go out for it. catchReach: the share of the catch that is
 // the reach. pullIn: seconds to pull a caught ball in. handUpDist: a defender this close to a shooter raises a hand.
 // handSide: how far to one side of the way he faces a defender must be before the ball goes to the other hand.
+// quick: the one-off moves, which come in over fadeIn seconds and leave over fadeOut.
+// apart: the share of a cycle between where one person's standing motions start and where the next person's do.
+// drift: how much slower or faster than made the slowest and the fastest of the ten play them.
 export const MOTION = Object.freeze({
   idleBelow: 0.3, walkBelow: 2.2, runBelow: 5.6, stick: 0.2, minRate: 0.6, maxRate: 1.5, fade: 0.15,
   guardDist: 4, guardSpeed: 2.2, guardStick: 0.4, sideways: 50,
   land: 0.12, followHold: 0.6, reachBefore: 0.2, catchReach: 0.6, pullIn: 0.15, handUpDist: 2, handSide: 0.3,
+  fadeIn: 0.07, fadeOut: 0.22, quick: Object.freeze(['pass', 'reach', 'follow', 'freeThrow', 'handUp']),
+  apart: 0.618, drift: 0.08,
 });
 
 // The shot meter. stay: seconds it is kept after the release. aside: metres it stands from the shooter, on the side
@@ -35,6 +40,8 @@ const EDGES = [MOTION.idleBelow, MOTION.walkBelow, MOTION.runBelow];   // EDGES[
 // The gait each other way of standing or stepping counts as, when deciding whether he keeps the one he is in.
 const COUNTS_AS = { stance: 'idle', strafeLeft: 'walk', strafeRight: 'walk', backpedal: 'walk' };
 const STOPPED = ['freeThrow', 'dead', 'quarterEnd'];   // the phases in which whoever has the ball just holds it
+// The gaits whose stride carries the dribble: one stride is one bounce.
+export const STRIDES = Object.freeze(['run', 'sprint']);
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
@@ -207,11 +214,69 @@ export function fade(weights, chosen, step) {
   return weights;
 }
 
+// One frame of a cross-fade in which each motion leaves at its own pace. `weights` is { clip: its share of the pose };
+// `dt` is the seconds that passed. A one-off move leaves slowly; anything else makes way at once for a one-off move,
+// and at the usual pace for any other. The chosen motion takes what is left, so the shares always add up to 1.
+export function crossFade(weights, chosen, dt) {
+  const makeWay = MOTION.quick.includes(chosen) ? MOTION.fadeIn : MOTION.fade;
+  let others = 0;
+  for (const name in weights) {
+    if (name !== chosen) others += weights[name] = Math.max(0, weights[name] - dt / (MOTION.quick.includes(name) ? MOTION.fadeOut : makeWay));
+  }
+  weights[chosen] = 1 - others;
+  return weights;
+}
+
+const LEG_BONES = /^mixamorig(Hips|Spine|(Left|Right)(UpLeg|Leg|Foot|ToeBase))\./;
+
+// The layer a track of a motion plays on, by the bone it moves: 'legs' for the hips, the lowest spine bone and both
+// legs, 'arms' for everything above. The lean of a run is in the hips and the lowest spine bone, so the legs keep it
+// whatever the arms do.
+export const layerOf = trackName => (LEG_BONES.test(trackName) ? 'legs' : 'arms');
+
+// Where in its cycle (0 to 1) person `index` of the ten starts standing and guarding, and how fast he plays them, so
+// that no two breathe in step. Each start is `apart` of a cycle on from the last; the rates are spread evenly from
+// `drift` slow to `drift` fast, in an order that keeps team mates' rates well apart.
+export function outOfStep(index) {
+  return { start: (index * MOTION.apart) % 1, rate: 1 - MOTION.drift + (2 * MOTION.drift * ((index * 7) % 10)) / 9 };
+}
+
+// The dribble's place in its cycle (0 to 1) when the legs carry it. `legPhase` is how far through its cycle the
+// striding clip is, and may count on past 1; `strike` is where in that cycle the foot on the ball's side lands;
+// `dribble` is the dribble's facts: `push`, where in its cycle the ball leaves the hand, and `bounces`, how many times
+// it does in one cycle. One stride is one bounce, and the ball leaves the hand as that foot lands.
+export function stridePhase(legPhase, strike, dribble) {
+  const phase = (dribble.push + (legPhase - strike) / dribble.bounces) % 1;
+  return phase < 0 ? phase + 1 : phase;
+}
+
 // Throws unless `facts` (assets/motion.json) gives every gait and every guarding step a speed: without one a moving
 // player cannot be drawn.
 export function checkGaits(facts) {
   for (const gait of [...GAITS.slice(1), 'strafeLeft', 'strafeRight', 'backpedal']) {
     if (!(facts?.gaits?.[gait] > 0)) throw new Error(`assets/motion.json has no speed for "${gait}"`);
+  }
+}
+
+// Throws, naming it, for the first motion of the two tables that is not among `names`, the motions in assets/motion.glb.
+export function checkMotions(names) {
+  const missing = [...LEG_CLIPS, ...ARM_CLIPS].find(name => !names.includes(name));
+  if (missing) throw new Error(`assets/motion.glb has no "${missing}" motion`);
+}
+
+// Throws unless `facts` (assets/motion.json) says what is read from it on every frame: how long each motion of the
+// two tables lasts, where in the dribble the ball leaves the hand and how often, and where in a run and a sprint each
+// foot lands.
+export function checkFacts(facts) {
+  const clips = facts?.clips ?? {};
+  for (const name of [...LEG_CLIPS, ...ARM_CLIPS]) {
+    if (!(clips[name]?.duration > 0)) throw new Error(`assets/motion.json has no length for "${name}"`);
+  }
+  const { push, bounces } = clips.dribble;
+  if (!(push >= 0 && push <= 1 && bounces > 0)) throw new Error('assets/motion.json does not say where the dribble pushes the ball down, or how often');
+  for (const gait of STRIDES) {
+    const { left, right } = clips[gait].strike ?? {};
+    if (!(left >= 0 && right >= 0)) throw new Error(`assets/motion.json does not say where each foot lands in "${gait}"`);
   }
 }
 
