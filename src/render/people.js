@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { BALL, ROSTER } from '../sim/tuning.js';
+import { onFloor } from '../sim/state.js';
 import { assetUrl } from './assets.js';
 import {
   MOTION, BALL_IN_HAND, legMotion, armMotion, legLook, newMarks, noteChanges, checkGaits, checkMotions, checkFacts, personName,
-  courtPeople, sized, missingPeople, ballHands, crossFrom, dribbleSpot, checkHands,
+  courtPeople, sized, missingPeople, ballHands, crossFrom, dribbleSpot, checkHands, drawnFacing, easeFacing, leanOf,
+  lookTarget, headTurn, easeHead,
 } from './motion.js';
 import { createAnimator } from './animator.js';
 import { KIT, kitOps, paintKit } from './kit.js';
@@ -15,6 +17,7 @@ const PEOPLE = Object.freeze({ cutout: 0.4 });
 const SHADOWED = /^(skin|jersey|shorts|hair|shoes)/;   // materials of the parts that cast a shadow: not eyes, brows or lashes
 
 const IDLE = Object.freeze({ clip: 'idle', rate: 1 });   // what everyone's legs do before and after a match
+const UPRIGHT = Object.freeze({ forward: 0, side: 0 }), AHEAD = Object.freeze({ yaw: 0, pitch: 0 });
 const hipsOf = root => root.getObjectByProperty('isBone', true);   // the first bone under a root: the others hang from it
 
 // Where the palm of the hand bone `hand` is on the court, { x, y, z }: the wrist's place moved BALL_IN_HAND.palm
@@ -141,6 +144,9 @@ export async function loadPeople() {
 
   const models = Array.from({ length: 6 }, () => new THREE.Group());
   const shown = [];   // the person whose model is in each group
+  // How each group's player was drawn on the last frame: the heading the group was turned to (null before the first),
+  // how far his body tipped, where his head looked, and his velocity { vx, vz }.
+  const bearings = models.map(() => ({ heading: null, lean: UPRIGHT, head: AHEAD, was: null }));
   let marks = newMarks();   // what is remembered from frame to frame, for one match
   let cross = null;   // a dribbled ball crossing from one hand to the other, as crossFrom remembers it; null when none is
   // The hands its holder carries the ball in on this frame, as ballHands gives them, or null when nobody holds it and
@@ -172,14 +178,28 @@ export async function loadPeople() {
           he.last = 'idle';
           shown[i] = he;
         }
-        const look = standing ? null : legLook(state, player, marks);
+        // The heading he is drawn with turns toward the way he faces, or toward his man, at a bounded rate; his body
+        // tips with his speeding up, stopping and turning, and his head turns to what he watches. Before and after a
+        // match he faces the way he does, upright, with the motion's own head.
+        const bearing = bearings[i], now = { vx: player.vx, vz: player.vz };
+        if (standing) Object.assign(bearing, { heading: player.facing, lean: UPRIGHT, head: AHEAD });
+        else {
+          const wanted = drawnFacing(state, player, marks);
+          bearing.heading = easeFacing(bearing.heading ?? wanted, wanted, dt);
+          bearing.lean = leanOf(bearing.lean, bearing.was ?? now, now, bearing.heading, dt, onFloor(player));
+          bearing.head = easeHead(bearing.head, headTurn(player, bearing.heading, lookTarget(state, player)), dt);
+        }
+        bearing.was = now;
+        const look = standing ? null : { ...legLook(state, player, marks), facing: bearing.heading };
         const legs = standing ? IDLE : legMotion(player, he.gaits, he.last, look);
         he.last = legs.clip;
         group.position.set(player.x, player.y, player.z);
-        // The model faces +z; facing is measured from +x toward +z. A defender guarding his man is turned to him.
-        group.rotation.y = Math.PI / 2 - (look ? look.facing : player.facing);
+        // The model faces +z, with his left toward +x; a heading is measured from +x toward +z.
+        group.rotation.y = Math.PI / 2 - bearing.heading;
+        // The model tips inside the group, about his feet, so the number over his head stays where it is.
+        he.model.rotation.set(bearing.lean.forward, 0, -bearing.lean.side);
         he.arms = standing ? null : armMotion(player, state, marks, facts);
-        he.animator.update(legs, he.arms, dt);
+        he.animator.update(legs, he.arms, dt, standing ? null : bearing.head);
       });
     },
     // The hands the holder carries the ball in on this frame (see handsOf). To be asked after `update`.

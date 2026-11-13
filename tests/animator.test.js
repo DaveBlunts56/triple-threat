@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createAnimator } from '../src/render/animator.js';
-import { LEG_CLIPS, ARM_CLIPS, crossFade, layerOf, checkMotions, outOfStep, stridePhase } from '../src/render/motion.js';
+import { LEG_CLIPS, ARM_CLIPS, MOTION, crossFade, layerOf, checkMotions, outOfStep, stridePhase } from '../src/render/motion.js';
 
 const data = readFileSync('assets/motion.glb');
 const gltf = await new Promise((ok, bad) => new GLTFLoader().parse(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength), '', ok, bad));
@@ -168,4 +168,70 @@ test('one-off moves fade in over 0.07 s and out over 0.22 s; everything else kee
   crossFade(w, 'run', 0.2);
   assert.deepEqual(w, { idle: 0, dribble: 0, pass: 0, run: 1 });
   assert.deepEqual(crossFade({ idle: 0.4, run: 0.6 }, 'run', 0), { idle: 0.4, run: 0.6 });   // paused: nothing moves
+});
+
+test('the head turns toward what it is given: right for a positive yaw, up for a positive pitch, and the middle of the spine stays out of it', () => {
+  const plain = fresh();
+  frames(plain, 6, idle, null);
+  const ahead = facing('mixamorigHead'), chest = facing('mixamorigSpine1');
+  const turned = fresh();
+  frames(turned, 5, idle, null); frames(turned, 1, idle, null, { yaw: 1, pitch: 0 });
+  assert.ok(facing('mixamorigHead').x < ahead.x - 0.5, 'the head did not turn to its right');      // the model faces +z; its right is -x
+  assert.ok(facing('mixamorigSpine1').distanceTo(chest) < 1e-6, 'the turn reached below the upper spine');
+  const raised = fresh();
+  frames(raised, 5, idle, null); frames(raised, 1, idle, null, { yaw: 0, pitch: 0.5 });
+  assert.ok(facing('mixamorigHead').y > ahead.y + 0.3, 'the head did not tip up');
+});
+
+// ---- the chest, and a head that looks where it is told (additions to the brief) ----
+
+const where = name => { gltf.scene.updateMatrixWorld(true); return bone(name).getWorldPosition(new THREE.Vector3()); };
+
+// The hand is measured from his hips: walking legs carry the hips 0.13 m higher than running legs, whatever the chest does.
+test('a dribble on walking legs bends the chest to it: the hand works about as low as on running legs', () => {
+  const dribble = { clip: 'dribble', rate: 1 }, cycle = Math.round(facts.clips.dribble.duration / FRAME);
+  const span = legs => {
+    const a = fresh(), ys = [];
+    frames(a, 30, legs, dribble);
+    for (let i = 0; i < cycle; i++) { a.update(legs, dribble, FRAME); ys.push(where('mixamorigRightHand').y - where('mixamorigHips').y); }
+    return { top: Math.max(...ys), bottom: Math.min(...ys) };
+  };
+  const walking = span({ clip: 'walk', rate: 1 }), running = span(run);
+  assert.ok(Math.abs(walking.top - running.top) < 0.05 && Math.abs(walking.bottom - running.bottom) < 0.05, JSON.stringify({ walking, running }));
+});
+
+test('while the arms follow the legs the upper spine is the motion\'s own, whatever the head is told', () => {
+  const a = fresh(), own = clips.run.tracks.find(track => track.name === 'mixamorigSpine1.quaternion').createInterpolant();
+  frames(a, 20, run, null);
+  for (let i = 0; i < 30; i++) {
+    a.update(run, null, FRAME, { yaw: 0.6, pitch: -0.3 });
+    const motion = new THREE.Quaternion().fromArray(own.evaluate(a.phase('run') * clips.run.duration)).normalize();   // as the mixer does
+    assert.ok(Math.abs(bone('mixamorigSpine1').quaternion.dot(motion)) > 1 - 1e-9, `frame ${i}`);
+  }
+});
+
+test('a head told to look level and ahead does, on running legs that lean into a catch', () => {
+  const a = fresh(), level = { yaw: 0, pitch: 0 }, catching = { clip: 'catch', at: 0.6 }, ahead = new THREE.Vector3(0, 0, 1);
+  frames(a, 20, run, catching, level);
+  for (let i = 0; i < 30; i++) {
+    a.update(run, catching, FRAME, level);
+    const off = (facing('mixamorigHead').angleTo(ahead) * 180) / Math.PI;
+    assert.ok(off < 3, `frame ${i}: the head looks ${off.toFixed(1)} degrees away`);
+  }
+});
+
+test('nothing done after the motions builds up: arms held still on running legs keep the chest where it is asked, and a head no longer told is the motion\'s again', () => {
+  const catching = { clip: 'catch', at: 0.6 };
+  const lean = () => { const line = where('mixamorigNeck').sub(where('mixamorigSpine1')); return (Math.atan2(line.z, line.y) * 180) / Math.PI; };
+  const a = fresh();
+  frames(a, 10, run, catching);
+  for (let i = 0; i < 50; i++) {                                           // the run leans the chest 33 to 41 degrees under a catch
+    a.update(run, catching, FRAME);
+    assert.ok(Math.abs(lean() - MOTION.chestMade) < 0.01, `frame ${i}: the chest leans ${lean().toFixed(2)} degrees`);
+  }
+  frames(fresh(), 30, run, catching);
+  const own = bone('mixamorigHead').quaternion.clone();
+  const b = fresh();
+  frames(b, 29, run, catching, { yaw: 1, pitch: 0 }); frames(b, 1, run, catching, null);
+  assert.ok(Math.abs(bone('mixamorigHead').quaternion.dot(own)) > 1 - 1e-9, 'the head stayed turned');
 });

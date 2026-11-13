@@ -1,10 +1,14 @@
 // Plays one person's motions on two layers, the legs and the arms, and cross-fades each layer on its own.
 import * as THREE from 'three';
-import { LEG_CLIPS, ARM_CLIPS, STRIDES, crossFade, keepTrack, layerOf, outOfStep, stridePhase } from './motion.js';
+import { LEG_CLIPS, ARM_CLIPS, STRIDES, chestTip, crossFade, keepTrack, layerOf, outOfStep, stridePhase } from './motion.js';
 
 // catchUp: the most of its cycle a dribble gains or loses on its own pace in a second, to fall in with the stride.
-// Less than its own pace, so it never runs backwards.
-const ANIMATOR = Object.freeze({ catchUp: 0.4 });
+// Less than its own pace, so it never runs backwards. look: the share of a turn of the head that each of the bones
+// from the upper spine to the head takes; together, the whole turn.
+const ANIMATOR = Object.freeze({
+  catchUp: 0.4,
+  look: Object.freeze({ mixamorigSpine2: 0.15, mixamorigNeck: 0.25, mixamorigHead: 0.6 }),
+});
 
 const LAYERS = ['legs', 'arms'];
 const STANDING = ['idle', 'stance'];   // the motions each person plays out of step with the others
@@ -18,6 +22,36 @@ const armOf = trackName => /^mixamorig(Left|Right)(Shoulder|Arm|ForeArm|Hand)/.e
 
 // The way from one point of a cycle to another that is the shorter, as a share of the cycle: -0.5 to 0.5.
 const shorter = gap => gap - Math.round(gap);
+
+// The axes of a model's own frame: he faces +z, with his left toward +x. The head bone's own +z is where it looks: in
+// the rest pose that is the model's forward, to about a degree.
+const UP = new THREE.Vector3(0, 1, 0), SIDE = new THREE.Vector3(1, 0, 0), AHEAD = new THREE.Vector3(0, 0, 1);
+// Scratch values, so that a frame makes no garbage.
+const [frame, turn, step, about] = Array.from({ length: 4 }, () => new THREE.Quaternion());
+const line = new THREE.Vector3();
+const fail = message => { throw new Error(message); };
+
+// The turn from `model`'s own frame to the frame of `object` beneath it, into `into`.
+function frameOf(model, object, into) {
+  into.identity();
+  for (let o = object; o !== model; o = o.parent) into.premultiply(o.quaternion);
+  return into;
+}
+
+// Turns `bone` of `model` about its joint by `by`, a turn about axes of the model's own frame, whatever the bone's own.
+function turnBone(model, bone, by) {
+  frameOf(model, bone.parent, frame);
+  bone.quaternion.premultiply(step.copy(frame).invert().multiply(by).multiply(frame));
+}
+
+// How far forward the line from `from` up to `to`, a bone above it, leans in `model`'s own frame: radians from upright,
+// positive toward his forward. Every bone's scale is 1.
+function pitchOf(model, from, to) {
+  line.copy(to.position);
+  for (let o = to.parent; o !== from; o = o.parent) line.applyQuaternion(o.quaternion).add(o.position);
+  line.applyQuaternion(frameOf(model, from, frame));
+  return Math.atan2(line.z, line.y);
+}
 
 // The tracks of `clip` that `keep` picks by name, for a person `scale` times the size of the one the motions were made
 // on. Only where the hips are differs (the one position `keepTrack` leaves in), so every turn is shared with the original.
@@ -51,6 +85,32 @@ export function createAnimator(model, clips, facts, scale, index = 0) {
   const pace = {};   // the rate each was last played at: one that is no longer chosen carries on at it. 0 once placed by hand
   for (const name in actions.arms) [at[name], pace[name]] = [STANDING.includes(name) ? own.start : 0, 0];
   let strides = 0;   // the whole cycles his running legs have been through
+  const bone = name => model.getObjectByName(name) ?? fail(`${model.name} has no ${name}`);
+  const [chest, neck, headBone] = ['mixamorigSpine1', 'mixamorigNeck', 'mixamorigHead'].map(bone);
+  const looking = Object.entries(ANIMATOR.look).map(([name, share]) => [bone(name), share]);
+  // The bones turned after the motions, and the turns the motions gave them on the last frame. The mixer only sets a
+  // bone whose motions give it a new turn, so each is first put back to the last: otherwise a turn added after the
+  // motions would stay on a bone held still, and build up.
+  const turned = [chest, ...looking.map(([joint]) => joint)];
+  const given = turned.map(joint => joint.quaternion.clone());
+
+  // The chest, after the motions: each arms-layer motion asks for it to lean as it was made to (see chestTip).
+  function tipChest() {
+    const tip = chestTip(pitchOf(model, chest, neck), weights.arms);
+    if (tip) turnBone(model, chest, about.setFromAxisAngle(SIDE, tip));
+  }
+
+  // The head, after the motions and the chest: turned from wherever they left it looking to `yaw` toward his right of
+  // his forward and `pitch` above level, by the turn that gets it there without tipping it to one side, shared out
+  // from the upper spine up to the head.
+  function aim({ yaw, pitch }) {
+    const now = line.copy(AHEAD).applyQuaternion(frameOf(model, headBone, frame));
+    const nowYaw = Math.atan2(-now.x, now.z), nowPitch = Math.asin(Math.max(-1, Math.min(1, now.y)));
+    // Turned back from its own yaw, up or down from its own pitch to the wanted one, then round to the wanted yaw.
+    turn.setFromAxisAngle(UP, -yaw).multiply(about.setFromAxisAngle(SIDE, nowPitch - pitch));
+    turn.multiply(about.setFromAxisAngle(UP, nowYaw));
+    for (const [joint, share] of looking) turnBone(model, joint, about.identity().slerp(turn, share));
+  }
 
   function reset() {
     for (const layer of LAYERS) for (const name in actions[layer]) weights[layer][name] = name === 'idle' ? 1 : 0;
@@ -69,8 +129,9 @@ export function createAnimator(model, clips, facts, scale, index = 0) {
     phase: name => at[name],
     // One frame, `dt` seconds long. `legs` is what legMotion gave and `arms` what armMotion gave: { clip, at } holds
     // the motion at that share of its length, { clip, rate } plays it at that rate, and with no `arms` the arms show
-    // their half of the leg motion.
-    update(legs, arms, dt) {
+    // their half of the leg motion. `head` is where the head ends up looking, { yaw, pitch } in radians from the
+    // model's forward and from level (see aim), or null for the motion's own head.
+    update(legs, arms, dt, head = null) {
       choose(legs);
       if (arms) choose(arms);
       for (const name in at) {
@@ -101,7 +162,11 @@ export function createAnimator(model, clips, facts, scale, index = 0) {
       for (const layer of LAYERS) for (const name in actions[layer]) show(actions[layer][name], name, weights[layer][name]);
       // The dribble's share of the arm it leaves out goes to the leg motions, as the legs share it among themselves.
       for (const dribble in offArm) for (const name of LEG_CLIPS) show(offArm[dribble][name], name, weights.arms[dribble] * weights.legs[name]);
+      turned.forEach((joint, i) => joint.quaternion.copy(given[i]));
       mixer.update(0);
+      turned.forEach((joint, i) => given[i].copy(joint.quaternion));
+      tipChest();
+      if (head) aim(head);
     },
   };
 }

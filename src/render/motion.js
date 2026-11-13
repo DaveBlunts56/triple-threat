@@ -2,6 +2,7 @@
 import { BALL, DT, PLAYER, ROSTER, SHOT } from '../sim/tuning.js';
 import { attackSign, onFloor } from '../sim/state.js';
 import { gathering, shotWindow } from '../sim/players.js';
+import { rimCentre } from '../sim/ball.js';
 
 // Seconds from leaving the floor to landing, for a full jump.
 export const AIR_TIME = (2 * PLAYER.jumpV) / BALL.gravity;
@@ -23,6 +24,11 @@ export const AIR_TIME = (2 * PLAYER.jumpV) / BALL.gravity;
 // drift: how much slower or faster than made the slowest and the fastest of the ten play them.
 // dribbleHold: the share of each bounce the ball is at the hand. handSwitch: seconds the ball takes to cross from one
 // dribbling hand to the other. freeThrowSet: the share of the free throw at which its set point is, above the forehead.
+// turnRate: degrees a second the drawn heading turns at most. leanForward, leanSide: degrees the body tips at most,
+// forward or back and to either side. leanEase: seconds over which the lean follows what he does. headYaw, headPitch:
+// degrees the head turns at most, to either side and up or down. headEase: how quickly the head follows, a second.
+// eye: metres from his feet up to his eyes. chestDribble: degrees forward the chest leans in the dribble, which was made
+// on legs that lean; chestMade: degrees forward it leans at most under the poses made by hand, made on upright legs.
 export const MOTION = Object.freeze({
   idleBelow: 0.3, walkBelow: 2.2, runBelow: 5.6, stick: 0.2, minRate: 0.6, maxRate: 1.5, fade: 0.15,
   guardDist: 4, guardSpeed: 2.2, guardStick: 0.4, sideways: 50,
@@ -31,6 +37,8 @@ export const MOTION = Object.freeze({
   apart: 0.618, drift: 0.08,
   handStick: 0.4, guardFar: 0.4, sideStick: 10, minRateStep: 0.35,
   dribbleHold: 0.55, handSwitch: 0.2, freeThrowSet: 0.45,
+  turnRate: 900, leanForward: 12, leanSide: 10, leanEase: 0.15, headYaw: 70, headPitch: 30, headEase: 8, eye: 1.7,
+  chestDribble: 30, chestMade: 15,
 });
 
 // The ball as it is drawn in a holder's hands. blend: seconds over which it is drawn across to a new place whenever
@@ -56,6 +64,13 @@ const STOPPED = ['freeThrow', 'dead', 'quarterEnd'];   // the phases in which wh
 export const STRIDES = Object.freeze(['run', 'sprint']);
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+const rad = degrees => (degrees * Math.PI) / 180;
+const within = (value, most) => Math.max(-most, Math.min(most, value));   // held between -most and most
+// The same angle, from -π (not included) to π. One already in that range is returned as it is.
+const wrap = angle => angle - 2 * Math.PI * Math.ceil((angle - Math.PI) / (2 * Math.PI));
+
+// The opponent nearest to `player`.
+const nearestOpponent = (state, player) => state.players.filter(o => o.team !== player.team).reduce((a, b) => (dist(b, player) < dist(a, player) ? b : a));
 
 // Seconds from leaving the floor to landing for the jump `player` is in, or last made: a shot's jump is the smaller.
 export const airTime = player => (2 * (player.takeoff || PLAYER.jumpV)) / BALL.gravity;
@@ -72,7 +87,7 @@ export const defending = (state, player) => (state.phase === 'live' || state.pha
 // The hand `player` keeps the ball in: the one away from the nearest opponent. `last` is the hand it is in now, kept
 // when nobody is near, or when the nearest is so nearly straight ahead or behind that neither hand is further from him.
 export function dribbleHand(state, player, last = 'right') {
-  const nearest = state.players.filter(o => o.team !== player.team).reduce((a, b) => (dist(b, player) < dist(a, player) ? b : a));
+  const nearest = nearestOpponent(state, player);
   // Metres he stands to the right of the line the player faces along; negative to its left.
   const right = Math.cos(player.facing) * (nearest.z - player.z) - Math.sin(player.facing) * (nearest.x - player.x);
   if (dist(nearest, player) > MOTION.guardDist || Math.abs(right) < MOTION.handSide) return last;
@@ -142,6 +157,68 @@ export function legLook(state, player, marks) {
     crouch: state.ball.holder === player.id && !player.inbounder && (player.held || dribbling),
     landed: marks.land[player.id],
   };
+}
+
+// The heading he is drawn with one frame of `dt` seconds after `drawn`: turned toward `wanted` the short way round, by
+// MOTION.turnRate at most, so he never snaps round. From -π to π.
+export function easeFacing(drawn, wanted, dt) {
+  const gap = wrap(wanted - drawn), most = rad(MOTION.turnRate) * dt;
+  return Math.abs(gap) <= most ? wrap(wanted) : wrap(drawn + Math.sign(gap) * most);
+}
+
+// How far his body tips one frame of `dt` seconds after `lean`, { forward, side } in radians: a positive forward puts
+// his head ahead of his feet, a positive side puts it toward his left. `was` and `now` are his { vx, vz } one frame
+// apart and `facing` the heading he is drawn with. He tips into the way he speeds up: his speeding up along his heading,
+// and toward his left, as a share of PLAYER.accel, to MOTION.leanForward and MOTION.leanSide at most; off the floor not
+// at all. The lean covers the share 1 - exp(-dt / MOTION.leanEase) of the way to that each frame.
+export function leanOf(lean, was, now, facing, dt, grounded = true) {
+  if (dt === 0) return lean;
+  const ax = (now.vx - was.vx) / dt, az = (now.vz - was.vz) / dt;
+  const share = a => (grounded ? within(a / PLAYER.accel, 1) : 0);
+  const forward = share(ax * Math.cos(facing) + az * Math.sin(facing)) * rad(MOTION.leanForward);
+  const side = share(ax * Math.sin(facing) - az * Math.cos(facing)) * rad(MOTION.leanSide);
+  const k = 1 - Math.exp(-dt / MOTION.leanEase);
+  return { forward: lean.forward + (forward - lean.forward) * k, side: lean.side + (side - lean.side) * k };
+}
+
+// Where `player`'s eyes are: MOTION.eye above his feet.
+const eyes = player => ({ x: player.x, y: player.y + MOTION.eye, z: player.z });
+
+// What `player` looks at, { x, y, z }, or null on the start and final screens, where the motion's own head stays. The
+// first that fits: a shooter looks at the rim he attacks; the ball handler at the nearest opponent's eyes if he is within
+// MOTION.guardDist, otherwise at that rim; the passer, while his pass is in the air, at his receiver's eyes; a defender
+// within MOTION.guardDist of his man at his man's eyes; anyone else, a shooter once the ball has left too, at the ball.
+export function lookTarget(state, player) {
+  if (state.phase === 'start' || state.phase === 'final') return null;
+  const { ball } = state, rim = rimCentre(attackSign(player.team));
+  if (player.shooting) return rim;
+  if (ball.holder === player.id) {
+    const nearest = nearestOpponent(state, player);
+    return dist(nearest, player) <= MOTION.guardDist ? eyes(nearest) : rim;
+  }
+  if (ball.mode === 'pass' && ball.noPickupId === player.id && ball.target !== null) return eyes(state.players[ball.target]);
+  const man = manOf(state, player);
+  if (defending(state, player) && dist(man, player) <= MOTION.guardDist) return eyes(man);
+  return { x: ball.x, y: ball.y, z: ball.z };
+}
+
+// How far his head turns from the heading he is drawn with, `facing`, to look at `target` from his eyes, MOTION.eye
+// above his feet: { yaw, pitch } in radians, yaw toward his right and pitch upward, held within MOTION.headYaw and
+// MOTION.headPitch. No target: no turn.
+export function headTurn(player, facing, target) {
+  if (!target) return { yaw: 0, pitch: 0 };
+  const dx = target.x - player.x, dz = target.z - player.z, up = target.y - (player.y + MOTION.eye);
+  return {
+    yaw: within(wrap(Math.atan2(dz, dx) - facing), rad(MOTION.headYaw)),
+    pitch: within(Math.atan2(up, Math.hypot(dx, dz)), rad(MOTION.headPitch)),
+  };
+}
+
+// The head one frame of `dt` seconds after `head`, both { yaw, pitch }: each covers the share
+// 1 - exp(-MOTION.headEase * dt) of the way to `wanted`.
+export function easeHead(head, wanted, dt) {
+  const k = 1 - Math.exp(-MOTION.headEase * dt);
+  return { yaw: head.yaw + (wanted.yaw - head.yaw) * k, pitch: head.pitch + (wanted.pitch - head.pitch) * k };
 }
 
 const SIDE_STEPS = ['strafeLeft', 'strafeRight'];
@@ -260,6 +337,22 @@ const LEG_BONES = /^mixamorig(Hips|Spine|(Left|Right)(UpLeg|Leg|Foot|ToeBase))\.
 // legs, 'arms' for everything above. The lean of a run is in the hips and the lowest spine bone, so the legs keep it
 // whatever the arms do.
 export const layerOf = trackName => (LEG_BONES.test(trackName) ? 'legs' : 'arms');
+
+const DRIBBLES = ['dribble', 'dribbleLeft'];
+
+// How far to tip the chest forward over the pose the two layers give, in radians (negative: back). `pitch` is how far
+// forward that pose's chest leans, in radians, and `arms` each arms-layer motion's share of it. The dribble was made on
+// legs that lean, so on legs that lean less it asks for the chest to come forward to MOTION.chestDribble; the poses made
+// by hand were made on upright legs, so on legs that lean more they ask for it to come back to MOTION.chestMade; the arms
+// that follow the legs ask for nothing. Each asks by its share.
+export function chestTip(pitch, arms) {
+  let tip = 0;
+  for (const name in arms) {
+    if (DRIBBLES.includes(name)) tip += arms[name] * Math.max(0, rad(MOTION.chestDribble) - pitch);
+    else if (ARM_CLIPS.includes(name)) tip += arms[name] * Math.min(0, rad(MOTION.chestMade) - pitch);
+  }
+  return tip;
+}
 
 // Where in its cycle (0 to 1) person `index` of the ten starts standing and guarding, and how fast he plays them, so
 // that no two breathe in step. Each start is `apart` of a cycle on from the last; the rates are spread evenly from
