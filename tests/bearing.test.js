@@ -7,6 +7,7 @@ import { emptyIntent } from '../src/sim/state.js';
 import { passBall } from '../src/sim/players.js';
 import { PLAYER, RIM } from '../src/sim/tuning.js';
 import { live, at } from './helpers.js';
+import { newFreeThrow, setupFreeThrow } from '../src/sim/freethrow.js';
 
 const near = (a, b, by = 1e-9) => Math.abs(a - b) < by;
 const deg = r => (r * 180) / Math.PI, rad = d => (d * Math.PI) / 180;
@@ -120,4 +121,28 @@ test('a watcher looks at a held ball at the height of the hands, not at the floo
   assert.deepEqual(lookTarget(s, s.players[1]), { x: ball.x, y: 1.1, z: ball.z });
   passBall(s, s.players[0], { ...emptyIntent(), moveZ: 1 });
   assert.deepEqual(lookTarget(s, s.players[2]), { x: ball.x, y: ball.y, z: ball.z });   // nobody holds it: where it is
+});
+
+// ---- review of Task 11 ----
+
+test('a ball handler looks at the nearest opponent only when he is in front of him, otherwise at the rim', () => {
+  const hoop = { x: RIM.x, y: RIM.height, z: 0 };
+  const ft = live();
+  ft.freeThrow = newFreeThrow(0, 2); setupFreeThrow(ft);                   // a defender stands 3.8 m behind the shooter
+  assert.deepEqual(lookTarget(ft, ft.players[0]), hoop);                   // so he looks up at the rim for the whole aim
+  const s = live(), p = s.players[0];                                      // at (5, -3)
+  p.facing = 0;
+  at(s, 3, 7, -3);
+  assert.deepEqual(lookTarget(s, p), { x: 7, y: MOTION.eye, z: -3 });      // a defender in front: he watches him
+  at(s, 3, 3, -3);
+  assert.deepEqual(lookTarget(s, p), hoop);                                // a defender trailing him: the rim
+  at(s, 3, 5, -1);
+  assert.deepEqual(lookTarget(s, p), { x: 5, y: MOTION.eye, z: -1 });      // beside him, within 120 degrees: him
+});
+
+test('a held ball is looked at at the height of the hands of its holder, in the air as on the floor', () => {
+  const s = live(), holder = s.players[0], look = () => lookTarget(s, s.players[1]).y;
+  assert.equal(look(), MOTION.ballHeld);                                   // on the floor: 1.1 m
+  holder.y = 0.6;
+  assert.ok(Math.abs(look() - (0.6 + MOTION.ballHeld)) < 1e-12);           // rising with a shot: up with him
 });

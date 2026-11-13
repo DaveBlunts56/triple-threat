@@ -194,21 +194,23 @@ const eyes = player => ({ x: player.x, y: player.y + MOTION.eye, z: player.z });
 
 // What `player` looks at, { x, y, z }, or null on the start and final screens, where the motion's own head stays. The
 // first that fits: a shooter looks at the rim he attacks; the ball handler at the nearest opponent's eyes if he is within
-// MOTION.guardDist, otherwise at that rim; the passer, while his pass is in the air, at his receiver's eyes; a defender
-// within MOTION.guardDist of his man at his man's eyes; anyone else, a shooter once the ball has left too, at the ball:
-// a ball somebody holds at MOTION.ballHeld up, so that heads do not nod with its bounce, any other where it is.
+// MOTION.guardDist and no more than MOTION.headBehind round from the way he faces (the rules' facing), otherwise at that
+// rim; the passer, while his pass is in the air, at his receiver's eyes; a defender within MOTION.guardDist of his man
+// at his man's eyes; anyone else, a shooter once the ball has left too, at the ball: a ball somebody holds at
+// MOTION.ballHeld above its holder's feet, so that heads do not nod with its bounce, any other where it is.
 export function lookTarget(state, player) {
   if (state.phase === 'start' || state.phase === 'final') return null;
   const { ball } = state, rim = rimCentre(attackSign(player.team));
   if (player.shooting) return rim;
   if (ball.holder === player.id) {
     const nearest = nearestOpponent(state, player);
-    return dist(nearest, player) <= MOTION.guardDist ? eyes(nearest) : rim;
+    const round = wrap(Math.atan2(nearest.z - player.z, nearest.x - player.x) - player.facing);
+    return dist(nearest, player) <= MOTION.guardDist && Math.abs(round) <= rad(MOTION.headBehind) ? eyes(nearest) : rim;
   }
   if (ball.mode === 'pass' && ball.noPickupId === player.id && ball.target !== null) return eyes(state.players[ball.target]);
   const man = manOf(state, player);
   if (defending(state, player) && dist(man, player) <= MOTION.guardDist) return eyes(man);
-  return { x: ball.x, y: ball.holder === null ? ball.y : MOTION.ballHeld, z: ball.z };
+  return { x: ball.x, y: ball.holder === null ? ball.y : state.players[ball.holder].y + MOTION.ballHeld, z: ball.z };
 }
 
 // How far his head turns from the heading he is drawn with, `facing`, to look at `target` from his eyes, MOTION.eye
