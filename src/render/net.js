@@ -16,7 +16,7 @@ import { BALL, DT, RIM } from '../sim/tuning.js';
 // of the sideways part of that the knots keep: pushed up, the net only lifts against its strings and drops back, but
 // pushed sideways the whole of it swings like a pendulum, and a miss must not look like a make.
 export const NET = Object.freeze({
-  strings: 12, knots: 5, length: 0.40, bottom: 0.09, stretch: 1.1, give: 2, skin: 0.01, jump: 2,
+  strings: 12, knots: 5, length: 0.40, bottom: 0.09, stretch: 1.1, give: 3.5, skin: 0.01, jump: 2,
   drag: 3, pull: 2500, passes: 12, jolt: 1, shake: 0.1, kick: 0.6, side: 0.2,
 });
 
@@ -70,7 +70,7 @@ export function stepNet(net, from, to, dt) {
     net.h = h; kx = ky = kz = 0;
     const t = k / n, bx = b.x + (to.x - b.x) * t, by = b.y + (to.y - b.y) * t, bz = b.z + (to.z - b.z) * t;
     net.pulled.fill(0);
-    for (let pass = 0; pass < NET.passes; pass++) { ties(net, soft); push(net, bx, by, bz); strings(net); }
+    for (let pass = 0; pass < NET.passes; pass++) { ties(net, soft); push(net, bx, by, bz); cap(net); strings(net); }
     follow(net);
     limit(net);
   }
@@ -132,6 +132,19 @@ function push(net, bx, by, bz) {
   }
 }
 
+// After the ball, a tie it took past its limit is drawn back to it, both knots moving alike.
+function cap(net) {
+  const { at } = net;
+  for (let row = 1; row <= K; row++) for (let s = 0; s < N; s++) {
+    const i = 3 * (row * N + s), j = 3 * (row * N + (s + 1) % N);
+    const dx = at[i] - at[j], dy = at[i + 1] - at[j + 1], dz = at[i + 2] - at[j + 2], d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (d <= TIE_MOST[row]) continue;
+    const f = (TIE_MOST[row] - d) / 2 / d;
+    at[i] += dx * f; at[i + 1] += dy * f; at[i + 2] += dz * f;
+    at[j] -= dx * f; at[j + 1] -= dy * f; at[j + 2] -= dz * f;
+  }
+}
+
 // Each string segment, from the rim down, is pulled back to its rest length if it is longer, both of its knots moving
 // alike (the one on the rim does not move). A string can go slack, but does not stretch.
 function strings(net) {
@@ -159,11 +172,11 @@ function follow(net) {
   }
 }
 
-// In almost every make, on one to six of its sub-steps, a tie the ball has shoved is still past its limit after all that,
-// as it is when a ball is driven across the net. Then the whole net goes back toward its rest shape by the least share
-// that brings every segment and tie within its limit (over a batch of simulated makes, a median of about a quarter of
-// the way, at most about two thirds): a length between one within a limit and one at rest is within it too. Its speed
-// shrinks by the same share.
+// In about a third of makes, on one to three of their sub-steps, a tie is still past its limit after all that (the last
+// pass on the strings, drawing knots up, stretches it again), as it is when a ball is driven across the net. Then the
+// whole net goes back toward its rest shape by the least share that brings every segment and tie within its limit (over
+// a batch of simulated makes, a median of 4% of the way, at most 9%): a length between one within a limit and one at
+// rest is within it too. Its speed shrinks by the same share.
 function limit(net) {
   const { at, last, rest } = net;
   let share = 0;

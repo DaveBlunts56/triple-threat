@@ -60,7 +60,7 @@ test('left alone the net hangs where it was made and is still', () => {
   assert.ok(moved < 0.001, `still moving ${moved} m`);
 });
 
-test('a ball falling through pushes the net out, never stretches a string more than a tenth or a tie to more than double, and the net settles within two seconds', () => {
+test('a ball falling through pushes the net out, never stretches a string more than a tenth or a tie to more than three and a half times, and the net settles within two seconds', () => {
   for (const sign of [1, -1]) {
     const net = createNet(sign), { most, held } = swish(net, sign);
     assert.ok(most >= 0.03, `pushed ${most} m`);

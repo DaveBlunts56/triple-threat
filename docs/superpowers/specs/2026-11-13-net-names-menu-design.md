@@ -29,7 +29,7 @@ Each later piece gets its own spec and plan.
 
 ### Behaviour
 
-- Each hoop's net is 12 strings hanging from the rim, each of 5 knots below its rim point. Neighbouring strings are tied at each knot row. The strings are firm; the ties give like elastic (up to double their length), which is what lets the ball open a net narrower than itself.
+- Each hoop's net is 12 strings hanging from the rim, each of 5 knots below its rim point. Neighbouring strings are tied at each knot row. The strings are firm; the ties give like elastic (up to three and a half times their length), which is what lets the ball open a net narrower than itself.
 - At rest it hangs as a sleeve 0.40 m long that narrows from the rim's radius (0.225 m) to 0.09 m at the bottom. The bottom is narrower than the ball (radius 0.12 m), so every make must push the strings apart.
 - The knots move under gravity, with drag, held by the string lengths. The ball pushes any knot it overlaps to its surface. So a make bulges the net, drags it down, and lets it whip and swing back; a ball that grazes the net from outside moves it a little; a ball that never touches it leaves it still.
 - A ball that strikes the rim shakes the net slightly. The renderer cannot see the sim's events, so it detects this from the ball itself: the ball's velocity changes sharply between two frames while the ball is touching the rim's ring.
@@ -49,7 +49,7 @@ Each later piece gets its own spec and plan.
 
 - Left alone for 2 seconds it hangs within 1 cm of the shape it was made in, and is then still: no knot moves 1 mm in the next half second.
 - A ball falling through the middle at 5 m/s pushes at least one knot 3 cm or more away from where it rests, and 2 seconds after the ball has gone every knot is back within 1 cm of rest.
-- No string segment is ever more than 10% longer than its rest length, and no tie more than double its.
+- No string segment is ever more than 10% longer than its rest length, and no tie more than three and a half times its.
 - A ball passing 0.5 m from the net moves no knot.
 - Steps of 0 seconds and of 0.1 seconds give no number that is not finite, and a step of 0 changes nothing.
 
