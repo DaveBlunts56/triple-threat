@@ -1,10 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { legMotion, fade, checkGaits, checkFacts, AIR_TIME, MOTION, personName, courtPeople, keepTrack, sized, missingPeople } from '../src/render/motion.js';
+import { legMotion, checkGaits, checkFacts, MOTION, personName, courtPeople, keepTrack, sized, missingPeople } from '../src/render/motion.js';
 import { createMatch } from '../src/sim/state.js';
 import { substitute } from '../src/sim/roster.js';
-import { ROSTER } from '../src/sim/tuning.js';
+import { BALL, PLAYER, ROSTER } from '../src/sim/tuning.js';
+
+// Seconds from leaving the floor to landing, for a full jump.
+const AIR_TIME = (2 * PLAYER.jumpV) / BALL.gravity;
 
 const gaits = { walk: 1.5, run: 4, sprint: 6.5, strafeLeft: 1.5, strafeRight: 1.5, backpedal: 1.3 };
 const still = { vx: 0, vz: 0, y: 0, vy: 0, jumpT: 0 };
@@ -42,29 +45,6 @@ test('a jump always ends in the gait his speed calls for', () => {
 test('a jump lasts as long as the rules make it, and motions cross-fade in 0.15 seconds', () => {
   assert.ok(Math.abs(AIR_TIME - 0.8155) < 0.001, `air time ${AIR_TIME}`);
   assert.equal(MOTION.fade, 0.15);
-});
-
-const resting = () => ({ idle: 1, walk: 0, run: 0, sprint: 0, jump: 0 });
-const total = weights => Object.values(weights).reduce((sum, w) => sum + w, 0);
-
-test('a cross-fade always adds up to one whole pose, even when the motion changes again mid-fade', () => {
-  const weights = resting();
-  // A start (idle, a moment of walk, then run), a stop and a jump, each cut short by the next: a fifth of a fade per frame.
-  for (const clip of ['walk', 'run', 'run', 'walk', 'idle', 'jump', 'run', 'run', 'run', 'run', 'run', 'run']) {
-    fade(weights, clip, 0.2);
-    assert.ok(Math.abs(total(weights) - 1) < 1e-9, `fading to ${clip}: the weights add up to ${total(weights)}`);
-    assert.ok(Object.values(weights).every(w => w >= 0 && w <= 1), JSON.stringify(weights));
-  }
-  assert.deepEqual(weights, { idle: 0, walk: 0, run: 1, sprint: 0, jump: 0 });
-});
-
-test('a cross-fade takes one whole fade to finish, and the old motion fades out evenly', () => {
-  const weights = resting();
-  fade(weights, 'run', 0.25);
-  assert.deepEqual(weights, { idle: 0.75, walk: 0, run: 0.25, sprint: 0, jump: 0 });
-  for (let i = 0; i < 3; i++) fade(weights, 'run', 0.25);
-  assert.deepEqual(weights, { idle: 0, walk: 0, run: 1, sprint: 0, jump: 0 });
-  assert.deepEqual(fade(resting(), 'idle', 0), resting());   // no time passed (paused): nothing moves
 });
 
 test('motion facts without a speed for every gait are refused, so the game falls back to capsules', () => {

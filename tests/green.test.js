@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { step } from '../src/sim/step.js';
+import { rimCentre } from '../src/sim/ball.js';
 import { SHOT_BEST, boardInWay, contest, giveBall, greenAt, releaseShot, shotWindow } from '../src/sim/players.js';
 import { judgeContacts } from '../src/sim/fouls.js';
 import { emptyEvents } from '../src/sim/state.js';
@@ -63,6 +64,28 @@ test('a green release goes in, for every seed and from every range', () => {
     assert.deepEqual([report.blocked, s.shot.green], [false, true]);
     assert.ok(scores(s), `seed ${seed}, ${far} m: a green release missed`);
   }
+});
+
+test('a green release goes in from a grid of spots within 12 m of either hoop, for a shooter of each team, and draws no random number', () => {
+  let tried = 0;
+  for (const [id, mate] of [[0, 3], [3, 0]]) {
+    const sign = id === 0 ? 1 : -1, hoop = rimCentre(sign);                // the hoop his team attacks
+    for (const out of [2, 4, 6, 8, 10]) for (const side of [-8, -4, 0, 4, 8]) {
+      if (Math.hypot(out, side) > 11.5) continue;
+      const s = live(5), p = s.players[id], spot = `shooter ${id}, ${out} m out and ${side} m across`;
+      giveBall(s, p);
+      at(s, id, hoop.x - sign * out, side); at(s, mate, hoop.x - sign * (out - 2.5), side);   // the nearest defender in front of him
+      p.facing = sign > 0 ? 0 : Math.PI;
+      Object.assign(p, { shooting: true, shotT: 29 * DT, y: 0.2, vy: 0.5 });
+      const seed = s.seed;
+      const report = releaseShot(s, p);
+      assert.deepEqual([report.blocked, s.shot.green], [false, true], spot);
+      assert.equal(s.seed, seed, `${spot}: a green release drew a random number`);
+      assert.ok(run(s, 4, idle(), st => st.score[id === 0 ? 0 : 1] > 0), `${spot}: a green release missed`);
+      tried++;
+    }
+  }
+  assert.ok(tried >= 30, `${tried} spots tried`);
 });
 
 test('a release one step outside the window can miss', () => {

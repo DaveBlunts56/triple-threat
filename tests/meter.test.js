@@ -78,6 +78,13 @@ test('too far out there is no band at all', () => {
   assert.equal(shotMeter(s).band, null);
 });
 
+test('a release from out of range has no band to be early or late of, so it says so', () => {
+  const s = live(); at(s, 0, 0, 0); at(s, 3, 2.5, 0);
+  for (let i = 0; i < 29; i++) step(s, hold(0), DT);
+  step(s, idle(), DT);
+  assert.deepEqual([s.shot.inRange, shotMeter(s).frozen.verdict], [false, 'range']);
+});
+
 test('at the release it freezes and says green, early or late, and it stays for 1.2 seconds', () => {
   const verdict = n => { const s = shoot(n); step(s, idle(), DT); return [s, shotMeter(s)]; };
   const [s, green] = verdict(29);

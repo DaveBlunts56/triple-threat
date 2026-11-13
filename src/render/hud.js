@@ -46,7 +46,7 @@ export function subNote(state) {
 }
 
 // What the frozen shot meter says about the release. A block is never shown as a make.
-const VERDICTS = { green: '✓', early: 'Early', late: 'Late' };
+const VERDICTS = { green: '✓', early: 'Early', late: 'Late', range: 'Out of range' };
 const markText = frozen => (frozen.blocked ? 'Blocked' : VERDICTS[frozen.verdict]);
 const pixels = value => `${Math.round(value)}px`;
 const share = value => `${Math.round(value * 1000) / 10}%`;

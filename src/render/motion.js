@@ -4,9 +4,6 @@ import { attackSign, onFloor } from '../sim/state.js';
 import { gathering, shotWindow } from '../sim/players.js';
 import { rimCentre } from '../sim/ball.js';
 
-// Seconds from leaving the floor to landing, for a full jump.
-export const AIR_TIME = (2 * PLAYER.jumpV) / BALL.gravity;
-
 // Speeds in metres per second. stick: how far past an edge he must go before the gait changes.
 // minRate, maxRate: limits on how slow or fast a clip is played. fade: seconds to blend from one motion to the next.
 // guardDist: a defender this close to his man is drawn facing him. guardSpeed: walking pace: above it a defender turns
@@ -103,7 +100,7 @@ const HAPPENINGS = ['pass', 'release', 'catch', 'reach', 'land', 'switched'];
 // What the renderer remembers from frame to frame, by player id. For each of HAPPENINGS, the seconds since it last
 // happened to him (Infinity if never); `guard`, whether he is guarding his man, and `guarded`, the seconds since that
 // last changed; `hand`, the hand the ball goes in; `was`, what the last frame looked like.
-export const newMarks = () => ({ pass: {}, release: {}, catch: {}, reach: {}, land: {}, switched: {}, guard: {}, guarded: {}, hand: {}, was: null });
+export const newMarks = () => ({ ...Object.fromEntries(HAPPENINGS.map(what => [what, {}])), guard: {}, guarded: {}, hand: {}, was: null });
 
 // One frame of noticing: `dt` seconds have passed since the last. The first frame has nothing to compare with, so
 // nothing counts as having just happened.
@@ -320,16 +317,6 @@ export function armMotion(player, state, marks, facts) {
   return null;
 }
 
-// One frame of a cross-fade. `weights` is { clip: its share of the pose }; `step` is the share of a whole fade that
-// passed this frame. Every other motion fades out and the chosen one takes what is left, so the shares always add up
-// to 1: whatever is missing would be filled in with the rest pose, and limbs would flick toward it.
-export function fade(weights, chosen, step) {
-  let others = 0;
-  for (const name in weights) if (name !== chosen) others += weights[name] = Math.max(0, weights[name] - step);
-  weights[chosen] = 1 - others;
-  return weights;
-}
-
 // One frame of a cross-fade in which each motion leaves at its own pace. `weights` is { clip: its share of the pose };
 // `dt` is the seconds that passed. A one-off move leaves slowly; anything else makes way at once for a one-off move,
 // and at the usual pace for any other. The chosen motion takes what is left, so the shares always add up to 1.
@@ -536,6 +523,6 @@ export function shotMeter(state) {
   // The record outlives the shot, until the next press: only a fresh release by team 0 is shown.
   const { shot } = state;
   if (!shot || state.players[shot.shooter].team !== 0 || state.time - shot.at > SHOT_METER.stay) return null;
-  const verdict = shot.green ? 'green' : shot.t < shot.best ? 'early' : 'late';
+  const verdict = shot.green ? 'green' : !shot.inRange ? 'range' : shot.t < shot.best ? 'early' : 'late';
   return meterOf(state.players[shot.shooter], shot.t, shot, { verdict, blocked: shot.blocked });
 }

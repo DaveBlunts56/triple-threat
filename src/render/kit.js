@@ -18,7 +18,7 @@ export const KIT = f({
   back: f({ at: f([0.75, 0.40]), height: 0.34 }),
 });
 
-export const TEAM_COLOURS = [0x2f6fe0, 0xd83a3a];   // KIT.team as numbers, for a material
+export const TEAM_COLOURS = KIT.team.map(hex => parseInt(hex.slice(1), 16));   // KIT.team as numbers, for a material
 
 // What to paint on a `part` ('jersey' or 'shorts') of the player wearing `number`, in the order it is painted:
 // { fill, rect } or { text, at, height, fill }, placed as in KIT, with `fill` naming the team's colour or the trim.

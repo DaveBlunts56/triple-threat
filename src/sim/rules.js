@@ -68,7 +68,7 @@ function endPeriod(state) {
   state.phaseT = CLOCK.quarterBreak;
 }
 
-// shortcut: the inbounder is teleported to the spot, visible as a small jump; walk them there when animations arrive in milestone 3
+// shortcut: the inbounder is teleported to the spot, visible as a small jump; walk them there after the 5v5 option
 function setupInbound(state) {
   const { ball, inboundSpot: spot } = state;
   const d = p => Math.hypot(p.x - spot.x, p.z - spot.z);

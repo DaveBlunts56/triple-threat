@@ -164,6 +164,8 @@ test('the shot meter is drawn beside the shooter: how full, the band, the level,
   assert.deepEqual([e.shotMark.textContent, e.shotMeter.className], ['Early', '']);
   show({ ...live, frozen: { verdict: 'late', blocked: false } });
   assert.equal(e.shotMark.textContent, 'Late');
+  show({ ...live, band: null, frozen: { verdict: 'range', blocked: false } });
+  assert.equal(e.shotMark.textContent, 'Out of range');
   show({ ...live, fill: 0.97, frozen: { verdict: 'green', blocked: true } });
   assert.deepEqual([e.shotMark.textContent, e.shotMeter.className], ['Blocked', '']);            // a block is never shown as a make
   show({ ...live, band: null, level: 'Open' });

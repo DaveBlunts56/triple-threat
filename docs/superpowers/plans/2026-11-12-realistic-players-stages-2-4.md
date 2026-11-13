@@ -419,6 +419,8 @@ test('in the real game no import is left pointing at a file', () => {
 
 > **Superseded on 2026-11-12.** Tasks 7 to 12 below are replaced by `docs/superpowers/plans/2026-11-12-realistic-players-stage-3.md`, written after the owner's reference video was studied and the stage 3 design was amended. They are kept here only as a record. Stage 4 (Tasks 13 to 16) still stands.
 
+> 2026-11-13: by the owner's decision stage 4 (Tasks 13 to 16) was not built in milestone 3; walking to the inbound and free-throw spots moves to after the 5v5 option, and the camera close-ups move to the arena work. The order of the work that follows is in `docs/superpowers/specs/2026-11-13-net-names-menu-design.md`.
+
 ### Task 7: Four more clips from Mixamo
 
 **Files:**

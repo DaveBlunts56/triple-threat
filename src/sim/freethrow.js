@@ -18,7 +18,7 @@ function handBall(state) {
   Object.assign(ft, { stage: 'aim', meter: 0, dir: 1, t: 0, armed: false, live: false });
 }
 
-// shortcut: players are placed on their spots directly, as inbounders are; walk them there when animations arrive in milestone 3
+// shortcut: players are placed on their spots directly, as inbounders are; walk them there after the 5v5 option
 export function setupFreeThrow(state) {
   const shooter = state.players[state.freeThrow.shooter];
   const sign = attackSign(shooter.team), hoop = rimCentre(sign);

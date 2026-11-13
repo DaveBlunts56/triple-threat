@@ -7,7 +7,7 @@ What the player models are made from, and under which licence.
 - **MPFB 2.0.18** (MakeHuman Plugin For Blender), GPL-3.0-or-later. Used as a tool; its code is not shipped.
   <https://extensions.blender.org/add-ons/mpfb/>
 
-The data MPFB ships with is CC0. From it:
+The data MPFB ships with is CC0, as MakeHuman states for its core assets: <https://static.makehumancommunity.org/about/license.html>. The rig's CC0 status rests on its weights file, which states CC0, and on that statement. From it:
 
 | Asset | Used for |
 |---|---|
