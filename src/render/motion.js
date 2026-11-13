@@ -22,7 +22,7 @@ export const AIR_TIME = (2 * PLAYER.jumpV) / BALL.gravity;
 // apart: the share of a cycle between where one person's standing motions start and where the next person's do.
 // drift: how much slower or faster than made the slowest and the fastest of the ten play them.
 // dribbleHold: the share of each bounce the ball is at the hand. handSwitch: seconds the ball takes to cross from one
-// dribbling hand to the other.
+// dribbling hand to the other. freeThrowSet: the share of the free throw at which its set point is, above the forehead.
 export const MOTION = Object.freeze({
   idleBelow: 0.3, walkBelow: 2.2, runBelow: 5.6, stick: 0.2, minRate: 0.6, maxRate: 1.5, fade: 0.15,
   guardDist: 4, guardSpeed: 2.2, guardStick: 0.4, sideways: 50,
@@ -30,12 +30,13 @@ export const MOTION = Object.freeze({
   fadeIn: 0.07, fadeOut: 0.22, quick: Object.freeze(['pass', 'reach', 'follow', 'freeThrow', 'handUp']),
   apart: 0.618, drift: 0.08,
   handStick: 0.4, guardFar: 0.4, sideStick: 10, minRateStep: 0.35,
-  dribbleHold: 0.55, handSwitch: 0.2,
+  dribbleHold: 0.55, handSwitch: 0.2, freeThrowSet: 0.45,
 });
 
 // The ball as it is drawn in a holder's hands. blend: seconds over which it is drawn across to a new place, when it
 // comes into a hand or leaves one. palm: metres from the wrist bone, toward the fingers, to where the ball sits.
-export const BALL_IN_HAND = Object.freeze({ blend: 0.1, palm: 0.1 });
+// reach: metres beyond which it is not drawn across at all but put in its new place at once: the rules placed it there.
+export const BALL_IN_HAND = Object.freeze({ blend: 0.1, palm: 0.1, reach: 1.5 });
 
 // The shot meter. stay: seconds it is kept after the release. aside: metres it stands from the shooter, on the side
 // away from the hoop he attacks. high: the height its top is level with, about his shoulder; it does not rise with his
@@ -200,9 +201,10 @@ export function armMotion(player, state, marks, facts) {
 
   if (marks.pass[id] < length('pass')) return { clip: 'pass', at: marks.pass[id] / length('pass') };
   const released = marks.release[id], landed = marks.land[id];
-  if (state.phase === 'freeThrow' && state.freeThrow.shooter === id && released < length('freeThrow')) {
-    return { clip: 'freeThrow', at: released / length('freeThrow') };
-  }
+  // A free throw leaves from the set point, where he held it, and plays on from there at its own pace.
+  const atLine = state.phase === 'freeThrow' && state.freeThrow.shooter === id;
+  const shot = MOTION.freeThrowSet + released / length('freeThrow');
+  if (atLine && shot < 1) return { clip: 'freeThrow', at: shot };
   if (!hasBall && released < Infinity) {
     // The arm goes up and stays up while he is in the air, and comes down once he has landed.
     const up = Math.min(MOTION.followHold, released / length('follow'));
@@ -217,6 +219,7 @@ export function armMotion(player, state, marks, facts) {
   }
   const arrival = passArrival(state, player);
   if (arrival < MOTION.reachBefore) return { clip: 'catch', at: MOTION.catchReach * (1 - arrival / MOTION.reachBefore) };
+  if (hasBall && atLine) return { clip: 'freeThrow', at: MOTION.freeThrowSet };   // set to shoot it
   // Nobody dribbles in the air: a ball caught up there is held until he lands.
   if (hasBall && (player.inbounder || player.held || inAir || STOPPED.includes(state.phase))) return { clip: sided('hold'), rate: 1 };
   if (hasBall) return { clip: sided('dribble'), rate: 1 };
@@ -303,6 +306,21 @@ export function switchSpot(from, to, share, radius) {
 // frame), and belongs at `now`. It is drawn straight across from one to the other over BALL_IN_HAND.blend seconds.
 export function ballSpot(last, now, since) {
   return last && since < BALL_IN_HAND.blend ? between(last, now, since / BALL_IN_HAND.blend) : now;
+}
+
+// Who carries the ball and how, as one value that changes exactly when the drawn ball is to be drawn across to its new
+// place: null when nobody holds it. `hands` is what ballHands gave for the holder's arms, or null when the ball is not
+// drawn in them. A change from one dribbling hand to the other is no change: the ball crosses instead (switchSpot).
+export function carrying(holder, hands) {
+  if (holder === null) return null;
+  return `${holder} ${hands === 'both' ? 'both' : hands ? 'one' : 'none'}`;
+}
+
+// Where a blend starts, for a ball drawn at `drawn` that now belongs at `now`: a copy of `drawn`, or null, for no blend,
+// when it is further than BALL_IN_HAND.reach away.
+export function blendFrom(drawn, now) {
+  const far = Math.hypot(drawn.x - now.x, drawn.y - now.y, drawn.z - now.z) > BALL_IN_HAND.reach;
+  return far ? null : { x: drawn.x, y: drawn.y, z: drawn.z };
 }
 
 // Throws unless `facts` (assets/motion.json) gives every gait and every guarding step a speed: without one a moving

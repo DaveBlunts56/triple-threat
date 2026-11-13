@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dribbleHeight, switchSpot, ballSpot, ballHands, BALL_IN_HAND } from '../src/render/motion.js';
+import { dribbleHeight, switchSpot, ballSpot, ballHands, BALL_IN_HAND, carrying, blendFrom } from '../src/render/motion.js';
 
 const near = (a, b, by = 1e-9) => Math.abs(a - b) < by;
 
@@ -33,4 +33,30 @@ test('whenever the ball changes hands or leaves them it is drawn there over a te
 
 test('the dribble is carried in one hand, everything else in both', () => {
   assert.deepEqual(['dribble', 'dribbleLeft', 'hold', 'holdLeft', 'shoot', 'catch'].map(ballHands), ['right', 'left', 'both', 'both', 'both', 'both']);
+});
+
+// ---- rulings after Task 10 ----
+
+test('on its way back up a dribbled ball rises as it fell, and is never under the floor', () => {
+  const d = { push: 0.25, bounces: 1 }, height = phase => dribbleHeight(phase, d, 1, 0.12);
+  assert.ok(near(height(0.6), height(0.35)) && height(0.6) > 0.12);
+  assert.ok(Array.from({ length: 1000 }, (_, i) => height(i / 1000)).every(y => y >= 0.12 - 1e-9));
+});
+
+test('the ball is drawn across again when the way it is carried changes, but crosses between the two dribbling hands', () => {
+  assert.equal(carrying(null, null), null);                                // nobody has it
+  assert.equal(carrying(2, 'right'), carrying(2, 'left'));                 // a change of dribbling hand is a crossing, not a blend
+  assert.notEqual(carrying(2, 'right'), carrying(2, 'both'));              // dribble to shot, to a pick-up; catch to dribble
+  assert.notEqual(carrying(2, 'both'), carrying(3, 'both'));               // another holder
+  assert.notEqual(carrying(2, 'both'), carrying(2, null));                 // held, then the final screen
+});
+
+test('a ball placed out of reach is drawn there at once, not glided across', () => {
+  const now = { x: 0, y: 1, z: 0 };
+  assert.equal(BALL_IN_HAND.reach, 1.5);
+  assert.deepEqual(blendFrom({ x: 1.5, y: 1, z: 0 }, now), { x: 1.5, y: 1, z: 0 });       // just within reach: glided
+  assert.equal(blendFrom({ x: 1.6, y: 1, z: 0 }, now), null);              // placed with an inbounder or a free-throw shooter
+  const drawn = { x: 0.5, y: 1, z: 0 }, from = blendFrom(drawn, now);
+  drawn.x = 9;
+  assert.equal(from.x, 0.5);                                               // a copy: the drawn ball goes on moving
 });

@@ -142,6 +142,12 @@ export async function loadPeople() {
   const models = Array.from({ length: 6 }, () => new THREE.Group());
   const shown = [];   // the person whose model is in each group
   let marks = newMarks();   // what is remembered from frame to frame, for one match
+  // The hands its holder carries the ball in on this frame, as ballHands gives them, or null when nobody holds it and
+  // on the start and final screens, where it is not drawn in them.
+  const handsOf = state => {
+    const id = state.ball.holder;
+    return id === null || state.phase === 'start' || state.phase === 'final' ? null : ballHands(shown[id].arms.clip);
+  };
 
   return {
     models,
@@ -175,13 +181,14 @@ export async function loadPeople() {
         he.animator.update(legs, he.arms, dt);
       });
     },
+    // The hands the holder carries the ball in on this frame (see handsOf). To be asked after `update`.
+    hands: handsOf,
     // Where the ball is in its holder's hands on this frame, { x, y, z }, or null when nobody holds it and on the
     // start and final screens. To be asked after `update`, which puts the hands where they are. The rules never read it.
     heldBall(state) {
-      const id = state.ball.holder;
-      if (id === null || state.phase === 'start' || state.phase === 'final') return null;
-      const { hands, arms, animator } = shown[id];
-      const side = ballHands(arms.clip);
+      const side = handsOf(state);
+      if (!side) return null;
+      const id = state.ball.holder, { hands, arms, animator } = shown[id];
       if (side === 'both') {
         const left = palmOf(hands.left), right = palmOf(hands.right);
         return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2, z: (left.z + right.z) / 2 };

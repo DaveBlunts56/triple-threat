@@ -144,9 +144,23 @@ test('at the line he holds the ball, and a free throw is a set shot', () => {
   s.freeThrow = newFreeThrow(0, 2); setupFreeThrow(s);
   noteChanges(marks, s, DT);
   for (let i = 0; i < 12; i++) noteChanges(marks, s, DT);                 // the catch has played out
-  assert.match(arms(s, marks, 0).clip, /^hold/);
+  assert.deepEqual(arms(s, marks, 0), { clip: 'freeThrow', at: MOTION.freeThrowSet });   // at the set point (was: a hold, after the ruling on Task 10)
   press(s); noteChanges(marks, s, 2 * DT);
-  assert.deepEqual([s.ball.mode, arms(s, marks, 0)], ['shot', { clip: 'freeThrow', at: 0 }]);
+  assert.deepEqual([s.ball.mode, arms(s, marks, 0)], ['shot', { clip: 'freeThrow', at: MOTION.freeThrowSet }]);   // (was: at 0)
+});
+
+test('after a free throw the arms play on from the set point at the clip\'s own pace, until it ends', () => {
+  const s = live(), marks = newMarks();
+  s.freeThrow = newFreeThrow(0, 2); setupFreeThrow(s);
+  for (let i = 0; i < 13; i++) noteChanges(marks, s, DT);
+  press(s); noteChanges(marks, s, 2 * DT);                                 // let go on this frame
+  const after = age => { noteChanges(marks, s, age - marks.release[0]); return arms(s, marks, 0); };
+  assert.equal(MOTION.freeThrowSet, 0.45);
+  const played = after(0.36);
+  assert.equal(played.clip, 'freeThrow');
+  assert.ok(near(played.at, MOTION.freeThrowSet + 0.36 / 0.9));
+  assert.ok(near(after(0.49).at, MOTION.freeThrowSet + 0.49 / 0.9));
+  assert.notEqual(after(0.5)?.clip, 'freeThrow');                          // 0.45 + 0.5 / 0.9 is past the end
 });
 
 test('an inbounder and a player who has picked up his dribble hold the ball; otherwise he dribbles', () => {
