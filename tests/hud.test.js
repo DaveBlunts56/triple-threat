@@ -47,11 +47,11 @@ test('calls read as a sentence and say what follows', () => {
   assert.equal(callText(call('fiveSeconds', 1)), '5 seconds. Your ball');
   assert.equal(callText(call('shotClock', 0)), "Shot clock violation. Opponent's ball");
   assert.equal(callText(call('out', 1)), 'Out of bounds. Your ball');
-  assert.equal(callText(call('reach', 1, { number: 8 })), 'Reach-in foul on 8. Your ball');
-  assert.equal(callText(call('block', 1, { number: 8, shots: 2 })), 'Blocking foul on 8. Two shots');
-  assert.equal(callText(call('shooting', 0, { number: 7, shots: 1 })), 'Shooting foul on 7. One shot');
-  assert.equal(callText(call('shooting', 0, { number: 7, shots: 3 })), 'Shooting foul on 7. Three shots');
-  assert.equal(callText(call('charge', 0, { number: 4 })), "Charge on 4. Opponent's ball");
+  assert.equal(callText(call('reach', 1, { number: 8, name: 'Luca Reyes' })), 'Reach-in foul on Reyes (8). Your ball');
+  assert.equal(callText(call('block', 1, { number: 8, name: 'Luca Reyes', shots: 2 })), 'Blocking foul on Reyes (8). Two shots');
+  assert.equal(callText(call('shooting', 0, { number: 7, name: 'Theo Marsh', shots: 1 })), 'Shooting foul on Marsh (7). One shot');
+  assert.equal(callText(call('shooting', 0, { number: 7, name: 'Theo Marsh', shots: 3 })), 'Shooting foul on Marsh (7). Three shots');
+  assert.equal(callText(call('charge', 0, { number: 4, name: 'Jalen Cross' })), "Charge on Cross (4). Opponent's ball");
 });
 
 test('the scoreboard shows team fouls and the energy of the player you control', () => {
@@ -97,13 +97,13 @@ test('the free-throw box shows which attempt it is and where the marker is', () 
 
 test('the pause screen lists your five with where they are, their fouls and what is queued', () => {
   const s = createMatch(); s.rosters[0][3].fouls = 3; s.rosters[0][1].fouls = 1;
-  assert.equal(rosterLine(s, 0, false), '1 · No. 4 · on court · 0 fouls');
-  assert.equal(rosterLine(s, 1, true), '2 · No. 7 · on court · 1 foul · selected');
-  assert.equal(rosterLine(s, 3, false), '4 · No. 15 · fouled out');
-  assert.equal(rosterLine(s, 4, false), '5 · No. 23 · bench · 0 fouls');
+  assert.equal(rosterLine(s, 0, false), '1 · PG · Jalen Cross · No. 4 · on court · 0 fouls');
+  assert.equal(rosterLine(s, 1, true), '2 · SF · Theo Marsh · No. 7 · on court · 1 foul · selected');
+  assert.equal(rosterLine(s, 3, false), '4 · SG · Sam Okoro · No. 15 · fouled out');
+  assert.equal(rosterLine(s, 4, false), '5 · PF · Andre Volkov · No. 23 · bench · 0 fouls');
   assert.equal(subNote(s), 'Automatic substitutions on. No swap queued.');
   s.autoSubs[0] = false; s.subQueue = [{ team: 0, out: 1, in: 4 }];
-  assert.equal(subNote(s), 'Automatic substitutions off. Queued: No. 7 off, No. 23 on.');
+  assert.equal(subNote(s), 'Automatic substitutions off. Queued: Marsh off, Volkov on.');
 });
 
 test('the pause screen is filled in with the roster, energy and the selected row', () => {
@@ -111,12 +111,21 @@ test('the pause screen is filled in with the roster, energy and the selected row
   s.rosters[0][4].energy = 0.5;
   hud.update(s, 'webgl2', { paused: true, pick: 4 });
   assert.deepEqual([doc.els.roster4.textContent, doc.els.rosterEnergy4.value, doc.els.subNote.textContent],
-    ['5 · No. 23 · bench · 0 fouls · selected', 0.5, 'Automatic substitutions on. No swap queued.']);
+    ['5 · PF · Andre Volkov · No. 23 · bench · 0 fouls · selected', 0.5, 'Automatic substitutions on. No swap queued.']);
+});
+
+test('a label names the player you control: surname, position, number', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch();
+  hud.update(s, 'webgl2');
+  assert.equal(doc.els.who.textContent, 'Cross · PG · 4');
+  s.controlled = 2;
+  hud.update(s, 'webgl2');
+  assert.equal(doc.els.who.textContent, 'Stone · C · 11');
 });
 
 test('the page has every element the scoreboard writes to', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  for (const id of ['fouls0', 'fouls1', 'energy', 'call', 'ftBox', 'ftText', 'ftBar', 'ftMarker', 'subNote',
+  for (const id of ['fouls0', 'fouls1', 'energy', 'who', 'call', 'ftBox', 'ftText', 'ftBar', 'ftMarker', 'subNote',
     ...[0, 1, 2, 3, 4].flatMap(i => [`roster${i}`, `rosterEnergy${i}`])]) assert.match(html, new RegExp(`id="${id}"`), id);
   assert.match(html, /F hold ball/);
 });

@@ -45,11 +45,11 @@ function stopPlay(state, possession, spot, call = null) {
 // A foul stops play. `shots` overrides the free throws the foul earns by itself: a shooting foul's depend on the shot.
 function callFoul(state, foul, shots) {
   const fouler = state.players[foul.by];
-  const number = personOf(state, fouler).number;   // read now: he may be substituted during the stoppage
+  const { number, name } = personOf(state, fouler);   // read now: he may be substituted during the stoppage
   const given = recordFoul(state, foul);
   const n = shots ?? given.shots;
   if (n) state.freeThrow = newFreeThrow(foul.on, n);
-  stopPlay(state, given.ball, sidelineSpot(state.ball), makeCall(foul.kind, fouler.team, { number, shots: n }));
+  stopPlay(state, given.ball, sidelineSpot(state.ball), makeCall(foul.kind, fouler.team, { number, name, shots: n }));
   // After a defensive foul the offence has at least 14 seconds left to shoot.
   if (!n && foul.kind !== 'charge') state.shotClock = Math.max(state.shotClock, CLOCK.shotAfterFoul);
   state.pendingFoul = null;

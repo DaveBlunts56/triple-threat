@@ -1,5 +1,8 @@
 import { BALL, CLOCK, ROSTER } from './tuning.js';
 
+// The last word of a person's name.
+export const surname = person => person.name.split(' ').pop();
+
 export const attackSign = team => (team === 0 ? 1 : -1);
 
 // Standing on the floor, not in the middle of a jump.
@@ -56,7 +59,7 @@ export function createMatch(seed = 1) {
     possession: 0, lastTouch: null, controlled: 0, lastControlled: 0,
     inboundSpot: { x: 0, z: 0 },
     // manual: you brought him on yourself, so the automatic substitutions leave him alone until he comes off
-    rosters: ROSTER.numbers.map(team => team.map(number => ({ number, energy: 1, fouls: 0, manual: false }))),
+    rosters: ROSTER.numbers.map((team, t) => team.map((number, row) => ({ number, name: ROSTER.names[t][row], position: ROSTER.positions[row], energy: 1, fouls: 0, manual: false }))),
     subQueue: [], autoSubs: [true, true], teamFouls: [0, 0],
     call: null, freeThrow: null, pendingFoul: null, tipWinner: null,
     shot: null,   // how the last shot was let go, as the rules judged it; null from the next press until its release

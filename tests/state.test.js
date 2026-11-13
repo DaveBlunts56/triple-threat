@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createMatch, rand, attackSign, emptyIntent, emptyEvents, personOf } from '../src/sim/state.js';
+import { createMatch, rand, attackSign, emptyIntent, emptyEvents, personOf, surname } from '../src/sim/state.js';
+import { ROSTER } from '../src/sim/tuning.js';
 
 test('createMatch builds six players, three per team', () => {
   const s = createMatch();
@@ -59,4 +60,14 @@ test('an empty intent has hold off, and empty events report nothing', () => {
   assert.equal(emptyIntent().hold, false);
   assert.deepEqual(emptyEvents(), { hitFloor: false, hitRim: false, hitBoard: false, scored: 0,
     travel: null, doubleDribble: null, stealMisses: [], release: null, contacts: [] });
+});
+
+test('every player has a name and a position, and the first three are a guard, a forward and a centre', () => {
+  const s = createMatch();
+  assert.deepEqual(s.rosters.map(r => r.map(p => p.name)), [
+    ['Jalen Cross', 'Theo Marsh', 'Darius Stone', 'Sam Okoro', 'Andre Volkov'],
+    ['Kai Mercer', 'Luca Reyes', 'Viktor Lund', 'Devon Hale', 'Emeka Bright']]);
+  for (const r of s.rosters) assert.deepEqual(r.map(p => p.position), ['PG', 'SF', 'C', 'SG', 'PF']);
+  assert.deepEqual(ROSTER.teams, ['Harbor City Waves', 'Red Rock Scorpions']);
+  assert.equal(surname(s.rosters[0][4]), 'Volkov');
 });

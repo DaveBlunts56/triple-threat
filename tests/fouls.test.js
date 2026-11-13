@@ -89,7 +89,9 @@ test('a charge gives the ball to the defence and never free throws', () => {
 // The tests below go through step().
 test('a reach-in outside the bonus: the fouled team inbounds and the shot clock is at least 14', () => {
   const s = fouled(seed => stealing(seed, { shotClock: 5 }));
-  assert.deepEqual(s.call, { kind: 'reach', team: 1, ball: 0, number: 5, shots: 0 });
+  assert.deepEqual(s.call, { kind: 'reach', team: 1, ball: 0, number: 5, name: 'Kai Mercer', shots: 0 });
+  substitute(s, 3, 3);                                   // he is taken off during the stoppage
+  assert.deepEqual([s.call.number, s.call.name], [5, 'Kai Mercer']);
   assert.deepEqual([s.phase, s.possession, s.freeThrow, s.shotClock], ['dead', 0, null, 14]);
 });
 
@@ -147,7 +149,7 @@ test('a defender in the air on top of the shooter at the release can be called f
 test('a charge is a turnover even in the bonus', () => {
   const charging = seed => { const s = live(seed); at(s, 0, 2, 0); at(s, 3, 3.5, 0); s.players[0].vx = 5.95; s.players[3].setT = 0.5; s.teamFouls = [2, 0]; return s; };
   const s = fouled(charging, 'charge', only(0, { moveX: 1, sprint: true }));
-  assert.deepEqual(s.call, { kind: 'charge', team: 0, ball: 1, number: 4, shots: 0 });
+  assert.deepEqual(s.call, { kind: 'charge', team: 0, ball: 1, number: 4, name: 'Jalen Cross', shots: 0 });
   assert.deepEqual([s.possession, s.freeThrow, s.teamFouls, s.shotClock], [1, null, [3, 0], 24]);
 });
 
