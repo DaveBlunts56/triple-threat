@@ -35,22 +35,22 @@ export const SHOT = f({
 
 export const PASS = f({ speed: 14, noPickup: 0.3, height: 1.3, clearTime: 0.1, interceptRadius: 0.4 });   // clearTime: no opponent can touch a pass this soon after it is thrown; interceptRadius: how close to a pass a defender must be to pick it off
 export const STEAL = f({ reach: 1.2, frontChance: 0.25, backChance: 0.08, cooldown: 1, frontArc: 120, heldFactor: 0.4 });   // heldFactor: steal chance multiplier against a picked-up ball
-export const BLOCK = f({ reach: 1.2, minHeight: 0.3, chance: 0.38, cone: 45, deflect: 4 });
+export const BLOCK = f({ reach: 1.2, minHeight: 0.3, chance: 0.36, cone: 45, deflect: 4 });
 
 export const CLOCK = f({ quarters: 4, quarter: 180, overtime: 60, shot: 24, shotAfterFoul: 14, dead: 1.5, quarterBreak: 2 });
 
 export const AI = f({
-  interval: 0.3, openDist: 1.8, shootRange: 7.5, laneWidth: 1, panicClock: 4,
+  interval: 0.3, openDist: 1.8, shootRange: 7.5, laneWidth: 1.07, panicClock: 4,
   stealRate: 0.03, inboundDelay: 1, swapEvery: 6, onBallGap: 1.35, offBallGap: 1.8,
   jitter: 0.1,            // random extra seconds between decisions
   arrive: 0.3,            // close enough to a target to stop
   slowDist: 1.5,          // within this of a target a player asks for part speed, in proportion to the distance left
-  layupDist: 2.5,         // this close to the rim, just shoot
-  releaseJitter: 0.12,    // seconds either side of the best moment that a shot may be released
-  driveX: 11.2, topX: 5.5, safetyX: 4,   // distances from centre court: drive target, top of the key, the player who gets back
+  layupDist: 2.8,         // this close to the rim, just shoot
+  releaseJitter: 0.16,    // seconds either side of the best moment that a shot may be released
+  driveX: 11.2, topX: 5.2, safetyX: 4,   // distances from centre court: drive target, top of the key, the player who gets back
   inboundHelp: 4,         // how far into the court a teammate comes to receive an inbound pass
   contestDist: 2,         // jump to contest a shooter this close
-  contestDelay: 0.15,     // the longest a defender takes to react to his man leaving the floor
+  contestDelay: 0.05,     // the longest a defender takes to react to his man leaving the floor
   reboundDist: 1, reboundHeight: 3.3,    // jump for a falling ball this close and this low
   farAway: 2,             // sprint when further than this from where you need to be
   passRange: 10,          // longest pass the computer will try
