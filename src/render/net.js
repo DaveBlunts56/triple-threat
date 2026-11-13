@@ -6,8 +6,9 @@ import { BALL, DT, RIM } from '../sim/tuning.js';
 // row at rest. bottom: the bottom row's radius at rest, less than the ball's, so every make opens it. stretch: the most a
 // string's segment (from one knot to the next one down) may be of its rest length: the strings stretch as a real net's
 // mesh does, so the ball can drag the net down, and spring back. give: the most a tie (between neighbouring strings in
-// one row) may be of its rest length: the ties are elastic, which is what lets the ball open a net narrower than itself. skin: metres added to the ball's radius where it pushes knots. jump: metres: a ball that
-// moved farther than this in one call was placed, not thrown.
+// one row) may be of its rest length: the ties are elastic, which is what lets the ball open a net narrower than itself,
+// even a make that falls 10 cm off-centre. skin: metres added to the ball's radius where it pushes knots. jump: metres: a
+// ball that moved farther than this in one call was placed, not thrown.
 // drag: how quickly a knot loses its speed, per second (it keeps e^-drag of it after a second). pull: how hard a tie
 // pulls back for each metre it is stretched past its rest length, per unit mass of a knot (1/s²); it pushes back as
 // hard if it is squeezed. spring: the same for a string segment, firmer, so that it springs back quickly and throws the
@@ -19,7 +20,7 @@ import { BALL, DT, RIM } from '../sim/tuning.js';
 // 23 cm. side: the share of the sideways part of that the knots keep: pushed up, the net only lifts against its strings
 // and drops back, but pushed sideways the whole of it swings like a pendulum, and a miss must not look like a make.
 export const NET = Object.freeze({
-  strings: 12, knots: 5, length: 0.40, bottom: 0.09, stretch: 1.5, give: 2.5, skin: 0.01, jump: 2,
+  strings: 12, knots: 5, length: 0.40, bottom: 0.09, stretch: 1.5, give: 3.5, skin: 0.01, jump: 2,
   drag: 4, pull: 2500, spring: 3000, grip: 0.65, passes: 12, jolt: 1, shake: 0.1, kick: 0.25, side: 0.4,
 });
 
@@ -183,11 +184,11 @@ function follow(net) {
   }
 }
 
-// Rarely (a ball driven across the net; never in a simulated batch of makes) a tie is still past its limit after all
-// that, the last pass on the strings having stretched it again. Then the whole net goes back toward its rest shape by the
-// least share that brings every segment and tie within its limit: a length between one within a limit and one at rest is
-// within it too. Its speed shrinks by the same share. A string the last pass left exactly at its limit can come out a
-// rounding error over it, which is not counted.
+// Rarely (in about one game make in thirty, all of them 8 to 10 cm off-centre, or a ball driven across the net) a tie is
+// still past its limit after all that, the last pass on the strings having stretched it again. Then the whole net goes
+// back toward its rest shape by the least share that brings every segment and tie within its limit: a length between
+// one within a limit and one at rest is within it too. Its speed shrinks by the same share. A string the last pass left
+// exactly at its limit can come out a rounding error over it, which is not counted.
 function limit(net) {
   const { at, last, rest } = net;
   let share = 0;

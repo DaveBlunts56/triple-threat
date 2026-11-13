@@ -60,7 +60,7 @@ test('left alone the net hangs where it was made and is still', () => {
   assert.ok(moved < 0.001, `still moving ${moved} m`);
 });
 
-test('a ball falling through pushes the net out, never stretches a string to more than one and a half times or a tie to more than two and a half times, and the net settles within two seconds', () => {
+test('a ball falling through pushes the net out, never stretches a string to more than one and a half times or a tie to more than three and a half times, and the net settles within two seconds', () => {
   for (const sign of [1, -1]) {
     const net = createNet(sign), { most, held } = swish(net, sign);
     assert.ok(most >= 0.03, `pushed ${most} m`);
@@ -180,6 +180,23 @@ test('a slow make still drags the net down', () => {
   assert.ok(down >= 0.05, `dragged down ${down} m`);
   assert.ok(held, 'a string or a tie stretched past its limit');
   assert.ok(left < 0.01, `${left} m from rest two seconds after the ball had gone`);
+});
+
+test('a make that falls well off-centre drags the net down without the strings cutting into the ball or the net jerking', () => {
+  const net = createNet(1), x = RIM.x + 0.09, speed = 6;                                         // in the game a make can fall up to 10 cm off-centre
+  let last = ball(x, RIM.height + 0.3, 0, 0, -speed, 0), down = 0, inside = 0, jerk = 0;
+  while (last.y > RIM.height - 0.8) {
+    const now = ball(x, last.y - speed * DT, 0, 0, -speed, 0), before = Float32Array.from(net.points);
+    stepNet(net, last, now, DT); last = now;
+    for (let i = 0; i < count; i++) {
+      jerk = Math.max(jerk, Math.hypot(net.points[3 * i] - before[3 * i], net.points[3 * i + 1] - before[3 * i + 1], net.points[3 * i + 2] - before[3 * i + 2]) - speed * DT);
+      if (i >= NET.strings) inside = Math.max(inside, BALL.radius - Math.hypot(net.points[3 * i] - now.x, net.points[3 * i + 1] - now.y, net.points[3 * i + 2] - now.z));
+    }
+    for (let s = 0; s < NET.strings; s++) down = Math.max(down, r(net, NET.knots, s)[1] - p(net, NET.knots, s)[1]);
+  }
+  assert.ok(down >= 0.1, `dragged down ${down} m`);
+  assert.ok(inside < 0.01, `a knot went ${inside} m into the ball`);
+  assert.ok(jerk < 0.02, `a knot moved ${jerk} m farther than the ball in one frame`);
 });
 
 test('a frame a hair longer than the sim\'s step is one step', () => {
