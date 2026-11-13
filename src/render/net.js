@@ -12,11 +12,12 @@ import { BALL, DT, RIM } from '../sim/tuning.js';
 // pulls back for each metre it is stretched past its rest length, per unit mass of a knot (1/s²); it pushes back as
 // hard if it is squeezed. passes: rounds of the ties, the ball and the strings in each sub-step. jolt: m/s: a change in
 // the ball's velocity, beyond what gravity explains, larger than this while it touches the rim is a rim hit. shake: the
-// share of that change the free knots are given as velocity. kick: m/s: the most a rim hit gives them, so a hard one
-// still only shakes the net (about 2 cm up and back).
+// share of that change the free knots are given as velocity. kick: m/s: the most a rim hit gives them. side: the share
+// of the sideways part of that the knots keep: pushed up, the net only lifts against its strings and drops back, but
+// pushed sideways the whole of it swings like a pendulum, and a miss must not look like a make.
 export const NET = Object.freeze({
   strings: 12, knots: 5, length: 0.40, bottom: 0.09, stretch: 1.1, give: 2, skin: 0.01, jump: 2,
-  drag: 3, pull: 2500, passes: 12, jolt: 1, shake: 0.1, kick: 0.6,
+  drag: 3, pull: 2500, passes: 12, jolt: 1, shake: 0.1, kick: 0.6, side: 0.2,
 });
 
 const N = NET.strings, K = NET.knots, COUNT = (K + 1) * N, FREE = 3 * N, END = 3 * COUNT;
@@ -51,7 +52,7 @@ export function createNet(sign) {
 // sub-steps no longer than the sim's, the ball moving evenly across them.
 export function stepNet(net, from, to, dt) {
   if (!(dt > 0)) return;
-  const a = from ?? to, n = Math.ceil(dt / DT), h = dt / n;
+  const a = from ?? to, n = Math.ceil(dt / DT - 1e-9), h = dt / n;   // the match time of one frame can come out a hair over DT
   // A ball that moved too far in one call was put there: it is at `to` throughout.
   const placed = Math.hypot(to.x - a.x, to.y - a.y, to.z - a.z) > NET.jump, b = placed ? to : a;
   // A rim hit: the ball touches the rim's ring and its velocity changed by more than gravity explains.
@@ -60,7 +61,7 @@ export function stepNet(net, from, to, dt) {
     const dx = to.vx - from.vx, dy = to.vy - from.vy + BALL.gravity * dt, dz = to.vz - from.vz, change = Math.hypot(dx, dy, dz);
     if (change > NET.jolt && onRim(net.x, to, dt)) {
       const f = Math.min(NET.shake, NET.kick / change);
-      kx = f * dx; ky = f * dy; kz = f * dz;
+      kx = NET.side * f * dx; ky = f * dy; kz = NET.side * f * dz;
     }
   }
   const keep = Math.exp(-NET.drag * h), soft = 1 / (NET.pull * h * h);
@@ -158,9 +159,11 @@ function follow(net) {
   }
 }
 
-// Now and then (a ball driven hard across the net) a tie is still past its limit after all that. Then the whole net goes
-// back toward its rest shape by the least share that brings every segment and tie within its limit: a length between
-// one within a limit and one at rest is within it too. Its speed shrinks by the same share.
+// In almost every make, on one to six of its sub-steps, a tie the ball has shoved is still past its limit after all that,
+// as it is when a ball is driven across the net. Then the whole net goes back toward its rest shape by the least share
+// that brings every segment and tie within its limit (over a batch of simulated makes, a median of about a quarter of
+// the way, at most about two thirds): a length between one within a limit and one at rest is within it too. Its speed
+// shrinks by the same share.
 function limit(net) {
   const { at, last, rest } = net;
   let share = 0;

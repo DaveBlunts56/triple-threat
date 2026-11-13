@@ -134,3 +134,17 @@ test('a hard rim hit only shakes the net, and only at its own hoop', () => {
     assert.ok(moved < most, `the net at ${sign * RIM.x} moved ${moved} m`);
   }
 });
+
+test('a ball that clangs off the front of the rim and goes back out only shivers the net', () => {
+  const net = createNet(1), x = RIM.x - RIM.radius - BALL.radius - RIM.tube, y = RIM.height;   // touching the front of the ring, level with it, clear of every knot
+  stepNet(net, ball(x - 0.08, y, 0, 5, 0, 0), ball(x, y, 0, -5 * BALL.rimBounce, 0, 0), DT);     // it came in at 5 m/s and bounced back out
+  let most = 0;
+  for (let i = 0; i < 60; i++) { stepNet(net, far, far, DT); most = Math.max(most, off(net)); }
+  assert.ok(most < 0.03, `swung ${most} m`);
+});
+
+test('a frame a hair longer than the sim\'s step is one step', () => {
+  const a = createNet(1), b = createNet(1), from = ball(RIM.x, RIM.height - 0.25, 0, 0, -5, 0), to = ball(RIM.x, RIM.height - 0.25 - 5 * DT, 0, 0, -5, 0);
+  stepNet(a, from, to, DT); stepNet(b, from, to, DT * (1 + 1e-12));
+  assert.deepEqual(b.points, a.points);
+});
