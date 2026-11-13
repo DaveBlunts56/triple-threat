@@ -28,23 +28,39 @@ test('the fill runs from empty at the press to full at the best moment, and drai
   const fills = [];
   const s = shoot(1);
   for (let i = 1; i < 45; i++) { step(s, hold(0), DT); fills[i] = shotMeter(s).fill; }
-  assert.ok(near(fills[12], (12 * DT) / SHOT_BEST) && near(fills[29], 1 - (29 * DT - SHOT_BEST) / SHOT_BEST), `${fills[12]} ${fills[29]}`);
+  // The axis is eased: a moment sits at the square of its share of the way, so the last part of the travel is drawn larger.
+  assert.ok(near(fills[12], (12 * DT / SHOT_BEST) ** 2) && near(fills[29], (1 - (29 * DT - SHOT_BEST) / SHOT_BEST) ** 2), `${fills[12]} ${fills[29]}`);
   assert.equal(Math.max(...fills.slice(1)), fills[29]);                   // fullest on the step nearest the best moment
   for (let i = 2; i < 45; i++) assert.ok(i <= 29 ? fills[i] > fills[i - 1] : fills[i] < fills[i - 1], `step ${i}`);
 });
 
-test('the band is the green window to scale: the fill is inside it exactly when a release would be green', () => {
-  for (const gap of [2.5, 1.5, 0.8]) {
-    const s = shoot(1, gap);
+// Stands his defender `gap` metres from player 0, toward the hoop: 2.5 open, 1.5 guarded, 0.8 contested, 0.1 smothered.
+const guard = (s, gap) => at(s, 3, s.players[0].x + gap, 0);
+const GAPS = [2.5, 1.5, 0.8, 0.1];
+
+test('the band is the green window on the fill\'s own axis: the fill is inside it exactly when a release would be green', () => {
+  const levels = new Set();
+  for (const gap of GAPS) {
+    const s = shoot(1);
     for (let i = 1; i < 45; i++) {
       step(s, hold(0), DT);
+      guard(s, gap);                                                      // held there: two players that close push apart
       const m = shotMeter(s), p = s.players[0];
       assert.equal(m.fill >= m.band.from, greenAt(shotWindow(s, p), p.shotT), `gap ${gap}, step ${i}`);
       assert.equal(m.band.to, 1);
+      levels.add(m.level);
     }
   }
-  const open = shotMeter(shoot(1)).band, guarded = shotMeter(shoot(1, 1.5)).band;
-  assert.ok(near(1 - open.from, 3.5 * DT / SHOT_BEST) && near(1 - guarded.from, 2.5 * DT / SHOT_BEST));
+  assert.deepEqual([...levels], ['Open', 'Guarded', 'Contested', 'Smothered']);
+});
+
+test('on the eased bar the band is about a quarter of it open, a sixth guarded, a tenth contested and a sliver smothered', () => {
+  const bands = GAPS.map(gap => { const s = shoot(1); guard(s, gap); return shotMeter(s); });
+  assert.deepEqual(bands.map(m => m.level), ['Open', 'Guarded', 'Contested', 'Smothered']);
+  // Its lower edge is the earliest green moment: `steps` steps before the best one, and the half step greenAt allows.
+  const edge = steps => (1 - (steps + 0.5) * DT / SHOT_BEST) ** 2;
+  [3, 2, 1, 0].forEach((steps, i) => assert.ok(near(bands[i].band.from, edge(steps)), `${bands[i].level}: ${bands[i].band.from}`));
+  assert.deepEqual(bands.map(m => Math.round((1 - m.band.from) * 100)), [23, 17, 10, 3]);
 });
 
 test('the label names the contest level, and the band shrinks as a defender closes during the gather', () => {

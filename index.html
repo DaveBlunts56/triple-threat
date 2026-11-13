@@ -29,14 +29,19 @@
   #ftZone { position: absolute; left: 40%; width: 20%; top: 0; bottom: 0; box-sizing: border-box; background: #2e8b57;
             border-left: 3px solid #fff; border-right: 3px solid #fff; }
   #ftMarker { position: absolute; top: -6px; bottom: -6px; width: 4px; margin-left: -2px; background: #ffd257; outline: 1px solid #000; }
-  /* The shot meter: the free-throw bar's track, zone and marker colours, stood on end beside the shooter. */
-  #shotMeter { position: fixed; transform: translateX(-50%); pointer-events: none; text-align: center; font-size: 12px; font-weight: 700; text-shadow: 0 1px 2px #000; }
-  #shotBar { position: relative; width: 12px; margin: 0 auto; box-sizing: border-box; background: #23262e; border: 2px solid #fff; }
-  #shotBand { position: absolute; left: 0; right: 0; top: 0; box-sizing: border-box; background: #2e8b57; border-bottom: 3px solid #fff; }
-  #shotFill { position: absolute; left: 2px; right: 2px; bottom: 0; background: #ffd257; outline: 1px solid #000; }
+  /* The shot meter: the free-throw bar's track, zone and marker colours, stood on end beside the shooter.
+     --tall is the bar's height, a share of the window's so the band can be read; its width and the words follow it.
+     It hangs down and to the left of the point it is placed at, so it never lies over the shooter, who is on its right. */
+  #shotMeter { --tall: max(90px, 14vh); position: fixed; width: calc(var(--tall) * .3); transform: translateX(-100%); pointer-events: none;
+               text-align: center; font-size: calc(var(--tall) * .16); font-weight: 700; text-shadow: 0 1px 2px #000; }
+  #shotBar { position: relative; height: var(--tall); box-sizing: border-box; background: #23262e; border: 2px solid #fff; }
+  /* The band's white edge lies below it, outside its height, so every band shows some green. */
+  #shotBand { position: absolute; left: 0; right: 0; top: 0; min-height: 3px; background: #2e8b57; border-bottom: 3px solid #fff; }
+  #shotFill { position: absolute; left: 20%; right: 20%; bottom: 0; background: #ffd257; outline: 1px solid #000; }
   #shotMeter.green #shotBar { border-color: #6fdc8c; }
   #shotMeter.green #shotFill { background: #6fdc8c; }
-  #shotMark, #shotLabel { margin: 2px 0 0; white-space: nowrap; }
+  /* Wider than the bar and centred under it. */
+  #shotMark, #shotLabel { margin: 2px -4em 0; white-space: nowrap; }
   #roster { list-style: none; padding: 0; margin: 14px 0 6px; text-align: left; font-size: 18px; font-variant-numeric: tabular-nums; }
   #roster li { display: flex; gap: 14px; justify-content: space-between; align-items: center; margin: 4px 0; }
   section.screen p.help { font-size: 15px; }

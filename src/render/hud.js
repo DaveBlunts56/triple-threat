@@ -4,7 +4,6 @@ import { onCourt } from '../sim/roster.js';
 import { QUALITY } from './quality.js';
 
 const FPS_EASE = 0.05;   // how fast the frame-rate readout follows the real rate: steady enough to read
-const METER = Object.freeze({ minHeight: 40 });   // pixels: the shot meter is never shorter, however far from the camera
 
 // The length of a frame in milliseconds, eased so the readout is steady. Easing the time and not the rate makes uneven
 // frames read as the rate they really give: 16 ms and 66 ms in turn is 24 frames a second, not 37.
@@ -73,8 +72,8 @@ export function createHud(doc) {
 
   return {
     // `ui` is what the page itself knows: whether the game is paused, which roster row is selected, and for the
-    // corner label the frame rate and the quality level ('high' or 'low'), and the shot meter with the page positions
-    // of its two ends (`foot`, `head`), or null for none.
+    // corner label the frame rate and the quality level ('high' or 'low'), and the shot meter with the page position
+    // of its top (`head`), or null for none.
     update(state, backend, ui = { paused: false, pick: null }) {
       set('score0', String(state.score[0]));
       set('score1', String(state.score[1]));
@@ -106,14 +105,13 @@ export function createHud(doc) {
         if (aiming) put('ftMarker', `${Math.round(ft.meter * 100)}%`, (e, v) => { e.style.left = v; });
       }
 
-      // The shot meter: an upright bar beside the shooter, its top at `head`. The fill climbs to the band; once frozen,
-      // a tick or a word says how the release went.
+      // The shot meter: an upright bar beside the shooter, its top at `head`; the page sizes it. The fill climbs to the
+      // band; once frozen, a tick or a word says how the release went.
       const m = ui.meter;
       hide('shotMeter', !m);
       if (m) {
         style('shotMeter', 'left', pixels(m.head.x));
         style('shotMeter', 'top', pixels(m.head.y));
-        style('shotBar', 'height', pixels(Math.max(METER.minHeight, m.foot.y - m.head.y)));
         style('shotFill', 'height', share(m.fill));
         hide('shotBand', !m.band);
         if (m.band) style('shotBand', 'height', share(m.band.to - m.band.from));

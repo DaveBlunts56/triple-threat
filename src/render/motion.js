@@ -11,8 +11,9 @@ export const AIR_TIME = (2 * PLAYER.jumpV) / BALL.gravity;
 export const MOTION = Object.freeze({ idleBelow: 0.3, walkBelow: 2.2, runBelow: 5.6, stick: 0.2, minRate: 0.6, maxRate: 1.5, fade: 0.15 });
 
 // The shot meter. stay: seconds it is kept after the release. aside: metres it stands from the shooter, on the side
-// away from the hoop he attacks. low, high: the heights of its two ends, about knee and shoulder; it does not rise with his jump.
-export const SHOT_METER = Object.freeze({ stay: 1.2, aside: 0.6, low: 0.55, high: 1.45 });
+// away from the hoop he attacks. high: the height its top is level with, about his shoulder; it does not rise with his
+// jump. ease: the power its axis is bent by, so the last part of the fill's travel, where the band is, is drawn larger.
+export const SHOT_METER = Object.freeze({ stay: 1.2, aside: 0.6, high: 1.45, ease: 2 });
 
 const GAITS = ['idle', 'walk', 'run', 'sprint'];
 const EDGES = [MOTION.idleBelow, MOTION.walkBelow, MOTION.runBelow];   // EDGES[i] lies between GAITS[i] and GAITS[i + 1]
@@ -74,14 +75,18 @@ export function missingPeople(names) {
 }
 
 // The meter of a shot `t` seconds after its press, beside `player`. `window` is what shotWindow gave, or the record of
-// the release, which carries the same fields. The fill is inside the band exactly when a release at `t` is green.
+// the release, which carries the same fields. The fill and the band are read on one axis, so the fill is inside the
+// band exactly when a release at `t` is green.
 function meterOf(player, t, window, frozen) {
   const { best, half } = window;
+  // How far up the bar a moment `off` seconds before or after the best one sits: the top at the best moment, the
+  // bottom at the press, and as far down after it as the same time before it.
+  const up = off => Math.max(0, 1 - off / best) ** SHOT_METER.ease;
   return {
     player: player.id,
     x: player.x - attackSign(player.team) * SHOT_METER.aside, z: player.z,
-    fill: Math.min(1, Math.max(0, 1 - Math.abs(t - best) / best)),   // empty at the press, full at the best moment, then draining
-    band: window.inRange ? { from: Math.max(0, 1 - (half + DT / 2) / best), to: 1 } : null,
+    fill: up(Math.abs(t - best)),
+    band: window.inRange ? { from: up(half + DT / 2), to: 1 } : null,   // the half step is greenAt's
     level: window.level,
     frozen,
   };

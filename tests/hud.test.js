@@ -153,9 +153,9 @@ test('the frame-rate readout follows the time frames really take, not the averag
 test('the shot meter is drawn beside the shooter: how full, the band, the level, and after the release a tick or a word', () => {
   const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els;
   const show = meter => hud.update(s, 'webgl2', { paused: false, pick: null, meter });
-  const live = { fill: 0.5, band: { from: 0.8, to: 1 }, level: 'Guarded', frozen: null, foot: { x: 400, y: 380.4 }, head: { x: 402.2, y: 290 } };
+  const live = { fill: 0.5, band: { from: 0.8, to: 1 }, level: 'Guarded', frozen: null, head: { x: 402.2, y: 290.4 } };
   show(live);
-  assert.deepEqual([e.shotMeter.hidden, e.shotMeter.style.left, e.shotMeter.style.top, e.shotBar.style.height], [false, '402px', '290px', '90px']);
+  assert.deepEqual([e.shotMeter.hidden, e.shotMeter.style.left, e.shotMeter.style.top], [false, '402px', '290px']);
   assert.deepEqual([e.shotFill.style.height, e.shotBand.hidden, e.shotBand.style.height, e.shotLabel.textContent, e.shotMark.hidden, e.shotMeter.className],
     ['50%', false, '20%', 'Guarded', true, '']);
   show({ ...live, fill: 0.97, frozen: { verdict: 'green', blocked: false } });
@@ -168,8 +168,6 @@ test('the shot meter is drawn beside the shooter: how full, the band, the level,
   assert.deepEqual([e.shotMark.textContent, e.shotMeter.className], ['Blocked', '']);            // a block is never shown as a make
   show({ ...live, band: null, level: 'Open' });
   assert.deepEqual([e.shotBand.hidden, e.shotLabel.textContent, e.shotMark.hidden], [true, 'Open', true]);
-  show({ ...live, foot: { x: 400, y: 300 } });
-  assert.equal(e.shotBar.style.height, '40px');                                                  // far from the camera it is still readable
   show(null);
   assert.equal(e.shotMeter.hidden, true);
   hud.update(s, 'webgl2');
@@ -180,4 +178,11 @@ test('the page has the shot meter, and it is not announced', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   for (const id of ['shotMeter', 'shotBar', 'shotBand', 'shotFill', 'shotMark', 'shotLabel']) assert.match(html, new RegExp(`id="${id}"`), id);
   assert.match(html, /<div id="shotMeter"[^>]*aria-hidden="true"/);
+});
+
+test('the shot meter is sized to be read: 14% of the window high and never under 90 px, its band never under 3 px', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(html, /#shotMeter \{[^}]*--tall: max\(90px, 14vh\)/);
+  assert.match(html, /#shotBar \{[^}]*height: var\(--tall\)/);
+  assert.match(html, /#shotBand \{[^}]*min-height: 3px/);
 });
