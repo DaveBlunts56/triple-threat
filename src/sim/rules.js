@@ -55,9 +55,10 @@ function callFoul(state, foul, shots) {
   state.pendingFoul = null;
 }
 
-// A dead ball drops where it is instead of bouncing off into the distance.
+// A dead ball drops where it is instead of bouncing off into the distance, and a whistle ends any shot still in the hand.
 function deadBall(state) {
   if (state.ball.holder === null) state.ball.vx = state.ball.vz = 0;
+  for (const p of state.players) p.shooting = false;
 }
 
 function endPeriod(state) {

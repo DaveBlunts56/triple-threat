@@ -138,8 +138,8 @@ test('a fouled shot that flies into the stands is still a foul', () => {
 
 test('a defender in the air on top of the shooter at the release can be called for a shooting foul', () => {
   const up = seed => { const s = live(seed); at(s, 0, 6, 0); at(s, 3, 6.6, 0); Object.assign(s.players[3], { y: 0.5, vy: 2 }); return s; };
-  const jumpShot = s => only(0, { shoot: s.time < 0.3 });                              // goes up, lets go in the air
-  const s = firstSeed(up, st => { run(st, 0.5, jumpShot, x => x.pendingFoul !== null || x.ball.holder === null); return st.pendingFoul !== null; });
+  const jumpShot = s => only(0, { shoot: s.time < 0.45 });                             // goes up, lets go in the air
+  const s = firstSeed(up, st => { run(st, 0.6, jumpShot, x => x.pendingFoul !== null || x.ball.holder === null); return st.pendingFoul !== null; });
   assert.deepEqual(s.pendingFoul, { by: 3, on: 0, shots: 2 });
   assert.equal(s.phase, 'live');
 });

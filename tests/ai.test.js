@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createMatch, emptyIntent } from '../src/sim/state.js';
-import { giveBall } from '../src/sim/players.js';
+import { giveBall, SHOT_BEST, SHOT_LANDS } from '../src/sim/players.js';
 import { startMatch } from '../src/sim/rules.js';
 import { step } from '../src/sim/step.js';
 import { aiIntents, isOpen, laneClear, spots } from '../src/sim/ai.js';
 import { keyContains } from '../src/sim/violations.js';
-import { DT, RIM, AI, VIOLATION } from '../src/sim/tuning.js';
+import { DT, RIM, AI, VIOLATION, SHOT } from '../src/sim/tuning.js';
 
 // Live play with everyone parked out of the way; tests then place the players they care about.
 function live(holderId = 0) {
@@ -57,11 +57,17 @@ test('an open handler in range, with a defender sagging into the lane, decides t
   assert.ok(run(s, 1.2, [0], st => st.players[0].shooting || st.ball.mode === 'shot'));
 });
 
-test('an AI shot is released near the top of the jump', () => {
-  const s = live();
-  put(s, 0, 7, 0); put(s, 3, 10, 0);
-  assert.ok(run(s, 1.5, [0], st => st.ball.mode === 'shot'), 'never released');
-  assert.ok(s.players[0].y > 0.5, `released at height ${s.players[0].y}`);
+test('a computer shooter lets go around the best moment, in the air, and never lands with the ball', () => {
+  const times = [];
+  for (let seed = 1; seed <= 30; seed++) {
+    const s = live(); s.seed = seed;
+    put(s, 0, 7, 0); put(s, 3, 10, 0);
+    assert.ok(run(s, 2, [0], st => st.ball.mode === 'shot'), `seed ${seed}: never released`);
+    assert.ok(s.players[0].y > 0 || s.players[0].vy > 0, 'released from the floor');
+    times.push(s.players[0].shotT);
+  }
+  for (const t of times) assert.ok(Math.abs(t - SHOT_BEST) <= AI.releaseJitter + DT && t > SHOT.gather && t < SHOT_LANDS - DT, `released at ${t}`);
+  assert.ok(new Set(times.map(t => Math.round(t / DT))).size >= 4, 'no spread');
 });
 
 test('a handler with 3 s on the shot clock shoots even when covered and far out', () => {

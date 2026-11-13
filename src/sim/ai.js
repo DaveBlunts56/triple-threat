@@ -1,4 +1,5 @@
-import { AI, BALL, COURT, FT, PASS, PLAYER, STEAL, TIP } from './tuning.js';
+import { AI, BALL, COURT, DT, FT, PASS, PLAYER, SHOT, STEAL, TIP } from './tuning.js';
+import { SHOT_BEST, SHOT_LANDS } from './players.js';
 import { ftChance } from './freethrow.js';
 import { attackSign, emptyIntent, rand } from './state.js';
 import { rimCentre } from './ball.js';
@@ -53,7 +54,8 @@ function planWithBall(state, p) {
   if (sign * (p.x - hoop.x) > 0 && state.shotClock >= AI.panicClock) return goTo(ai, { x: hoop.x - sign * AI.layupDist, z: p.z / 2 }, true);
   const shoot = () => {
     ai.action = 'shoot';
-    ai.releaseAt = PLAYER.jumpV / BALL.gravity + (rand(state) * 2 - 1) * AI.releaseJitter;
+    const at = SHOT_BEST + (rand(state) * 2 - 1) * AI.releaseJitter;
+    ai.releaseAt = Math.min(Math.max(at, SHOT.gather + DT), SHOT_LANDS - 3 * DT);   // in the air, and clear of the landing
   };
   if (state.shotClock < AI.panicClock) return shoot();
   const settled = ai.heldT >= AI.holdTime;   // just caught it: gather before shooting or passing
@@ -160,8 +162,9 @@ function act(state, p) {
   const hasBall = state.ball.holder === p.id;
   if (ai.action === 'shoot' && hasBall) {
     intent.moveX = intent.moveZ = 0;
-    // Press (a fresh press needs the key up first), hold through the jump, let go at the chosen moment.
-    intent.shoot = p.shooting ? p.jumpT < ai.releaseAt : !p.prev.shoot;
+    // Press (a fresh press needs the key up first), hold through the gather and the jump,
+    // and let go on the first step at or after the chosen moment.
+    intent.shoot = p.shooting ? p.shotT + DT < ai.releaseAt : !p.prev.shoot;
   } else if (ai.action === 'pass' && hasBall) {
     intent.pass = !p.prev.pass;
     intent.moveX = ai.passX; intent.moveZ = ai.passZ;

@@ -39,7 +39,7 @@ test('dribbling again after picking up is a double dribble', () => {
 function jumpAfterPickup(last) {
   const s = live();
   step(s, only(0, { hold: true }), DT);
-  run(s, 0.3, only(0, { shoot: true }));
+  run(s, 0.5, only(0, { shoot: true }));
   step(s, only(0, last), DT);
   return s;
 }

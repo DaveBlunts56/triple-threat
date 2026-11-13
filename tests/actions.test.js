@@ -3,13 +3,11 @@ import assert from 'node:assert/strict';
 import { createMatch, emptyIntent } from '../src/sim/state.js';
 import {
   movePlayers, carryBall, isThree, makeChance, releaseShot, passBall,
-  trySteal, tryPickup, giveBall, applyActions,
+  trySteal, tryPickup, giveBall, applyActions, SHOT_BEST, SHOT_LANDS,
 } from '../src/sim/players.js';
 import { stepBall } from '../src/sim/ball.js';
 import { step } from '../src/sim/step.js';
 import { DT, RIM, PLAYER, BALL, SHOT, STEAL } from '../src/sim/tuning.js';
-
-const APEX = PLAYER.jumpV / BALL.gravity;   // seconds from take-off to the top of a jump
 
 // Team 0 near the +x hoop, team 1 parked far away at the other end. Player 0 has the ball.
 function setup(seed = 1) {
@@ -24,7 +22,8 @@ function setup(seed = 1) {
 }
 const intents = (id, intent) => Array.from({ length: 6 }, (_, i) => (i === id ? { ...emptyIntent(), ...intent } : emptyIntent()));
 function tick(s, its) { movePlayers(s, its, DT); applyActions(s, its, DT); carryBall(s, DT); }
-const airborneAtApex = p => Object.assign(p, { y: 0.8, vy: 0, jumpT: APEX, shooting: true });
+// In the air at the best moment to let go.
+const atBest = p => Object.assign(p, { y: 0.24, vy: 0.4, shotT: SHOT_BEST, shooting: true });
 
 test('isThree: arc and corners', () => {
   assert.equal(isThree(RIM.x - 6.7, 0, 1), false);
@@ -36,24 +35,24 @@ test('isThree: arc and corners', () => {
 });
 
 test('makeChance falls with distance', () => {
-  const s = setup(), p = airborneAtApex(s.players[0]);
+  const s = setup(), p = atBest(s.players[0]);
   const at = d => { p.x = RIM.x - d; return makeChance(s, p); };
-  assert.ok(Math.abs(at(1) - (0.85 - 0.5 / 8)) < 0.02, `1 m: ${at(1)}`);
+  assert.ok(Math.abs(at(1) - (SHOT.nearChance + (SHOT.farChance - SHOT.nearChance) / SHOT.farDist)) < 0.02, `1 m: ${at(1)}`);
   assert.ok(at(1) > at(4) && at(4) > at(7));
   assert.ok(at(12) >= SHOT.minChance);
 });
 
-test('makeChance is best at the apex', () => {
-  const s = setup(), p = airborneAtApex(s.players[0]);
+test('makeChance is best at the best moment', () => {
+  const s = setup(), p = atBest(s.players[0]);
   const best = makeChance(s, p);
-  p.jumpT = 0;
+  p.shotT = 0;
   assert.ok(Math.abs(makeChance(s, p) / best - SHOT.worstTiming) < 0.02);
-  p.jumpT = 2 * APEX;
+  p.shotT = SHOT_LANDS;
   assert.ok(Math.abs(makeChance(s, p) / best - SHOT.worstTiming) < 0.02);
 });
 
 test('makeChance falls when a defender is close, more if airborne', () => {
-  const s = setup(), p = airborneAtApex(s.players[0]), d = s.players[3];
+  const s = setup(), p = atBest(s.players[0]), d = s.players[3];
   const open = makeChance(s, p);
   Object.assign(d, { x: p.x + 0.5, z: 0 });
   const contested = makeChance(s, p);
@@ -63,7 +62,7 @@ test('makeChance falls when a defender is close, more if airborne', () => {
 });
 
 test('releaseShot launches a 3 from behind the arc', () => {
-  const s = setup(), p = airborneAtApex(s.players[0]);
+  const s = setup(), p = atBest(s.players[0]);
   p.x = RIM.x - 7;
   releaseShot(s, p);
   assert.equal(s.ball.mode, 'shot');
@@ -75,18 +74,19 @@ test('releaseShot launches a 3 from behind the arc', () => {
 });
 
 test('releaseShot launches a 2 from inside the arc', () => {
-  const s = setup(), p = airborneAtApex(s.players[0]);
+  const s = setup(), p = atBest(s.players[0]);
   p.x = RIM.x - 4;
   releaseShot(s, p);
   assert.equal(s.ball.shotValue, 2);
 });
 
-test('open close-range shots at the apex mostly go in', () => {
-  let made = 0;
+test('an open close-range shot let go a tenth of a second early goes in as often as its chance says', () => {
+  let made = 0, chance;
   const tries = 200;
   for (let seed = 1; seed <= tries; seed++) {
-    const s = setup(seed), p = airborneAtApex(s.players[0]);
-    p.x = RIM.x - 2;
+    const s = setup(seed), p = atBest(s.players[0]);
+    p.x = RIM.x - 2; p.shotT = SHOT_BEST - 0.1;            // well short of the best moment
+    chance = makeChance(s, p);
     releaseShot(s, p);
     for (let t = 0; t < 3; t += DT) {
       const e = stepBall(s.ball, DT);
@@ -94,14 +94,14 @@ test('open close-range shots at the apex mostly go in', () => {
       if (e.hitFloor) break;
     }
   }
-  assert.ok(made / tries > 0.6 && made / tries < 0.95, `made ${made}/${tries}`);
+  assert.ok(Math.abs(made / tries - chance) < 0.1, `made ${made}/${tries}, chance ${chance}`);
 });
 
 test('an airborne defender in front blocks about half of shots', () => {
   let blocked = 0;
   const tries = 200;
   for (let seed = 1; seed <= tries; seed++) {
-    const s = setup(seed), p = airborneAtApex(s.players[0]);
+    const s = setup(seed), p = atBest(s.players[0]);
     p.facing = 0;
     Object.assign(s.players[3], { x: p.x + 0.8, z: 0, y: 0.6 });
     releaseShot(s, p);
@@ -112,7 +112,7 @@ test('an airborne defender in front blocks about half of shots', () => {
 
 test('a defender standing on the floor cannot block', () => {
   for (let seed = 1; seed <= 50; seed++) {
-    const s = setup(seed), p = airborneAtApex(s.players[0]);
+    const s = setup(seed), p = atBest(s.players[0]);
     p.facing = 0;
     Object.assign(s.players[3], { x: p.x + 0.8, z: 0, y: 0 });
     releaseShot(s, p);
@@ -120,12 +120,12 @@ test('a defender standing on the floor cannot block', () => {
   }
 });
 
-test('pressing shoot jumps; releasing it in the air shoots', () => {
+test('pressing shoot gathers, then jumps; releasing it in the air shoots', () => {
   const s = setup();
   tick(s, intents(0, { shoot: true }));
-  assert.equal(s.players[0].shooting, true);
-  assert.ok(s.players[0].vy > 0);
-  for (let i = 0; i < 20; i++) tick(s, intents(0, { shoot: true }));
+  assert.deepEqual([s.players[0].shooting, s.players[0].vy], [true, 0]);
+  for (let i = 0; i < 24; i++) tick(s, intents(0, { shoot: true }));
+  assert.ok(s.players[0].y > 0);
   assert.equal(s.ball.holder, 0);
   tick(s, intents(0, {}));
   assert.equal(s.ball.mode, 'shot');
@@ -368,7 +368,7 @@ test('a lay-up from right at the rim, released late on the way down, still goes 
     const s = setup(seed);
     s.players[0].x = RIM.x - 0.4;
     const p = s.players[0];
-    for (let t = 0; t < 2 && s.ball.holder === 0; t += DT) tick(s, intents(0, { shoot: !p.shooting || p.jumpT < 0.7 }));
+    for (let t = 0; t < 2 && s.ball.holder === 0; t += DT) tick(s, intents(0, { shoot: !p.shooting || p.shotT < 0.65 }));
     for (let t = 0; t < 3; t += DT) {
       const e = stepBall(s.ball, DT);
       if (e.scored === 1) { made++; break; }

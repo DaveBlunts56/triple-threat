@@ -27,6 +27,7 @@ function createPlayer(id) {
     id, team: id < 3 ? 0 : 1, slot: id % 3, person: id % 3,
     x: 0, z: 0, y: 0, vx: 0, vz: 0, vy: 0, facing: 0,
     shooting: false, jumpT: 0, inbounder: false, stealCooldown: 0,
+    shotT: 0, letGo: false, takeoff: 0,   // seconds since he pressed shoot; the key came up during the gather; the speed he last left the floor at
     held: false, steps: 0, keyT: 0, setT: 0, foulCooldown: 0,
     prev: emptyIntent(),
     ai: { timer: 0, targetX: 0, targetZ: 0, sprint: false, action: null },
@@ -40,7 +41,7 @@ export function lineUp(state) {
     Object.assign(p, {
       x: -2 * s, z: (p.slot - 1) * 3, y: 0, vx: 0, vz: 0, vy: 0,
       facing: s === 1 ? 0 : Math.PI,
-      shooting: false, jumpT: 0, inbounder: false,
+      shooting: false, shotT: 0, letGo: false, jumpT: 0, inbounder: false,
       held: false, steps: 0, keyT: 0, setT: 0,
     });
   }

@@ -10,11 +10,13 @@ export const THREE_PT = f({ radius: 6.75, cornerZ: 6.6 });
 
 export const BALL = f({ radius: 0.12, gravity: 9.81, floorBounce: 0.75, rimBounce: 0.55, boardBounce: 0.6, restSpeed: 0.5, floorGrip: 0.9, rollDecel: 2, substeps: 4 });
 
-export const PLAYER = f({ radius: 0.3, run: 5, sprint: 7, accel: 30, jumpV: 4, releaseHeight: 2.3, reach: 2.4, pickupRadius: 0.7, handHeight: 1, carryDist: 0.4, dribbleRate: 2, jumpCarry: 0.2, dribbleSpeed: 0.85, gatherDist: 1.5 });   // jumpCarry: share of running speed kept when jumping; dribbleSpeed: share of top speed with the ball; gatherDist: metres a player may move after picking up his dribble
+export const PLAYER = f({ radius: 0.3, run: 5, sprint: 7, accel: 30, jumpV: 4, shotJumpV: 2.2, releaseHeight: 2.3, reach: 2.4, pickupRadius: 0.7, handHeight: 1, carryDist: 0.4, dribbleRate: 2, jumpCarry: 0.2, dribbleSpeed: 0.85, gatherDist: 1.5 });   // shotJumpV: the smaller jump of a shot; jumpCarry: share of running speed kept when jumping; dribbleSpeed: share of top speed with the ball; gatherDist: metres a player may move after picking up his dribble
 
 export const SHOT = f({
   nearChance: 0.85, farChance: 0.35, farDist: 8, minChance: 0.05,
-  worstTiming: 0.6,
+  gather: 0.3,        // seconds on the floor between pressing shoot and leaving it
+  bestAt: 0.8,        // the best moment to let go, as a share of the way up the jump
+  worstTiming: 0.6,   // share of the chance kept at the press and at the landing
   contestDist: 2, maxContest: 0.5, airContest: 0.8, airContestDist: 1.5,
   missMin: 0.18, missMax: 0.32,
   minAngle: 50, minEntry: 45, maxAngle: 88,   // degrees: lowest launch angle, shallowest drop into the rim, steepest launch
@@ -34,7 +36,7 @@ export const AI = f({
   jitter: 0.1,            // random extra seconds between decisions
   arrive: 0.3,            // close enough to a target to stop
   layupDist: 2.5,         // this close to the rim, just shoot
-  releaseJitter: 0.12,    // seconds either side of the jump's apex that a shot may be released
+  releaseJitter: 0.12,    // seconds either side of the best moment that a shot may be released
   driveX: 11.2, topX: 5.5, safetyX: 4,   // distances from centre court: drive target, top of the key, the player who gets back
   inboundHelp: 4,         // how far into the court a teammate comes to receive an inbound pass
   contestDist: 2,         // jump to contest a shooter this close
