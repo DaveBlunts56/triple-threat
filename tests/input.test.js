@@ -81,3 +81,35 @@ test('F is the hold key', () => {
   down('KeyF'); assert.equal(k.intent().hold, true);
   up('KeyF'); assert.equal(k.intent().hold, false);
 });
+
+test('drop() forgets the keys held at that moment, even their repeats, until each is let go', () => {
+  const { k, down, up } = keyboard();
+  down('Space'); down('KeyS');
+  k.drop();
+  let i = k.intent();
+  assert.deepEqual([i.shoot, i.moveZ], [false, 0]);
+  down('Space');                                        // an auto-repeat while it is still held
+  i = k.intent();
+  assert.deepEqual([i.shoot, i.moveZ], [false, 0]);
+  up('Space'); down('Space');                           // let go and pressed again: seen as normal
+  i = k.intent();
+  assert.deepEqual([i.shoot, i.moveZ], [true, 0]);
+  up('KeyS'); down('KeyS');
+  assert.equal(k.intent().moveZ, 1);
+});
+
+test('a key pressed after drop() that was not held then shows at once', () => {
+  const { k, down } = keyboard();
+  down('Space'); k.drop();
+  down('KeyD');
+  const i = k.intent();
+  assert.deepEqual([i.moveX, i.shoot], [1, false]);
+});
+
+test('blur also ends a drop, since a key let go while the window is unfocused sends no keyup', () => {
+  const { k, down, target } = keyboard();
+  down('Space'); k.drop();
+  target.dispatchEvent(new Event('blur'));
+  down('Space');
+  assert.equal(k.intent().shoot, true);
+});

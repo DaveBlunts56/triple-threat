@@ -1,5 +1,4 @@
 import { createMatch } from './sim/state.js';
-import { startMatch } from './sim/rules.js';
 import { step } from './sim/step.js';
 import { aiIntents } from './sim/ai.js';
 import { DT } from './sim/tuning.js';
@@ -11,9 +10,12 @@ import { createHud, easeFrame } from './render/hud.js';
 import { createQuality, autoQuality, toggleQuality } from './render/quality.js';
 import { createKeyboard } from './input.js';
 import { inPlay, pauseKey, setPaused } from './pause.js';
+import { createMenu, menuKey, menuPoint, startFromMenu } from './menu.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
 const newMatch = () => createMatch(Date.now() % 1e6);
+const MENU_KEYS = new Set(['ArrowUp', 'ArrowDown', 'KeyW', 'KeyS', 'Enter', 'Space', 'Escape', 'Backspace']);
+const MENU_ONCE = new Set(['Enter', 'Space', 'Escape', 'Backspace']);   // a held one counts once; the bar keys may repeat
 
 const view = await createScene(document.getElementById('court'));
 if (view) {
@@ -24,8 +26,8 @@ if (view) {
   const keyboard = createKeyboard(window);
   const quality = createQuality();
   // pick: the roster row chosen first on the pause screen. quality: the level the game is drawn at, 'high' or 'low'.
-  // meter: the shot meter and where its top is on the page, or null.
-  const game = { state: newMatch(), paused: false, pick: null, fps: 60, quality: quality.level, meter: null };
+  // meter: the shot meter and where its top is on the page, or null. menu: the start menu.
+  const game = { state: newMatch(), paused: false, pick: null, fps: 60, quality: quality.level, meter: null, menu: createMenu() };
   globalThis.game = game;   // handle for poking at the match from the browser console
 
   const pause = on => setPaused(game, keyboard, on);
@@ -36,14 +38,31 @@ if (view) {
     people?.setQuality(quality.level);
   };
 
+  // Starts play, from the menu or the final screen. A key still held then stays unseen in the match until it is let go.
+  const play = () => { startFromMenu(game, keyboard, newMatch); keyboard.drop(); };
+  // A key on the start menu, or a click on a row (as Enter).
+  const onMenu = code => {
+    const asked = menuKey(game.menu, code);
+    if (asked === 'play') play();
+    else if (asked === 'quality') { toggleQuality(quality); showQuality(); }
+  };
+
   window.addEventListener('keydown', e => {
     if (e.code === 'KeyG' && !e.repeat) { toggleQuality(quality); showQuality(); }   // on any screen; a held key counts once
+    if (game.state.phase === 'start') {
+      if (MENU_KEYS.has(e.code)) e.preventDefault();
+      if (!(e.repeat && MENU_ONCE.has(e.code))) onMenu(e.code);
+      return;
+    }
     if (e.code === 'Escape') pause(!game.paused);
     else if (game.paused) pauseKey(game, e.code);
-    if (e.code !== 'Enter' || inPlay(game.state)) return;
-    if (game.state.phase === 'final') game.state = newMatch();
-    startMatch(game.state);
+    if (e.code === 'Enter' && game.state.phase === 'final') play();
   });
+  for (let row = 0; row < 4; row++) {   // menuRow0 to menuRow3: pointing moves the bar there, a click chooses
+    const item = document.getElementById(`menuRow${row}`);
+    item.addEventListener('mouseenter', () => menuPoint(game.menu, row));
+    item.addEventListener('click', () => { menuPoint(game.menu, row); onMenu('Enter'); });
+  }
   window.addEventListener('blur', () => pause(true));
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });
 

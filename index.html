@@ -66,6 +66,62 @@
   section.screen h1 { font-size: 56px; margin: 0 0 12px; }
   section.screen p { font-size: 20px; margin: 6px 0; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* The start menu, as in the approved mockup: a glossy disc on an icy-blue sky. It covers the court entirely.
+     --d is the disc's width and height; everything inside is sized by it. */
+  #screenStart { line-height: normal; font-family: "Arial Narrow", "Helvetica Neue", Arial, system-ui, sans-serif;
+                 background:
+                   radial-gradient(60vmax 40vmax at 18% 22%, rgba(255, 255, 255, .85), transparent 60%),
+                   radial-gradient(50vmax 36vmax at 85% 78%, rgba(150, 215, 255, .75), transparent 62%),
+                   radial-gradient(70vmax 50vmax at 70% 10%, rgba(90, 170, 240, .55), transparent 65%),
+                   linear-gradient(160deg, #cfeaff 0%, #7fbdea 38%, #2f77bd 70%, #0c2f63 100%); }
+  #screenStart .stage { --d: min(78vh, 78vw); position: relative; width: var(--d); height: var(--d); }
+  /* The thin neon rings round the disc; only the dashed one turns, slowly, and not for reduced motion. */
+  #screenStart .ring { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; }
+  #screenStart .ring.one { transform: scale(1.09); border: 2px solid rgba(140, 220, 255, .9);
+                           box-shadow: 0 0 18px 2px rgba(70, 180, 255, .8), inset 0 0 18px 2px rgba(70, 180, 255, .5); }
+  #screenStart .ring.two { transform: scale(1.18); border: 1px dashed rgba(200, 240, 255, .75); animation: turn 60s linear infinite; }
+  #screenStart .ring.three { transform: scale(1.27); border: 1px solid rgba(255, 255, 255, .35); }
+  @keyframes turn { to { transform: scale(1.18) rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { #screenStart .ring.two { animation: none; } }
+  /* The silver border, then the glowing blue edge, then the glossy face. */
+  #screenStart .rim { position: absolute; inset: 0; border-radius: 50%; padding: calc(var(--d) * .022); box-sizing: border-box;
+                      background: conic-gradient(from 210deg, #f7f9fb, #8a95a3, #eef2f6, #6f7a88, #ffffff, #9aa5b2, #e6ebf0, #7a8593, #f7f9fb);
+                      box-shadow: 0 0 0 2px rgba(255, 255, 255, .6), 0 0 60px 14px rgba(60, 170, 255, .65), 0 30px 60px rgba(4, 20, 50, .45); }
+  #screenStart .face { position: relative; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; box-sizing: border-box;
+                       border: 3px solid #58c8ff; box-shadow: inset 0 0 40px 6px rgba(70, 180, 255, .55);
+                       background: radial-gradient(circle at 50% 18%, #3f86d8 0%, #174a93 42%, #0a2456 72%, #061737 100%);
+                       display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  /* The gloss: a bright cap over the top half. What is on the face is lifted above it. */
+  #screenStart .face::before { content: ""; position: absolute; left: 6%; right: 6%; top: 2%; height: 46%;
+                               border-radius: 50% 50% 46% 46% / 62% 62% 38% 38%; pointer-events: none;
+                               background: linear-gradient(rgba(255, 255, 255, .42), rgba(255, 255, 255, .06) 70%, transparent); }
+  #screenStart .face > * { position: relative; }
+  #screenStart h1 { margin: 0 0 calc(var(--d) * .035); font-size: calc(var(--d) * .05); font-weight: 700; letter-spacing: .32em;
+                    text-indent: .32em; text-transform: uppercase; color: #cfeeff; text-shadow: 0 0 14px rgba(110, 200, 255, .9); }
+  #menuList { list-style: none; margin: 0; padding: 0; width: 100%; }
+  #menuList li { margin: calc(var(--d) * .012) 0; padding: calc(var(--d) * .016) 0; text-align: center; cursor: pointer;
+                 font-size: calc(var(--d) * .082); font-weight: 800; font-style: italic; letter-spacing: .04em; text-transform: uppercase;
+                 text-shadow: 0 2px 0 rgba(0, 20, 60, .7), 0 0 10px rgba(0, 20, 60, .6); }
+  #menuList li[aria-selected="true"] { background: linear-gradient(90deg, transparent, #1f9dff 12%, #7ad6ff 50%, #1f9dff 88%, transparent);
+                                       box-shadow: 0 0 26px 4px rgba(70, 185, 255, .85); text-shadow: 0 2px 0 rgba(0, 40, 110, .8); }
+  /* The settings say their value too, so they are smaller: Automatic substitutions: Off fits across the disc. */
+  #menuList.settings li { font-size: calc(var(--d) * .045); white-space: nowrap; }
+  /* Teams and Controls: smaller words, inside the disc. */
+  #menuTeams, #menuControls { font-size: calc(var(--d) * .03); text-shadow: 0 2px 0 rgba(0, 20, 60, .7), 0 0 10px rgba(0, 20, 60, .6); }
+  #menuTeams { display: flex; gap: calc(var(--d) * .05); text-align: left; }
+  #menuTeams h2 { margin: 0 0 calc(var(--d) * .015); font-size: calc(var(--d) * .031); font-weight: 800; font-style: italic;
+                  letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+  #menuTeams .home { color: #a9c8ff; }
+  #menuTeams .away { color: #ff8f8f; }
+  #menuTeams ol { list-style: none; margin: 0; padding: 0; }
+  #menuTeams li { margin: calc(var(--d) * .01) 0; white-space: nowrap; }
+  #menuControls { display: grid; grid-template-columns: auto auto; gap: calc(var(--d) * .01) calc(var(--d) * .03); margin: 0; }
+  #menuControls dt { text-align: right; font-weight: 800; color: #cfeeff; }
+  #menuControls dd { margin: 0; text-align: left; }
+  #screenStart .hint { margin: calc(var(--d) * .035) 0 0; font-size: calc(var(--d) * .026); letter-spacing: .12em; text-transform: uppercase; color: #bfe6ff; }
+  /* The disc's glow on the floor under it. */
+  #screenStart .floor { position: absolute; left: 10%; right: 10%; top: 101%; height: 9%; border-radius: 50%;
+                        background: radial-gradient(closest-side, rgba(120, 210, 255, .55), transparent); filter: blur(6px); }
 </style>
 <script type="importmap">
 { "imports": {
@@ -103,12 +159,43 @@
 <p id="announce" class="sr-only" aria-live="polite"></p>
 
 <div id="controls">WASD move · Shift sprint · Space shoot / jump · E pass / switch · Q steal · F hold ball · Esc pause · G quality</div>
-<div id="backend"></div>
 
 <section class="screen" id="screenStart" hidden>
-  <h1>Triple Threat</h1>
-  <p>Press Enter to play</p>
+  <div class="stage">
+    <div class="ring three" aria-hidden="true"></div><div class="ring two" aria-hidden="true"></div><div class="ring one" aria-hidden="true"></div>
+    <div class="rim"><div class="face">
+      <h1>Triple Threat</h1>
+      <ul id="menuList" class="main" role="listbox" aria-label="Menu">
+        <li id="menuRow0" role="option" aria-selected="true">Play</li>
+        <li id="menuRow1" role="option" aria-selected="false">Teams</li>
+        <li id="menuRow2" role="option" aria-selected="false">Controls</li>
+        <li id="menuRow3" role="option" aria-selected="false">Settings</li>
+      </ul>
+      <div id="menuTeams" hidden>
+        <div><h2 id="teamName0" class="home"></h2><ol>
+          <li id="teamPlayer00"></li><li id="teamPlayer01"></li><li id="teamPlayer02"></li><li id="teamPlayer03"></li><li id="teamPlayer04"></li>
+        </ol></div>
+        <div><h2 id="teamName1" class="away"></h2><ol>
+          <li id="teamPlayer10"></li><li id="teamPlayer11"></li><li id="teamPlayer12"></li><li id="teamPlayer13"></li><li id="teamPlayer14"></li>
+        </ol></div>
+      </div>
+      <dl id="menuControls" hidden>
+        <dt>WASD</dt><dd>move</dd>
+        <dt>Shift</dt><dd>sprint</dd>
+        <dt>Space</dt><dd>shoot / jump</dd>
+        <dt>E</dt><dd>pass / switch</dd>
+        <dt>Q</dt><dd>steal</dd>
+        <dt>F</dt><dd>hold ball</dd>
+        <dt>Esc</dt><dd>pause</dd>
+        <dt>G</dt><dd>quality</dd>
+      </dl>
+      <p id="menuHint" class="hint">↑ ↓ choose · Enter select</p>
+    </div></div>
+    <div class="floor" aria-hidden="true"></div>
+  </div>
 </section>
+<!-- After the start screen, so the corner label shows on the menu; before the pause and final screens, which dim it. -->
+<div id="backend"></div>
 <section class="screen" id="screenPause" hidden>
   <h1>Paused</h1>
   <p>Press Esc to resume</p>

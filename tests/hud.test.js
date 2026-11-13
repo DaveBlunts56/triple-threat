@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { periodLabel, clockText, createHud, callText, rosterLine, subNote, easeFrame } from '../src/render/hud.js';
+import { periodLabel, clockText, createHud, callText, rosterLine, subNote, easeFrame, menuText } from '../src/render/hud.js';
 import { createMatch } from '../src/sim/state.js';
+import { createMenu, menuKey } from '../src/menu.js';
 
 test('periods are Q1-Q4 then OT1, OT2', () => {
   assert.deepEqual([1, 4, 5, 6].map(periodLabel), ['Q1', 'Q4', 'OT1', 'OT2']);
@@ -196,4 +197,58 @@ test('the shot meter is sized to be read: 14% of the window high and never under
   assert.match(html, /#shotMeter \{[^}]*--tall: max\(90px, 14vh\)/);
   assert.match(html, /#shotBar \{[^}]*height: var\(--tall\)/);
   assert.match(html, /#shotBand \{[^}]*min-height: 3px/);
+});
+
+test('the start menu shows its rows with the bar on the selected one, and announces it', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
+  const show = () => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
+  show();
+  assert.deepEqual([0, 1, 2, 3].map(i => e[`menuRow${i}`].textContent), ['Play', 'Teams', 'Controls', 'Settings']);
+  assert.deepEqual([0, 1, 2, 3].map(i => e[`menuRow${i}`].ariaSelected), ['true', 'false', 'false', 'false']);
+  assert.deepEqual([e.menuTeams.hidden, e.menuControls.hidden, e.menuHint.textContent, e.announce.textContent],
+    [true, true, '↑ ↓ choose · Enter select', 'Play']);
+  menuKey(menu, 'ArrowDown'); show();
+  assert.deepEqual([e.menuRow0.ariaSelected, e.menuRow1.ariaSelected, e.announce.textContent], ['false', 'true', 'Teams']);
+});
+
+test('the Teams panel lists both teams by position, number and name', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
+  menuKey(menu, 'ArrowDown'); menuKey(menu, 'Enter');
+  hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
+  assert.deepEqual([e.menuTeams.hidden, e.menuControls.hidden, e.menuHint.textContent, e.announce.textContent], [false, true, 'Esc back', 'Teams']);
+  assert.ok([0, 1, 2, 3].every(i => e[`menuRow${i}`].hidden));
+  assert.deepEqual([e.teamName0.textContent, e.teamName1.textContent], ['Harbor City Waves', 'Red Rock Scorpions']);
+  assert.deepEqual([e.teamPlayer00.textContent, e.teamPlayer04.textContent, e.teamPlayer12.textContent],
+    ['PG · 4 · Jalen Cross', 'PF · 23 · Andre Volkov', 'C · 10 · Viktor Lund']);
+});
+
+test('the Settings panel shows each setting with its value, and a change is announced', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
+  const show = quality => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality });
+  menu.row = 3; menuKey(menu, 'Enter'); show('high');
+  assert.deepEqual([e.menuRow0.textContent, e.menuRow1.textContent, e.menuRow2.hidden, e.menuRow3.hidden, e.menuHint.textContent],
+    ['Quality: High', 'Automatic substitutions: On', true, true, '↑ ↓ choose · Enter change · Esc back']);
+  show('low');
+  assert.deepEqual([e.menuRow0.textContent, e.announce.textContent], ['Quality: Low', 'Quality: Low']);
+  menuKey(menu, 'ArrowDown'); menuKey(menu, 'Enter'); show('low');
+  assert.deepEqual([e.menuRow1.textContent, e.announce.textContent], ['Automatic substitutions: Off', 'Automatic substitutions: Off']);
+  assert.equal(menuText(menu, 0, 'high'), 'Quality: High');
+});
+
+test('in play the menu writes nothing and the score is announced as before', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), menu = createMenu();
+  s.phase = 'live'; s.score = [2, 0];
+  hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
+  assert.equal(doc.els.announce.textContent, 'You 2, opponent 0');
+});
+
+test('the page has the menu: four rows, both panels, ten players, every key in the controls panel, and a ring that stops for reduced motion', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  for (const id of ['menuRow0', 'menuRow1', 'menuRow2', 'menuRow3', 'menuTeams', 'menuControls', 'menuHint', 'teamName0', 'teamName1',
+    ...[0, 1].flatMap(t => [0, 1, 2, 3, 4].map(i => `teamPlayer${t}${i}`))]) assert.match(html, new RegExp(`id="${id}"`), id);
+  const controls = html.match(/id="menuControls"[\s\S]*?<\/(?:ul|dl|div)>/)[0];
+  for (const word of ['WASD', 'Shift', 'Space', 'E', 'Q', 'F', 'Esc', 'G']) assert.match(controls, new RegExp(`\\b${word}\\b`), word);
+  assert.match(html, /prefers-reduced-motion/);
+  assert.doesNotMatch(html, /Press Enter to play</);
+  assert.equal((html.match(/<[^>]*aria-live[^>]*>/g) ?? []).length, 1);                // still one live region
 });

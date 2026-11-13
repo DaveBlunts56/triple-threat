@@ -1,6 +1,7 @@
-import { CLOCK, FOUL } from '../sim/tuning.js';
+import { CLOCK, FOUL, ROSTER } from '../sim/tuning.js';
 import { personOf, surname } from '../sim/state.js';
 import { onCourt } from '../sim/roster.js';
+import { menuRows } from '../menu.js';
 import { QUALITY } from './quality.js';
 
 const FPS_EASE = 0.05;   // how fast the frame-rate readout follows the real rate: steady enough to read
@@ -57,6 +58,21 @@ const markText = frozen => (frozen.blocked ? 'Blocked' : VERDICTS[frozen.verdict
 const pixels = value => `${Math.round(value)}px`;
 const share = value => `${Math.round(value * 1000) / 10}%`;
 
+// The start menu: the words of each entry, what the hint line says in each panel, and the two teams' lines.
+const MENU_WORDS = { play: 'Play', teams: 'Teams', controls: 'Controls', settings: 'Settings' };
+const MENU_HINTS = { main: '↑ ↓ choose · Enter select', settings: '↑ ↓ choose · Enter change · Esc back', teams: 'Esc back', controls: 'Esc back' };
+const MENU_SLOTS = 4;   // menuRow0 to menuRow3 on the page
+const TEAM_LINES = ROSTER.teams.map((_, team) => ROSTER.positions.map((position, row) =>
+  `${position} · ${ROSTER.numbers[team][row]} · ${ROSTER.names[team][row]}`));
+
+// The words of row `row` of the panel shown; the settings say their value. quality: 'high' or 'low'.
+export function menuText(menu, row, quality) {
+  const choice = menuRows(menu)[row];
+  if (choice === 'quality') return `Quality: ${QUALITY[quality].label}`;
+  if (choice === 'autoSubs') return `Automatic substitutions: ${menu.autoSubs ? 'On' : 'Off'}`;
+  return MENU_WORDS[choice];
+}
+
 const BACKEND_NAMES = { webgpu: 'WebGPU', webgl2: 'WebGL 2 (WebGPU not available)' };
 const SCREENS = { start: 'screenStart', pause: 'screenPause', final: 'screenFinal' };
 
@@ -93,12 +109,34 @@ export function createHud(doc) {
       const level = ui.quality ? ` · ${QUALITY[ui.quality].label}` : '';
       set('backend', BACKEND_NAMES[backend] + level + (typeof ui.fps === 'number' ? ` · ${Math.round(ui.fps)} fps` : ''));
 
+      // The start menu (`ui.menu`), before the match: the rows of the panel shown with the bar on one, or a panel with
+      // no rows (Teams, Controls), and the hint line. Screen readers hear the selected row, or the panel's name.
+      const menu = state.phase === 'start' ? ui.menu : null;
+      if (menu) {
+        const rows = menuRows(menu);
+        hide('menuList', !rows.length);
+        put('menuList.class', menu.panel, (_, v) => { el('menuList').className = v; });
+        for (let row = 0; row < MENU_SLOTS; row++) {
+          hide(`menuRow${row}`, row >= rows.length);
+          if (row < rows.length) set(`menuRow${row}`, menuText(menu, row, ui.quality));
+          put(`menuRow${row}.selected`, String(row === menu.row && row < rows.length), (_, v) => { el(`menuRow${row}`).ariaSelected = v; });
+        }
+        hide('menuTeams', menu.panel !== 'teams');
+        hide('menuControls', menu.panel !== 'controls');
+        set('menuHint', MENU_HINTS[menu.panel]);
+        TEAM_LINES.forEach((lines, team) => {
+          set(`teamName${team}`, ROSTER.teams[team]);
+          lines.forEach((line, row) => set(`teamPlayer${team}${row}`, line));
+        });
+      }
+
       // The whistle: a banner during the stoppage. Screen readers hear a new call, or else a change of score.
       const banner = state.phase === 'dead' && state.call !== null;
       if (banner) set('call', callText(state.call));
       hide('call', !banner);
       const score = `You ${state.score[0]}, opponent ${state.score[1]}`;
       if (state.call && state.call !== lastCall) set('announce', callText(state.call));
+      else if (menu) set('announce', menuRows(menu).length ? menuText(menu, menu.row, ui.quality) : MENU_WORDS[menu.panel]);
       else if (score !== lastScore) set('announce', score);
       lastCall = state.call; lastScore = score;
 
