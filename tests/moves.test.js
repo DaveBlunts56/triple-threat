@@ -54,7 +54,7 @@ test('guarding, he stands in a stance, side-steps to his own left and right, and
 
 test('a player holding a picked-up ball stands with his knees bent', () => {
   const [s, marks] = watched();
-  assert.equal(legLook(s, s.players[0], marks).crouch, false);
+  assert.equal(legLook(s, s.players[0], marks).crouch, true);             // dribbling in live play he crouches too (was false before the ruling after Task 9)
   s.players[0].held = true;
   assert.equal(legLook(s, s.players[0], marks).crouch, true);
   assert.equal(legMotion(still, facts.gaits, null, legLook(s, s.players[0], marks)).clip, 'stance');
@@ -166,8 +166,11 @@ test('he dribbles and holds with the hand away from the nearest defender, and do
   assert.equal(hand(6, 1), 'left');                      // defender on his right
   assert.deepEqual([arms(s, marks, 0).clip, marks.switched[0]], ['dribbleLeft', 0]);
   assert.equal(hand(6, 0.2), 'left');                    // nearly straight ahead: he keeps the hand he has
+  const settle = () => { for (let t = 0; t < MOTION.handStick; t += DT) noteChanges(marks, s, DT); };   // a hand just changed to is kept for 0.4 s (the ruling after Task 9)
+  settle();
   assert.equal(hand(6, -1), 'right');
   assert.equal(hand(10, 3), 'right');                    // nobody within 4 m: no reason to switch
+  settle();
   hand(6, 1); p.held = true;
   assert.equal(arms(s, marks, 0).clip, 'holdLeft');
   assert.equal(dribbleHand(s, p), 'left');
@@ -309,4 +312,61 @@ test('a rebound caught in the air is caught, then held until he lands, then drib
   for (tick(s, marks); p.y > 0 || p.vy !== 0; tick(s, marks)) inAir.push(arms(s, marks, 1).clip);
   assert.match(inAir.join(' '), /^(catch )+(hold ?){10,}$/);
   assert.deepEqual(arms(s, marks, 1), { clip: 'dribble', rate: 1 });      // landed
+});
+
+// ---- after Task 9's first look in the browser: a crouch for the dribbler, and sticks on the hand and the guarding steps ----
+
+test('dribbling on the spot he crouches as one holding the ball does; in the air, without the ball or with play stopped he does not', () => {
+  const [s, marks] = watched(), p = s.players[0], look = () => legLook(s, p, marks);
+  assert.equal(look().crouch, true);
+  assert.equal(legMotion(still, facts.gaits, 'idle', look()).clip, 'stance');
+  assert.deepEqual([1, 3, 7].map(vx => legMotion({ ...still, vx }, facts.gaits, null, look()).clip), ['walk', 'run', 'sprint']);   // moving legs are as before
+  assert.equal(legLook(s, s.players[1], marks).crouch, false);            // a team-mate without the ball
+  p.y = 0.3;
+  assert.equal(look().crouch, false);
+  p.y = 0; s.phase = 'dead';
+  assert.equal(look().crouch, false);
+  p.held = true;
+  assert.equal(look().crouch, true);                                      // a picked-up ball is held low whatever the phase, as before
+});
+
+test('the dribbling hand is kept for at least 0.4 s; the first choice is free', () => {
+  const [s] = watched(), p = s.players[0], marks = newMarks();
+  at(s, 0, 5, 0); p.facing = 0;                          // facing +x: his right is +z
+  const hand = (x, z) => { at(s, 3, x, z); noteChanges(marks, s, DT); return marks.hand[0]; };
+  assert.equal(hand(6, 1), 'left');                      // the first frame there is: the hand away from the defender at once
+  assert.deepEqual([hand(6, -1), marks.switched[0]], ['right', 0]);   // he has never changed hand: nothing to wait for
+  let frames = 1;
+  while (hand(6, 1) === 'right') frames++;               // the defender crosses back at once
+  assert.ok(Math.abs(frames * DT - MOTION.handStick) < DT + 1e-9, `changed back after ${frames} frames`);
+  assert.equal(MOTION.handStick, 0.4);
+});
+
+test('a guarding step is kept past its edge: a back-step out to 60 degrees from straight back, a side-step in to 40 from straight ahead and back', () => {
+  const look = { facing: 0, defending: true, guarding: true, crouch: false, landed: Infinity };
+  // Travelling at walking pace `degrees` to the right of the way he is drawn facing (+x; his right is +z).
+  const step = (degrees, last) => legMotion({ ...still, vx: 1.4 * Math.cos((degrees * Math.PI) / 180), vz: 1.4 * Math.sin((degrees * Math.PI) / 180) }, facts.gaits, last, look).clip;
+  assert.deepEqual([step(125, null), step(125, 'backpedal'), step(-125, 'backpedal'), step(115, 'backpedal')], ['strafeRight', 'backpedal', 'backpedal', 'strafeRight']);
+  assert.deepEqual([step(135, null), step(135, 'strafeRight'), step(145, 'strafeRight')], ['backpedal', 'strafeRight', 'backpedal']);
+  assert.deepEqual([step(45, null), step(45, 'strafeRight'), step(35, 'strafeRight')], ['walk', 'strafeRight', 'walk']);
+  assert.deepEqual([step(-45, 'strafeLeft'), step(-135, 'strafeLeft'), step(90, 'strafeLeft'), step(-90, 'strafeRight')], ['strafeLeft', 'strafeLeft', 'strafeRight', 'strafeLeft']);
+  assert.deepEqual([step(55, 'walk'), step(45, 'backpedal'), step(125, 'walk')], ['strafeRight', 'walk', 'strafeRight']);   // nothing else sticks
+  assert.deepEqual([MOTION.sideStick, MOTION.guardFar], [10, 0.4]);
+});
+
+test('once he guards his man he keeps guarding him out to 4.4 m', () => {
+  const [s, marks] = watched();
+  at(s, 0, 5, 0);
+  const guarding = x => { at(s, 3, x, 0); noteChanges(marks, s, DT); return marks.guard[3]; };
+  // 4.2 m away, 3.8, 4.2 again, 4.5, 4.2, 3.8
+  assert.deepEqual([guarding(0.8), guarding(1.2), guarding(0.8), guarding(0.5), guarding(0.8), guarding(1.2)], [false, true, true, false, false, true]);
+});
+
+test('a slow side-step may play slower than any other gait, so the feet cover no more ground than he does', () => {
+  const look = { facing: 0, defending: true, guarding: true, crouch: false, landed: Infinity };
+  const moving = (vx, vz) => legMotion({ ...still, vx, vz }, facts.gaits, null, look);
+  assert.deepEqual(moving(0, 0.75), { clip: 'strafeRight', rate: 0.5 });  // 0.75 of 1.5: under the 0.6 of the other gaits
+  assert.deepEqual(moving(0, -0.45), { clip: 'strafeLeft', rate: 0.35 }); // 0.3 would be too slow to read as a step
+  assert.deepEqual(moving(-0.5, 0), { clip: 'backpedal', rate: 0.6 });    // only the side-steps
+  assert.equal(MOTION.minRateStep, 0.35);
 });

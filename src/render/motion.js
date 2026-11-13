@@ -15,6 +15,9 @@ export const AIR_TIME = (2 * PLAYER.jumpV) / BALL.gravity;
 // reachBefore: seconds before a pass arrives that the hands go out for it. catchReach: the share of the catch that is
 // the reach. pullIn: seconds to pull a caught ball in. handUpDist: a defender this close to a shooter raises a hand.
 // handSide: how far to one side of the way he faces a defender must be before the ball goes to the other hand.
+// handStick: seconds a dribbling hand is kept before it may change again. guardFar: how far past guardDist a defender
+// who is guarding goes on guarding. sideStick: degrees past the edge of a guarding step that he keeps the step he is
+// in. minRateStep: the limit that stands in for minRate on a side-step, which is one long bound.
 // quick: the one-off moves, which come in over fadeIn seconds and leave over fadeOut.
 // apart: the share of a cycle between where one person's standing motions start and where the next person's do.
 // drift: how much slower or faster than made the slowest and the fastest of the ten play them.
@@ -24,6 +27,7 @@ export const MOTION = Object.freeze({
   land: 0.12, followHold: 0.6, reachBefore: 0.2, catchReach: 0.6, pullIn: 0.15, handUpDist: 2, handSide: 0.3,
   fadeIn: 0.07, fadeOut: 0.22, quick: Object.freeze(['pass', 'reach', 'follow', 'freeThrow', 'handUp']),
   apart: 0.618, drift: 0.08,
+  handStick: 0.4, guardFar: 0.4, sideStick: 10, minRateStep: 0.35,
 });
 
 // The shot meter. stay: seconds it is kept after the release. aside: metres it stands from the shooter, on the side
@@ -82,10 +86,14 @@ export function noteChanges(marks, state, dt) {
     const id = p.id, before = was?.players[id];
     for (const what of HAPPENINGS) marks[what][id] = (marks[what][id] ?? Infinity) + dt;
 
-    // Past walking pace he turns and runs; near it he stays as he is, so he does not flip between the two.
+    // Past walking pace, or far from his man, he turns and runs; near either edge he stays as he is, so he does not
+    // flip between the two.
     const pace = MOTION.guardSpeed + (marks.guard[id] ? MOTION.guardStick : 0);
-    marks.guard[id] = defending(state, p) && onFloor(p) && dist(p, manOf(state, p)) <= MOTION.guardDist && Math.hypot(p.vx, p.vz) < pace;
-    const hand = dribbleHand(state, p, marks.hand[id] ?? 'right');
+    const reach = MOTION.guardDist + (marks.guard[id] ? MOTION.guardFar : 0);
+    marks.guard[id] = defending(state, p) && onFloor(p) && dist(p, manOf(state, p)) <= reach && Math.hypot(p.vx, p.vz) < pace;
+    // A hand just changed to is kept for a while, so a defender crossing in front does not make the ball flutter.
+    const kept = marks.hand[id], settled = kept === undefined || marks.switched[id] >= MOTION.handStick;
+    const hand = settled ? dribbleHand(state, p, kept ?? 'right') : kept;
 
     if (before) {
       // A release belongs to the jump it was made on: every take-off forgets the last one. Before the release is
@@ -114,25 +122,33 @@ export function drawnFacing(state, player, marks) {
   return Math.atan2(man.z - player.z, man.x - player.x);
 }
 
-// What legMotion needs to know beyond the player himself. crouch: he holds a ball he has picked up, knees bent to
-// pass or shoot; an inbounder stands upright. landed: seconds since he last landed.
+// What legMotion needs to know beyond the player himself. crouch: he has the ball low, knees bent: one he has picked
+// up, to pass or shoot, or one he dribbles in live play, which is dribbled in a low stance; an inbounder stands
+// upright. landed: seconds since he last landed.
 export function legLook(state, player, marks) {
+  const dribbling = state.phase === 'live' && onFloor(player);
   return {
     facing: drawnFacing(state, player, marks),
     defending: defending(state, player),
     guarding: marks.guard[player.id],
-    crouch: state.ball.holder === player.id && player.held && !player.inbounder,
+    crouch: state.ball.holder === player.id && !player.inbounder && (player.held || dribbling),
     landed: marks.land[player.id],
   };
 }
 
+const SIDE_STEPS = ['strafeLeft', 'strafeRight'];
+
 // The step of a guarding defender travelling along (vx, vz) while drawn facing `facing`: a back-step, a side-step
-// toward his own left or right, or null when he goes forward and walks or runs as anyone does.
-function guardStep(player, facing) {
+// toward his own left or right, or null when he goes forward and walks or runs as anyone does. `last` is the clip he
+// showed on the previous frame: the step he is in is kept a little past its edges, so he does not flicker between two.
+function guardStep(player, facing, last) {
   const turn = Math.atan2(player.vz, player.vx) - facing;
   const off = (Math.atan2(Math.sin(turn), Math.cos(turn)) * 180) / Math.PI;   // degrees from straight ahead, positive to his right
-  if (Math.abs(off) >= 180 - MOTION.sideways) return 'backpedal';
-  if (Math.abs(off) > MOTION.sideways) return off < 0 ? 'strafeLeft' : 'strafeRight';
+  // How wide the back-step and the walk forward each reach: wider for the back-step he is in, narrower around a
+  // side-step he is in.
+  const kept = last === 'backpedal' ? MOTION.sideStick : SIDE_STEPS.includes(last) ? -MOTION.sideStick : 0;
+  if (180 - Math.abs(off) <= MOTION.sideways + kept) return 'backpedal';
+  if (Math.abs(off) > MOTION.sideways + Math.min(kept, 0)) return off < 0 ? 'strafeLeft' : 'strafeRight';
   return null;
 }
 
@@ -153,9 +169,10 @@ export function legMotion(player, gaits, last = null, look = null) {
   if (Math.abs(kept - band) === 1 && kept >= 0 && Math.abs(speed - EDGES[Math.min(kept, band)]) < MOTION.stick) band = kept;
 
   if (band === 0) return { clip: look?.defending || look?.crouch ? 'stance' : 'idle', rate: 1 };
-  const clip = (look?.guarding && guardStep(player, look.facing)) || GAITS[band];
+  const clip = (look?.guarding && guardStep(player, look.facing, last)) || GAITS[band];
   // Played faster or slower so the feet cover the ground he really covers.
-  return { clip, rate: Math.min(MOTION.maxRate, Math.max(MOTION.minRate, speed / gaits[clip])) };
+  const slowest = SIDE_STEPS.includes(clip) ? MOTION.minRateStep : MOTION.minRate;
+  return { clip, rate: Math.min(MOTION.maxRate, Math.max(slowest, speed / gaits[clip])) };
 }
 
 // Seconds until a pass in the air for `player` is within his reach; Infinity when there is none.
