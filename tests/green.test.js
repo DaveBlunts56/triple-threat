@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { step } from '../src/sim/step.js';
-import { SHOT_BEST, boardInWay, contest, greenAt, releaseShot, shotWindow } from '../src/sim/players.js';
+import { SHOT_BEST, boardInWay, contest, giveBall, greenAt, releaseShot, shotWindow } from '../src/sim/players.js';
+import { judgeContacts } from '../src/sim/fouls.js';
+import { emptyEvents } from '../src/sim/state.js';
 import { DT, RIM } from '../src/sim/tuning.js';
 import { live, idle, only, run, at } from './helpers.js';
 
@@ -110,4 +112,37 @@ test('the release is recorded as the rules judged it, and the next press clears 
   again.shot = rest;
   step(again, only(0, { shoot: true }), DT);
   assert.equal(again.shot, null);
+});
+
+test('a reach foul on the step the shot leaves is a shooting foul: the green release still goes in, with one free throw', () => {
+  let green = 0, fouled = 0;
+  for (let seed = 1; seed <= 200; seed++) {
+    const s = live(seed), p = s.players[3];
+    at(s, 3, -RIM.x + 3, 0); at(s, 0, -RIM.x + 4, 0);                     // the other team's shooter, a defender a metre behind him on the floor
+    giveBall(s, p);
+    Object.assign(p, { shooting: true, shotT: 28 * DT, y: 0.2, vy: 0.5, facing: Math.PI });
+    step(s, only(0, { steal: true }), DT);                                // the defender acts first: he reaches as the ball leaves
+    if (s.ball.holder === 0) continue;                                    // the steal won it
+    assert.deepEqual([s.shot.shooter, s.shot.green, s.shot.blocked], [3, true, false]);
+    green++;
+    const whistle = s.pendingFoul !== null || s.call !== null;
+    assert.ok(run(s, 4, idle(), st => st.score[1] > 0), `seed ${seed}: a green release missed, call ${s.call?.kind}`);
+    if (!whistle) { assert.deepEqual([s.call, s.freeThrow], [null, null]); continue; }
+    fouled++;
+    assert.deepEqual([s.score[1], s.call.kind, s.call.team, s.call.shots, s.freeThrow.shooter, s.freeThrow.total], [2, 'shooting', 0, 1, 3, 1]);
+  }
+  assert.ok(green > 150 && fouled > 20, `${green} green releases, ${fouled} fouled`);
+});
+
+test('a reach foul stays a reach foul when the shot was blocked, when another player let go, and when nobody did', () => {
+  const kind = release => {
+    for (let seed = 1; seed <= 100; seed++) {
+      const foul = judgeContacts(live(seed), { ...emptyEvents(), stealMisses: [{ by: 0, on: 3, front: false }], release }, DT);
+      if (foul) return foul.kind;
+    }
+  };
+  assert.equal(kind({ shooter: 3, defender: null, blocked: false }), 'shooting');
+  assert.equal(kind({ shooter: 3, defender: null, blocked: true }), 'reach');
+  assert.equal(kind({ shooter: 4, defender: null, blocked: false }), 'reach');
+  assert.equal(kind(null), 'reach');
 });

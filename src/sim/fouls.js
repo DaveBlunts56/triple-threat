@@ -5,11 +5,14 @@ import { onFloor, personOf, rand } from './state.js';
 export function judgeContacts(state, events, dt) {
   for (const p of state.players) p.foulCooldown = Math.max(0, p.foulCooldown - dt);
 
+  const shot = events.release;
   for (const miss of events.stealMisses) {
-    if (rand(state) < (miss.front ? FOUL.reachFront : FOUL.reachBack)) return { kind: 'reach', by: miss.by, on: miss.on };
+    if (rand(state) >= (miss.front ? FOUL.reachFront : FOUL.reachBack)) continue;
+    // A reach on the step its victim lets a shot go is a foul on the shot: the ball is already in the air.
+    const onShot = shot && shot.shooter === miss.on && !shot.blocked;
+    return { kind: onShot ? 'shooting' : 'reach', by: miss.by, on: miss.on };
   }
 
-  const shot = events.release;
   if (shot && shot.defender !== null && !shot.blocked && rand(state) < FOUL.shooting) {
     return { kind: 'shooting', by: shot.defender, on: shot.shooter };
   }
