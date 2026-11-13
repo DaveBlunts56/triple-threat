@@ -133,13 +133,15 @@ git commit -m "feat: players have names and positions, shown on the pause screen
 
 ### Task 2: The net's physics
 
+> **Changed while building (2026-11-13):** seen in the game, a make moved the first net about 2 px, so the net's physics went further than this task's first text: the ball grips the knots it touches and drags the net down, the strings stretch to 1.5 times and spring back, the ties give to 3.5 times, and a pushed knot keeps no speed from the push. The spec and `tests/net.test.js` are the record; the values below were updated to match.
+
 **Files:**
 - Create: `src/render/net.js`, `tests/net.test.js`
 
 **Interfaces:**
 - Consumes: `RIM` (`x`, `height`, `radius`, `tube`), `BALL` (`radius`, `gravity`), `DT` from `src/sim/tuning.js`. A ball is `{ x, y, z, vx, vy, vz }`, as `state.ball` is.
 - Produces, in `src/render/net.js` (no Three.js):
-  - `NET = Object.freeze({ strings: 12, knots: 5, length: 0.40, bottom: 0.09, stretch: 1.1, give: 2, skin: 0.01, jump: 2, ... })`: `strings` round the rim; `knots` below the rim on each string; `length` metres from the rim to the bottom row at rest; `bottom` the bottom row's radius at rest; `stretch` the most a string's segment (from one knot to the next one down) may be of its rest length; `give` the most a tie (between neighbouring strings in one row) may be of its rest length: the ties are elastic, which is what lets the ball open a net narrower than itself; `skin` metres added to the ball's radius where it pushes knots; `jump` metres: a ball that moved farther than this in one call was placed, not thrown. Add the numbers the physics needs (drag, how firmly a tie pulls back, constraint passes, the rim shake) with a comment each.
+  - `NET = Object.freeze({ strings: 12, knots: 5, length: 0.40, bottom: 0.09, stretch: 1.5, give: 3.5, skin: 0.01, jump: 2, ... })`: `strings` round the rim; `knots` below the rim on each string; `length` metres from the rim to the bottom row at rest; `bottom` the bottom row's radius at rest; `stretch` the most a string's segment (from one knot to the next one down) may be of its rest length; `give` the most a tie (between neighbouring strings in one row) may be of its rest length: the ties are elastic, which is what lets the ball open a net narrower than itself; `skin` metres added to the ball's radius where it pushes knots; `jump` metres: a ball that moved farther than this in one call was placed, not thrown. Add the numbers the physics needs (drag, how firmly a tie pulls back, constraint passes, the rim shake) with a comment each.
   - `createNet(sign) -> net`: the net of the hoop at `x = sign * RIM.x`. `net.points` is a `Float32Array` of world coordinates, three per point, `(NET.knots + 1) * NET.strings` points, row by row from the rim down (row 0 is on the rim and never moves; point `row * NET.strings + string`). `net.rest` is the same layout at rest. At rest, row `r` is at height `RIM.height - NET.length * r / NET.knots` and radius running evenly from `RIM.radius` to `NET.bottom`.
   - `stepNet(net, from, to, dt)`: advances the net by `dt` seconds while the ball goes from `from` to `to` (two balls; `from` may be `null`, meaning the same as `to`). It works in `Math.ceil(dt / DT)` equal sub-steps, the ball moving evenly from `from` to `to` across them. In each: gravity and drag move the free knots; a knot inside the ball (its radius plus `NET.skin`) is pushed out to its surface; each string's segments are held to their rest lengths, firmly, so that none ends a step more than `NET.stretch` times its rest length; each tie pulls its two knots back toward its rest length softly, like elastic, and never ends a step more than `NET.give` times it. Where the ball and the strings disagree the strings win: a knot may end a step a little inside the ball. If the ball is touching the rim's ring at `to` and its velocity changed between `from` and `to` by more than gravity explains, by over 1 m/s, the free knots are given a small kick along that change. If `from` and `to` are more than `NET.jump` apart, the ball is taken to be at `to` throughout. `dt <= 0` changes nothing.
 
@@ -208,7 +210,7 @@ test('left alone the net hangs where it was made and is still', () => {
   assert.ok(moved < 0.001, `still moving ${moved} m`);
 });
 
-test('a ball falling through pushes the net out, never stretches a string more than a tenth or a tie to more than double, and the net settles within two seconds', () => {
+test('a ball falling through pushes the net out, never stretches a string more than a half or a tie to more than three and a half times, and the net settles within two seconds', () => {
   for (const sign of [1, -1]) {
     const net = createNet(sign), { most, held } = swish(net, sign);
     assert.ok(most >= 0.03, `pushed ${most} m`);
