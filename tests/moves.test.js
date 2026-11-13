@@ -259,3 +259,54 @@ test('a shot let go during the gather leaves as his feet do, and still gets its 
   while (s.ball.holder === 0) tick(s, marks);
   assert.deepEqual([s.ball.mode, s.players[0].vy > 0, arms(s, marks, 0)], ['shot', true, { clip: 'follow', at: 0 }]);
 });
+
+// ---- after the review: every take-off forgets the last release, and nobody dribbles in the air ----
+
+import { freeBall } from './helpers.js';
+
+// A match in which player 0 has taken one ordinary shot, landed, let his follow-through play out and got the ball back.
+function shotBefore() {
+  const [s, marks] = watched();
+  for (let i = 0; i < 19; i++) tick(s, marks, only(0, { shoot: true }));
+  tick(s, marks);
+  while (arms(s, marks, 0)) tick(s, marks);
+  giveBall(s, s.players[0]); noteChanges(marks, s, DT);
+  return [s, marks];
+}
+// What player 0's arms show over the next `frames` frames, with Space still down so that he does not jump again.
+function shownNext(s, marks, frames) {
+  const shown = [];
+  for (let i = 0; i < frames; i++) { tick(s, marks, only(0, { shoot: true })); shown.push(arms(s, marks, 0)?.clip ?? null); }
+  return shown;
+}
+
+test('a shot jump that ends in a pass or a strip shows no follow-through from an earlier shot', () => {
+  const hold = only(0, { shoot: true });
+  const [s, marks] = shotBefore();
+  for (let i = 0; i < 22; i++) tick(s, marks, hold);
+  tick(s, marks, only(0, { shoot: true, pass: true }));                   // in the air, he passes instead
+  assert.deepEqual([s.players[0].y > 0, arms(s, marks, 0)], [true, { clip: 'pass', at: 0 }]);
+  const afterPass = shownNext(s, marks, 45);
+  assert.ok(!afterPass.includes('follow') && afterPass.at(-1) === null, afterPass.join(' '));
+
+  const [t, seen] = shotBefore(), p = t.players[0];
+  for (let i = 0; i < 22; i++) tick(t, seen, hold);
+  at(t, 3, p.x + 0.8, p.z);                                               // a defender in front of him takes it out of his hands
+  for (let won = false; !won;) { t.players[3].stealCooldown = 0; won = trySteal(t, t.players[3]).won; }
+  noteChanges(seen, t, DT);
+  assert.deepEqual([p.y > 0, p.shooting, t.ball.holder, arms(t, seen, 0).clip], [true, false, 3, 'contest']);
+  const afterStrip = shownNext(t, seen, 45);
+  assert.ok(!afterStrip.includes('follow') && afterStrip.at(-1) === null, afterStrip.join(' '));
+});
+
+test('a rebound caught in the air is caught, then held until he lands, then dribbled', () => {
+  const [s, marks] = watched(), p = s.players[1];
+  freeBall(s, { x: p.x, y: 2.9, z: p.z });                                // a ball falling from just out of his reach
+  tick(s, marks, only(1, { shoot: true }));                               // he jumps for it
+  while (s.ball.holder !== 1) tick(s, marks);
+  assert.deepEqual([p.y > 0, arms(s, marks, 1)], [true, { clip: 'catch', at: MOTION.catchReach }]);
+  const inAir = [];
+  for (tick(s, marks); p.y > 0 || p.vy !== 0; tick(s, marks)) inAir.push(arms(s, marks, 1).clip);
+  assert.match(inAir.join(' '), /^(catch )+(hold ?){10,}$/);
+  assert.deepEqual(arms(s, marks, 1), { clip: 'dribble', rate: 1 });      // landed
+});

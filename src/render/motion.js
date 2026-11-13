@@ -81,9 +81,9 @@ export function noteChanges(marks, state, dt) {
     const hand = dribbleHand(state, p, marks.hand[id] ?? 'right');
 
     if (before) {
-      // A release belongs to the jump it was made on: a later jump without the ball forgets it. Before the release
-      // is looked for, because a shot let go on the floor leaves his hands on the frame he takes off.
-      if (!before.inAir && !onFloor(p) && !p.shooting) marks.release[id] = Infinity;
+      // A release belongs to the jump it was made on: every take-off forgets the last one. Before the release is
+      // looked for, because a shot let go on the floor leaves his hands on the frame he takes off.
+      if (!before.inAir && !onFloor(p)) marks.release[id] = Infinity;
       const lost = was.holder === id && ball.holder === null;
       if (lost && ball.mode === 'pass') marks.pass[id] = 0;
       // A blocked shot never becomes a shot in the air, but he was shooting when it left his hands. A pass thrown
@@ -129,9 +129,9 @@ function guardStep(player, facing) {
   return null;
 }
 
-// The leg motion for `player` (needs vx, vz, y, vy, jumpT). `gaits` is the natural speed of each moving clip; `last`
-// is the clip he showed on the previous frame; `look` is what legLook gave. Without a `look` he only stands, walks,
-// runs, sprints and jumps.
+// The leg motion for `player` (needs vx, vz, y, vy, jumpT, takeoff, and with a `look` shooting and shotT). `gaits` is
+// the natural speed of each moving clip; `last` is the clip he showed on the previous frame; `look` is what legLook
+// gave. Without a `look` he only stands, walks, runs, sprints and jumps.
 // Played at a rate: { clip, rate }. Placed by hand: { clip, at }, with `at` from 0 at the clip's start to 1 at its end.
 export function legMotion(player, gaits, last = null, look = null) {
   if (!onFloor(player)) return { clip: 'jump', at: jumpShare(player) };
@@ -186,7 +186,8 @@ export function armMotion(player, state, marks, facts) {
   }
   const arrival = passArrival(state, player);
   if (arrival < MOTION.reachBefore) return { clip: 'catch', at: MOTION.catchReach * (1 - arrival / MOTION.reachBefore) };
-  if (hasBall && (player.inbounder || player.held || STOPPED.includes(state.phase))) return { clip: sided('hold'), rate: 1 };
+  // Nobody dribbles in the air: a ball caught up there is held until he lands.
+  if (hasBall && (player.inbounder || player.held || inAir || STOPPED.includes(state.phase))) return { clip: sided('hold'), rate: 1 };
   if (hasBall) return { clip: sided('dribble'), rate: 1 };
   if (marks.reach[id] < length('reach')) return { clip: 'reach', at: marks.reach[id] / length('reach') };
   if (inAir && state.phase === 'jumpBall' && player.slot === 1) return { clip: 'tip', at: jumpShare(player) };
