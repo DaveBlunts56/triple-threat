@@ -34,11 +34,22 @@
      It hangs down and to the left of the point it is placed at, so it never lies over the shooter, who is on its right. */
   #shotMeter { --tall: max(90px, 14vh); position: fixed; width: calc(var(--tall) * .3); transform: translateX(-100%); pointer-events: none;
                text-align: center; font-size: calc(var(--tall) * .16); font-weight: 700; text-shadow: 0 1px 2px #000; }
-  #shotBar { position: relative; height: var(--tall); box-sizing: border-box; background: #23262e; border: 2px solid #fff; }
+  /* The bar is an arc like "(", cut from the box by a ring mask: a circle centred to the right of the box, its bulge .12 of
+     --tall to the left of its ends, its thickness .18 of --tall. --c is the centre's distance from the box's left edge. */
+  #shotMeter { --edge: #fff; --c: calc(var(--tall) * 1.1917); --ro: var(--c); --ri: calc(var(--tall) * 1.0117);
+               --ring: radial-gradient(circle at var(--c) 50%, transparent var(--ri), #000 var(--ri), #000 var(--ro), transparent var(--ro)); }
+  #shotBar { position: relative; height: var(--tall); background: #23262e; -webkit-mask: var(--ring); mask: var(--ring); }
+  /* The white edges lie over the band and the fill, along both curved sides. */
+  #shotBar::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at var(--c) 50%,
+    transparent var(--ri), var(--edge) var(--ri), var(--edge) calc(var(--ri) + 2px), transparent calc(var(--ri) + 2px),
+    transparent calc(var(--ro) - 2px), var(--edge) calc(var(--ro) - 2px), var(--edge) var(--ro), transparent var(--ro)); }
   /* The band's white edge lies below it, outside its height, so every band shows some green. */
   #shotBand { position: absolute; left: 0; right: 0; top: 0; min-height: 3px; background: #2e8b57; border-bottom: 3px solid #fff; }
-  #shotFill { position: absolute; left: 20%; right: 20%; bottom: 0; background: #ffd257; outline: 1px solid #000; }
-  #shotMeter.green #shotBar { border-color: #6fdc8c; }
+  /* The fill is a narrower ring (.6 of the track's thickness) so the track shows either side of it. */
+  #shotFill { --fill: radial-gradient(circle at var(--c) 50%, transparent calc(var(--tall) * 1.0477), #000 calc(var(--tall) * 1.0477),
+                #000 calc(var(--tall) * 1.1557), transparent calc(var(--tall) * 1.1557));
+              position: absolute; left: 0; right: 0; bottom: 0; background: #ffd257; -webkit-mask: var(--fill); mask: var(--fill); }
+  #shotMeter.green { --edge: #6fdc8c; }
   #shotMeter.green #shotFill { background: #6fdc8c; }
   /* Wider than the bar and centred under it. */
   #shotMark, #shotLabel { margin: 2px -4em 0; white-space: nowrap; }
