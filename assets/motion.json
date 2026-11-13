@@ -2,28 +2,83 @@
   "gaits": {
     "walk": 1.844,
     "run": 5.207,
-    "sprint": 7.273
+    "sprint": 7.273,
+    "strafeLeft": 2.775,
+    "strafeRight": 2.775,
+    "backpedal": 1.335
   },
   "clips": {
     "idle": {
       "duration": 9.9333,
-      "loop": true
+      "loop": true,
+      "kind": "loop"
     },
     "walk": {
       "duration": 1.1667,
-      "loop": true
+      "loop": true,
+      "kind": "loop",
+      "strike": {
+        "left": 0.171,
+        "right": 0.686
+      }
     },
     "run": {
       "duration": 0.7333,
-      "loop": true
+      "loop": true,
+      "kind": "loop",
+      "strike": {
+        "left": 0.227,
+        "right": 0.727
+      }
     },
     "sprint": {
       "duration": 0.5333,
-      "loop": true
+      "loop": true,
+      "kind": "loop",
+      "strike": {
+        "left": 0.25,
+        "right": 0.75
+      }
     },
     "jump": {
       "duration": 0.4667,
-      "loop": false
+      "loop": false,
+      "kind": "held"
+    },
+    "land": {
+      "duration": 0.1667,
+      "loop": false,
+      "kind": "held"
+    },
+    "strafeLeft": {
+      "duration": 0.5333,
+      "loop": true,
+      "kind": "loop",
+      "crouch": 0.188
+    },
+    "strafeRight": {
+      "duration": 0.5333,
+      "loop": true,
+      "kind": "loop",
+      "crouch": 0.188
+    },
+    "backpedal": {
+      "duration": 1.2,
+      "loop": true,
+      "kind": "loop",
+      "crouch": 0.05
+    },
+    "dribble": {
+      "duration": 2.1,
+      "loop": true,
+      "kind": "loop",
+      "push": 0.841,
+      "bounces": 3
+    },
+    "dribbleLeft": {
+      "duration": 2.1,
+      "loop": true,
+      "kind": "loop"
     }
   }
 }

@@ -38,14 +38,24 @@ npm test
 
 1. `export_mixamo_doll.py` writes `assets/source/mixamo-upload.fbx`: the first player, clothed and plain grey, on the game's skeleton.
 2. On mixamo.com (signed in), "Upload Character" takes that file. Mixamo recognises the skeleton and asks for no markers.
-3. Each clip in the table in `assets/CREDITS.md` is downloaded with Format "FBX Binary (.fbx)", Skin **"With Skin"**, 30 frames per second, Keyframe Reduction "none", and **"In Place" left unticked**, then saved in `assets/source/mixamo/` as `idle.fbx`, `walk.fbx`, `run.fbx`, `sprint.fbx` and `jump.fbx`. That folder is not committed.
-4. `build_motion.py` puts the clips on the player's skeleton and writes `assets/motion.glb` and `assets/motion.json`. With `--shots` it renders six frames of each motion from two sides.
+3. Each clip in the table in `assets/CREDITS.md` is downloaded with Format "FBX Binary (.fbx)", Skin **"With Skin"**, 30 frames per second, Keyframe Reduction "none", and **"In Place" left unticked**, then saved in `assets/source/mixamo/` as `idle.fbx`, `walk.fbx`, `run.fbx`, `sprint.fbx`, `jump.fbx`, `strafeLeft.fbx`, `backpedal.fbx` and `dribble.fbx`. That folder is not committed.
+4. `build_motion.py` puts the clips on the player's skeleton and writes `assets/motion.glb` and `assets/motion.json`. With `--shots` it renders six frames of each motion from two sides. It also makes three motions of its own: `land` from the frames of `jump.fbx` that follow the landing, and `strafeRight` and `dribbleLeft` from `strafeLeft` and `dribble` in a mirror. If a clip is missing the build stops and writes nothing.
 
 Why those settings:
 
 - **With Skin.** Without the skin, Mixamo sends the skeleton back resting in a T-pose instead of the player's own rest pose, and the motion can no longer be carried over exactly. `build_motion.py` refuses a clip whose rest pose is more than 5 mm from the player's.
 - **Not in place.** The script measures how fast each gait really travels (the `gaits` in `motion.json`, which the game uses to stop feet sliding) and then takes the travel out itself.
-- **The jump** must take off and land in the clip. Only the frames with both feet off the floor are kept, and the climb is removed, because the game lifts the player.
+- **The jump** must take off and land in the clip. Only the frames with both feet off the floor are kept, and the climb is removed, because the game lifts the player. `land` carries on from the frame the jump ends on to the lowest the hips sink in the next ten frames.
+- **The steps** (`strafeLeft`, `strafeRight`, `backpedal`) must travel the way their names say: to the player's left, to his right, and backwards. The build stops if one does not. The side-step is a crouched one; the back-step is an upright walk, because Mixamo's crouched backward walks hold a weapon.
+- **The mirror.** Each bone turns from its rest pose as the bone on the other side did, seen in a mirror, and the skeleton is then put back together from the hips. The player's skeleton is not quite the same on both sides (the shoulder joints rest 14 mm apart in a mirror), which costs a few millimetres; the build stops if a joint is more than 20 mm from its twin's mirror image.
+
+What `assets/motion.json` says about each clip, besides how long it is:
+
+- `kind`: `loop` for a motion that repeats, `held` for one where the game sets how far through it is (`jump`, `land`), `once` for one played through. `loop` is true exactly when `kind` is `loop`.
+- `crouch` (the three steps): how many metres lower the hips sit, on average over the clip, than they do in `idle`.
+- `strike` (`walk`, `run`, `sprint`): for the `left` and the `right` foot, the share of the cycle (0 to 1) at which it is furthest ahead of the hips, which is when it lands.
+- `push` (`dribble`): the share of the cycle at which the right hand is lowest. `dribbleLeft` has the same timing.
+- `bounces` (`dribble`): how many times the hand goes down and comes back up in one cycle.
 
 ## What the scripts rely on in MPFB
 

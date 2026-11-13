@@ -95,7 +95,7 @@ function imageSize(bytes, mimeType) {
 
 const motion = readGlb('assets/motion.glb');
 const facts = JSON.parse(readFileSync('assets/motion.json', 'utf8'));
-const LOOPS = ['idle', 'walk', 'run', 'sprint'];
+const LOOPS = ['idle', 'walk', 'run', 'sprint', 'strafeLeft', 'strafeRight', 'backpedal', 'dribble', 'dribbleLeft'];
 
 // The keys of one bone's track in one motion, as rows of numbers. The root bone is the joint with no joint above it.
 function track(name, path, bone = null) {
@@ -111,7 +111,8 @@ function track(name, path, bone = null) {
 const hipsDrift = name => Math.max(...track(name, 'translation').map(([x, , z], _, keys) => Math.hypot(x - keys[0][0], z - keys[0][2])));
 
 test('the motion file holds the five stage 1 motions and no meshes', () => {
-  assert.deepEqual(motion.json.animations.map(a => a.name).sort(), ['idle', 'jump', 'run', 'sprint', 'walk']);
+  const names = motion.json.animations.map(a => a.name);
+  for (const name of ['idle', 'walk', 'run', 'sprint', 'jump']) assert.ok(names.includes(name), `no ${name}`);
   assert.equal(motion.json.meshes, undefined);
 });
 
@@ -124,10 +125,8 @@ test('every bone a motion moves exists in the player', () => {
 test('each gait has a natural speed, slowest to fastest, and each clip its facts', () => {
   const { walk, run, sprint } = facts.gaits;
   assert.ok(0.8 < walk && walk < run && run < sprint && sprint < 10, JSON.stringify(facts.gaits));
-  assert.deepEqual(Object.keys(facts.clips).sort(), ['idle', 'jump', 'run', 'sprint', 'walk']);
-  for (const name of LOOPS) assert.equal(facts.clips[name].loop, true);
-  assert.equal(facts.clips.jump.loop, false);
-  for (const c of Object.values(facts.clips)) assert.ok(c.duration > 0.2 && c.duration < 12);
+  assert.deepEqual(Object.keys(facts.clips).sort(), motion.json.animations.map(a => a.name).sort());
+  for (const c of Object.values(facts.clips)) assert.ok(c.duration >= 0.05 && c.duration < 12);
 });
 
 test('looping motions stay on the spot', () => {
@@ -163,4 +162,51 @@ test('each motion starts at time zero and lasts as long as its facts say', () =>
     assert.ok(Math.abs(first) < 1e-4, `${animation.name} starts at ${first} s`);
     assert.ok(Math.abs(last - facts.clips[animation.name].duration) < 1e-3, `${animation.name} ends at ${last} s, facts say ${facts.clips[animation.name].duration}`);
   }
+});
+
+// How far a bone turns from its first pose over a motion: 0 for not at all.
+const swing = keys => Math.max(...keys.map(q => 1 - Math.abs(q.reduce((sum, v, i) => sum + v * keys[0][i], 0))));
+
+test('the defensive steps, the dribble and the landing are in the motion file with their facts', () => {
+  const names = motion.json.animations.map(a => a.name);
+  for (const name of ['strafeLeft', 'strafeRight', 'backpedal', 'dribble', 'dribbleLeft', 'land']) assert.ok(names.includes(name), `no ${name}`);
+  for (const gait of ['strafeLeft', 'strafeRight', 'backpedal']) {
+    assert.ok(facts.gaits[gait] > 0.5 && facts.gaits[gait] < 4, `${gait}: ${facts.gaits[gait]} m/s`);
+    assert.ok(hipsDrift(gait) < 0.25, `${gait} drifts ${hipsDrift(gait)} m`);
+    assert.ok(facts.clips[gait].crouch > -0.05 && facts.clips[gait].crouch < 0.6, `${gait}: crouch ${facts.clips[gait].crouch}`);
+  }
+  const { push, bounces } = facts.clips.dribble;
+  assert.ok(push >= 0 && push < 1 && Number.isInteger(bounces) && bounces >= 1, JSON.stringify(facts.clips.dribble));
+  for (const [name, clip] of Object.entries(facts.clips)) assert.equal(clip.loop, clip.kind === 'loop', name);
+  for (const name of LOOPS) assert.equal(facts.clips[name].kind, 'loop', name);
+  assert.deepEqual([facts.clips.jump.kind, facts.clips.land.kind], ['held', 'held']);
+});
+
+test('each striding gait says where in its cycle each foot lands, half a cycle apart', () => {
+  for (const gait of ['walk', 'run', 'sprint']) {
+    const { left, right } = facts.clips[gait].strike;
+    assert.ok(left >= 0 && left < 1 && right >= 0 && right < 1, `${gait}: ${left} ${right}`);
+    assert.ok(Math.abs(((((left - right) % 1) + 1) % 1) - 0.5) < 0.15, `${gait}: the feet land ${left} and ${right} of the way through`);
+  }
+});
+
+test('the left-hand dribble is the right-hand one in a mirror', () => {
+  const moves = (name, side) => swing(track(name, 'rotation', `mixamorig:${side}ForeArm`));
+  assert.ok(moves('dribble', 'Right') > 2 * moves('dribble', 'Left'), 'the dribble is not a right-hand one');
+  assert.ok(moves('dribbleLeft', 'Left') > 2 * moves('dribbleLeft', 'Right'), 'the mirror did not exchange the arms');
+  assert.ok(Math.abs(moves('dribbleLeft', 'Left') - moves('dribble', 'Right')) < 0.01);
+  const here = track('dribble', 'translation'), there = track('dribbleLeft', 'translation');
+  here.forEach(([x, y, z], i) => assert.ok(Math.hypot(there[i][0] + x, there[i][1] - y, there[i][2] - z) < 0.002, `key ${i}: the hips are not mirrored`));
+});
+
+test('the landing carries on from the pose the jump ends in, and the knees give', () => {
+  const end = track('jump', 'translation').at(-1), land = track('land', 'translation');
+  assert.ok(Math.hypot(...land[0].map((v, i) => v - end[i])) < 0.01, 'the landing does not start where the jump ends');
+  for (const bone of ['mixamorig:LeftUpLeg', 'mixamorig:RightLeg', 'mixamorig:Spine']) {
+    const a = track('jump', 'rotation', bone).at(-1), b = track('land', 'rotation', bone)[0];
+    assert.ok(Math.abs(a.reduce((sum, v, i) => sum + v * b[i], 0)) > 0.999, `${bone} jumps between the two motions`);
+  }
+  const sink = land[0][1] - land.at(-1)[1];
+  assert.ok(sink > 0.03 && sink < 0.3, `the hips sink ${sink} m`);
+  assert.ok(facts.clips.land.duration >= 0.06 && facts.clips.land.duration <= 0.35, `${facts.clips.land.duration} s`);
 });

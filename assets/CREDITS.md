@@ -53,3 +53,8 @@ Mixamo allows its motion to be used in a game but not passed on as raw clips, so
 | `run` | Standard Run | Standard Running |
 | `sprint` | Sprint | Standard Sprint |
 | `jump` | Jumping | Jump Up |
+| `strafeLeft` | Goalkeeper Sidestep | Goalkeeper Left Sidestep |
+| `backpedal` | Walking Backwards | Walking Backwards |
+| `dribble` | Dribble | Dribbling Basketball With Right Arm |
+
+Three motions are not clips of their own: `land` is the frames of `jump`'s clip that follow the landing, and `strafeRight` and `dribbleLeft` are `strafeLeft` and `dribble` in a mirror.
