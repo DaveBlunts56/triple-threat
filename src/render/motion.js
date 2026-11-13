@@ -21,6 +21,8 @@ export const AIR_TIME = (2 * PLAYER.jumpV) / BALL.gravity;
 // quick: the one-off moves, which come in over fadeIn seconds and leave over fadeOut.
 // apart: the share of a cycle between where one person's standing motions start and where the next person's do.
 // drift: how much slower or faster than made the slowest and the fastest of the ten play them.
+// dribbleHold: the share of each bounce the ball is at the hand. handSwitch: seconds the ball takes to cross from one
+// dribbling hand to the other.
 export const MOTION = Object.freeze({
   idleBelow: 0.3, walkBelow: 2.2, runBelow: 5.6, stick: 0.2, minRate: 0.6, maxRate: 1.5, fade: 0.15,
   guardDist: 4, guardSpeed: 2.2, guardStick: 0.4, sideways: 50,
@@ -28,7 +30,12 @@ export const MOTION = Object.freeze({
   fadeIn: 0.07, fadeOut: 0.22, quick: Object.freeze(['pass', 'reach', 'follow', 'freeThrow', 'handUp']),
   apart: 0.618, drift: 0.08,
   handStick: 0.4, guardFar: 0.4, sideStick: 10, minRateStep: 0.35,
+  dribbleHold: 0.55, handSwitch: 0.2,
 });
+
+// The ball as it is drawn in a holder's hands. blend: seconds over which it is drawn across to a new place, when it
+// comes into a hand or leaves one. palm: metres from the wrist bone, toward the fingers, to where the ball sits.
+export const BALL_IN_HAND = Object.freeze({ blend: 0.1, palm: 0.1 });
 
 // The shot meter. stay: seconds it is kept after the release. aside: metres it stands from the shooter, on the side
 // away from the hoop he attacks. high: the height its top is level with, about his shoulder; it does not rise with his
@@ -265,6 +272,37 @@ export function outOfStep(index) {
 export function stridePhase(legPhase, strike, dribble) {
   const phase = (dribble.push + (legPhase - strike) / dribble.bounces) % 1;
   return phase < 0 ? phase + 1 : phase;
+}
+
+// The point `share` of the way from `a` to `b`, each { x, y, z }.
+const between = (a, b, share) => ({
+  x: a.x * (1 - share) + b.x * share, y: a.y * (1 - share) + b.y * share, z: a.z * (1 - share) + b.z * share,
+});
+
+// The hands a ball is carried in for the arm motion `clip`: one for a dribble, both for everything else.
+export const ballHands = clip => (clip === 'dribble' ? 'right' : clip === 'dribbleLeft' ? 'left' : 'both');
+
+// How high a dribbled ball's centre is. `phase` is the dribble's place in its cycle (0 to 1), `dribble` its facts
+// (`push`, `bounces`), `handY` the height of the hand on this frame and `radius` the ball's. From the push the ball
+// goes to the floor and comes back; for the rest of the bounce, MOTION.dribbleHold of it, it is at the hand.
+export function dribbleHeight(phase, dribble, handY, radius) {
+  const turns = dribble.bounces * (phase - dribble.push), u = turns - Math.floor(turns);   // the share of this bounce since the push
+  const trip = 1 - MOTION.dribbleHold;
+  return u < trip ? radius + (handY - radius) * Math.abs(Math.cos((Math.PI * u) / trip)) : handY;
+}
+
+// The ball crossing from the hand at `from` to the hand at `to`, `share` of the way (0 to 1): straight across over
+// the floor, with one bounce midway.
+export function switchSpot(from, to, share, radius) {
+  const spot = between(from, to, share);
+  spot.y = radius + (spot.y - radius) * Math.abs(Math.cos(Math.PI * share));
+  return spot;
+}
+
+// Where the ball is drawn `since` seconds after its holder changed: it was drawn at `last` then (null on the first
+// frame), and belongs at `now`. It is drawn straight across from one to the other over BALL_IN_HAND.blend seconds.
+export function ballSpot(last, now, since) {
+  return last && since < BALL_IN_HAND.blend ? between(last, now, since / BALL_IN_HAND.blend) : now;
 }
 
 // Throws unless `facts` (assets/motion.json) gives every gait and every guarding step a speed: without one a moving

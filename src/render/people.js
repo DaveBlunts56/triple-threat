@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { ROSTER } from '../sim/tuning.js';
+import { BALL, ROSTER } from '../sim/tuning.js';
 import { assetUrl } from './assets.js';
-import { legMotion, armMotion, legLook, newMarks, noteChanges, checkGaits, checkMotions, checkFacts, personName, courtPeople, sized, missingPeople } from './motion.js';
+import {
+  MOTION, BALL_IN_HAND, legMotion, armMotion, legLook, newMarks, noteChanges, checkGaits, checkMotions, checkFacts, personName,
+  courtPeople, sized, missingPeople, ballHands, dribbleHeight, switchSpot,
+} from './motion.js';
 import { createAnimator } from './animator.js';
 import { KIT, kitOps, paintKit } from './kit.js';
 import { QUALITY } from './quality.js';
@@ -13,6 +16,18 @@ const SHADOWED = /^(skin|jersey|shorts|hair|shoes)/;   // materials of the parts
 
 const IDLE = Object.freeze({ clip: 'idle', rate: 1 });   // what everyone's legs do before and after a match
 const hipsOf = root => root.getObjectByProperty('isBone', true);   // the first bone under a root: the others hang from it
+const OTHER = Object.freeze({ left: 'right', right: 'left' });
+
+// Where the palm of the hand bone `hand` is on the court, { x, y, z }: the wrist's place moved BALL_IN_HAND.palm
+// toward the fingers, along the bone's own +y axis. Each person is scaled, so that axis is measured out in metres on
+// the court, not in lengths of his bone.
+const toFingers = new THREE.Vector3();
+function palmOf(hand) {
+  hand.updateWorldMatrix(true, false);   // the motion has just moved the bones, and nothing has been drawn since
+  const at = hand.matrixWorld.elements;
+  toFingers.set(at[4], at[5], at[6]).setLength(BALL_IN_HAND.palm);
+  return { x: at[12] + toFingers.x, y: at[13] + toFingers.y, z: at[14] + toFingers.z };
+}
 
 async function json(path) {
   const response = await fetch(assetUrl(path));
@@ -99,7 +114,9 @@ export async function loadPeople() {
       if (material.transparent) Object.assign(material, { transparent: false, alphaTest: PEOPLE.cutout, depthWrite: true });
     });
     const scale = hipsOf(model).position.y / hipHeight;   // his size against the player the motions were made on
-    return { model, animator: createAnimator(model, clips, facts, scale, index), gaits: sized(facts.gaits, scale), last: 'idle' };
+    const hands = { left: model.getObjectByName('mixamorigLeftHand'), right: model.getObjectByName('mixamorigRightHand') };
+    // arms: the arm motion he was given on the last frame, or null when his arms followed his legs.
+    return { model, hands, animator: createAnimator(model, clips, facts, scale, index), gaits: sized(facts.gaits, scale), last: 'idle', arms: null };
   }
   const people = {};
   ROSTER.numbers.forEach((numbers, team) => numbers.forEach((number, row) => {
@@ -154,8 +171,27 @@ export async function loadPeople() {
         group.position.set(player.x, player.y, player.z);
         // The model faces +z; facing is measured from +x toward +z. A defender guarding his man is turned to him.
         group.rotation.y = Math.PI / 2 - (look ? look.facing : player.facing);
-        he.animator.update(legs, standing ? null : armMotion(player, state, marks, facts), dt);
+        he.arms = standing ? null : armMotion(player, state, marks, facts);
+        he.animator.update(legs, he.arms, dt);
       });
+    },
+    // Where the ball is in its holder's hands on this frame, { x, y, z }, or null when nobody holds it and on the
+    // start and final screens. To be asked after `update`, which puts the hands where they are. The rules never read it.
+    heldBall(state) {
+      const id = state.ball.holder;
+      if (id === null || state.phase === 'start' || state.phase === 'final') return null;
+      const { hands, arms, animator } = shown[id];
+      const side = ballHands(arms.clip);
+      if (side === 'both') {
+        const left = palmOf(hands.left), right = palmOf(hands.right);
+        return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2, z: (left.z + right.z) / 2 };
+      }
+      const palm = palmOf(hands[side]);
+      // A dribble that has just changed hands: the ball is on its way across from the hand it was in.
+      const crossing = marks.switched[id] / MOTION.handSwitch;
+      if (crossing < 1) return switchSpot(palmOf(hands[OTHER[side]]), palm, crossing, BALL.radius);
+      palm.y = dribbleHeight(animator.phase(arms.clip), facts.clips.dribble, palm.y, BALL.radius);
+      return palm;
     },
   };
 }

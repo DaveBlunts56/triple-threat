@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BALL, PLAYER } from '../sim/tuning.js';
 import { TEAM_COLOURS } from './kit.js';
+import { ballSpot } from './motion.js';
 
 const HEIGHT = 1.95, HEAD = 0.13;
 // above: metres between the top of a capsule and the middle of its number.
@@ -60,6 +61,9 @@ export function createActors(scene, people = null) {
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.52, 32), new THREE.MeshBasicMaterial({ color: 0xffe14d }));
   ring.rotation.x = -Math.PI / 2;
   scene.add(...players, ball, ring);
+  // For drawing the ball across when its holder changes: who held it on the last frame (undefined before the first),
+  // where it was drawn when that last changed, and the seconds since.
+  let holder, last = null, since = 0;
 
   return {
     // dt: the match time that passed this frame, which drives the players' motion.
@@ -77,7 +81,14 @@ export function createActors(scene, people = null) {
           labels[i].material.needsUpdate = true;
         }
       });
-      ball.position.set(state.ball.x, state.ball.y, state.ball.z);
+      if (people) {
+        // In its holder's hands, not at his hip where the rules keep it; drawn across over a moment whenever it
+        // comes to a player, leaves one or goes from one to another, so it never jumps.
+        if (state.ball.holder !== holder) [last, since] = [holder === undefined ? null : ball.position.clone(), 0];
+        else since += dt;
+        holder = state.ball.holder;
+        ball.position.copy(ballSpot(last, people.heldBall(state) ?? state.ball, since));
+      } else ball.position.set(state.ball.x, state.ball.y, state.ball.z);
       const me = state.players[state.controlled];
       ring.position.set(me.x, 0.02, me.z);
     },
