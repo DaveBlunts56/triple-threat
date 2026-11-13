@@ -29,6 +29,9 @@ export function menuPoint(menu, row) {
   if (row >= 0 && row < menuRows(menu).length) menu.row = row;
 }
 
+// Whether the mouse may act on row `row` of the panel shown: only before the match, and only on a row the panel has.
+export const menuHasRow = (game, row) => game.state.phase === 'start' && row < menuRows(game.menu).length;
+
 // Starts play from the menu or the final screen. `game` is { state, menu, ... }.
 export function startFromMenu(game, keyboard, newMatch) {
   if (game.state.phase === 'final') game.state = newMatch();

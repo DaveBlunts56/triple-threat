@@ -10,7 +10,7 @@ import { createHud, easeFrame } from './render/hud.js';
 import { createQuality, autoQuality, toggleQuality } from './render/quality.js';
 import { createKeyboard } from './input.js';
 import { inPlay, pauseKey, setPaused } from './pause.js';
-import { createMenu, menuKey, menuPoint, startFromMenu } from './menu.js';
+import { createMenu, menuKey, menuPoint, menuHasRow, startFromMenu } from './menu.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
 const newMatch = () => createMatch(Date.now() % 1e6);
@@ -39,6 +39,8 @@ if (view) {
   };
 
   // Starts play, from the menu or the final screen. A key still held then stays unseen in the match until it is let go.
+  // drop() relies on the keyboard's own keydown listener (createKeyboard, above) being registered before the one below,
+  // so the key that chose Play is already held when it is dropped.
   const play = () => { startFromMenu(game, keyboard, newMatch); keyboard.drop(); };
   // A key on the start menu, or a click on a row (as Enter).
   const onMenu = code => {
@@ -58,10 +60,12 @@ if (view) {
     else if (game.paused) pauseKey(game, e.code);
     if (e.code === 'Enter' && game.state.phase === 'final') play();
   });
-  for (let row = 0; row < 4; row++) {   // menuRow0 to menuRow3: pointing moves the bar there, a click chooses
+  // menuRow0 to menuRow3: moving the pointer over a row moves the bar there, a click chooses. mousemove, not mouseenter,
+  // which also fires when a row appears under a pointer that is not moving.
+  for (let row = 0; row < 4; row++) {
     const item = document.getElementById(`menuRow${row}`);
-    item.addEventListener('mouseenter', () => menuPoint(game.menu, row));
-    item.addEventListener('click', () => { menuPoint(game.menu, row); onMenu('Enter'); });
+    item.addEventListener('mousemove', () => { if (menuHasRow(game, row)) menuPoint(game.menu, row); });
+    item.addEventListener('click', () => { if (menuHasRow(game, row)) { menuPoint(game.menu, row); onMenu('Enter'); } });
   }
   window.addEventListener('blur', () => pause(true));
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });

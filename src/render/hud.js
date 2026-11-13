@@ -90,7 +90,7 @@ export function createHud(doc) {
   const hide = (id, hidden) => put(`${id}.hidden`, hidden, () => { el(id).hidden = hidden; });
   const bar = (id, energy) => put(id, Math.round(energy * 100) / 100, (e, v) => { e.value = v; });
   const style = (id, key, value) => put(`${id}.${key}`, value, () => { el(id).style[key] = value; });
-  let screen, lastCall = null, lastScore;
+  let screen, lastCall = null, lastScore, lastPanel;
 
   return {
     // `ui` is what the page itself knows: whether the game is paused, which roster row is selected, and for the
@@ -114,6 +114,8 @@ export function createHud(doc) {
       const menu = state.phase === 'start' ? ui.menu : null;
       if (menu) {
         const rows = menuRows(menu);
+        if (menu.panel !== lastPanel) delete shown.announce;   // a panel opened or closed: say so, even in the same words
+        lastPanel = menu.panel;
         hide('menuList', !rows.length);
         put('menuList.class', menu.panel, (_, v) => { el('menuList').className = v; });
         for (let row = 0; row < MENU_SLOTS; row++) {

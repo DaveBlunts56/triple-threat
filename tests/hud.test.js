@@ -213,13 +213,23 @@ test('the start menu shows its rows with the bar on the selected one, and announ
 
 test('the Teams panel lists both teams by position, number and name', () => {
   const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
-  menuKey(menu, 'ArrowDown'); menuKey(menu, 'Enter');
-  hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
+  let said = '', writes = 0;                                                            // the live region counts what is written to it
+  e.announce = { hidden: false, style: {}, get textContent() { return said; }, set textContent(v) { said = v; writes++; } };
+  const show = () => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
+  menuKey(menu, 'ArrowDown'); show();
+  assert.equal(e.announce.textContent, 'Teams');
+  const moved = writes;
+  menuKey(menu, 'Enter'); show();
   assert.deepEqual([e.menuTeams.hidden, e.menuControls.hidden, e.menuHint.textContent, e.announce.textContent], [false, true, 'Esc back', 'Teams']);
+  assert.equal(writes, moved + 1, 'opening the panel is announced, though in the same words as the bar');
   assert.ok([0, 1, 2, 3].every(i => e[`menuRow${i}`].hidden));
   assert.deepEqual([e.teamName0.textContent, e.teamName1.textContent], ['Harbor City Waves', 'Red Rock Scorpions']);
   assert.deepEqual([e.teamPlayer00.textContent, e.teamPlayer04.textContent, e.teamPlayer12.textContent],
     ['PG · 4 · Jalen Cross', 'PF · 23 · Andre Volkov', 'C · 10 · Viktor Lund']);
+  menuKey(menu, 'Escape'); show();
+  assert.deepEqual([e.menuTeams.hidden, e.announce.textContent, writes], [true, 'Teams', moved + 2]);   // closing it too
+  show();
+  assert.equal(writes, moved + 2);                                                      // and only on the frame the panel changes
 });
 
 test('the Settings panel shows each setting with its value, and a change is announced', () => {
@@ -240,6 +250,7 @@ test('in play the menu writes nothing and the score is announced as before', () 
   s.phase = 'live'; s.score = [2, 0];
   hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
   assert.equal(doc.els.announce.textContent, 'You 2, opponent 0');
+  assert.equal(doc.els.menuRow0, undefined);
 });
 
 test('the page has the menu: four rows, both panels, ten players, every key in the controls panel, and a ring that stops for reduced motion', () => {

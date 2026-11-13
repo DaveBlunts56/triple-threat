@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MENU, createMenu, menuRows, menuKey, menuPoint, startFromMenu } from '../src/menu.js';
+import { MENU, createMenu, menuRows, menuKey, menuPoint, menuHasRow, startFromMenu } from '../src/menu.js';
 import { createKeyboard } from '../src/input.js';
 import { createMatch } from '../src/sim/state.js';
 import { aiIntents } from '../src/sim/ai.js';
@@ -70,6 +70,20 @@ test('pointing with the mouse selects a row the panel has, and no other', () => 
   menuPoint(m, 2); assert.equal(m.row, 2);
   menuPoint(m, 4); menuPoint(m, -1); assert.equal(m.row, 2);
   m.row = 1; menuKey(m, 'Enter'); menuPoint(m, 1); assert.equal(m.row, 0);              // Teams has no rows
+});
+
+test('the mouse acts on a row only before the match, and only on a row the panel shown has', () => {
+  const game = { state: createMatch(7), menu: createMenu() };
+  assert.deepEqual([0, 1, 2, 3].map(row => menuHasRow(game, row)), [true, true, true, true]);
+  game.menu.row = 3; menuKey(game.menu, 'Enter');                                       // Settings: two rows
+  assert.deepEqual([0, 1, 2, 3].map(row => menuHasRow(game, row)), [true, true, false, false]);
+  menuKey(game.menu, 'Escape'); game.menu.row = 1; menuKey(game.menu, 'Enter');         // Teams: none
+  assert.equal(menuHasRow(game, 0), false);
+  menuKey(game.menu, 'Escape');
+  startFromMenu(game, createKeyboard(new EventTarget()), () => createMatch(8));          // play has started
+  assert.equal(menuHasRow(game, 0), false);
+  game.state.phase = 'final';
+  assert.equal(menuHasRow(game, 0), false);
 });
 
 function onMenu() {
