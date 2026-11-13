@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { COURT, RIM, BOARD, THREE_PT } from '../sim/tuning.js';
+import { QUALITY } from './quality.js';
 
 const FLOOR = { length: 32, width: 19 };   // court plus run-off
 const PX = 64;                             // texture pixels per metre
@@ -82,7 +83,6 @@ export async function createScene(canvas) {
     return null;
   }
   const backend = renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl2';
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
 
   const scene = new THREE.Scene();
@@ -100,9 +100,17 @@ export async function createScene(canvas) {
   const sun = new THREE.DirectionalLight(0xffffff, 2.2);
   sun.position.set(4, 20, 8);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 12, bottom: -12, near: 1, far: 40 });
   scene.add(sun);
+
+  // The render resolution and the shadow map of a quality level ('high' or 'low'). Nothing else is needed: the
+  // renderer resizes its drawing buffer when the pixel ratio changes, and resizes the shadow map to mapSize, throwing
+  // the old one away, before it next draws the shadow.
+  const setQuality = level => {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY[level].pixelRatio));
+    sun.shadow.mapSize.setScalar(QUALITY[level].shadow);
+  };
+  setQuality('high');
 
   const camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, 0.1, 100);
   let followX = 0;
@@ -122,7 +130,7 @@ export async function createScene(canvas) {
   resize(); aim();
 
   return {
-    scene, camera, backend,
+    scene, camera, backend, setQuality,
     render: () => renderer.render(scene, camera),
     // Eases the camera along the sideline toward court position x.
     follow(x) {

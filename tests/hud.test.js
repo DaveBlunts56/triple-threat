@@ -131,6 +131,19 @@ test('the corner label shows the renderer and the frame rate', () => {
   assert.equal(doc.els.backend.textContent, 'WebGL 2 (WebGPU not available)');
 });
 
+test('the corner label names the quality level between the renderer and the frame rate', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch();
+  hud.update(s, 'webgpu', { paused: false, pick: null, fps: 59.6, quality: 'high' });
+  assert.equal(doc.els.backend.textContent, 'WebGPU · High · 60 fps');
+  hud.update(s, 'webgl2', { paused: true, pick: null, fps: 24.2, quality: 'low' });
+  assert.equal(doc.els.backend.textContent, 'WebGL 2 (WebGPU not available) · Low · 24 fps');
+});
+
+test('the controls line says which key changes the quality', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(html.match(/<div id="controls">([^<]*)<\/div>/)[1], /· G quality$/);
+});
+
 test('the frame-rate readout follows the time frames really take, not the average of their rates', () => {
   let ms = 1000 / 60;
   for (let i = 0; i < 400; i++) ms = easeFrame(ms, i % 2 ? 66 : 16);

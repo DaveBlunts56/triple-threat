@@ -4,6 +4,7 @@ import { ROSTER } from '../sim/tuning.js';
 import { assetUrl } from './assets.js';
 import { legMotion, fade, checkGaits, personName, courtPeople, keepTrack, sized, missingPeople, MOTION } from './motion.js';
 import { KIT, kitOps, paintKit } from './kit.js';
+import { QUALITY } from './quality.js';
 
 const MOTIONS = ['idle', 'walk', 'run', 'sprint', 'jump'];
 // cutout: hair, brows and lashes: a pixel is drawn if it is at least this opaque.
@@ -30,9 +31,27 @@ function sizedClip(clip, scale) {
   }));
 }
 
-// Loads the generated players and their motions. Resolves to six groups, one per court player, and an `update` that
-// places each from the match, puts the model of whoever plays there in it and plays the motion his state calls for.
-// Rejects if a file is missing or incomplete.
+// A copy of `picture` that is `scale` times as wide and as tall, and alike in everything else: colour space, wrapping,
+// flipY and filtering. The browser makes the smaller image a moment later: the promise of it is added to `pending`.
+// (Drawn on a canvas instead, the browser puts the work off until the copy is first shown, and the game stalls then.)
+function shrunk(picture, scale, pending) {
+  const { width, height } = picture.image;
+  const copy = picture.clone();   // which shares the original's image until its own arrives
+  // premultiplyAlpha 'none', as the loader's own images are: hair keeps the colour under its clear pixels.
+  const size = { resizeWidth: Math.ceil(width * scale), resizeHeight: Math.ceil(height * scale), resizeQuality: 'high' };
+  pending.push(createImageBitmap(picture.image, { ...size, premultiplyAlpha: 'none' }).then(image => {
+    copy.source = new THREE.TextureSource(image);
+    copy.needsUpdate = true;
+  }));
+  return copy;
+}
+
+// What `make` returns for the size of the players' pictures at each quality level: 1 is full size.
+const atEachLevel = make => ({ high: make(QUALITY.high.textures), low: make(QUALITY.low.textures) });
+
+// Loads the generated players and their motions. Resolves to six groups, one per court player, an `update` that
+// places each from the match, puts the model of whoever plays there in it and plays the motion his state calls for,
+// and a `setQuality` that dresses all ten for a quality level. Rejects if a file is missing or incomplete.
 export async function loadPeople() {
   const loader = new GLTFLoader();
   const [players, motion, facts] = await Promise.all([
@@ -51,16 +70,28 @@ export async function loadPeople() {
   checkGaits(facts);
   const hipHeight = hipsOf(motion.scene).position.y;   // of the player the motions were made on, standing at rest
 
-  // The file has one white jersey and one white shorts material for all ten. This is a copy of `material` with the
-  // kit of `team` painted on it, and on a jersey the `number`.
-  function painted(material, team, number) {
+  // Every picture the players wear, as it is at each quality level: { high, low }, found by the picture a material
+  // was given. All are made here, while the game loads, so that changing level later only swaps them.
+  const pictures = new Map();
+  const pending = [];   // the smaller images still being made
+
+  // The kit of `team` on a `part` ('jersey' or 'shorts'), and on a jersey the `number`, painted `scale` times KIT.size.
+  function kitPicture(part, team, number, scale) {
     const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = KIT.size;
-    paintKit(canvas.getContext('2d'), KIT.size, kitOps(material.name, number), team);
+    canvas.width = canvas.height = KIT.size * scale;
+    paintKit(canvas.getContext('2d'), canvas.width, kitOps(part, number), team);
+    const picture = new THREE.CanvasTexture(canvas);
+    picture.flipY = false;   // as in the file, where the top row of a picture is v = 0
+    picture.colorSpace = THREE.SRGBColorSpace;
+    return picture;
+  }
+  // The file has one white jersey and one white shorts material for all ten. This is a copy of `material` with the
+  // kit of `team` painted on it, and on a jersey the `number`: painted again at each level's size, not shrunk.
+  function painted(material, team, number) {
     const kit = material.clone();
-    kit.map = new THREE.CanvasTexture(canvas);
-    kit.map.flipY = false;   // as in the file, where the top row of a picture is v = 0
-    kit.map.colorSpace = THREE.SRGBColorSpace;
+    const sizes = atEachLevel(scale => kitPicture(material.name, team, number, scale));
+    kit.map = sizes.high;
+    pictures.set(kit.map, sizes);
     return kit;
   }
   const shorts = [];   // one pair per team: shorts carry no number
@@ -91,11 +122,30 @@ export async function loadPeople() {
     people[name] = person(roots.find(root => root.name === name), team, number);
   }));
 
+  // Each place a picture is worn, on the bench too: [material, the property it is in, the picture at each level].
+  const worn = [];
+  const materials = new Set();   // each one once: a team's five wear the same shorts
+  for (const root of roots) root.traverse(part => part.isMesh && materials.add(part.material));
+  for (const material of materials) {
+    for (const [slot, picture] of Object.entries(material)) {
+      if (!picture?.isTexture) continue;
+      const sizes = pictures.get(picture) ?? atEachLevel(scale => (scale === 1 ? picture : shrunk(picture, scale, pending)));
+      pictures.set(picture, sizes);
+      worn.push([material, slot, sizes]);
+      material[slot] = sizes.high;   // `picture` itself, while High is full size
+    }
+  }
+  await Promise.all(pending);
+
   const models = Array.from({ length: 6 }, () => new THREE.Group());
   const shown = [];   // the person whose model is in each group
 
   return {
     models,
+    // level: 'high' or 'low'. The bench changes too, so a substitute comes on in the right pictures.
+    setQuality(level) {
+      for (const [material, slot, sizes] of worn) material[slot] = sizes[level];
+    },
     // dt: the time that passed this frame, in seconds (zero while paused, so the motion pauses too).
     update(state, dt) {
       // Before and after a match nobody moves, whatever speed the last step left him with: everyone stands.

@@ -7,6 +7,7 @@ import { createScene } from './render/scene.js';
 import { createActors } from './render/actors.js';
 import { loadPeople } from './render/people.js';
 import { createHud, easeFrame } from './render/hud.js';
+import { createQuality, autoQuality, toggleQuality } from './render/quality.js';
 import { createKeyboard } from './input.js';
 import { inPlay, pauseKey, setPaused } from './pause.js';
 
@@ -20,12 +21,21 @@ if (view) {
   const actors = createActors(view.scene, people);
   const hud = createHud(document);
   const keyboard = createKeyboard(window);
-  const game = { state: newMatch(), paused: false, pick: null, fps: 60 };   // pick: the roster row chosen first on the pause screen
+  const quality = createQuality();
+  // pick: the roster row chosen first on the pause screen. quality: the level the game is drawn at, 'high' or 'low'.
+  const game = { state: newMatch(), paused: false, pick: null, fps: 60, quality: quality.level };
   globalThis.game = game;   // handle for poking at the match from the browser console
 
   const pause = on => setPaused(game, keyboard, on);
+  // Draws the game at the level `quality` is now on: called whenever that changes.
+  const showQuality = () => {
+    game.quality = quality.level;
+    view.setQuality(quality.level);
+    people?.setQuality(quality.level);
+  };
 
   window.addEventListener('keydown', e => {
+    if (e.code === 'KeyG' && !e.repeat) { toggleQuality(quality); showQuality(); }   // on any screen; a held key counts once
     if (e.code === 'Escape') pause(!game.paused);
     else if (game.paused) pauseKey(game, e.code);
     if (e.code !== 'Enter' || inPlay(game.state)) return;
@@ -40,8 +50,9 @@ if (view) {
     const { state } = game;
     // A stall (a hidden tab) counts as one long frame at most, as it does for the match below.
     if (now > last) game.fps = 1000 / (frameMs = easeFrame(frameMs, Math.min(now - last, MAX_FRAME * 1000)));
-    // Real seconds since the last frame. Never negative: the first frame's time can be earlier than `last`.
-    const elapsed = Math.min(Math.max(now - last, 0) / 1000, MAX_FRAME);
+    // Real time since the last frame. Never negative: the first frame's time can be earlier than `last`.
+    const ms = Math.max(now - last, 0), elapsed = Math.min(ms / 1000, MAX_FRAME);
+    if (autoQuality(quality, ms, inPlay(state) && !game.paused)) showQuality();
     owed = game.paused ? 0 : owed + elapsed;
     last = now;
     const before = state.time;

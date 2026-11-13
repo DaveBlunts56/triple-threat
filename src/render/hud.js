@@ -1,6 +1,7 @@
 import { CLOCK, FOUL } from '../sim/tuning.js';
 import { personOf } from '../sim/state.js';
 import { onCourt } from '../sim/roster.js';
+import { QUALITY } from './quality.js';
 
 const FPS_EASE = 0.05;   // how fast the frame-rate readout follows the real rate: steady enough to read
 
@@ -63,7 +64,8 @@ export function createHud(doc) {
   let screen, lastCall = null, lastScore;
 
   return {
-    // `ui` is what the page itself knows: whether the game is paused and which roster row is selected.
+    // `ui` is what the page itself knows: whether the game is paused, which roster row is selected, and for the
+    // corner label the frame rate and the quality level ('high' or 'low').
     update(state, backend, ui = { paused: false, pick: null }) {
       set('score0', String(state.score[0]));
       set('score1', String(state.score[1]));
@@ -73,7 +75,8 @@ export function createHud(doc) {
       set('quarter', periodLabel(state.quarter));
       set('gameClock', clockText(state.gameClock));
       set('shotClock', String(Math.ceil(state.shotClock)));
-      set('backend', BACKEND_NAMES[backend] + (typeof ui.fps === 'number' ? ` · ${Math.round(ui.fps)} fps` : ''));
+      const level = ui.quality ? ` · ${QUALITY[ui.quality].label}` : '';
+      set('backend', BACKEND_NAMES[backend] + level + (typeof ui.fps === 'number' ? ` · ${Math.round(ui.fps)} fps` : ''));
 
       // The whistle: a banner during the stoppage. Screen readers hear a new call, or else a change of score.
       const banner = state.phase === 'dead' && state.call !== null;
