@@ -1,4 +1,4 @@
-import { BALL, BLOCK, CLOCK, COURT, DT, FOUL, PASS, PLAYER, RIM, SHOT, STAMINA, STEAL, THREE_PT } from './tuning.js';
+import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FOUL, PASS, PLAYER, RIM, SHOT, STAMINA, STEAL, THREE_PT } from './tuning.js';
 import { attackSign, onFloor as grounded, personOf, rand } from './state.js';
 import { shotFactor, speedFactor, spend } from './stamina.js';
 import { rimCentre, solveShot } from './ball.js';
@@ -126,22 +126,54 @@ export function shotTiming(t) {
   return 1 - (1 - SHOT.worstTiming) * Math.min(1, off);
 }
 
-export function makeChance(state, player) {
-  const hoop = rimCentre(attackSign(player.team));
-  const byDistance = Math.max(SHOT.minChance, SHOT.nearChance + (SHOT.farChance - SHOT.nearChance) * (dist(player, hoop) / SHOT.farDist));
-
+// The share of a shot's chance the nearest defender leaves it: half with him on the shooter, all of it from
+// SHOT.contestDist away, and less again if he is in the air close by.
+export function contest(state, player) {
   let nearest = null;
   for (const o of state.players) if (o.team !== player.team && (!nearest || dist(o, player) < dist(nearest, player))) nearest = o;
   const d = dist(nearest, player);
-  let byContest = clamp(SHOT.maxContest + (1 - SHOT.maxContest) * (d / SHOT.contestDist), SHOT.maxContest, 1);
-  if (nearest.y > 0 && d < SHOT.airContestDist) byContest *= SHOT.airContest;
-
-  return byDistance * shotTiming(player.shotT) * byContest * shotFactor(personOf(state, player).energy);
+  const factor = clamp(SHOT.maxContest + (1 - SHOT.maxContest) * (d / SHOT.contestDist), SHOT.maxContest, 1);
+  return nearest.y > 0 && d < SHOT.airContestDist ? factor * SHOT.airContest : factor;
 }
+
+export function makeChance(state, player) {
+  const hoop = rimCentre(attackSign(player.team));
+  const byDistance = Math.max(SHOT.minChance, SHOT.nearChance + (SHOT.farChance - SHOT.nearChance) * (dist(player, hoop) / SHOT.farDist));
+  return byDistance * shotTiming(player.shotT) * contest(state, player) * shotFactor(personOf(state, player).energy);
+}
+
+// Behind the backboard of the hoop he attacks, with the board between him and the rim.
+export function boardInWay(player) {
+  const x = attackSign(player.team) * player.x;
+  if (x <= BOARD.x) return false;
+  const crossing = player.z * (BOARD.x - RIM.x) / (x - RIM.x);   // where his straight line to the rim centre meets the board's plane
+  return Math.abs(crossing) <= BOARD.halfWidth + BALL.radius;
+}
+
+// The green window of a shot from where `player` stands: a release within `half` seconds of `best` always goes in.
+// It is as wide as his defender allows, and narrows with range and tiredness.
+export function shotWindow(state, player) {
+  const far = dist(player, rimCentre(attackSign(player.team)));
+  const range = clamp(1 - (far - SHOT.greenFull) / (SHOT.greenNone - SHOT.greenFull), 0, 1);
+  const guarded = contest(state, player);
+  const { name, steps } = SHOT.levels.find(level => level.above <= guarded);
+  return {
+    best: SHOT_BEST,
+    half: steps * DT * range * shotFactor(personOf(state, player).energy),
+    level: name,
+    inRange: range > 0 && !boardInWay(player),
+  };
+}
+
+// Half a step of slack: a release can only come on a step, so the step nearest the best moment is always green.
+export const greenAt = (window, t) => window.inRange && Math.abs(t - window.best) <= window.half + DT / 2;
 
 export function releaseShot(state, player) {
   const { ball } = state;
   const sign = attackSign(player.team), hoop = rimCentre(sign);
+  // Judged from where he stands, before the ball is moved to where it leaves his hand.
+  const window = shotWindow(state, player), green = greenAt(window, player.shotT);
+  state.shot = { shooter: player.id, t: player.shotT, at: state.time, ...window, green, blocked: false };
   // Released from the player's position, but never from right under the rim, where no arc can get over it:
   // a lay-up leaves the hand a little out in front of the hoop.
   let rx = player.x - hoop.x, rz = player.z - hoop.z;
@@ -164,10 +196,12 @@ export function releaseShot(state, player) {
     state.lastTouch = blocker.team;
     ball.vx = -sign * BLOCK.deflect; ball.vy = 0; ball.vz = 0;
     ball.shooter = null; ball.shotValue = 0;
+    state.shot.blocked = true;
     return { shooter: player.id, defender, blocked: true };
   }
 
-  launchShot(state, player, rand(state) < makeChance(state, player), isThree(player.x, player.z, sign) ? 3 : 2);
+  // A green release always goes in, and draws no random number to find out.
+  launchShot(state, player, green || rand(state) < makeChance(state, player), isThree(player.x, player.z, sign) ? 3 : 2);
   return { shooter: player.id, defender, blocked: false };
 }
 
@@ -288,6 +322,7 @@ export function applyActions(state, intents, dt) {
         const hoop = rimCentre(attackSign(p.team));
         p.facing = Math.atan2(hoop.z - p.z, hoop.x - p.x);
         p.shooting = true; p.shotT = 0; p.letGo = false;
+        state.shot = null;
       } else if (pressed('hold') && grounded(p)) {
         if (p.held) report.doubleDribble = p.id;
         else p.held = true;

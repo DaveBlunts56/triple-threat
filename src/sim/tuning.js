@@ -22,6 +22,15 @@ export const SHOT = f({
   minAngle: 50, minEntry: 45, maxAngle: 88,   // degrees: lowest launch angle, shallowest drop into the rim, steepest launch
   rimClear: 0.02,     // extra room a made shot leaves between ball and front rim
   minRelease: 0.6,    // a shot is never released closer to the rim centre than this
+  greenFull: 4, greenNone: 12,   // metres from the hoop: the green window is full width up to the first and gone at the second
+  // How closely the shooter is guarded, highest first: the level is the first whose `above` his defender factor reaches,
+  // and `steps` is how many steps either side of the best moment a release is green.
+  levels: f([
+    f({ name: 'Open', above: 0.95, steps: 3 }),
+    f({ name: 'Guarded', above: 0.75, steps: 2 }),
+    f({ name: 'Contested', above: 0.55, steps: 1 }),
+    f({ name: 'Smothered', above: 0, steps: 0 }),
+  ]),
 });
 
 export const PASS = f({ speed: 14, noPickup: 0.3, height: 1.3, clearTime: 0.1, interceptRadius: 0.4 });   // clearTime: no opponent can touch a pass this soon after it is thrown; interceptRadius: how close to a pass a defender must be to pick it off

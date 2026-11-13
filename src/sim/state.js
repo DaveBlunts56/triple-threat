@@ -59,6 +59,7 @@ export function createMatch(seed = 1) {
     rosters: ROSTER.numbers.map(team => team.map(number => ({ number, energy: 1, fouls: 0, manual: false }))),
     subQueue: [], autoSubs: [true, true], teamFouls: [0, 0],
     call: null, freeThrow: null, pendingFoul: null, tipWinner: null,
+    shot: null,   // how the last shot was let go, as the rules judged it; null from the next press until its release
     frontcourt: false, backcourtT: 0, inboundT: 0, controlTeam: null,
     players: Array.from({ length: 6 }, (_, id) => createPlayer(id)),
     ball: {
