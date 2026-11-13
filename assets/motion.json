@@ -79,6 +79,71 @@
       "duration": 2.1,
       "loop": true,
       "kind": "loop"
+    },
+    "stance": {
+      "duration": 2.0,
+      "loop": true,
+      "kind": "loop"
+    },
+    "gather": {
+      "duration": 0.3,
+      "loop": false,
+      "kind": "held"
+    },
+    "hold": {
+      "duration": 2.0,
+      "loop": true,
+      "kind": "loop"
+    },
+    "holdLeft": {
+      "duration": 2.0,
+      "loop": true,
+      "kind": "loop"
+    },
+    "shoot": {
+      "duration": 0.3,
+      "loop": false,
+      "kind": "held"
+    },
+    "follow": {
+      "duration": 0.5,
+      "loop": false,
+      "kind": "held"
+    },
+    "freeThrow": {
+      "duration": 0.9,
+      "loop": false,
+      "kind": "once"
+    },
+    "pass": {
+      "duration": 0.3333,
+      "loop": false,
+      "kind": "once"
+    },
+    "catch": {
+      "duration": 0.3333,
+      "loop": false,
+      "kind": "held"
+    },
+    "reach": {
+      "duration": 0.4,
+      "loop": false,
+      "kind": "once"
+    },
+    "handUp": {
+      "duration": 1.0,
+      "loop": true,
+      "kind": "loop"
+    },
+    "contest": {
+      "duration": 0.4667,
+      "loop": false,
+      "kind": "held"
+    },
+    "tip": {
+      "duration": 0.4667,
+      "loop": false,
+      "kind": "held"
     }
   }
 }

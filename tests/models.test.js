@@ -95,7 +95,7 @@ function imageSize(bytes, mimeType) {
 
 const motion = readGlb('assets/motion.glb');
 const facts = JSON.parse(readFileSync('assets/motion.json', 'utf8'));
-const LOOPS = ['idle', 'walk', 'run', 'sprint', 'strafeLeft', 'strafeRight', 'backpedal', 'dribble', 'dribbleLeft'];
+const LOOPS = ['idle', 'walk', 'run', 'sprint', 'strafeLeft', 'strafeRight', 'backpedal', 'dribble', 'dribbleLeft', 'stance', 'hold', 'holdLeft', 'handUp'];
 
 // The keys of one bone's track in one motion, as rows of numbers. The root bone is the joint with no joint above it.
 function track(name, path, bone = null) {
@@ -209,4 +209,15 @@ test('the landing carries on from the pose the jump ends in, and the knees give'
   const sink = land[0][1] - land.at(-1)[1];
   assert.ok(sink > 0.03 && sink < 0.3, `the hips sink ${sink} m`);
   assert.ok(facts.clips.land.duration >= 0.06 && facts.clips.land.duration <= 0.35, `${facts.clips.land.duration} s`);
+});
+
+const MADE = { stance: 'loop', gather: 'held', hold: 'loop', holdLeft: 'loop', shoot: 'held', follow: 'held', freeThrow: 'once', pass: 'once', catch: 'held', reach: 'once', handUp: 'loop', contest: 'held', tip: 'held' };
+const LENGTHS = { stance: 2, gather: 0.3, hold: 2, holdLeft: 2, shoot: 0.3, follow: 0.5, freeThrow: 0.9, pass: 0.35, catch: 0.35, reach: 0.4, handUp: 1, contest: 0.47, tip: 0.47 };
+
+test('the hand-made motions are in the file, each with its kind and its length', () => {
+  for (const [name, kind] of Object.entries(MADE)) {
+    assert.ok(motion.json.animations.some(a => a.name === name), `no ${name}`);
+    assert.equal(facts.clips[name].kind, kind, name);
+    assert.ok(Math.abs(facts.clips[name].duration - LENGTHS[name]) < 0.035, `${name}: ${facts.clips[name].duration} s`);
+  }
 });

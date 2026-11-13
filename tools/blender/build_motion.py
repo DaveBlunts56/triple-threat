@@ -1,10 +1,12 @@
-"""Writes assets/motion.glb and assets/motion.json: the Mixamo clips in assets/source/mixamo/, on the player's skeleton.
+"""Writes assets/motion.glb and assets/motion.json: the Mixamo clips in assets/source/mixamo/ and the hand-made
+motions in poses.py, on the player's skeleton.
 
     blender-4.5 --background --python tools/blender/build_motion.py [-- --shots DIR]
 
 Mixamo made each clip for the skeleton it was given (export_mixamo_doll.py), so a clip's skeleton stands exactly like
 the player's; only the bones' own axes differ after the round trip. Each bone of the player is therefore given the
-same move away from its rest pose that the clip's bone makes, which needs no bone-by-bone mapping.
+same move away from its rest pose that the clip's bone makes, which needs no bone-by-bone mapping. A hand-made motion
+is a few key poses (poses.py), keyed here at the same rate as the clips.
 """
 import json
 import os
@@ -17,14 +19,15 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from build_players import build_person, finish, people  # noqa: E402
 from common import bounds, clear_scene, project, snapshot  # noqa: E402
+from poses import POSES, pose_frames  # noqa: E402
 
 FPS = 30
 # Name (and file name) of each Mixamo clip: its kind. A 'loop' repeats; in a 'held' one the game sets how far through it is.
 CLIPS = {'idle': 'loop', 'walk': 'loop', 'run': 'loop', 'sprint': 'loop', 'jump': 'held',
          'strafeLeft': 'loop', 'backpedal': 'loop', 'dribble': 'loop'}
-MIRRORS = {'strafeRight': 'strafeLeft', 'dribbleLeft': 'dribble'}          # motions the build makes: another one in a mirror
-STRIDES = ('walk', 'run', 'sprint')                                        # the gaits whose footfalls are timed
-STEPS = {'strafeLeft': (1, 0, 0), 'strafeRight': (-1, 0, 0), 'backpedal': (0, 1, 0)}   # the way each step must travel
+MIRRORS = {'strafeRight': 'strafeLeft', 'dribbleLeft': 'dribble', 'holdLeft': 'hold'}   # motions the build makes: another one in a mirror
+STRIDES = ('walk', 'run', 'sprint')                                                     # the gaits whose footfalls are timed
+STEPS = {'strafeLeft': (1, 0, 0), 'strafeRight': (-1, 0, 0), 'backpedal': (0, 1, 0)}    # the way each step must travel
 GAITS = STRIDES + tuple(STEPS)
 HIPS = 'mixamorig:Hips'
 TOES = ('mixamorig:LeftToeBase', 'mixamorig:RightToeBase')
@@ -35,6 +38,11 @@ REST_GAP = 0.005     # metres a clip's rest pose may differ from the player's be
 LOPSIDED = 0.02      # metres a bone may rest from its twin's mirror image before the build refuses to mirror (the shoulders: 0.014)
 LAND_FRAMES = 10     # how many frames after the landing the hips may take to reach their lowest
 BOUNCE_RISE = 0.05   # metres the ball hand must come back up after a low point for it to count as a bounce
+# The film strips: how bright the pictures are, and the grey they are taken against, so dark skin and a white kit both show.
+STRIP_LIGHT = {'view_transform': 'Standard', 'exposure': 1.5, 'gamma': 1.2}
+STRIP_BACKDROP = (0.06, 0.065, 0.075)
+# What the film strip of a hand-made motion frames, in metres: room for an arm straight up or straight out.
+MADE_BOX = (Vector((-0.85, -0.9, -0.05)), Vector((0.85, 0.5, 2.5)))
 
 
 def clip_path(name):
@@ -146,7 +154,10 @@ def airborne(frames, rig):
 
 
 def landing(frames, jump):
-    """The frames that follow the jump: from the frame it ends on to the lowest the hips sink soon after. None is shifted."""
+    """The frames that follow the jump: from the frame it ends on to the lowest the hips sink soon after.
+
+    The first is the jump's last frame, which `airborne` has already set down on the floor; the rest are as the clip has them.
+    """
     first = next(i for i, pose in enumerate(frames) if pose is jump[-1])
     soon = range(first, min(first + LAND_FRAMES, len(frames) - 1) + 1)
     lowest = min(soon, key=lambda i: frames[i][HIPS].translation.z)
@@ -218,8 +229,16 @@ def write_action(rig, name, frames):
 
 
 def filmstrip(path, body, frames, box):
-    """One picture of the body at evenly spaced frames: seen from the side on the top row, from the front quarter below."""
+    """One picture of the body at evenly spaced frames: seen from the side on the top row, from the front quarter below.
+
+    The pictures are lit brightly against a grey backdrop, so that hands and feet can be read.
+    """
     scene, rows = bpy.context.scene, []
+    for setting, value in STRIP_LIGHT.items():
+        setattr(scene.view_settings, setting, value)
+    if not scene.world:
+        scene.world = bpy.data.worlds.new('backdrop')
+        scene.world.color = STRIP_BACKDROP
     for view in ('side', 'three_quarter'):
         tiles = []
         for frame in frames:
@@ -256,38 +275,46 @@ def main():
 
     facts, actions = {'gaits': {}, 'clips': {}}, {}
 
-    def add(name, kind, frames, **more):
+    def add(name, kind, frames, framed=box, **more):
         """Puts one motion in the file, with its facts and, if asked for, its film strip."""
         actions[name] = write_action(rig, name, frames)
         facts['clips'][name] = {'duration': round((len(frames) - 1) / FPS, 4), 'loop': kind == 'loop', 'kind': kind, **more}
         if shots:
-            filmstrip(os.path.join(shots, f'motion-{name}.png'), body, [round((len(frames) - 1) * i / 5) for i in range(6)], box)
+            filmstrip(os.path.join(shots, f'motion-{name}.png'), body, [round((len(frames) - 1) * i / 5) for i in range(6)], framed)
 
-    for name, kind in CLIPS.items():
-        frames = read_clip(name, rig)
+    def with_mirrors(name, frames):
+        """The motion, and after it any motion the build makes from it in a mirror: [(name, frames)]."""
+        return [(name, frames)] + [(other, mirrored(frames, rig)) for other, source in MIRRORS.items() if source == name]
+
+    clips = {}
+    for name in CLIPS:
+        clips[name] = read_clip(name, rig)
         scene.render.fps = FPS                    # the importer may set the scene to the file's rate
-        if kind == 'held':                        # the jump, and what follows it
-            jump = airborne(frames, rig)
+    standing = hips_height(clips['idle'])         # a step's crouch is measured from this
+    for name, kind in CLIPS.items():
+        if name == 'jump':                        # only its time in the air, and then what follows it
+            jump = airborne(clips[name], rig)
             add(name, kind, jump)
-            add('land', 'held', landing(frames, jump))
+            add('land', 'held', landing(clips[name], jump))
             continue
-        made = {name: frames, **{other: mirrored(frames, rig) for other, source in MIRRORS.items() if source == name}}
-        for name, frames in made.items():
+        for made, frames in with_mirrors(name, clips[name]):
             more = {}
-            if name in STEPS:
-                check_heading(name, frames, STEPS[name])
-            if name in STRIDES:
+            if made in STEPS:
+                check_heading(made, frames, STEPS[made])
+            if made in STRIDES:
                 more['strike'] = strike(frames)
             speed = on_the_spot(frames)
-            if name in GAITS:
-                facts['gaits'][name] = round(speed, 3)
-            if name == 'idle':
-                standing = hips_height(frames)
-            if name in STEPS:
+            if made in GAITS:
+                facts['gaits'][made] = round(speed, 3)
+            if made in STEPS:
                 more['crouch'] = round(standing - hips_height(frames), 3)
-            if name == 'dribble':
+            if made == 'dribble':
                 more.update(bounce(frames))
-            add(name, kind, frames, **more)
+            add(made, kind, frames, **more)
+
+    for name, pose in POSES.items():
+        for made, frames in with_mirrors(name, pose_frames(rig, pose, FPS)):
+            add(made, pose['kind'], frames, framed=MADE_BOX)
 
     rig.animation_data.action = None
     for name, action in actions.items():
