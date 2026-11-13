@@ -35,8 +35,7 @@ export const MOTION = Object.freeze({
 
 // The ball as it is drawn in a holder's hands. blend: seconds over which it is drawn across to a new place, when it
 // comes into a hand or leaves one. palm: metres from the wrist bone, toward the fingers, to where the ball sits.
-// reach: metres beyond which it is not drawn across at all but put in its new place at once: the rules placed it there.
-export const BALL_IN_HAND = Object.freeze({ blend: 0.1, palm: 0.1, reach: 1.5 });
+export const BALL_IN_HAND = Object.freeze({ blend: 0.1, palm: 0.1 });
 
 // The shot meter. stay: seconds it is kept after the release. aside: metres it stands from the shooter, on the side
 // away from the hoop he attacks. high: the height its top is level with, about his shoulder; it does not rise with his
@@ -316,11 +315,21 @@ export function carrying(holder, hands) {
   return `${holder} ${hands === 'both' ? 'both' : hands ? 'one' : 'none'}`;
 }
 
-// Where a blend starts, for a ball drawn at `drawn` that now belongs at `now`: a copy of `drawn`, or null, for no blend,
-// when it is further than BALL_IN_HAND.reach away.
-export function blendFrom(drawn, now) {
-  const far = Math.hypot(drawn.x - now.x, drawn.y - now.y, drawn.z - now.z) > BALL_IN_HAND.reach;
-  return far ? null : { x: drawn.x, y: drawn.y, z: drawn.z };
+// Where a dribbled ball crossing to the hand `side` of player `id` set off from: the place it was drawn on the frame
+// before the change, so a change while it is low in its bounce does not pull it up to the hand it left. `cross` is
+// what the last frame remembered ({ id, side, share, from }, or null), `share` how far through the crossing this frame
+// is (0 to 1) and `drawn` where the ball was drawn on the last frame. Returns what to remember.
+export function crossFrom(cross, id, side, share, drawn) {
+  if (cross && cross.id === id && cross.side === side && share >= cross.share) return { ...cross, share };
+  return { id, side, share, from: { x: drawn.x, y: drawn.y, z: drawn.z } };
+}
+
+// Where a blend starts, for a ball drawn at `drawn` on a frame on which it is carried otherwise: a copy of `drawn`, or
+// null, for no blend, when the rules handed it over: its holder changed on the same frame as the phase (an inbound or
+// a free throw being set up). `before` and `after` are the last frame's and this frame's { holder, phase }.
+export function blendFrom(drawn, before, after) {
+  const placed = before.holder !== after.holder && before.phase !== after.phase;
+  return placed ? null : { x: drawn.x, y: drawn.y, z: drawn.z };
 }
 
 // Throws unless `facts` (assets/motion.json) gives every gait and every guarding step a speed: without one a moving

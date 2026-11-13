@@ -4,7 +4,7 @@ import { BALL, ROSTER } from '../sim/tuning.js';
 import { assetUrl } from './assets.js';
 import {
   MOTION, BALL_IN_HAND, legMotion, armMotion, legLook, newMarks, noteChanges, checkGaits, checkMotions, checkFacts, personName,
-  courtPeople, sized, missingPeople, ballHands, dribbleHeight, switchSpot,
+  courtPeople, sized, missingPeople, ballHands, dribbleHeight, switchSpot, crossFrom,
 } from './motion.js';
 import { createAnimator } from './animator.js';
 import { KIT, kitOps, paintKit } from './kit.js';
@@ -16,7 +16,6 @@ const SHADOWED = /^(skin|jersey|shorts|hair|shoes)/;   // materials of the parts
 
 const IDLE = Object.freeze({ clip: 'idle', rate: 1 });   // what everyone's legs do before and after a match
 const hipsOf = root => root.getObjectByProperty('isBone', true);   // the first bone under a root: the others hang from it
-const OTHER = Object.freeze({ left: 'right', right: 'left' });
 
 // Where the palm of the hand bone `hand` is on the court, { x, y, z }: the wrist's place moved BALL_IN_HAND.palm
 // toward the fingers, along the bone's own +y axis. Each person is scaled, so that axis is measured out in metres on
@@ -142,6 +141,7 @@ export async function loadPeople() {
   const models = Array.from({ length: 6 }, () => new THREE.Group());
   const shown = [];   // the person whose model is in each group
   let marks = newMarks();   // what is remembered from frame to frame, for one match
+  let cross = null;   // a dribbled ball crossing from one hand to the other, as crossFrom remembers it; null when none is
   // The hands its holder carries the ball in on this frame, as ballHands gives them, or null when nobody holds it and
   // on the start and final screens, where it is not drawn in them.
   const handsOf = state => {
@@ -184,19 +184,21 @@ export async function loadPeople() {
     // The hands the holder carries the ball in on this frame (see handsOf). To be asked after `update`.
     hands: handsOf,
     // Where the ball is in its holder's hands on this frame, { x, y, z }, or null when nobody holds it and on the
-    // start and final screens. To be asked after `update`, which puts the hands where they are. The rules never read it.
-    heldBall(state) {
-      const side = handsOf(state);
+    // start and final screens. `drawn` is where the ball was drawn on the last frame. To be asked once a frame, after
+    // `update`, which puts the hands where they are. The rules never read it.
+    heldBall(state, drawn) {
+      const side = handsOf(state), id = state.ball.holder;
+      // A dribble that has just changed hands: the ball is on its way across from where it was when it changed.
+      const crossing = side === 'left' || side === 'right' ? marks.switched[id] / MOTION.handSwitch : Infinity;
+      cross = crossing < 1 ? crossFrom(cross, id, side, crossing, drawn) : null;
       if (!side) return null;
-      const id = state.ball.holder, { hands, arms, animator } = shown[id];
+      const { hands, arms, animator } = shown[id];
       if (side === 'both') {
         const left = palmOf(hands.left), right = palmOf(hands.right);
         return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2, z: (left.z + right.z) / 2 };
       }
       const palm = palmOf(hands[side]);
-      // A dribble that has just changed hands: the ball is on its way across from the hand it was in.
-      const crossing = marks.switched[id] / MOTION.handSwitch;
-      if (crossing < 1) return switchSpot(palmOf(hands[OTHER[side]]), palm, crossing, BALL.radius);
+      if (cross) return switchSpot(cross.from, palm, crossing, BALL.radius);
       palm.y = dribbleHeight(animator.phase(arms.clip), facts.clips.dribble, palm.y, BALL.radius);
       return palm;
     },

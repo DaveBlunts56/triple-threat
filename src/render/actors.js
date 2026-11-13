@@ -62,8 +62,9 @@ export function createActors(scene, people = null) {
   ring.rotation.x = -Math.PI / 2;
   scene.add(...players, ball, ring);
   // For drawing the ball across when its holder changes, or the way he carries it: who carried it and how on the last
-  // frame (undefined before the first; see carrying), where it was drawn when that last changed, and the seconds since.
-  let carried, last = null, since = 0;
+  // frame (undefined before the first; see carrying), its holder and the phase then, where it was drawn when the way
+  // it is carried last changed, and the seconds since.
+  let carried, seen, last = null, since = 0;
 
   return {
     // dt: the match time that passed this frame, which drives the players' motion.
@@ -84,9 +85,11 @@ export function createActors(scene, people = null) {
       if (people) {
         // In its holder's hands, not at his hip where the rules keep it; drawn across over a moment whenever it
         // comes to a player, leaves one, goes from one to another or from one hand to both, so it never jumps. A ball
-        // the rules have placed out of reach is put there at once.
-        const now = people.heldBall(state) ?? state.ball, how = carrying(state.ball.holder, people.hands(state));
-        if (how !== carried) [last, since] = [carried === undefined ? null : blendFrom(ball.position, now), 0];
+        // the rules hand over as the phase changes is put there at once.
+        const now = people.heldBall(state, ball.position) ?? state.ball, how = carrying(state.ball.holder, people.hands(state));
+        const before = seen;
+        seen = { holder: state.ball.holder, phase: state.phase };
+        if (how !== carried) [last, since] = [carried === undefined ? null : blendFrom(ball.position, before, seen), 0];
         else since += dt;
         carried = how;
         ball.position.copy(ballSpot(last, now, since));

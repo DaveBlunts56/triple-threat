@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dribbleHeight, switchSpot, ballSpot, ballHands, BALL_IN_HAND, carrying, blendFrom } from '../src/render/motion.js';
+import { dribbleHeight, switchSpot, ballSpot, ballHands, BALL_IN_HAND, carrying, blendFrom, crossFrom } from '../src/render/motion.js';
 
 const near = (a, b, by = 1e-9) => Math.abs(a - b) < by;
 
@@ -51,12 +51,26 @@ test('the ball is drawn across again when the way it is carried changes, but cro
   assert.notEqual(carrying(2, 'both'), carrying(2, null));                 // held, then the final screen
 });
 
-test('a ball placed out of reach is drawn there at once, not glided across', () => {
-  const now = { x: 0, y: 1, z: 0 };
-  assert.equal(BALL_IN_HAND.reach, 1.5);
-  assert.deepEqual(blendFrom({ x: 1.5, y: 1, z: 0 }, now), { x: 1.5, y: 1, z: 0 });       // just within reach: glided
-  assert.equal(blendFrom({ x: 1.6, y: 1, z: 0 }, now), null);              // placed with an inbounder or a free-throw shooter
-  const drawn = { x: 0.5, y: 1, z: 0 }, from = blendFrom(drawn, now);
-  drawn.x = 9;
-  assert.equal(from.x, 0.5);                                               // a copy: the drawn ball goes on moving
+test('a ball the rules hand over as the phase changes is drawn there at once; any other change of holder is drawn across', () => {
+  const drawn = { x: 9, y: 1, z: 0 };
+  assert.equal(blendFrom(drawn, { holder: null, phase: 'dead' }, { holder: 2, phase: 'inbound' }), null);     // an inbound set up
+  assert.equal(blendFrom(drawn, { holder: 4, phase: 'dead' }, { holder: 0, phase: 'freeThrow' }), null);      // a free throw set up
+  assert.deepEqual(blendFrom(drawn, { holder: 2, phase: 'live' }, { holder: 5, phase: 'live' }), drawn);      // a steal, however far
+  assert.deepEqual(blendFrom(drawn, { holder: 1, phase: 'live' }, { holder: 1, phase: 'dead' }), drawn);      // the whistle: he keeps it
+  const from = blendFrom(drawn, { holder: null, phase: 'live' }, { holder: 3, phase: 'live' });
+  drawn.x = 0;
+  assert.equal(from.x, 9);                                                 // a copy: the drawn ball goes on moving
+  assert.equal('reach' in BALL_IN_HAND, false);                            // distance decides nothing
+});
+
+test('a change of dribbling hand crosses from where the ball was drawn, not from the hand it left', () => {
+  const low = { x: 0.2, y: 0.3, z: 0.1 }, other = { x: 1, y: 1, z: 1 };
+  let cross = crossFrom(null, 2, 'left', 0, low);
+  low.y = 0.9;
+  assert.deepEqual(cross.from, { x: 0.2, y: 0.3, z: 0.1 });                // the frame of the change: where it was drawn, copied
+  cross = crossFrom(cross, 2, 'left', 0.25, other);
+  assert.deepEqual(cross.from, { x: 0.2, y: 0.3, z: 0.1 });                // kept while it crosses
+  assert.deepEqual(crossFrom(cross, 2, 'right', 0.3, other).from, other);  // the other hand: another crossing
+  assert.deepEqual(crossFrom(cross, 3, 'left', 0.3, other).from, other);   // another player
+  assert.deepEqual(crossFrom(cross, 2, 'left', 0.1, other).from, other);   // a new crossing to the same hand
 });
