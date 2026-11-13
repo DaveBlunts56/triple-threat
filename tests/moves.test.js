@@ -226,3 +226,36 @@ test('standing with nothing to do, the arms follow the legs', () => {
   const [s, marks] = watched();
   assert.deepEqual([arms(s, marks, 1), arms(s, marks, 4), defending(s, s.players[4]), manOf(s, s.players[4]).id], [null, null, true, 1]);
 });
+
+// ---- after the plan's tests: a release belongs to the jump it was made on, and a pass is never one ----
+
+test('a shooter who has landed and later jumps without the ball contests, and his landing is not a follow-through', () => {
+  const [s, marks] = watched(), p = s.players[0];
+  for (let i = 0; i < 19; i++) tick(s, marks, only(0, { shoot: true }));
+  tick(s, marks);                                                         // lets go just after take-off
+  while (arms(s, marks, 0)) tick(s, marks);                               // the follow-through has played out
+  assert.equal(s.ball.holder, null);
+  tick(s, marks, only(0, { shoot: true }));                               // he jumps again, without the ball
+  assert.ok(p.vy > 0);
+  while (p.y > 0 || p.vy !== 0) { assert.equal(arms(s, marks, 0).clip, 'contest'); tick(s, marks); }
+  assert.equal(marks.land[0], 0);
+  for (let i = 0; i < 15; i++) { assert.notEqual(arms(s, marks, 0)?.clip, 'follow', `${i} frames after landing`); tick(s, marks); }
+});
+
+test('a pass thrown out of a shot jump is a pass, and no follow-through comes after it', () => {
+  const [s, marks] = watched(), hold = only(0, { shoot: true });
+  for (let i = 0; i < 22; i++) tick(s, marks, hold);
+  tick(s, marks, only(0, { shoot: true, pass: true }));                   // in the air, he passes instead
+  assert.deepEqual([s.players[0].y > 0, s.ball.target !== null, arms(s, marks, 0)], [true, true, { clip: 'pass', at: 0 }]);
+  const shown = [];
+  for (let i = 0; i < 45; i++) { tick(s, marks, hold); shown.push(arms(s, marks, 0)?.clip ?? null); }   // Space still down: no new jump
+  assert.ok(shown.includes('pass') && !shown.includes('follow'), shown.join(' '));
+  assert.equal(shown.at(-1), null);
+});
+
+test('a shot let go during the gather leaves as his feet do, and still gets its follow-through', () => {
+  const [s, marks] = watched();
+  tick(s, marks, only(0, { shoot: true }));                               // a tap: the key comes up on the floor
+  while (s.ball.holder === 0) tick(s, marks);
+  assert.deepEqual([s.ball.mode, s.players[0].vy > 0, arms(s, marks, 0)], ['shot', true, { clip: 'follow', at: 0 }]);
+});

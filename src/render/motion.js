@@ -81,10 +81,14 @@ export function noteChanges(marks, state, dt) {
     const hand = dribbleHand(state, p, marks.hand[id] ?? 'right');
 
     if (before) {
+      // A release belongs to the jump it was made on: a later jump without the ball forgets it. Before the release
+      // is looked for, because a shot let go on the floor leaves his hands on the frame he takes off.
+      if (!before.inAir && !onFloor(p) && !p.shooting) marks.release[id] = Infinity;
       const lost = was.holder === id && ball.holder === null;
       if (lost && ball.mode === 'pass') marks.pass[id] = 0;
-      // A blocked shot never becomes a shot in the air, but he was shooting when it left his hands.
-      if (lost && ((ball.mode === 'shot' && ball.shooter === id) || before.shooting)) marks.release[id] = 0;
+      // A blocked shot never becomes a shot in the air, but he was shooting when it left his hands. A pass thrown
+      // out of the shooting motion is a pass, never a release.
+      if (lost && ball.mode !== 'pass' && ((ball.mode === 'shot' && ball.shooter === id) || before.shooting)) marks.release[id] = 0;
       if (ball.holder === id && was.holder !== id) marks.catch[id] = 0;
       if (p.stealCooldown > before.stealCooldown) marks.reach[id] = 0;
       if (before.inAir && onFloor(p)) marks.land[id] = 0;
