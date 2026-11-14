@@ -145,9 +145,10 @@ export async function createScene(canvas) {
   const setQuality = level => {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY[level].pixelRatio));
     light.setQuality(level);
-    floor.setQuality(level);
     arena.setQuality(level);
     post.setQuality(level);
+    const failed = floor.setQuality(level);
+    if (failed) post.missing.push(failed);
   };
 
   const camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, 0.1, 100);

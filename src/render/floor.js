@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { reflector } from 'three/tsl';
+import { gaussianBlur } from 'three/addons/tsl/display/GaussianBlurNode.js';
 import { COURT, RIM, THREE_PT } from '../sim/tuning.js';
 import { FLOOR_FILES, assetUrl } from './assets.js';
 import { QUALITY } from './quality.js';
@@ -8,8 +10,10 @@ import { QUALITY } from './quality.js';
 // come. paintGloss: how rough the paint is (the wood's own gloss comes from its picture). runOff: the stain on the
 // floor outside the court's lines. lift: how far the paint lies above the wood, so the two never fight for the same depth.
 // tone: what the wood's colour is multiplied by, to lighten the scanned walnut toward a court's maple.
+// mirror: how much of the game's reflection the floor adds to itself, where a level has one. blur: how far that
+// reflection is smeared, in pixels, on a level that draws it small.
 const FLOOR = Object.freeze({ length: 32, width: 19, px: 64, plank: 1.7, full: 2048, paintGloss: 0.4, runOff: 'rgba(52, 34, 20, 0.6)', lift: 0.004,
-  tone: Object.freeze([1.55, 1.45, 1.22]) });
+  tone: Object.freeze([1.55, 1.45, 1.22]), mirror: 0.3, blur: 3 });
 
 // The court's paint: every line, and a darker stain over the run-off. With `wood` the playing surface and the run-off
 // are painted as wood-coloured blocks under the lines (the floor of the game before it had real wood, and still the
@@ -96,7 +100,7 @@ export async function createFloor(scene) {
   } catch (error) {
     console.warn('The floor\'s wood could not be loaded; using the painted floor.', error);
     scene.add(sheet(new THREE.MeshStandardMaterial({ map: paintCourt(true), roughness: 0.55 })));
-    return { setQuality() {} };
+    return { setQuality: () => null };
   }
   // Each picture at each size a level asks for: the full ones as they came, the smaller ones made here.
   const sizes = new Map([[FLOOR.full, pictures]]);
@@ -104,13 +108,32 @@ export async function createFloor(scene) {
     const size = QUALITY[level].floor;
     if (!sizes.has(size)) sizes.set(size, pictures.map(picture => shrunk(picture, size)));
   }
-  const planks = new THREE.MeshStandardMaterial({ color: new THREE.Color(...FLOOR.tone), roughness: 1, metalness: 0 });
+  const planks = new THREE.MeshStandardNodeMaterial({ color: new THREE.Color(...FLOOR.tone), roughness: 1, metalness: 0 });
   const paint = new THREE.MeshStandardMaterial({ map: paintCourt(false), transparent: true, depthWrite: false, roughness: FLOOR.paintGloss });
-  scene.add(sheet(planks), sheet(paint, FLOOR.lift));
+  const boards = sheet(planks);
+  scene.add(boards, sheet(paint, FLOOR.lift));
+  let mirror = null;   // the floor's reflection of the game, on the levels that have one
   return {
+    // The wood's pictures and the mirror of a level. Returns the words for what could not be done here, or null.
     setQuality(level) {
       [planks.map, planks.normalMap, planks.roughnessMap] = sizes.get(QUALITY[level].floor);
+      if (mirror) { boards.remove(mirror.target); mirror.dispose(); mirror = null; planks.emissiveNode = null; }
+      let failed = null;
+      const size = QUALITY[level].mirror;
+      if (size > 0) {
+        try {
+          // The scene is drawn again as the floor would mirror it, and that picture is added to the wood's own light.
+          mirror = reflector({ resolutionScale: size });
+          boards.add(mirror.target);
+          planks.emissiveNode = (size < 1 ? gaussianBlur(mirror, null, FLOOR.blur) : mirror).rgb.mul(FLOOR.mirror);
+        } catch (error) {
+          console.warn('No floor reflections here.', error);
+          if (mirror) boards.remove(mirror.target);
+          mirror = null; planks.emissiveNode = null; failed = 'floor reflections';
+        }
+      }
       planks.needsUpdate = true;
+      return failed;
     },
   };
 }
