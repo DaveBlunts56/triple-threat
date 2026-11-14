@@ -165,7 +165,7 @@ export async function loadPeople() {
   }));
   await Promise.all(pending);
 
-  const models = Array.from({ length: 6 }, () => new THREE.Group());
+  const models = Array.from({ length: 10 }, () => new THREE.Group());   // one for each player a match can have; a smaller match uses the first of them
   const shown = [];   // the person whose model is in each group
   // How each group's player was drawn on the last frame: the heading the group was turned to (null before the first),
   // how far his body tipped, where his head looked, and his velocity { vx, vz }.
@@ -194,8 +194,10 @@ export async function loadPeople() {
       else if (marks.was) marks = newMarks();
       courtPeople(state).forEach((who, i) => {
         const player = state.players[i], group = models[i], he = people[who];
-        if (shown[i] !== he) {   // the first frame, or a substitution: he comes on standing
-          if (shown[i]) group.remove(shown[i].model);
+        // The first frame, a substitution, or a match of another size, whose players stand in other places: he
+        // comes on standing. (A model can be in one place only: adding it here takes it from where it was.)
+        if (shown[i] !== he || he.model.parent !== group) {
+          if (shown[i] && shown[i].model.parent === group) group.remove(shown[i].model);
           group.add(he.model);
           he.animator.reset();
           he.last = 'idle';

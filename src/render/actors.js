@@ -21,6 +21,7 @@ function buildPlayer(team) {
   nose.position.set(HEAD, HEIGHT - HEAD, 0);   // +x is "forward" for facing = 0
 
   const group = new THREE.Group();
+  group.userData.kit = material;
   group.add(body, head, nose);
   body.castShadow = head.castShadow = true;
   return group;
@@ -65,10 +66,10 @@ function paintBall() {
   return { map, bumpMap, bumpScale: 0.6 };
 }
 
-// The six players, the ball and the ring under the player you control.
+// The players (up to ten: as many are shown as the match has), the ball and the ring under the player you control.
 // `people` are the generated, animated players (see people.js); without them the capsules stand in.
 export function createActors(scene, people = null) {
-  const players = people ? people.models : [0, 0, 0, 1, 1, 1].map(buildPlayer);
+  const players = people ? people.models : Array.from({ length: 10 }, () => buildPlayer(0));
   // The number floats above each head and always faces the camera, so you can see who is on the floor.
   const labels = players.map(group => {
     const label = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true }));
@@ -91,8 +92,10 @@ export function createActors(scene, people = null) {
     // dt: the match time that passed this frame, which drives the players' motion.
     sync(state, dt = 0) {
       if (people) people.update(state, dt);
+      players.forEach((group, i) => { group.visible = i < state.players.length; });
       state.players.forEach((p, i) => {
         if (!people) {
+          players[i].userData.kit.color.setHex(TEAM_COLOURS[p.team]);   // a place holds either team's player, by the match's size
           players[i].position.set(p.x, p.y, p.z);
           players[i].rotation.y = -p.facing;   // facing is measured from +x toward +z; three.js turns the other way
         }

@@ -401,3 +401,12 @@ test('a defender keeps guarding, or not guarding, for at least half a second, un
   s.possession = 1;                                                        // his team gets the ball: he guards nobody, at once
   assert.equal(after(DT, 0), false);
 });
+
+test('in five a side the centres are the jumpers at the tip: the player in place 2 reaches, the one in place 1 does not', () => {
+  const s = live(1, 5), marks = newMarks(); noteChanges(marks, s, DT);
+  s.phase = 'jumpBall'; s.ball.holder = null;
+  for (const id of [1, 2, 7]) Object.assign(s.players[id], { y: 0.4, vy: 1, jumpT: 0.1 });
+  noteChanges(marks, s, DT);
+  assert.deepEqual([arms(s, marks, 2).clip, arms(s, marks, 7).clip], ['tip', 'tip']);
+  assert.notEqual(arms(s, marks, 1)?.clip, 'tip');
+});

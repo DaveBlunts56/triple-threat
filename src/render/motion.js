@@ -1,6 +1,6 @@
 // Which motion a player shows, worked out from the match alone. No Three.js here, so it can be tested without a browser.
 import { BALL, PLAYER, SHOT } from '../sim/tuning.js';
-import { onFloor } from '../sim/state.js';
+import { isJumper, onFloor } from '../sim/state.js';
 import { gathering } from '../sim/players.js';
 
 // Speeds in metres per second. stick: how far past an edge he must go before the gait changes.
@@ -234,7 +234,7 @@ export function armMotion(player, state, marks, facts) {
   if (hasBall && (player.inbounder || player.held || inAir || STOPPED.includes(state.phase))) return { clip: sided('hold'), rate: 1 };
   if (hasBall) return { clip: sided('dribble'), rate: 1 };
   if (marks.reach[id] < length('reach')) return { clip: 'reach', at: marks.reach[id] / length('reach') };
-  if (inAir && state.phase === 'jumpBall' && player.slot === 1) return { clip: 'tip', at: jumpShare(player) };
+  if (inAir && state.phase === 'jumpBall' && isJumper(state, player)) return { clip: 'tip', at: jumpShare(player) };
   if (inAir) return { clip: 'contest', at: jumpShare(player) };
   const shooter = o => o.team !== player.team && o.shooting && dist(o, player) <= MOTION.handUpDist;
   if (defending(state, player) && state.players.some(shooter)) return { clip: 'handUp', rate: 1 };
