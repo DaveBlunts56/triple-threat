@@ -75,6 +75,14 @@ export const AI = f({
   safetyGap: 4,           // metres between those who get back together when a ball is loose
 });
 
+// The difficulty levels, easiest first, and what the menus call them.
+export const DIFFICULTY = f({
+  order: f(['rookie', 'starter', 'allstar', 'superstar', 'legend']),
+  label: f({ rookie: 'Rookie', starter: 'Starter', allstar: 'All-Star', superstar: 'Superstar', legend: 'Legend' }),
+});
+// The level after `level`, going round from the hardest to the easiest.
+export const nextDifficulty = level => DIFFICULTY.order[(DIFFICULTY.order.indexOf(level) + 1) % DIFFICULTY.order.length];
+
 // Switching. lost: a screened defender's man is getting away when he is further than this, in metres. save: the least
 // running, in metres over the whole team, that makes a new matching worth taking when getting back. wait: seconds a
 // defender who has just swapped men swaps with nobody.

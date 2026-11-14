@@ -1,11 +1,12 @@
 import { queueSub } from './sim/roster.js';
+import { nextDifficulty } from './sim/tuning.js';
 
 const ROWS = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8'];   // one key for each of a team's eight
 
 // The rows of each panel of the pause menu that has rows. Substitutions and Controls have none.
 export const PAUSE = Object.freeze({
   main: Object.freeze(['resume', 'subs', 'controls', 'settings', 'quit']),
-  settings: Object.freeze(['quality', 'autoSubs']),
+  settings: Object.freeze(['quality', 'autoSubs', 'camera', 'difficulty']),
   quit: Object.freeze(['stay', 'leave']),
 });
 
@@ -33,7 +34,7 @@ function flipAutoSubs(game) {
   if (game.menu) game.menu.autoSubs = game.state.autoSubs[0];
 }
 
-// A key pressed while paused. Returns 'resume', 'quality' or 'quit' when the page has something to do, else null.
+// A key pressed while paused. Returns 'resume', 'quality', 'camera' or 'quit' when the page has something to do, else null.
 // In Substitutions, 1 to 8 pick two of your players to swap at the next stoppage and A is the automatic switch.
 export function pauseKey(game, code) {
   const menu = game.pauseMenu, rows = pauseRows(menu);
@@ -49,9 +50,12 @@ export function pauseKey(game, code) {
   else if (code === 'Enter' || code === 'Space') {
     const choice = rows[menu.row];
     if (choice === 'resume') return 'resume';
-    if (choice === 'quality') return 'quality';
+    if (choice === 'quality' || choice === 'camera') return choice;
     if (choice === 'leave') return 'quit';
-    if (choice === 'autoSubs') flipAutoSubs(game);
+    if (choice === 'difficulty') {   // for this match, and as the start menu's choice for later ones
+      game.state.difficulty = nextDifficulty(game.state.difficulty);
+      if (game.menu) game.menu.difficulty = game.state.difficulty;
+    } else if (choice === 'autoSubs') flipAutoSubs(game);
     else if (choice === 'stay') back();
     else if (menu.panel === 'main') { menu.from = menu.row; menu.panel = choice; menu.row = 0; }
   } else if (code === 'Escape' || code === 'Backspace') {

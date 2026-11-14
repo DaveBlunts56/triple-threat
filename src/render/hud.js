@@ -1,4 +1,4 @@
-import { CLOCK, FOUL, ROSTER } from '../sim/tuning.js';
+import { CLOCK, DIFFICULTY, FOUL, ROSTER } from '../sim/tuning.js';
 import { personOf, surname } from '../sim/state.js';
 import { onCourt } from '../sim/roster.js';
 import { menuRows } from '../menu.js';
@@ -68,9 +68,14 @@ const MENU_SLOTS = 5;   // menuRow0 to menuRow4 on the page
 const TEAM_LINES = ROSTER.teams.map((_, team) => ROSTER.positions.map((position, row) =>
   `${position} · ${ROSTER.numbers[team][row]} · ${ROSTER.names[team][row]}`));
 
-// The words of row `row` of the panel shown; the settings say their value. quality: one of QUALITY.order.
-export function menuText(menu, row, quality) {
+const CAMERA_WORDS = { '2k': 'Camera: 2K', broadcast: 'Camera: Broadcast' };
+
+// The words of row `row` of the panel shown; the settings say their value. quality: one of QUALITY.order. camera:
+// '2k' or 'broadcast'.
+export function menuText(menu, row, quality, camera = '2k') {
   const choice = menuRows(menu)[row];
+  if (choice === 'camera') return CAMERA_WORDS[camera];
+  if (choice === 'difficulty') return `Difficulty: ${DIFFICULTY.label[menu.difficulty]}`;
   if (choice === 'quality') return `Quality: ${QUALITY[quality].label}`;
   if (choice === 'autoSubs') return `Automatic substitutions: ${menu.autoSubs ? 'On' : 'Off'}`;
   if (choice === 'mode') return MODE_WORDS[menu.size];
@@ -85,8 +90,10 @@ const PAUSE_HINTS = { main: '↑ ↓ choose · Enter select · Esc resume', sett
 const PAUSE_SLOTS = 5;   // pauseRow0 to pauseRow4 on the page
 
 // The words of row `row` of the pause menu's panel shown; the settings say their value.
-export function pauseText(state, menu, row, quality) {
+export function pauseText(state, menu, row, quality, camera = '2k') {
   const choice = pauseRows(menu)[row];
+  if (choice === 'camera') return CAMERA_WORDS[camera];
+  if (choice === 'difficulty') return `Difficulty: ${DIFFICULTY.label[state.difficulty]}`;
   if (choice === 'quality') return `Quality: ${QUALITY[quality].label}`;
   if (choice === 'autoSubs') return `Automatic substitutions: ${state.autoSubs[0] ? 'On' : 'Off'}`;
   return PAUSE_WORDS[choice];
@@ -150,7 +157,7 @@ export function createHud(doc) {
         classed('menuList', menu.panel);
         for (let row = 0; row < MENU_SLOTS; row++) {
           hide(`menuRow${row}`, row >= rows.length);
-          if (row < rows.length) set(`menuRow${row}`, menuText(menu, row, ui.quality));
+          if (row < rows.length) set(`menuRow${row}`, menuText(menu, row, ui.quality, ui.camera));
           selected(`menuRow${row}`, row === menu.row && row < rows.length);
         }
         hide('menuTeams', menu.panel !== 'teams');
@@ -171,7 +178,7 @@ export function createHud(doc) {
         hide('pauseList', !rows.length);
         for (let row = 0; row < PAUSE_SLOTS; row++) {
           hide(`pauseRow${row}`, row >= rows.length);
-          if (row < rows.length) set(`pauseRow${row}`, pauseText(state, pause, row, ui.quality));
+          if (row < rows.length) set(`pauseRow${row}`, pauseText(state, pause, row, ui.quality, ui.camera));
           selected(`pauseRow${row}`, row === pause.row && row < rows.length);
         }
         hide('pauseSubs', pause.panel !== 'subs');
@@ -204,8 +211,8 @@ export function createHud(doc) {
       hide('call', !banner);
       const score = `You ${state.score[0]}, opponent ${state.score[1]}`;
       if (state.call && state.call !== lastCall) set('announce', callText(state.call));
-      else if (menu) set('announce', menuRows(menu).length ? menuText(menu, menu.row, ui.quality) : MENU_WORDS[menu.panel]);
-      else if (pause) set('announce', pauseRows(pause).length ? pauseText(state, pause, pause.row, ui.quality) : PAUSE_WORDS[pause.panel]);
+      else if (menu) set('announce', menuRows(menu).length ? menuText(menu, menu.row, ui.quality, ui.camera) : MENU_WORDS[menu.panel]);
+      else if (pause) set('announce', pauseRows(pause).length ? pauseText(state, pause, pause.row, ui.quality, ui.camera) : PAUSE_WORDS[pause.panel]);
       else if (score !== lastScore) set('announce', score);
       lastCall = state.call; lastScore = score;
 

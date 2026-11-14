@@ -113,3 +113,21 @@ test('blur also ends a drop, since a key let go while the window is unfocused se
   down('Space');
   assert.equal(k.intent().shoot, true);
 });
+
+// ---------- keys that follow the camera ----------
+
+test('the movement keys follow the camera: W runs up the screen whichever way the camera looks', async () => {
+  const { steer } = await import('../src/input.js');
+  const keys = (x, z) => ({ ...emptyIntent(), moveX: x, moveZ: z, sprint: true });
+  const near = (got, x, z) => assert.ok(Math.abs(got.moveX - x) < 1e-9 && Math.abs(got.moveZ - z) < 1e-9, `${got.moveX}, ${got.moveZ} is not ${x}, ${z}`);
+  // The sideline camera looks toward -z: the keys mean what they always have.
+  near(steer(keys(1, 0), { x: 0, z: -1 }), 1, 0);
+  near(steer(keys(0, -1), { x: 0, z: -1 }), 0, -1);
+  // Behind the offence looking toward +x: W runs toward +x, D toward +z.
+  near(steer(keys(0, -1), { x: 1, z: 0 }), 1, 0);
+  near(steer(keys(1, 0), { x: 1, z: 0 }), 0, 1);
+  // Looking toward -x: W runs toward -x, D toward -z.
+  near(steer(keys(0, -1), { x: -1, z: 0 }), -1, 0);
+  near(steer(keys(1, 0), { x: -1, z: 0 }), 0, -1);
+  assert.equal(steer(keys(1, 0), { x: 1, z: 0 }).sprint, true);   // the other keys pass through
+});

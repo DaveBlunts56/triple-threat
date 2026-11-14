@@ -22,7 +22,7 @@ export const ARENA = f({
   sideBoards: f({ z: -9.95, y: 0.5, wide: 4, high: 1, count: 7 }),
   endBoards: f({ x: 16.4, y: 0.5, wide: 4, high: 1, count: 3 }),
   table: f({ z: -8.9, wide: 6, high: 0.8, deep: 0.6 }),
-  hanging: f({ y: 9.6, wide: 5, high: 2.4 }),
+  hanging: f({ y: 11.8, wide: 5, high: 2.4 }),   // clear of the 2K camera, which passes under it
 });
 
 const WORDS = f(['TRIPLE THREAT', 'HARBOR CITY WAVES', 'RED ROCK SCORPIONS']);

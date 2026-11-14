@@ -1,4 +1,4 @@
-import { createMatch } from './sim/state.js';
+import { attackSign, createMatch } from './sim/state.js';
 import { step } from './sim/step.js';
 import { aiIntents } from './sim/ai.js';
 import { DT } from './sim/tuning.js';
@@ -8,7 +8,7 @@ import { shotMeter, SHOT_METER } from './render/meter.js';
 import { loadPeople } from './render/people.js';
 import { createHud, easeFrame } from './render/hud.js';
 import { createQuality, autoQuality, stepQuality } from './render/quality.js';
-import { createKeyboard } from './input.js';
+import { createKeyboard, steer } from './input.js';
 import { createPauseMenu, inPlay, pauseKey, pauseHasRow, pausePoint, quitToMenu, setPaused } from './pause.js';
 import { createMenu, menuKey, menuPoint, menuHasRow, startFromMenu } from './menu.js';
 
@@ -27,7 +27,8 @@ if (view) {
   const quality = createQuality();
   // pick: the roster row chosen first on the pause screen. quality: the level the game is drawn at, one of QUALITY.order.
   // meter: the shot meter and where its top is on the page, or null. menu: the start menu. pauseMenu: the pause menu.
-  const game = { state: newMatch(), paused: false, pick: null, fps: 60, quality: quality.level, meter: null, menu: createMenu(),
+  // camera: '2k', behind the team with the ball, or 'broadcast', the sideline view.
+  const game = { state: newMatch(), paused: false, pick: null, fps: 60, quality: quality.level, camera: '2k', meter: null, menu: createMenu(),
     pauseMenu: createPauseMenu() };
   globalThis.game = game;   // handle for poking at the match from the browser console
 
@@ -39,6 +40,10 @@ if (view) {
     people?.setQuality(quality.level);
   };
 
+  const switchCamera = () => { game.camera = game.camera === '2k' ? 'broadcast' : '2k'; view.setCamera(game.camera); };
+  view.setCamera(game.camera);
+  let heading = view.heading();   // what up the screen means to the movement keys
+
   // Starts play, from the menu or the final screen. startFromMenu drops the keys held then, which relies on the
   // keyboard's own keydown listener (createKeyboard, above) being registered before the one below, so the key that
   // chose Play is already held when it is dropped.
@@ -48,6 +53,7 @@ if (view) {
     const asked = menuKey(game.menu, code);
     if (asked === 'play') play();
     else if (asked === 'quality') { stepQuality(quality); showQuality(); }
+    else if (asked === 'camera') switchCamera();
   };
 
   // A key on the pause menu, or a click on one of its buttons (as Enter).
@@ -55,11 +61,13 @@ if (view) {
     const asked = pauseKey(game, code);
     if (asked === 'resume') pause(false);
     else if (asked === 'quality') { stepQuality(quality); showQuality(); }
+    else if (asked === 'camera') switchCamera();
     else if (asked === 'quit') quitToMenu(game, keyboard, newMatch);
   };
 
   window.addEventListener('keydown', e => {
     if (e.code === 'KeyG' && !e.repeat) { stepQuality(quality); showQuality(); }   // on any screen; a held key counts once
+    if (e.code === 'KeyC' && !e.repeat) switchCamera();
     if (game.state.phase === 'start') {
       if (MENU_KEYS.has(e.code)) e.preventDefault();
       if (!(e.repeat && MENU_ONCE.has(e.code))) onMenu(e.code);
@@ -103,7 +111,11 @@ if (view) {
     const before = state.time;
     for (; owed >= DT; owed -= DT) {
       const intents = aiIntents(state, DT);
-      intents[state.controlled] = keyboard.intent();   // the human replaces the computer for one player
+      // The human replaces the computer for one player. His keys follow the camera, and keep their meaning through a
+      // swing of the camera until they are let go.
+      const keys = keyboard.intent();
+      if (!keys.moveX && !keys.moveZ) heading = view.heading();
+      intents[state.controlled] = steer(keys, heading);
       step(state, intents, DT);
       view.swayNets(state.ball, DT);   // at every step, so a ball moved far in one step is never swept through a net
     }
@@ -111,7 +123,7 @@ if (view) {
     // passes, so it advances by real time and the players stand breathing.
     const passed = inPlay(state) ? state.time - before : elapsed;
     actors.sync(state, passed);
-    view.follow(state.ball.x);
+    view.follow(state.ball, attackSign(state.possession));
     view.watch(state);
     view.render();
     // Where the feet of the player you control are on the page, for his name; nothing before and after a match.

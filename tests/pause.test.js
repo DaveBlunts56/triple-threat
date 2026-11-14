@@ -61,7 +61,7 @@ test('a key tapped on the pause screen does not act when play resumes', () => {
 test('pausing shows the list with the highlight on Resume: Resume, Substitutions, Controls, Settings, Quit to main menu', () => {
   const { game } = paused();
   assert.deepEqual([at(game), pauseRows(game.pauseMenu)], [['main', 0], ['resume', 'subs', 'controls', 'settings', 'quit']]);
-  assert.deepEqual([PAUSE.settings, PAUSE.quit], [['quality', 'autoSubs'], ['stay', 'leave']]);
+  assert.deepEqual([PAUSE.settings, PAUSE.quit], [['quality', 'autoSubs', 'camera', 'difficulty'], ['stay', 'leave']]);
 });
 
 test('the highlight moves by arrows or W and S and wraps; Enter or Space on Resume, or Esc, asks to resume', () => {
@@ -73,7 +73,7 @@ test('the highlight moves by arrows or W and S and wraps; Enter or Space on Resu
 });
 
 test('Substitutions, Controls and Settings open as panels; Esc or Backspace go back to the entry that opened them', () => {
-  for (const [entry, row, rows] of [['subs', 1, []], ['controls', 2, []], ['settings', 3, ['quality', 'autoSubs']]]) for (const back of ['Escape', 'Backspace']) {
+  for (const [entry, row, rows] of [['subs', 1, []], ['controls', 2, []], ['settings', 3, ['quality', 'autoSubs', 'camera', 'difficulty']]]) for (const back of ['Escape', 'Backspace']) {
     const { game } = paused();
     assert.equal(open(game, entry), null);
     assert.deepEqual([at(game), pauseRows(game.pauseMenu)], [[entry, 0], rows]);
@@ -90,6 +90,9 @@ test('in Settings, Enter on Quality asks for the quality switch, and on Automati
   assert.deepEqual([game.state.autoSubs, game.menu.autoSubs], [[false, true], false]);
   pauseKey(game, 'Space');
   assert.deepEqual([game.state.autoSubs, game.menu.autoSubs], [[true, true], true]);
+  pauseKey(game, 'ArrowDown'); assert.equal(pauseKey(game, 'Enter'), 'camera');   // the page changes the camera
+  pauseKey(game, 'ArrowDown'); assert.equal(pauseKey(game, 'Enter'), null);       // Difficulty: for this match and for later ones
+  assert.deepEqual([game.state.difficulty, game.menu.difficulty], ['superstar', 'superstar']);
   pauseKey(game, 'Escape'); open(game, 'subs'); pauseKey(game, 'KeyA');     // the A key in Substitutions is the same switch
   assert.deepEqual([game.state.autoSubs, game.menu.autoSubs], [[false, true], false]);
 });

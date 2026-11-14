@@ -151,9 +151,9 @@ test('the corner label names the quality level between the renderer and the fram
   assert.equal(doc.els.backend.textContent, 'WebGL 2 (WebGPU not available) · Low · 24 fps');
 });
 
-test('the controls line says which key changes the quality', () => {
+test('the controls line says which keys change the quality and the camera', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  assert.match(html.match(/<div id="controls">([^<]*)<\/div>/)[1], /· G quality$/);
+  assert.match(html.match(/<div id="controls">([^<]*)<\/div>/)[1], /· G quality · C camera$/);
 });
 
 test('the frame-rate readout follows the time frames really take, not the average of their rates', () => {
@@ -240,8 +240,10 @@ test('the Settings panel shows each setting with its value, and a change is anno
   const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
   const show = quality => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality });
   menu.row = 4; menuKey(menu, 'Enter'); show('high');
-  assert.deepEqual([e.menuRow0.textContent, e.menuRow1.textContent, e.menuRow2.hidden, e.menuRow4.hidden, e.menuHint.textContent],
-    ['Quality: High', 'Automatic substitutions: On', true, true, '↑ ↓ choose · Enter change · Esc back']);
+  assert.deepEqual([e.menuRow0.textContent, e.menuRow1.textContent, e.menuRow2.textContent, e.menuRow3.textContent, e.menuRow4.hidden, e.menuHint.textContent],
+    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', true, '↑ ↓ choose · Enter change · Esc back']);
+  hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high', camera: 'broadcast' });
+  assert.equal(e.menuRow2.textContent, 'Camera: Broadcast');
   show('low');
   assert.deepEqual([e.menuRow0.textContent, e.announce.textContent], ['Quality: Low', 'Quality: Low']);
   menuKey(menu, 'ArrowDown'); menuKey(menu, 'Enter'); show('low');
@@ -316,8 +318,8 @@ test('Substitutions and Controls open in place of the buttons, and opening one i
 test('Settings shows each setting with its value, and Quit asks before leaving', () => {
   const { e, s, game, show, choose } = pausedHud();
   choose('ArrowUp', 'ArrowUp', 'Enter'); show();                           // up from Resume wraps to Quit, then Settings
-  assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent, e.pauseRow2.hidden, e.pauseRow4.hidden, e.pauseHint.textContent],
-    ['Quality: High', 'Automatic substitutions: On', true, true, '↑ ↓ choose · Enter change · Esc back']);
+  assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent, e.pauseRow2.textContent, e.pauseRow3.textContent, e.pauseRow4.hidden, e.pauseHint.textContent],
+    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', true, '↑ ↓ choose · Enter change · Esc back']);
   s.autoSubs[0] = false; game.quality = 'low'; show();
   assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent], ['Quality: Low', 'Automatic substitutions: Off']);
   choose('Escape', 'ArrowDown', 'Enter'); show();

@@ -1,3 +1,9 @@
+// The keys' intent turned to the court for a camera looking along `heading` ({ x, z }, a unit vector on the floor): W
+// runs up the screen and D to its right, whichever way that is. The intent's moveX is right and moveZ is down the screen.
+export const steer = (intent, heading) => ({ ...intent,
+  moveX: -intent.moveX * heading.z - intent.moveZ * heading.x,
+  moveZ: intent.moveX * heading.x - intent.moveZ * heading.z });
+
 const GAME_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft', 'ShiftRight', 'Space', 'KeyE', 'KeyQ', 'KeyF']);
 
 // Tracks held keys on `target` (the window in the game) and reports them as an Intent.
@@ -18,7 +24,7 @@ export function createKeyboard(target) {
   const on = code => held.has(code) || tapped.has(code);
   const read = intent => { tapped.clear(); return intent; };
   return {
-    // The camera looks from +z toward -z, so "up the screen" (W) is -z and D is +x.
+    // As the screen has them: moveX is right (D), moveZ is down (S). steer() turns them to the court for the camera.
     intent: () => read({
       moveX: on('KeyD') - on('KeyA'),
       moveZ: on('KeyS') - on('KeyW'),

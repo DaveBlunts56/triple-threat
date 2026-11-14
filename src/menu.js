@@ -1,13 +1,14 @@
 import { startMatch } from './sim/rules.js';
+import { nextDifficulty } from './sim/tuning.js';
 
-export const MENU = Object.freeze({ main: ['play', 'mode', 'teams', 'controls', 'settings'], settings: ['quality', 'autoSubs'] });
+export const MENU = Object.freeze({ main: ['play', 'mode', 'teams', 'controls', 'settings'], settings: ['quality', 'autoSubs', 'camera', 'difficulty'] });
 
-// size: the mode chosen: 3 for 3 on 3, 5 for 5 on 5.
-export const createMenu = () => ({ panel: 'main', row: 0, autoSubs: true, size: 3, from: 0 });
+// size: the mode chosen: 3 for 3 on 3, 5 for 5 on 5. difficulty: the level chosen, one of DIFFICULTY.order.
+export const createMenu = () => ({ panel: 'main', row: 0, autoSubs: true, size: 3, difficulty: 'allstar', from: 0 });
 
 export const menuRows = menu => MENU[menu.panel] ?? [];
 
-// One key on the menu. Returns 'play' or 'quality' when the page has something to do, else null.
+// One key on the menu. Returns 'play', 'quality' or 'camera' when the page has something to do, else null.
 export function menuKey(menu, code) {
   const rows = menuRows(menu);
   if (code === 'ArrowDown' || code === 'KeyS') { if (rows.length) menu.row = (menu.row + 1) % rows.length; }
@@ -18,8 +19,9 @@ export function menuKey(menu, code) {
       if (choice === 'play') return 'play';
       if (choice === 'mode') { menu.size = menu.size === 3 ? 5 : 3; return null; }
       menu.from = menu.row; menu.panel = choice; menu.row = 0;
-    } else if (choice === 'quality') return 'quality';
+    } else if (choice === 'quality' || choice === 'camera') return choice;
     else if (choice === 'autoSubs') menu.autoSubs = !menu.autoSubs;
+    else if (choice === 'difficulty') menu.difficulty = nextDifficulty(menu.difficulty);
   } else if ((code === 'Escape' || code === 'Backspace') && menu.panel !== 'main') {
     menu.panel = 'main'; menu.row = menu.from;
   }
@@ -40,5 +42,6 @@ export function startFromMenu(game, keyboard, newMatch) {
   if (game.state.phase === 'final' || game.state.size !== game.menu.size) game.state = newMatch(game.menu.size);
   startMatch(game.state);
   game.state.autoSubs[0] = game.menu.autoSubs;
+  game.state.difficulty = game.menu.difficulty;
   keyboard.drop();   // a key still held stays unseen in the match, through the jump ball, until it is let go
 }

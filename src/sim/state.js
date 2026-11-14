@@ -69,6 +69,7 @@ export function createMatch(seed = 1, size = 3) {
   if (size !== 5) size = 3;
   const state = {
     size,
+    difficulty: 'allstar',   // one of DIFFICULTY.order
     seed, time: 0,
     phase: 'start', phaseT: 0,
     quarter: 1, gameClock: CLOCK.quarter, shotClock: CLOCK.shot,
