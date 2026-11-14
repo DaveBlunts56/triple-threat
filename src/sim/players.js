@@ -1,4 +1,4 @@
-import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FOUL, PASS, PLAYER, RIM, SHOT, STAMINA, STEAL, THREE_PT } from './tuning.js';
+import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FOUL, PASS, PLAYER, RIM, SHOT, STAMINA, STEAL, THREE_PT, levelOf } from './tuning.js';
 import { attackSign, onFloor as grounded, personOf, rand } from './state.js';
 import { shotFactor, speedFactor, spend } from './stamina.js';
 import { rimCentre, solveShot, stepBall } from './ball.js';
@@ -124,9 +124,9 @@ function letGo(state, player, mode) {
 
 // How much of a shot's chance its timing keeps, `t` seconds after the press: all of it at the best moment,
 // falling in a straight line to the worst at the press and at the landing.
-export function shotTiming(t) {
+export function shotTiming(t, worst = SHOT.worstTiming) {
   const off = t < SHOT_BEST ? (SHOT_BEST - t) / SHOT_BEST : (t - SHOT_BEST) / (SHOT_LANDS - SHOT_BEST);
-  return 1 - (1 - SHOT.worstTiming) * Math.min(1, off);
+  return 1 - (1 - worst) * Math.min(1, off);
 }
 
 // The share of a shot's chance the nearest defender leaves it: half with him on the shooter, all of it from
@@ -142,7 +142,8 @@ export function contest(state, player) {
 export function makeChance(state, player) {
   const hoop = rimCentre(attackSign(player.team));
   const byDistance = Math.max(SHOT.minChance, SHOT.nearChance + (SHOT.farChance - SHOT.nearChance) * (dist(player, hoop) / SHOT.farDist));
-  return byDistance * shotTiming(player.shotT) * contest(state, player) * shotFactor(personOf(state, player).energy);
+  const timing = shotTiming(player.shotT, player.team === 0 ? levelOf(state).timing : SHOT.worstTiming);   // a bad release costs you what the level says
+  return byDistance * timing * contest(state, player) * shotFactor(personOf(state, player).energy);
 }
 
 // Behind the backboard of the hoop he attacks, with the board between him and the rim.
@@ -162,7 +163,7 @@ export function shotWindow(state, player) {
   const { name, steps } = SHOT.levels.find(level => level.above <= guarded);
   return {
     best: SHOT_BEST,
-    half: steps * DT * range * shotFactor(personOf(state, player).energy),
+    half: steps * DT * range * shotFactor(personOf(state, player).energy) * (player.team === 0 ? levelOf(state).green : 1),   // your window is the level's
     level: name,
     inRange: range > 0 && !boardInWay(player),
   };
@@ -363,6 +364,10 @@ export function applyActions(state, intents, dt) {
         if (attempt && !attempt.won) report.stealMisses.push({ by: p.id, on: victim, front: attempt.front });
       }
       const holder = state.players[ball.holder];
+      // A foul on purpose: he grabs a ball handler he can reach, and the whistle goes.
+      if (pressed('foul') && holder && holder.team !== p.team && !holder.inbounder && dist(p, holder) <= STEAL.reach) {
+        report.stealMisses.push({ by: p.id, on: holder.id, front: true, sure: true });
+      }
       // Not while your own team's pass is in the air: the pass key is also the switch key,
       // and control has just moved to the receiver.
       const ownPass = ball.mode === 'pass' && state.lastTouch === 0;

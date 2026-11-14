@@ -1,4 +1,4 @@
-import { CLOCK, COURT, PASS, PLAYER, STAMINA, TIP, VIOLATION } from './tuning.js';
+import { CLOCK, COURT, PASS, PLAYER, STAMINA, TIMEOUT, TIP, VIOLATION } from './tuning.js';
 import { addPoints, attackSign, isJumper, lineUp, onFloor, personOf, rand } from './state.js';
 import { jump } from './players.js';
 import { inNet } from './ball.js';
@@ -154,10 +154,28 @@ function tipOff(state, events, dt, intents) {
   } else if (events.hitFloor) state.phase = 'live';   // nobody got to it
 }
 
+// `team` calls a timeout, if it has one and may: it has the ball in live play, or play is stopped (but not for free
+// throws being shot). Play stops, everyone gets some energy back, and the ball stays whose it was. Returns whether
+// the timeout was given.
+export function callTimeout(state, team) {
+  const holder = state.players[state.ball.holder];
+  const live = state.phase === 'live' && holder?.team === team && !holder.shooting && onFloor(holder);
+  if (state.timeouts[team] <= 0 || !(live || state.phase === 'dead' || state.phase === 'inbound')) return false;
+  state.timeouts[team]--;
+  state.lastTimeout = state.time;
+  for (const person of state.rosters.flat()) person.energy = Math.min(1, person.energy + TIMEOUT.rest);
+  const call = { kind: 'timeout', team, ball: state.possession, number: null, shots: 0 };
+  if (live) stopPlay(state, state.possession, sidelineSpot(state.ball), call);
+  else { deadBall(state); state.call = call; state.phase = 'dead'; }
+  if (state.phase === 'dead') state.phaseT = CLOCK.timeout;
+  return true;
+}
+
 export function startMatch(state) {
   state.quarter = 1;
   state.score = [0, 0];
   state.byQuarter = [[], []];
+  state.timeouts = [TIMEOUT.each, TIMEOUT.each];
   beginPeriod(state);
 }
 

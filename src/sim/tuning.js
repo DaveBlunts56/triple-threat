@@ -46,7 +46,7 @@ export const PASS = f({ speed: 14, noPickup: 0.3, height: 1.3, clearTime: 0.1, i
 export const STEAL = f({ reach: 1.2, frontChance: 0.25, backChance: 0.08, cooldown: 1, frontArc: 120, heldFactor: 0.4 });   // heldFactor: steal chance multiplier against a picked-up ball
 export const BLOCK = f({ reach: 1.2, minHeight: 0.3, chance: 0.36, cone: 45, deflect: 4 });
 
-export const CLOCK = f({ quarters: 4, quarter: 180, overtime: 60, shot: 24, shotAfterFoul: 14, dead: 1.5, quarterBreak: 2 });
+export const CLOCK = f({ quarters: 4, quarter: 180, overtime: 60, shot: 24, shotAfterFoul: 14, dead: 1.5, quarterBreak: 2, timeout: 3 });
 
 export const AI = f({
   interval: 0.3, openDist: 1.8, shootRange: 7.5, laneWidth: 1.07, panicClock: 4,
@@ -66,6 +66,11 @@ export const AI = f({
   holdTime: 0.5,          // seconds a player keeps the ball after getting it before shooting or passing
   pickupX: 4,             // defenders wait this far inside their own half for an opponent still up the court
   hurryAt: 5,             // seconds in the back court after which the handler stops looking for a pass and brings the ball up
+  helpFrom: 8,            // a handler with a clear lane this near the hoop draws a helper
+  helpAt: 1.6,            // metres in front of the rim the helper stands
+  helpFor: 1,             // seconds he stays once he has come
+  adaptAfter: 4,          // baskets you must have made before the computer's defence changes for them
+  vary: 0.3,              // how often a pass goes to an open man other than the one nearest the hoop
   lowSpotZ: 3.2,          // the low spacing spot sits this far from the middle, clear of the key
   // Where five stand: [metres from centre court toward the hoop they attack, z], in order round the arc: a corner,
   // a wing, the top of the key, the other wing and the low post. swapEvery5: seconds between turns in five a side:
@@ -84,11 +89,38 @@ export const AI = f({
 // man the play is for a defender must be to stop it being thrown: less than for other passes.
 export const PLAY = f({ wait: 1.5, minClock: 9, startX: 1.5, screenGap: 0.66, setDist: 0.9, useBy: 1.6, cut: 4.5, ripeBy: 4, roll: 1.7, feedWidth: 0.65 });
 
-// The difficulty levels, easiest first, and what the menus call them.
+// The difficulty levels, easiest first, what the menus call them, and what each changes. For you (team 0): green: how
+// wide the green window of your shots is, against All-Star's; sweep: how fast the free-throw meter moves; timing:
+// the share of a shot's chance a badly timed release keeps (SHOT.worstTiming at All-Star). For the computer's team
+// (team 1): jitter: seconds either side of the best moment its shots are let go; interval: seconds between its
+// players' decisions; steal: how often it reaches for the ball, against All-Star; adapt: how far it changes its
+// defence to what you score with, from 0 (not at all) to 1.
 export const DIFFICULTY = f({
   order: f(['rookie', 'starter', 'allstar', 'superstar', 'legend']),
   label: f({ rookie: 'Rookie', starter: 'Starter', allstar: 'All-Star', superstar: 'Superstar', legend: 'Legend' }),
+  levels: f({
+    rookie: f({ green: 2, sweep: 0.6, timing: 0.8, jitter: 0.3, interval: 0.45, steal: 0.5, adapt: 0 }),
+    starter: f({ green: 1.5, sweep: 0.8, timing: 0.7, jitter: 0.22, interval: 0.36, steal: 0.75, adapt: 0.3 }),
+    allstar: f({ green: 1, sweep: 1, timing: 0.6, jitter: 0.16, interval: 0.3, steal: 1, adapt: 0.6 }),
+    superstar: f({ green: 0.75, sweep: 1.25, timing: 0.5, jitter: 0.11, interval: 0.25, steal: 1.25, adapt: 0.85 }),
+    legend: f({ green: 0.5, sweep: 1.5, timing: 0.4, jitter: 0.07, interval: 0.2, steal: 1.5, adapt: 1 }),
+  }),
 });
+// What the match's level changes: see DIFFICULTY.levels.
+export const levelOf = state => DIFFICULTY.levels[state.difficulty] ?? DIFFICULTY.levels.allstar;
+
+// The end of a period and of a game. closing: the last seconds of the game in which everyone hustles, if it is close.
+// hurry: the last seconds in which the team behind shoots early and the team ahead uses the clock. close: a lead of
+// this many points or fewer is within reach. foulUnder, foulOver: the team behind fouls on purpose with this much left,
+// and no longer with less than the second. hurryClock: the shot clock at which a team in a hurry shoots. milkClock:
+// the shot clock a team ahead waits for. heave: with less than this left a player far from the hoop throws it up
+// rather than run nearer. pressGap: metres an on-ball defender stands off when pressing. run: unanswered points that
+// make a coach call a timeout. tired: his five's mean energy below which he calls one.
+export const LATE = f({ closing: 60, hurry: 45, close: 8, foulUnder: 24, foulOver: 1.5, hurryClock: 12, milkClock: 6, heave: 1.3, pressGap: 1, run: 8, tired: 0.4 });
+
+// Timeouts. each: how many a team has in a match. rest: the energy everyone gets back. apart: seconds a coach
+// leaves between two of his own. (How long one lasts is CLOCK.timeout.)
+export const TIMEOUT = f({ each: 3, rest: 0.3, apart: 20 });
 // The level after `level`, going round from the hardest to the easiest.
 export const nextDifficulty = level => DIFFICULTY.order[(DIFFICULTY.order.indexOf(level) + 1) % DIFFICULTY.order.length];
 

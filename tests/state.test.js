@@ -37,7 +37,7 @@ test('attackSign', () => {
 });
 
 test('emptyIntent is all zeros and falses', () => {
-  assert.deepEqual(emptyIntent(), { moveX: 0, moveZ: 0, sprint: false, shoot: false, pass: false, steal: false, switch: false, hold: false });
+  assert.deepEqual(emptyIntent(), { moveX: 0, moveZ: 0, sprint: false, shoot: false, pass: false, steal: false, switch: false, hold: false, foul: false });
 });
 
 test('each team has eight people, three of them on court in three a side and five in five a side', () => {

@@ -164,7 +164,7 @@ function cast(state, holder) {
 function ready(state, team) {
   const holder = state.players[state.ball.holder];
   return state.phase === 'live' && holder?.team === team && !holder.inbounder && !holder.shooting && onFloor(holder)
-    && attackSign(team) * holder.x > PLAY.startX && state.shotClock > PLAY.minClock;
+    && attackSign(team) * holder.x > PLAY.startX && Math.min(state.shotClock, state.gameClock) > PLAY.minClock;
 }
 
 function start(state, team, key) {

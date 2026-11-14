@@ -34,6 +34,7 @@ export function createKeyboard(target) {
       steal: on('KeyQ'),
       switch: on('KeyE'),
       hold: on('KeyF'),
+      foul: false,   // only the computer fouls on purpose
     }),
     // Forgets every key held now, or only those of `codes` that are: each stays unseen, auto-repeats too, until it is
     // let go. Keys not held are unaffected.

@@ -1,10 +1,11 @@
-import { AI, BALL, COURT, DT, FT, PASS, PLAY, PLAYER, SHOT, STEAL, TIP } from './tuning.js';
+import { AI, BALL, COURT, DT, FT, LATE, PASS, PLAY, PLAYER, SHOT, STEAL, TIP, levelOf } from './tuning.js';
 import { SHOT_BEST, SHOT_LANDS } from './players.js';
 import { ftChance } from './freethrow.js';
 import { attackSign, emptyIntent, isJumper, onFloor, rand } from './state.js';
 import { rimCentre } from './ball.js';
 import { manOf } from './matchups.js';
 import { playHolds, playSpot, playTarget } from './plays.js';
+import { situation } from './late.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const nearestTo = (list, point) => list.reduce((a, b) => (dist(b, point) < dist(a, point) ? b : a));
@@ -68,17 +69,26 @@ function planWithBall(state, p) {
   const toHoop = dist(p, hoop);
   // Behind the backboard there is no shot: come back out in front of the rim first.
   if (sign * (p.x - hoop.x) > 0 && state.shotClock >= AI.panicClock) return goTo(ai, { x: hoop.x - sign * AI.layupDist, z: p.z / 2 }, true);
+  const sit = situation(state, p.team);
   const shoot = () => {
     ai.action = 'shoot';
-    const at = SHOT_BEST + (rand(state) * 2 - 1) * AI.releaseJitter;
+    const at = SHOT_BEST + (rand(state) * 2 - 1) * (p.team === 1 ? levelOf(state).jitter : AI.releaseJitter);   // the computer's team times its shots as the level says
     ai.releaseAt = Math.min(Math.max(at, SHOT.gather + DT), SHOT_LANDS - 3 * DT);   // in the air, and clear of the landing
   };
-  if (state.shotClock < AI.panicClock) return shoot();
+  // Out of time on the shot clock: he shoots. A team behind late in the game does not wait that long.
+  if (state.shotClock < (sit.hurry ? LATE.hurryClock : AI.panicClock)) return shoot();
+  // The period is running out: he shoots before it does, running nearer first if he is far out and there is time.
+  if (state.gameClock < AI.panicClock) {
+    if (toHoop > AI.shootRange && state.gameClock > LATE.heave) return goTo(ai, { x: hoop.x - sign * AI.layupDist, z: p.z / 2 }, true);
+    return shoot();
+  }
   const settled = ai.heldT >= AI.holdTime;   // just caught it: gather before shooting or passing
   if (settled && toHoop < AI.layupDist) return shoot();
   // Nobody between him and the hoop: take it all the way in, don't pull up for a jump shot.
   if (laneClear(state, p)) return goTo(ai, { x: sign * AI.driveX, z: 0 }, true);
-  const waits = playHolds(state, p);   // his play has not formed yet: he keeps the ball rather than shoot from outside or pass
+  // His play has not formed yet: he keeps the ball rather than shoot from outside or pass. So does a team ahead late
+  // in the game, until the shot clock is nearly out. A team behind late waits for nothing.
+  const waits = !sit.hurry && (playHolds(state, p) || (sit.milk && state.shotClock > LATE.milkClock));
   if (settled && !waits && isOpen(state, p) && toHoop <= AI.shootRange) return shoot();
 
   // Running out of time to cross half court: stop looking for a pass and bring it up.
@@ -93,7 +103,8 @@ function planWithBall(state, p) {
   // The man the play is for gets the ball if it can reach him, open or not: a post man is fed with his defender on him.
   const wanted = playTarget(state, p);
   if (settled && !waits && wanted && dist(wanted, p) <= AI.passRange && laneClear(state, p, wanted, untouchable, PLAY.feedWidth)) passTo(ai, p, wanted);
-  else if (settled && !waits && open.length) passTo(ai, p, nearestTo(open, hoop));
+  // Usually to the open man nearest the hoop, sometimes to another, so that he is not read.
+  else if (settled && !waits && open.length) passTo(ai, p, open.length > 1 && rand(state) < AI.vary ? open[Math.floor(rand(state) * open.length)] : nearestTo(open, hoop));
   // Nothing on: in three a side he takes the ball to the top; in five a side that is a team-mate's place, so he keeps his own.
   // In a play he takes it where the play says.
   else goTo(ai, playSpot(state, p) ?? (state.size === 5 ? spotOf(state, p) : { x: sign * AI.topX, z: 0 }));
@@ -145,28 +156,60 @@ function planOffBall(state, p) {
     return goTo(ai, help, true);
   }
   const spot = playSpot(state, p) ?? spotOf(state, p);   // his part in the play, or his place in the motion
-  goTo(ai, spot, spot.sprint || dist(p, spot) > AI.farAway);
+  goTo(ai, spot, spot.sprint || situation(state, p.team).hustle || dist(p, spot) > AI.farAway);
+}
+
+// How the computer's team stands off you for what you have scored with: tighter on a team making threes, and off
+// the ball looser on one scoring inside. Only team 1 adapts, by as much as the level says.
+function adapted(state, p, hasBall) {
+  const [twos, threes] = state.made[0], made = twos + threes, { adapt } = levelOf(state);
+  if (p.team !== 1 || made < AI.adaptAfter) return 1;
+  const share = threes / made;
+  return share >= 0.45 ? 1 - 0.3 * adapt : share <= 0.2 && !hasBall ? 1 + 0.35 * adapt : 1;
+}
+
+// Whether `p` should leave his man to help: the ball handler, who is not his man, has a clear lane and is near the
+// hoop, and of the defenders off the ball `p` is the nearest to the hoop. Once he has come he stays a moment.
+function helps(state, p, man, hoop) {
+  const holder = state.players[state.ball.holder];
+  if (!holder || holder.team === p.team || holder === man || holder.inbounder || state.phase !== 'live') return false;
+  if (state.time < (p.ai.helpUntil ?? 0) && dist(holder, hoop) <= AI.helpFrom) return true;
+  if (dist(holder, hoop) > AI.helpFrom || !laneClear(state, holder)) return false;
+  const off = state.players.filter(m => m.team === p.team && manOf(state, m) !== holder);
+  if (nearestTo(off, hoop) !== p) return false;
+  p.ai.helpUntil = state.time + AI.helpFor;
+  return true;
 }
 
 function planDefence(state, p) {
-  const { ai } = p;
+  const { ai } = p, sit = situation(state, p.team);
   const man = manOf(state, p);
   const hoop = rimCentre(-attackSign(p.team));   // the hoop this player defends
   const hasBall = state.ball.holder === man.id;
-  const gap = hasBall ? AI.onBallGap : AI.offBallGap;
+  const gap = (hasBall ? (sit.press ? LATE.pressGap : AI.onBallGap) : AI.offBallGap) * adapted(state, p, hasBall);
   const d = dist(hoop, man) || 1;
   let guard = { x: man.x + ((hoop.x - man.x) / d) * gap, z: man.z + ((hoop.z - man.z) / d) * gap };
-  // No full-court press: while their man is still up the court, wait for him on the pick-up line, between him and the hoop.
+  // No full-court press: while their man is still up the court, wait for him on the pick-up line, between him and the
+  // hoop. A team behind late in the game does press.
   const line = Math.sign(hoop.x) * AI.pickupX;
-  if (Math.abs(hoop.x - guard.x) > Math.abs(hoop.x - line)) {
+  if (!sit.press && Math.abs(hoop.x - guard.x) > Math.abs(hoop.x - line)) {
     const u = (line - man.x) / (hoop.x - man.x);
     guard = { x: line, z: man.z + (hoop.z - man.z) * u };
   }
-  goTo(ai, guard, dist(p, guard) > AI.farAway);
+  // Help: he steps in front of the rim, on the handler's way to it.
+  const holder = state.players[state.ball.holder];
+  if (helps(state, p, man, hoop)) {
+    const far = dist(holder, hoop) || 1;
+    guard = { x: hoop.x + ((holder.x - hoop.x) / far) * AI.helpAt, z: hoop.z + ((holder.z - hoop.z) / far) * AI.helpAt };
+  }
+  // To foul on purpose he goes straight at the ball.
+  if (sit.foul && hasBall && !man.inbounder) guard = { x: man.x, z: man.z };
+  goTo(ai, guard, sit.hustle || sit.press || dist(p, guard) > AI.farAway);
 
   // A gather does not draw him off the floor: he goes up when his man does.
   if (shotJump(man) && dist(p, man) < AI.contestDist) ai.action = 'jump';
-  else if (hasBall && !man.inbounder && p.stealCooldown <= 0 && dist(p, man) <= STEAL.reach && rand(state) < AI.stealRate) ai.action = 'steal';
+  else if (sit.foul && state.phase === 'live' && holder && holder.team !== p.team && !holder.inbounder && dist(p, holder) <= STEAL.reach) ai.action = 'foul';
+  else if (hasBall && !man.inbounder && p.stealCooldown <= 0 && dist(p, man) <= STEAL.reach && rand(state) < AI.stealRate * (p.team === 1 ? levelOf(state).steal : 1)) ai.action = 'steal';
 }
 
 function plan(state, p) {
@@ -205,6 +248,9 @@ function act(state, p) {
     ai.action = null;
   } else if (ai.action === 'steal') {
     intent.steal = true;
+    ai.action = null;
+  } else if (ai.action === 'foul') {
+    intent.foul = !p.prev.foul;
     ai.action = null;
   }
   return intent;
@@ -245,7 +291,7 @@ export function aiIntents(state, dt) {
     p.ai.had = has;
     if (p.ai.timer <= 0) {
       plan(state, p);
-      p.ai.timer = AI.interval + rand(state) * AI.jitter;
+      p.ai.timer = (p.team === 1 ? levelOf(state).interval : AI.interval) + rand(state) * AI.jitter;   // the computer's team thinks as fast as the level says
     }
     return act(state, p);
   });

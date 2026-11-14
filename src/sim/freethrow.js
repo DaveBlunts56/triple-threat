@@ -1,4 +1,4 @@
-import { CLOCK, COURT, FT, PLAYER } from './tuning.js';
+import { CLOCK, COURT, FT, PLAYER, levelOf } from './tuning.js';
 import { addPoints, attackSign, personOf, rand } from './state.js';
 import { rimCentre } from './ball.js';
 import { carryBall, giveBall, launchShot } from './players.js';
@@ -51,7 +51,7 @@ export function stepFreeThrow(state, intents, events, dt) {
       : shooter.team === 1 && ft.t >= FT.aiDelay ? FT.aiChance
       : ft.t >= FT.limit ? 0 : null;
     if (chance === null) {
-      ft.meter += ft.dir * FT.sweep * dt;
+      ft.meter += ft.dir * FT.sweep * (shooter.team === 0 ? levelOf(state).sweep : 1) * dt;   // your meter moves at the level's speed
       if (ft.meter >= 1) { ft.meter = 2 - ft.meter; ft.dir = -1; }
       else if (ft.meter <= 0) { ft.meter = -ft.meter; ft.dir = 1; }
       return null;

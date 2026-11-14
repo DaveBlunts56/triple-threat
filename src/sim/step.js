@@ -1,6 +1,7 @@
 import { movePlayers, applyActions, carryBall } from './players.js';
 import { stepBall } from './ball.js';
-import { applyRules } from './rules.js';
+import { applyRules, callTimeout } from './rules.js';
+import { wantsTimeout } from './late.js';
 import { tire } from './stamina.js';
 import { emptyEvents, emptyIntent } from './state.js';
 import { screenSwitches } from './matchups.js';
@@ -35,5 +36,6 @@ export function step(state, intents, dt) {
 
   applyRules(state, stopped ? emptyEvents() : events, dt, intents);
   stepPlays(state, dt);
+  if (wantsTimeout(state, 1)) callTimeout(state, 1);   // the computer's coach; your timeouts are yours to call
   state.time += dt;
 }

@@ -1,4 +1,4 @@
-import { BALL, CLOCK, LINEUP, ROSTER, TIP } from './tuning.js';
+import { BALL, CLOCK, LINEUP, ROSTER, TIMEOUT, TIP } from './tuning.js';
 
 // The last word of a person's name.
 export const surname = person => person.name.split(' ').pop();
@@ -8,7 +8,8 @@ export const attackSign = team => (team === 0 ? 1 : -1);
 // Standing on the floor, not in the middle of a jump.
 export const onFloor = p => p.y === 0 && p.vy === 0;
 
-export const emptyIntent = () => ({ moveX: 0, moveZ: 0, sprint: false, shoot: false, pass: false, steal: false, switch: false, hold: false });
+// foul: reach in to foul the ball handler on purpose (only the computer does).
+export const emptyIntent = () => ({ moveX: 0, moveZ: 0, sprint: false, shoot: false, pass: false, steal: false, switch: false, hold: false, foul: false });
 
 // What happened in one step, reported to the rules.
 export const emptyEvents = () => ({ hitFloor: false, hitRim: false, hitBoard: false, scored: 0,
@@ -20,6 +21,8 @@ export function addPoints(state, team, points) {
   while (periods.length < state.quarter) periods.push(0);
   periods[state.quarter - 1] += points;
   state.score[team] += points;
+  state.run[team] += points; state.run[1 - team] = 0;
+  if (points > 1) state.made[team][points - 2]++;
 }
 
 // The roster entry a court player currently is.
@@ -81,6 +84,9 @@ export function createMatch(seed = 1, size = 3) {
     rosters: ROSTER.numbers.map((team, t) => team.map((number, row) => ({ number, name: ROSTER.names[t][row], position: ROSTER.positions[row], energy: 1, fouls: 0, manual: false }))),
     subQueue: [], autoSubs: [true, true], teamFouls: [0, 0],
     call: null, freeThrow: null, pendingFoul: null, tipWinner: null,
+    timeouts: [TIMEOUT.each, TIMEOUT.each], lastTimeout: -Infinity,   // each team's timeouts left; when the last was called
+    run: [0, 0],              // each team's points since the other last scored
+    made: [[0, 0], [0, 0]],   // each team's baskets from the floor: [twos, threes]
     plays: [null, null],      // the play each team is running (see plays.js), or null
     playCall: [null, null],   // the play asked for and not yet started, by its key
     playWait: [0, 0],         // seconds until each team's coach may call another

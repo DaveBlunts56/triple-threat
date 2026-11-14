@@ -153,7 +153,7 @@ test('the corner label names the quality level between the renderer and the fram
 
 test('the controls line says which keys change the quality and the camera and open the play list', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  assert.match(html.match(/<div id="controls">([^<]*)<\/div>/)[1], /· G quality · C camera · T plays$/);
+  assert.match(html.match(/<div id="controls">([^<]*)<\/div>/)[1], /· G quality · C camera · T plays · Z timeout$/);
 });
 
 test('the frame-rate readout follows the time frames really take, not the average of their rates', () => {

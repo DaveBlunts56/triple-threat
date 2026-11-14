@@ -1,5 +1,6 @@
 import { attackSign, createMatch } from './sim/state.js';
 import { step } from './sim/step.js';
+import { callTimeout } from './sim/rules.js';
 import { aiIntents } from './sim/ai.js';
 import { DT } from './sim/tuning.js';
 import { createScene } from './render/scene.js';
@@ -80,6 +81,7 @@ if (view) {
       return;
     }
     if (!e.repeat && inPlay(game.state) && playListKey(game, e.code)) { e.preventDefault(); return; }   // the play list, open over the match
+    if (e.code === 'KeyZ' && !e.repeat && inPlay(game.state)) callTimeout(game.state, 0);   // a timeout, when the rules allow one
     if (e.code === 'Escape' && !e.repeat) pause(true);
     if (e.code === 'Enter' && game.state.phase === 'final') play();
   });

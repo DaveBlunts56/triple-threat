@@ -26,11 +26,13 @@ const CALLS = {
   eightSeconds: '8 seconds', threeSeconds: '3 seconds', fiveSeconds: '5 seconds',
   shotClock: 'Shot clock violation', out: 'Out of bounds',
   reach: 'Reach-in foul', block: 'Blocking foul', shooting: 'Shooting foul', charge: 'Charge',
+  timeout: 'Timeout',
 };
 const SHOTS = ['', 'One shot', 'Two shots', 'Three shots'];
 
 // The whistle as a sentence: what was called, on whom, and what follows. You are team 0.
 export function callText(call) {
+  if (call.kind === 'timeout') return `Timeout, ${ROSTER.teams[call.team]}. ${call.ball === 0 ? 'Your ball' : "Opponent's ball"}`;
   const who = call.name ? `${surname(call)} (${call.number})` : call.number;
   const what = CALLS[call.kind] + (call.number === null ? '' : ` on ${who}`);
   return `${what}. ${call.shots ? SHOTS[call.shots] : call.ball === 0 ? 'Your ball' : "Opponent's ball"}`;
@@ -201,6 +203,7 @@ export function createHud(doc) {
           if (extra) set(`pbOt${team}`, String(periods.slice(CLOCK.quarters).reduce((sum, points) => sum + points, 0)));
           set(`pbTotal${team}`, String(state.score[team]));
           set(`pbFouls${team}`, String(state.teamFouls[team]));
+          set(`pbTimeouts${team}`, String(state.timeouts[team]));
         }
         set('pbPeriod', periodWord(state.quarter));
         set('pbClock', clockText(state.gameClock));
