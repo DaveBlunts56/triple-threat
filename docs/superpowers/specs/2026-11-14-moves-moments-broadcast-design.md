@@ -1,13 +1,13 @@
 # Player moves, big moments, broadcast feel and sound: design
 
-Date: 2026-11-14. Status: the four pieces and four choices were settled in conversation by the owner (a key for each move, with friendly keys; the owner downloads the motion clips; commentary as captions and a voice; replays after big moments; sound from real recordings). The detail below (which keys, what each move does, which moments count, the numbers) is mine and awaits their read.
+Date: 2026-11-14. Status: the four pieces and four choices were settled in conversation by the owner (a key for each move, with friendly keys; the owner downloads the motion clips; commentary as captions and a voice; replays after big moments; sound from real recordings). On reading the first draft the owner added two things: a setting in both menus to change the keys, and the game remembering its settings for the next time (sections 7 and 8). The detail below (which keys, what each move does, which moments count, the numbers) is mine and awaits their read.
 
 This is the rest of the answer to "barely flavor". Players who differ and off-ball life are built. Here are the other three things the owner named as missing (player moves, big moments, broadcast feel) and sound.
 
 ## What stays as it is
 
 - The rules, the cameras, the plays, the difficulty levels, the ratings, the scorebug's look.
-- Every key in use today keeps its meaning.
+- Every key in use today keeps its meaning, until you change it (section 7).
 - One HTML file. The sounds and the new motions go inside it.
 - The match itself is decided by the same code whether or not captions, replays or sound are on: all three only watch.
 
@@ -153,17 +153,52 @@ Real recordings, all CC0, converted to small files and put inside the one HTML f
 | Crowd boo | A foul called on the home team. |
 | Crowd noise for free throws | A visitor at the line, with the sticks and the shaking picture that are there now. |
 
-- **Where they come from.** Collections that state CC0 for each file and let it be downloaded without an account. I will not use a sound whose page does not say CC0.
+- **Where they come from.** Three collections that state CC0 on each sound's own page: BigSoundBank, Wikimedia Commons and Freesound. I will not use a sound whose page does not say CC0. Freesound gives its original files only to signed-in users; from there I take the file its page plays to everyone, a smaller MP3 of the same recording, unless you would rather download the originals yourself with a free account.
 - **Your go-ahead.** The plan will list every file: its name, the page it is on, its size and its licence line. Saying "Yes, build it" to that plan is the go-ahead to download exactly those files and no others. If one is gone or not what it says when I fetch it, I stop and ask.
 - Each is listed in `assets/CREDITS.md`. The downloaded originals stay out of the repository; the small converted files are in it.
 - **Settings row "Sound":** Full, Quiet, Off. Sound starts with your first key press, as browsers require.
 - No music.
 
+## 7. Changing the keys
+
+Both Settings panels (the start menu's and the pause menu's) get a row **Keys**, which opens a list of everything a key does, each with its key:
+
+| | |
+|---|---|
+| Move up, left, down, right | W, A, S, D |
+| Sprint | Shift |
+| Shoot / jump | Space |
+| Pass / switch player | E |
+| Steal | Q |
+| Hold the ball | F |
+| Crossover, Between the legs, Behind the back, Step-back, Post fade | J, K, L, I, U |
+| Plays | T |
+| Timeout | Z |
+| Camera | C |
+| Quality | G |
+
+- Choose a row, press Enter, then press the key you want. Escape leaves it as it was.
+- **A key that already does something else changes places** with the one you are setting, so nothing is ever left without a key and no key does two things.
+- Both Shift keys count as one. Any letter, digit, punctuation key, Space, Shift, Tab or arrow key can be used. Ctrl and Alt cannot: with a letter they are the browser's own shortcuts (Ctrl and W closes the tab).
+- **Not changeable:** Escape (pause, back), Enter, and the keys that move through the menus (the arrows, W and S, Enter and Space there). The numbers still call a play while the play list is open and still pick players in Substitutions, whatever else they have been given.
+- The last row, **Reset all keys**, puts every key back as in the table.
+- The Controls panels and the line of keys under the court show the keys as they are now.
+
+## 8. What the game remembers
+
+The game keeps your settings in the browser and starts with them the next time: **difficulty, quality, camera**, the mode (3 on 3 or 5 on 5), quarter length, automatic substitutions, commentary, replays, sound, and your keys.
+
+- They are saved the moment you change one, in either menu or with its key (G, C).
+- **Quality:** a level you chose is kept, and the game then leaves it alone. A level the game lowered to by itself on a slow frame rate is not kept: the next time it starts high and finds its level again.
+- Nothing about a match is saved: no score, no statistics.
+- They are kept for this copy of the file in this browser. A different browser, a private window, or clearing the browser's data starts from the defaults. If the browser will not keep anything for the file (some do not for a file opened from Google Drive), the game plays as now and simply starts from the defaults each time. I cannot test the Chromebook from here.
+- A saved value the game no longer understands is ignored, one setting at a time.
+
 ## How it is built
 
 One plan, four stages, a build sent after each so the owner can play as it goes:
 
-1. **Moves** (sections 1 and 2), with hand-made motions; downloaded clips are taken in whenever they arrive.
+1. **Moves, the Keys panel and remembered settings** (sections 1, 2, 7 and 8), with hand-made motions; downloaded clips are taken in whenever they arrive.
 2. **Statistics, big moments and broadcast** (sections 3 and 4).
 3. **Replays** (section 5).
 4. **Sound** (section 6).
@@ -179,23 +214,26 @@ One plan, four stages, a build sent after each so the owner can play as it goes:
 - Commentary: every kind of event has a line; names are filled in; the same wording is not used twice running; a small line is dropped while a line is being spoken, a big one cuts in; with the row at Off nothing is shown or spoken.
 - Replays: one is queued by a ★ moment and shown at the next stop; the frames shown are the frames that were recorded; a key skips it; the match is the same, step for step, with replays on and off.
 - Sound: each event asks for its sound once; the crowd's loudness follows the score and the clock; with the row at Off nothing is asked for.
+- Keys: every action has a key; setting a key in use swaps the two; Escape cancels; Escape and Enter cannot be given away; Reset puts all back; the match reads the keys as they are now; the Controls panel and the hint line show them.
+- Remembered settings: each setting changed is written at once and read back at the start; a quality the game chose itself is not written; a broken or unknown saved value is ignored and the rest still apply; with no storage at all the game starts and plays.
 - Whole matches by the computer against itself, three a side and five, from several seeds, with moves on: they finish; the scoring and the pace stay within a tenth of today's (five a side: about 52 points and 13.6 seconds a possession); steals do not rise by more than a tenth.
 - The motion build with no new clips, and with any that are there: the eight existing motions come out unchanged.
 
 ## What is checked by eye, and by the owner
 
 - By me: stills of each move's motion, each panel, a lower third, a caption, a banner, a replay frame; that the single file plays its sounds in the browser here.
-- By the owner: whether the keys sit well under the hand; whether the moves feel useful or too strong; whether the commentary is welcome or tiresome; whether the voice is bearable on the Chromebook; whether replays come too often; how loud the crowd should be.
+- By the owner: whether the settings come back on the Chromebook; whether the keys sit well under the hand; whether the moves feel useful or too strong; whether the commentary is welcome or tiresome; whether the voice is bearable on the Chromebook; whether replays come too often; how loud the crowd should be.
 
 ## Not in this piece
 
 - Dunks, lay-up packages, alley-oops, spin moves, hesitations, pump fakes, post back-downs. The five moves are the start the owner asked for.
-- Changing which keys do what from inside the game.
 - Recorded commentary, a second commentator, music, players' voices.
 - Saved replays, a replay you can steer, highlights at half-time.
 - Season statistics: a match's numbers are gone when it ends.
 
 ## Risks
+
+- **Remembering on the Chromebook.** A file opened from Google Drive may not be allowed to keep anything. Then nothing is remembered there, and nothing else breaks.
 
 - **Moves too strong.** A move that always beats a defender makes every possession the same. How late a defender is rests on the two ratings, and the computer's defenders give a good handler a step more room already. Scoring and steals are measured before and after.
 - **Hand-made motions look stiff.** The player's legs cannot be posed far by hand. If Mixamo has no clip for a move, that move will read less well than the others; I will say which.
