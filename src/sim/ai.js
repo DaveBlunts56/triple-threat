@@ -1,13 +1,15 @@
 import { AI, BALL, COURT, DT, FT, PASS, PLAYER, SHOT, STEAL, TIP } from './tuning.js';
 import { SHOT_BEST, SHOT_LANDS } from './players.js';
 import { ftChance } from './freethrow.js';
-import { attackSign, emptyIntent, onFloor, rand } from './state.js';
+import { attackSign, emptyIntent, isJumper, onFloor, rand } from './state.js';
 import { rimCentre } from './ball.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const nearestTo = (list, point) => list.reduce((a, b) => (dist(b, point) < dist(a, point) ? b : a));
 
-export const spots = sign => [{ x: sign * 6.9, z: -4.5 }, { x: sign * 6.9, z: 4.5 }, { x: sign * 10.9, z: AI.lowSpotZ }];
+// Where a team attacking toward `sign` stands without the ball, in a match of `size` a side.
+export const spots = (sign, size = 3) => (size === 5 ? AI.spots5.map(([x, z]) => ({ x: sign * x, z }))
+  : [{ x: sign * 6.9, z: -4.5 }, { x: sign * 6.9, z: 4.5 }, { x: sign * 10.9, z: AI.lowSpotZ }]);
 
 const opponents = (state, p) => state.players.filter(o => o.team !== p.team);
 const mates = (state, p) => state.players.filter(m => m.team === p.team && m !== p);
@@ -123,7 +125,7 @@ function planOffBall(state, p) {
   } else if (holder?.inbounder && nearestTo(mates(state, holder), holder) === p) {
     return goTo(ai, help, true);
   }
-  const spot = spots(sign)[(p.slot + Math.floor(state.time / AI.swapEvery)) % 3];
+  const spot = spots(sign, state.size)[(p.slot + Math.floor(state.time / AI.swapEvery)) % state.size];
   goTo(ai, spot, dist(p, spot) > AI.farAway);
 }
 
@@ -195,7 +197,7 @@ export function aiIntents(state, dt) {
   if (state.phase === 'jumpBall') {
     // Only the jumpers act: each goes up when the falling ball reaches a height he picked, a little early or late.
     return state.players.map(p => {
-      if (p.slot !== 1) return emptyIntent();
+      if (!isJumper(state, p)) return emptyIntent();
       p.ai.tipAt ??= TIP.aiJumpAt + (rand(state) * 2 - 1) * TIP.aiError;
       return { ...emptyIntent(), shoot: state.ball.vy < 0 && state.ball.y <= p.ai.tipAt };
     });

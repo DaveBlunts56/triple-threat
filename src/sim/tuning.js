@@ -67,6 +67,9 @@ export const AI = f({
   pickupX: 4,             // defenders wait this far inside their own half for an opponent still up the court
   hurryAt: 5,             // seconds in the back court after which the handler stops looking for a pass and brings the ball up
   lowSpotZ: 3.2,          // the low spacing spot sits this far from the middle, clear of the key
+  // Where five stand without the ball: [metres from centre court toward the hoop they attack, z]: the top of the key,
+  // the two wings, a corner and the low post.
+  spots5: f([f([5.2, 0]), f([7.5, -5.5]), f([7.5, 5.5]), f([11.6, -6.3]), f([10.9, 3.2])]),
 });
 
 export const VIOLATION = f({ backcourt: 8, key: 3, inbound: 5, keyHalfWidth: 2.45, keyDepth: 5.8 });
@@ -85,6 +88,9 @@ export const FT = f({
   // [metres from the baseline, z] for the five other players, mirrored for each hoop
   defence: f([f([2.3, -2.75]), f([2.3, 2.75]), f([9, 2])]),
   offence: f([f([3.7, -2.75]), f([3.7, 2.75])]),
+  // The same for the nine others of a five-a-side match: along the lane in the rules' order, the rest behind the arc.
+  defence5: f([f([2.3, -2.75]), f([2.3, 2.75]), f([5.1, -2.75]), f([5.1, 2.75]), f([9, 0])]),
+  offence5: f([f([3.7, -2.75]), f([3.7, 2.75]), f([9.5, -3.5]), f([9.5, 3.5])]),
 });
 
 export const STAMINA = f({
@@ -93,7 +99,11 @@ export const STAMINA = f({
   subOut: 0.35, subIn: 0.7,
 });
 
-export const TIP = f({ wait: 1, height: 1.5, tossV: 6.6, gap: 0.6, speed: 7, aiJumpAt: 3.6, aiError: 0.25 });
+// slot: the place in his team's order of the player who jumps the tip, by the match's size.
+export const TIP = f({ wait: 1, height: 1.5, tossV: 6.6, gap: 0.6, speed: 7, aiJumpAt: 3.6, aiError: 0.25, slot: f({ 3: 1, 5: 2 }) });
+
+// gap: metres between team-mates lined up before the tip, by the match's size.
+export const LINEUP = f({ gap: f({ 3: 3, 5: 2.4 }) });
 
 export const ROSTER = f({
   numbers: f([f([4, 7, 11, 15, 23]), f([5, 8, 10, 21, 33])]),

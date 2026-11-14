@@ -6,16 +6,16 @@ import { aiIntents } from '../src/sim/ai.js';
 import { DT } from '../src/sim/tuning.js';
 
 // Live play: team 0 at x=5, team 1 at x=-5, spread across the court, player 0 holding the ball.
-export function live(seed = 1) {
-  const s = createMatch(seed);
-  s.players.forEach(p => { p.x = p.team === 0 ? 5 : -5; p.z = (p.slot - 1) * 3; });
+export function live(seed = 1, size = 3) {
+  const s = createMatch(seed, size);
+  s.players.forEach(p => { p.x = p.team === 0 ? 5 : -5; p.z = (p.slot - (size - 1) / 2) * (size === 5 ? 2.4 : 3); });
   s.phase = 'live';
   giveBall(s, s.players[0]);
   return s;
 }
 
-export const idle = () => Array.from({ length: 6 }, emptyIntent);
-export const only = (id, intent) => Array.from({ length: 6 }, (_, i) => (i === id ? { ...emptyIntent(), ...intent } : emptyIntent()));
+export const idle = (count = 6) => Array.from({ length: count }, emptyIntent);
+export const only = (id, intent, count = 6) => Array.from({ length: count }, (_, i) => (i === id ? { ...emptyIntent(), ...intent } : emptyIntent()));
 
 // Steps for `seconds`. `intents` is an array, or a function of the state. Returns true if `done(s)` fired.
 export function run(s, seconds, intents = idle(), done) {

@@ -27,8 +27,9 @@ export function setupFreeThrow(state) {
     inbounder: false, shooting: false, held: false, steps: 0,
   });
   place(shooter, [FT.lineDist, 0]);
-  state.players.filter(p => p.team === shooter.team && p !== shooter).forEach((p, i) => place(p, FT.offence[i]));
-  state.players.filter(p => p.team !== shooter.team).forEach((p, i) => place(p, FT.defence[i]));
+  const [offence, defence] = state.size === 5 ? [FT.offence5, FT.defence5] : [FT.offence, FT.defence];
+  state.players.filter(p => p.team === shooter.team && p !== shooter).forEach((p, i) => place(p, offence[i]));
+  state.players.filter(p => p.team !== shooter.team).forEach((p, i) => place(p, defence[i]));
   for (const p of state.players) p.facing = Math.atan2(hoop.z - p.z, hoop.x - p.x);
   handBall(state);
   state.shotClock = CLOCK.shot;

@@ -1,4 +1,4 @@
-import { BALL, CLOCK, ROSTER } from './tuning.js';
+import { BALL, CLOCK, LINEUP, ROSTER, TIP } from './tuning.js';
 
 // The last word of a person's name.
 export const surname = person => person.name.split(' ').pop();
@@ -33,9 +33,14 @@ export function rand(state) {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 
-function createPlayer(id) {
+// Does `player` jump the tip-off? Each team's jumper is the one in the place TIP.slot gives for the match's size.
+export const isJumper = (state, player) => player.slot === TIP.slot[state.size];
+
+// Player `id` of a match of `size` a side: the first `size` are team 0. He starts in the place and as the person of
+// his number in his team's order.
+function createPlayer(id, size) {
   return {
-    id, team: id < 3 ? 0 : 1, slot: id % 3, person: id % 3,
+    id, team: id < size ? 0 : 1, slot: id % size, person: id % size,
     x: 0, z: 0, y: 0, vx: 0, vz: 0, vy: 0, facing: 0,
     shooting: false, jumpT: 0, inbounder: false, stealCooldown: 0,
     shotT: 0, letGo: false, takeoff: 0,   // seconds since he pressed shoot; the key came up during the gather; the speed he last left the floor at
@@ -50,7 +55,7 @@ export function lineUp(state) {
   for (const p of state.players) {
     const s = attackSign(p.team);
     Object.assign(p, {
-      x: -2 * s, z: (p.slot - 1) * 3, y: 0, vx: 0, vz: 0, vy: 0,
+      x: -2 * s, z: (p.slot - (state.size - 1) / 2) * LINEUP.gap[state.size], y: 0, vx: 0, vz: 0, vy: 0,
       facing: s === 1 ? 0 : Math.PI,
       shooting: false, shotT: 0, letGo: false, jumpT: 0, inbounder: false,
       held: false, steps: 0, keyT: 0, setT: 0,
@@ -58,8 +63,11 @@ export function lineUp(state) {
   }
 }
 
-export function createMatch(seed = 1) {
+// A match of `size` a side: 3 or 5. Any other size is 3.
+export function createMatch(seed = 1, size = 3) {
+  if (size !== 5) size = 3;
   const state = {
+    size,
     seed, time: 0,
     phase: 'start', phaseT: 0,
     quarter: 1, gameClock: CLOCK.quarter, shotClock: CLOCK.shot,
@@ -73,7 +81,7 @@ export function createMatch(seed = 1) {
     call: null, freeThrow: null, pendingFoul: null, tipWinner: null,
     shot: null,   // how the last shot was let go, as the rules judged it; null from the next press until its release
     frontcourt: false, backcourtT: 0, inboundT: 0, controlTeam: null,
-    players: Array.from({ length: 6 }, (_, id) => createPlayer(id)),
+    players: Array.from({ length: 2 * size }, (_, id) => createPlayer(id, size)),
     ball: {
       x: 0, y: BALL.radius, z: 0, vx: 0, vy: 0, vz: 0,
       holder: null, mode: 'loose', shooter: null, shotValue: 0,

@@ -1,5 +1,5 @@
 import { CLOCK, COURT, PASS, PLAYER, STAMINA, TIP, VIOLATION } from './tuning.js';
-import { addPoints, attackSign, lineUp, onFloor, personOf, rand } from './state.js';
+import { addPoints, attackSign, isJumper, lineUp, onFloor, personOf, rand } from './state.js';
 import { jump } from './players.js';
 import { inNet } from './ball.js';
 import { spend } from './stamina.js';
@@ -104,7 +104,7 @@ function beginPeriod(state) {
   setupInbound(state);
 }
 
-const jumpers = state => state.players.filter(p => p.slot === 1);
+const jumpers = state => state.players.filter(p => isJumper(state, p));
 
 // The opening jump ball: a jumper from each team either side of the centre spot, the ball held above it.
 function setupTip(state) {
