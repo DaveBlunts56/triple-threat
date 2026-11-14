@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createAnimator } from '../src/render/animator.js';
-import { LEG_CLIPS, ARM_CLIPS, MOTION, crossFade, layerOf, checkMotions, outOfStep, stridePhase } from '../src/render/motion.js';
+import { LEG_CLIPS, ARM_CLIPS, MOTION, crossFade, layerOf, outOfStep, stridePhase } from '../src/render/motion.js';
+import { checkMotions } from '../src/render/checks.js';
 
 const data = readFileSync('assets/motion.glb');
 const gltf = await new Promise((ok, bad) => new GLTFLoader().parse(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength), '', ok, bad));

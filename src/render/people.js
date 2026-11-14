@@ -3,11 +3,10 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { BALL, ROSTER } from '../sim/tuning.js';
 import { onFloor } from '../sim/state.js';
 import { assetUrl } from './assets.js';
-import {
-  MOTION, BALL_IN_HAND, legMotion, armMotion, legLook, newMarks, noteChanges, checkGaits, checkMotions, checkFacts, personName,
-  courtPeople, sized, missingPeople, ballHands, crossFrom, dribbleSpot, checkHands, drawnFacing, easeFacing, leanOf,
-  lookTarget, headTurn, easeHead,
-} from './motion.js';
+import { MOTION, legMotion, armMotion, legLook, newMarks, noteChanges, drawnFacing } from './motion.js';
+import { BALL_IN_HAND, ballHands, crossFrom, dribbleSpot } from './hands.js';
+import { checkGaits, checkMotions, checkFacts, personName, courtPeople, sized, missingPeople, checkHands } from './checks.js';
+import { easeFacing, leanOf, lookTarget, headTurn, easeHead } from './bearing.js';
 import { createAnimator } from './animator.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ATLAS, KIT, atlasPart, atlasRect, atlasUV, kitOps, paintKit } from './kit.js';

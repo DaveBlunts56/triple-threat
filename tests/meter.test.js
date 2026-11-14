@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shotMeter, SHOT_METER } from '../src/render/motion.js';
+import { shotMeter, SHOT_METER } from '../src/render/meter.js';
 import { SHOT_BEST, giveBall, greenAt, shotWindow } from '../src/sim/players.js';
 import { step } from '../src/sim/step.js';
 import { DT, RIM } from '../src/sim/tuning.js';

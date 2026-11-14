@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { legMotion, checkGaits, checkFacts, MOTION, personName, courtPeople, keepTrack, sized, missingPeople } from '../src/render/motion.js';
+import { legMotion, MOTION } from '../src/render/motion.js';
+import { checkGaits, checkFacts, personName, courtPeople, keepTrack, sized, missingPeople } from '../src/render/checks.js';
 import { createMatch } from '../src/sim/state.js';
 import { substitute } from '../src/sim/roster.js';
 import { BALL, PLAYER, ROSTER } from '../src/sim/tuning.js';

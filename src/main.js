@@ -4,7 +4,7 @@ import { aiIntents } from './sim/ai.js';
 import { DT } from './sim/tuning.js';
 import { createScene } from './render/scene.js';
 import { createActors } from './render/actors.js';
-import { shotMeter, SHOT_METER } from './render/motion.js';
+import { shotMeter, SHOT_METER } from './render/meter.js';
 import { loadPeople } from './render/people.js';
 import { createHud, easeFrame } from './render/hud.js';
 import { createQuality, autoQuality, stepQuality } from './render/quality.js';

@@ -1,8 +1,10 @@
 // tests/bearing.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { easeFacing, leanOf, lookTarget, headTurn, easeHead, MOTION } from '../src/render/motion.js';
-import { chestTip, LEG_CLIPS, ARM_CLIPS } from '../src/render/motion.js';
+import { easeFacing, leanOf, lookTarget, headTurn, easeHead } from '../src/render/bearing.js';
+import { MOTION } from '../src/render/motion.js';
+import { chestTip } from '../src/render/bearing.js';
+import { LEG_CLIPS, ARM_CLIPS } from '../src/render/motion.js';
 import { emptyIntent } from '../src/sim/state.js';
 import { passBall } from '../src/sim/players.js';
 import { PLAYER, RIM } from '../src/sim/tuning.js';

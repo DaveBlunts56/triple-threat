@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BALL, PLAYER } from '../sim/tuning.js';
 import { TEAM_COLOURS } from './kit.js';
-import { ballSpot, blendFrom, carrying } from './motion.js';
+import { ballSpot, blendFrom, carrying } from './hands.js';
 
 const HEIGHT = 1.95, HEAD = 0.13;
 // above: metres between the top of a capsule and the middle of its number.

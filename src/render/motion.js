@@ -1,8 +1,7 @@
-// Which motion a player shows, and what the shot meter shows, worked out from the match alone. No Three.js here, so it can be tested without a browser.
-import { BALL, DT, PLAYER, ROSTER, SHOT } from '../sim/tuning.js';
-import { attackSign, onFloor } from '../sim/state.js';
-import { gathering, shotWindow } from '../sim/players.js';
-import { rimCentre } from '../sim/ball.js';
+// Which motion a player shows, worked out from the match alone. No Three.js here, so it can be tested without a browser.
+import { BALL, PLAYER, SHOT } from '../sim/tuning.js';
+import { onFloor } from '../sim/state.js';
+import { gathering } from '../sim/players.js';
 
 // Speeds in metres per second. stick: how far past an edge he must go before the gait changes.
 // minRate, maxRate: limits on how slow or fast a clip is played. fade: seconds to blend from one motion to the next.
@@ -42,36 +41,27 @@ export const MOTION = Object.freeze({
   guardHold: 0.5, headBehind: 120, headRate: 360, ballHeld: 1.1,
 });
 
-// The ball as it is drawn in a holder's hands. blend: seconds over which it is drawn across to a new place whenever
-// the way it is carried changes (see carrying): it comes to a player, leaves one, or goes from one hand to both or back.
-// palm: metres from the wrist bone, toward the fingers, to where the ball sits.
-export const BALL_IN_HAND = Object.freeze({ blend: 0.1, palm: 0.1 });
-
-// The shot meter. stay: seconds it is kept after the release. aside: metres it stands from the shooter, on the side
-// away from the hoop he attacks. high: the height its top is level with, about his shoulder; it does not rise with his
-// jump. ease: the power its axis is bent by, so the last part of the fill's travel, where the band is, is drawn larger.
-export const SHOT_METER = Object.freeze({ stay: 1.2, aside: 0.6, high: 1.45, ease: 2 });
-
 // Every motion of the legs, and every motion the arms can take over from them.
 export const LEG_CLIPS = Object.freeze(['idle', 'stance', 'walk', 'run', 'sprint', 'strafeLeft', 'strafeRight', 'backpedal', 'jump', 'land', 'gather']);
+
 export const ARM_CLIPS = Object.freeze(['dribble', 'dribbleLeft', 'hold', 'holdLeft', 'shoot', 'follow', 'freeThrow', 'pass', 'catch', 'reach', 'handUp', 'contest', 'tip']);
 
-const GAITS = ['idle', 'walk', 'run', 'sprint'];
+export const GAITS = ['idle', 'walk', 'run', 'sprint'];
+
 const EDGES = [MOTION.idleBelow, MOTION.walkBelow, MOTION.runBelow];   // EDGES[i] lies between GAITS[i] and GAITS[i + 1]
+
 // The gait each other way of standing or stepping counts as, when deciding whether he keeps the one he is in.
 const COUNTS_AS = { stance: 'idle', strafeLeft: 'walk', strafeRight: 'walk', backpedal: 'walk' };
+
 const STOPPED = ['freeThrow', 'dead', 'quarterEnd'];   // the phases in which whoever has the ball just holds it
+
 // The gaits whose stride carries the dribble: one stride is one bounce.
 export const STRIDES = Object.freeze(['run', 'sprint']);
 
-const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
-const rad = degrees => (degrees * Math.PI) / 180;
-const within = (value, most) => Math.max(-most, Math.min(most, value));   // held between -most and most
-// The same angle, from -π (not included) to π. One already in that range is returned as it is.
-const wrap = angle => angle - 2 * Math.PI * Math.ceil((angle - Math.PI) / (2 * Math.PI));
+export const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
 // The opponent nearest to `player`.
-const nearestOpponent = (state, player) => state.players.filter(o => o.team !== player.team).reduce((a, b) => (dist(b, player) < dist(a, player) ? b : a));
+export const nearestOpponent = (state, player) => state.players.filter(o => o.team !== player.team).reduce((a, b) => (dist(b, player) < dist(a, player) ? b : a));
 
 // Seconds from leaving the floor to landing for the jump `player` is in, or last made: a shot's jump is the smaller.
 export const airTime = player => (2 * (player.takeoff || PLAYER.jumpV)) / BALL.gravity;
@@ -162,72 +152,6 @@ export function legLook(state, player, marks) {
     crouch: state.ball.holder === player.id && !player.inbounder && (player.held || dribbling),
     landed: marks.land[player.id],
   };
-}
-
-// The heading he is drawn with one frame of `dt` seconds after `drawn`: turned toward `wanted` the short way round, by
-// MOTION.turnRate at most, so he never snaps round. From -π to π.
-export function easeFacing(drawn, wanted, dt) {
-  const gap = wrap(wanted - drawn), most = rad(MOTION.turnRate) * dt;
-  return Math.abs(gap) <= most ? wrap(wanted) : wrap(drawn + Math.sign(gap) * most);
-}
-
-// How far his body tips one frame of `dt` seconds after `lean`, { forward, side } in radians: a positive forward puts
-// his head ahead of his feet, a positive side puts it toward his left. `was` and `now` are his { vx, vz } one frame
-// apart and `facing` the heading he is drawn with. He tips into the way he speeds up: his speeding up along his heading,
-// and toward his left, as a share of PLAYER.accel, to MOTION.leanForward and MOTION.leanSide at most; off the floor not
-// at all. The lean covers the share 1 - exp(-dt / MOTION.leanEase) of the way to that each frame.
-export function leanOf(lean, was, now, facing, dt, grounded = true) {
-  if (dt === 0) return lean;
-  const ax = (now.vx - was.vx) / dt, az = (now.vz - was.vz) / dt;
-  const share = a => (grounded ? within(a / PLAYER.accel, 1) : 0);
-  const forward = share(ax * Math.cos(facing) + az * Math.sin(facing)) * rad(MOTION.leanForward);
-  const side = share(ax * Math.sin(facing) - az * Math.cos(facing)) * rad(MOTION.leanSide);
-  const k = 1 - Math.exp(-dt / MOTION.leanEase);
-  return { forward: lean.forward + (forward - lean.forward) * k, side: lean.side + (side - lean.side) * k };
-}
-
-// Where `player`'s eyes are: MOTION.eye above his feet.
-const eyes = player => ({ x: player.x, y: player.y + MOTION.eye, z: player.z });
-
-// What `player` looks at, { x, y, z }, or null on the start and final screens, where the motion's own head stays. The
-// first that fits: a shooter looks at the rim he attacks; the ball handler at the nearest opponent's eyes if he is within
-// MOTION.guardDist and no more than MOTION.headBehind round from the way he faces (the rules' facing), otherwise at that
-// rim; the passer, while his pass is in the air, at his receiver's eyes; a defender within MOTION.guardDist of his man
-// at his man's eyes; anyone else, a shooter once the ball has left too, at the ball: a ball somebody holds at
-// MOTION.ballHeld above its holder's feet, so that heads do not nod with its bounce, any other where it is.
-export function lookTarget(state, player) {
-  if (state.phase === 'start' || state.phase === 'final') return null;
-  const { ball } = state, rim = rimCentre(attackSign(player.team));
-  if (player.shooting) return rim;
-  if (ball.holder === player.id) {
-    const nearest = nearestOpponent(state, player);
-    const round = wrap(Math.atan2(nearest.z - player.z, nearest.x - player.x) - player.facing);
-    return dist(nearest, player) <= MOTION.guardDist && Math.abs(round) <= rad(MOTION.headBehind) ? eyes(nearest) : rim;
-  }
-  if (ball.mode === 'pass' && ball.noPickupId === player.id && ball.target !== null) return eyes(state.players[ball.target]);
-  const man = manOf(state, player);
-  if (defending(state, player) && dist(man, player) <= MOTION.guardDist) return eyes(man);
-  return { x: ball.x, y: ball.holder === null ? ball.y : state.players[ball.holder].y + MOTION.ballHeld, z: ball.z };
-}
-
-// How far his head turns from the heading he is drawn with, `facing`, to look at `target` from his eyes, MOTION.eye
-// above his feet: { yaw, pitch } in radians, yaw toward his right and pitch upward, held within MOTION.headYaw and
-// MOTION.headPitch. No target, or one more than MOTION.headBehind round from his heading: no turn, he looks where he
-// is going.
-export function headTurn(player, facing, target) {
-  if (!target) return { yaw: 0, pitch: 0 };
-  const dx = target.x - player.x, dz = target.z - player.z, up = target.y - (player.y + MOTION.eye);
-  const round = wrap(Math.atan2(dz, dx) - facing);
-  if (Math.abs(round) > rad(MOTION.headBehind)) return { yaw: 0, pitch: 0 };
-  return { yaw: within(round, rad(MOTION.headYaw)), pitch: within(Math.atan2(up, Math.hypot(dx, dz)), rad(MOTION.headPitch)) };
-}
-
-// The head one frame of `dt` seconds after `head`, both { yaw, pitch }: each covers the share
-// 1 - exp(-MOTION.headEase * dt) of the way to `wanted`, and MOTION.headRate times `dt` at most.
-export function easeHead(head, wanted, dt) {
-  const k = 1 - Math.exp(-MOTION.headEase * dt), most = rad(MOTION.headRate) * dt;
-  const toward = (from, to) => from + within((to - from) * k, most);
-  return { yaw: toward(head.yaw, wanted.yaw), pitch: toward(head.pitch, wanted.pitch) };
 }
 
 const SIDE_STEPS = ['strafeLeft', 'strafeRight'];
@@ -337,22 +261,6 @@ const LEG_BONES = /^mixamorig(Hips|Spine|(Left|Right)(UpLeg|Leg|Foot|ToeBase))\.
 // whatever the arms do.
 export const layerOf = trackName => (LEG_BONES.test(trackName) ? 'legs' : 'arms');
 
-const DRIBBLES = ['dribble', 'dribbleLeft'];
-
-// How far to tip the chest forward over the pose the two layers give, in radians (negative: back). `pitch` is how far
-// forward that pose's chest leans, in radians, and `arms` each arms-layer motion's share of it. The dribble was made on
-// legs that lean, so on legs that lean less it asks for the chest to come forward to MOTION.chestDribble; the poses made
-// by hand were made on upright legs, so on legs that lean more they ask for it to come back to MOTION.chestMade; the arms
-// that follow the legs ask for nothing. Each asks by its share.
-export function chestTip(pitch, arms) {
-  let tip = 0;
-  for (const name in arms) {
-    if (DRIBBLES.includes(name)) tip += arms[name] * Math.max(0, rad(MOTION.chestDribble) - pitch);
-    else if (ARM_CLIPS.includes(name)) tip += arms[name] * Math.min(0, rad(MOTION.chestMade) - pitch);
-  }
-  return tip;
-}
-
 // Where in its cycle (0 to 1) person `index` of the ten starts standing and guarding, and how fast he plays them, so
 // that no two breathe in step. Each start is `apart` of a cycle on from the last; the rates are spread evenly from
 // `drift` slow to `drift` fast, in an order that keeps team mates' rates well apart.
@@ -367,162 +275,4 @@ export function outOfStep(index) {
 export function stridePhase(legPhase, strike, dribble) {
   const phase = (dribble.push + (legPhase - strike) / dribble.bounces) % 1;
   return phase < 0 ? phase + 1 : phase;
-}
-
-// The point `share` of the way from `a` to `b`, each { x, y, z }.
-const between = (a, b, share) => ({
-  x: a.x * (1 - share) + b.x * share, y: a.y * (1 - share) + b.y * share, z: a.z * (1 - share) + b.z * share,
-});
-
-// The hands a ball is carried in for the arm motion `clip`: one for a dribble, both for everything else.
-export const ballHands = clip => (clip === 'dribble' ? 'right' : clip === 'dribbleLeft' ? 'left' : 'both');
-
-// How high a dribbled ball's centre is. `phase` is the dribble's place in its cycle (0 to 1), `dribble` its facts
-// (`push`, `bounces`), `handY` the height of the hand on this frame and `radius` the ball's. From the push the ball
-// goes to the floor and comes back; for the rest of the bounce, MOTION.dribbleHold of it, it is at the hand.
-export function dribbleHeight(phase, dribble, handY, radius) {
-  const turns = dribble.bounces * (phase - dribble.push), u = turns - Math.floor(turns);   // the share of this bounce since the push
-  const trip = 1 - MOTION.dribbleHold;
-  return u < trip ? radius + (handY - radius) * Math.abs(Math.cos((Math.PI * u) / trip)) : handY;
-}
-
-// The ball crossing from the hand at `from` to the hand at `to`, `share` of the way (0 to 1): straight across over
-// the floor, with one bounce midway.
-export function switchSpot(from, to, share, radius) {
-  const spot = between(from, to, share);
-  spot.y = radius + (spot.y - radius) * Math.abs(Math.cos(Math.PI * share));
-  return spot;
-}
-
-// Where a dribbled ball is: under the hand whose palm is at `palm` this frame, at the height dribbleHeight gives for
-// the dribble's `phase` (`dribble` its facts, `radius` the ball's). While it crosses from the other hand (`cross` as
-// crossFrom remembers it, `share` of the way), it is on its way from where it set off to that same place, so the last
-// frame of the crossing and the first of the dribble are one place.
-export function dribbleSpot(palm, phase, dribble, radius, cross = null, share = 1) {
-  const spot = { x: palm.x, y: dribbleHeight(phase, dribble, palm.y, radius), z: palm.z };
-  return cross ? switchSpot(cross.from, spot, share, radius) : spot;
-}
-
-// Where the ball is drawn `since` seconds after the way it is carried last changed (see carrying): it was drawn at
-// `last` then (null when it is not drawn across), and belongs at `now`. It is drawn straight across from one to the
-// other over BALL_IN_HAND.blend seconds.
-export function ballSpot(last, now, since) {
-  return last && since < BALL_IN_HAND.blend ? between(last, now, since / BALL_IN_HAND.blend) : now;
-}
-
-// Who carries the ball and how, as one value that changes exactly when the drawn ball is to be drawn across to its new
-// place: null when nobody holds it. `hands` is what ballHands gave for the holder's arms, or null when the ball is not
-// drawn in them. A change from one dribbling hand to the other is no change: the ball crosses instead (switchSpot).
-export function carrying(holder, hands) {
-  if (holder === null) return null;
-  return `${holder} ${hands === 'both' ? 'both' : hands ? 'one' : 'none'}`;
-}
-
-// Where a dribbled ball crossing to the hand `side` of player `id` set off from: the place it was drawn on the frame
-// before the change, so a change while it is low in its bounce does not pull it up to the hand it left. `cross` is
-// what the last frame remembered ({ id, side, share, from }, or null), `share` how far through the crossing this frame
-// is (0 to 1) and `drawn` where the ball was drawn on the last frame. Returns what to remember.
-export function crossFrom(cross, id, side, share, drawn) {
-  if (cross && cross.id === id && cross.side === side && share >= cross.share) return { ...cross, share };
-  return { id, side, share, from: { x: drawn.x, y: drawn.y, z: drawn.z } };
-}
-
-// Where a blend starts, for a ball drawn at `drawn` on a frame on which it is carried otherwise: a copy of `drawn`, or
-// null, for no blend, when the rules put it with a player: it came to him and the phase is now `inbound` or
-// `freeThrow` (an inbounder, a free-throw shooter, or the ball handed back for his next attempt). A ball caught as the
-// phase changes (the inbound pass, a missed last free throw) is caught, not put. `before` and `after` are the last
-// frame's and this frame's { holder, phase }.
-export function blendFrom(drawn, before, after) {
-  const placed = after.holder !== null && after.holder !== before.holder && (after.phase === 'inbound' || after.phase === 'freeThrow');
-  return placed ? null : { x: drawn.x, y: drawn.y, z: drawn.z };
-}
-
-// Throws unless `facts` (assets/motion.json) gives every gait and every guarding step a speed: without one a moving
-// player cannot be drawn.
-export function checkGaits(facts) {
-  for (const gait of [...GAITS.slice(1), 'strafeLeft', 'strafeRight', 'backpedal']) {
-    if (!(facts?.gaits?.[gait] > 0)) throw new Error(`assets/motion.json has no speed for "${gait}"`);
-  }
-}
-
-// Throws, naming it, for the first motion of the two tables that is not among `names`, the motions in assets/motion.glb.
-export function checkMotions(names) {
-  const missing = [...LEG_CLIPS, ...ARM_CLIPS].find(name => !names.includes(name));
-  if (missing) throw new Error(`assets/motion.glb has no "${missing}" motion`);
-}
-
-// Throws unless `facts` (assets/motion.json) says what is read from it on every frame: how long each motion of the
-// two tables lasts, where in the dribble the ball leaves the hand and how often, and where in a run and a sprint each
-// foot lands.
-export function checkFacts(facts) {
-  const clips = facts?.clips ?? {};
-  for (const name of [...LEG_CLIPS, ...ARM_CLIPS]) {
-    if (!(clips[name]?.duration > 0)) throw new Error(`assets/motion.json has no length for "${name}"`);
-  }
-  const { push, bounces } = clips.dribble;
-  if (!(push >= 0 && push <= 1 && bounces > 0)) throw new Error('assets/motion.json does not say where the dribble pushes the ball down, or how often');
-  for (const gait of STRIDES) {
-    const { left, right } = clips[gait].strike ?? {};
-    if (!(left >= 0 && right >= 0)) throw new Error(`assets/motion.json does not say where each foot lands in "${gait}"`);
-  }
-}
-
-// Throws unless the model of person `name` has both hand bones, `hands` being { left, right } as found in it: the ball
-// is drawn in them.
-export function checkHands(name, hands) {
-  for (const side of ['Left', 'Right']) {
-    if (!hands[side.toLowerCase()]) throw new Error(`assets/players.glb: ${name} has no mixamorig${side}Hand`);
-  }
-}
-
-// The name of a person's model in assets/players.glb.
-export const personName = (team, number) => `player-${team}-${number}`;
-
-// The model name for each court player, in `state.players` order.
-export const courtPeople = state => state.players.map(p => personName(p.team, state.rosters[p.team][p.person].number));
-
-// Whether a track of a motion is kept at load: every turn of a bone, and where the hips are. The other bones' positions
-// and every scale never change, and would stamp the bone lengths of the player the motions were made on onto everyone.
-export const keepTrack = name => name.endsWith('.quaternion') || name === 'mixamorigHips.position';
-
-// The gait speeds of a player `scale` times the size of the one they were measured on: longer legs cover more ground.
-export function sized(gaits, scale) {
-  return Object.fromEntries(Object.entries(gaits).map(([gait, speed]) => [gait, Math.round(speed * scale * 1000) / 1000]));
-}
-
-// Every person on a roster who has no model among `names`.
-export function missingPeople(names) {
-  return ROSTER.numbers.flatMap((numbers, team) => numbers.map(number => personName(team, number))).filter(name => !names.includes(name));
-}
-
-// The meter of a shot `t` seconds after its press, beside `player`. `window` is what shotWindow gave, or the record of
-// the release, which carries the same fields. The fill and the band are read on one axis, so the fill is inside the
-// band exactly when a release at `t` is green.
-function meterOf(player, t, window, frozen) {
-  const { best, half } = window;
-  // How far up the bar a moment `off` seconds before or after the best one sits: the top at the best moment, the
-  // bottom at the press, and as far down after it as the same time before it.
-  const up = off => Math.max(0, 1 - off / best) ** SHOT_METER.ease;
-  return {
-    player: player.id,
-    x: player.x - attackSign(player.team) * SHOT_METER.aside, z: player.z,
-    fill: up(Math.abs(t - best)),
-    band: window.inRange ? { from: up(half + DT / 2), to: 1 } : null,   // the half step is greenAt's
-    level: window.level,
-    frozen,
-  };
-}
-
-// The shot meter to draw, or null for none. Only team 0 gets one: live while one of them is in his shooting motion,
-// then frozen as the rules judged the release, for SHOT_METER.stay seconds of match time.
-export function shotMeter(state) {
-  if (state.phase === 'start' || state.phase === 'final') return null;
-  const shooter = state.players.find(p => p.team === 0 && p.shooting);
-  if (shooter) return meterOf(shooter, shooter.shotT, shotWindow(state, shooter), null);
-
-  // The record outlives the shot, until the next press: only a fresh release by team 0 is shown.
-  const { shot } = state;
-  if (!shot || state.players[shot.shooter].team !== 0 || state.time - shot.at > SHOT_METER.stay) return null;
-  const verdict = shot.green ? 'green' : !shot.inRange ? 'range' : shot.t < shot.best ? 'early' : 'late';
-  return meterOf(state.players[shot.shooter], shot.t, shot, { verdict, blocked: shot.blocked });
 }

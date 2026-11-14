@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dribbleHeight, switchSpot, ballSpot, ballHands, BALL_IN_HAND, carrying, blendFrom, crossFrom, dribbleSpot, checkHands } from '../src/render/motion.js';
+import { dribbleHeight, switchSpot, ballSpot, ballHands, BALL_IN_HAND, carrying, blendFrom, crossFrom, dribbleSpot } from '../src/render/hands.js';
+import { checkHands } from '../src/render/checks.js';
 
 const near = (a, b, by = 1e-9) => Math.abs(a - b) < by;
 

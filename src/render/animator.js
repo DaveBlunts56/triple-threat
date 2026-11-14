@@ -1,6 +1,8 @@
 // Plays one person's motions on two layers, the legs and the arms, and cross-fades each layer on its own.
 import * as THREE from 'three';
-import { LEG_CLIPS, ARM_CLIPS, STRIDES, chestTip, crossFade, keepTrack, layerOf, outOfStep, stridePhase } from './motion.js';
+import { LEG_CLIPS, ARM_CLIPS, STRIDES, crossFade, layerOf, outOfStep, stridePhase } from './motion.js';
+import { chestTip } from './bearing.js';
+import { keepTrack } from './checks.js';
 
 // catchUp: the most of its cycle a dribble gains or loses on its own pace in a second, to fall in with the stride.
 // Less than its own pace, so it never runs backwards. look: the share of a turn of the head that each of the bones
