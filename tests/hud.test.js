@@ -53,6 +53,7 @@ test('calls read as a sentence and say what follows', () => {
   assert.equal(callText(call('shooting', 0, { number: 7, name: 'Theo Marsh', shots: 1 })), 'Shooting foul on Marsh (7). One shot');
   assert.equal(callText(call('shooting', 0, { number: 7, name: 'Theo Marsh', shots: 3 })), 'Shooting foul on Marsh (7). Three shots');
   assert.equal(callText(call('charge', 0, { number: 4, name: 'Jalen Cross' })), "Charge on Cross (4). Opponent's ball");
+  assert.equal(callText(call('reach', 1, { number: 8 })), 'Reach-in foul on 8. Your ball');   // a number with no name
 });
 
 test('the scoreboard shows team fouls and the energy of the player you control', () => {
@@ -255,7 +256,7 @@ test('in play the menu writes nothing and the score is announced as before', () 
 
 test('the page has the menu: four rows, both panels, ten players, every key in the controls panel, and a ring that stops for reduced motion', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  for (const id of ['menuRow0', 'menuRow1', 'menuRow2', 'menuRow3', 'menuTeams', 'menuControls', 'menuHint', 'teamName0', 'teamName1',
+  for (const id of ['menuList', 'menuRow0', 'menuRow1', 'menuRow2', 'menuRow3', 'menuTeams', 'menuControls', 'menuHint', 'teamName0', 'teamName1',
     ...[0, 1].flatMap(t => [0, 1, 2, 3, 4].map(i => `teamPlayer${t}${i}`))]) assert.match(html, new RegExp(`id="${id}"`), id);
   const controls = html.match(/id="menuControls"[\s\S]*?<\/(?:ul|dl|div)>/)[0];
   for (const word of ['WASD', 'Shift', 'Space', 'E', 'Q', 'F', 'Esc', 'G']) assert.match(controls, new RegExp(`\\b${word}\\b`), word);

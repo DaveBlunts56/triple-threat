@@ -37,5 +37,5 @@ export function startFromMenu(game, keyboard, newMatch) {
   if (game.state.phase === 'final') game.state = newMatch();
   startMatch(game.state);
   game.state.autoSubs[0] = game.menu.autoSubs;
-  game.state.players[game.state.controlled].prev = keyboard.intent();   // a key still down is not a fresh press
+  keyboard.drop();   // a key still held stays unseen in the match, through the jump ball, until it is let go
 }

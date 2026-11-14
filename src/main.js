@@ -38,10 +38,10 @@ if (view) {
     people?.setQuality(quality.level);
   };
 
-  // Starts play, from the menu or the final screen. A key still held then stays unseen in the match until it is let go.
-  // drop() relies on the keyboard's own keydown listener (createKeyboard, above) being registered before the one below,
-  // so the key that chose Play is already held when it is dropped.
-  const play = () => { startFromMenu(game, keyboard, newMatch); keyboard.drop(); };
+  // Starts play, from the menu or the final screen. startFromMenu drops the keys held then, which relies on the
+  // keyboard's own keydown listener (createKeyboard, above) being registered before the one below, so the key that
+  // chose Play is already held when it is dropped.
+  const play = () => startFromMenu(game, keyboard, newMatch);
   // A key on the start menu, or a click on a row (as Enter).
   const onMenu = code => {
     const asked = menuKey(game.menu, code);
@@ -60,13 +60,12 @@ if (view) {
     else if (game.paused) pauseKey(game, e.code);
     if (e.code === 'Enter' && game.state.phase === 'final') play();
   });
-  // menuRow0 to menuRow3: moving the pointer over a row moves the bar there, a click chooses. mousemove, not mouseenter,
+  // The menu's rows: moving the pointer over a row moves the bar there, a click chooses. mousemove, not mouseenter,
   // which also fires when a row appears under a pointer that is not moving.
-  for (let row = 0; row < 4; row++) {
-    const item = document.getElementById(`menuRow${row}`);
+  document.querySelectorAll('#menuList li').forEach((item, row) => {
     item.addEventListener('mousemove', () => { if (menuHasRow(game, row)) menuPoint(game.menu, row); });
     item.addEventListener('click', () => { if (menuHasRow(game, row)) { menuPoint(game.menu, row); onMenu('Enter'); } });
-  }
+  });
   window.addEventListener('blur', () => pause(true));
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });
 
@@ -85,12 +84,12 @@ if (view) {
       const intents = aiIntents(state, DT);
       intents[state.controlled] = keyboard.intent();   // the human replaces the computer for one player
       step(state, intents, DT);
+      view.swayNets(state.ball, DT);   // at every step, so a ball moved far in one step is never swept through a net
     }
     // Motion advances by the match time that passed: none while paused. Before and after a match no match time
-    // passes, so it advances by real time and the players stand breathing. The nets swing on the same time.
+    // passes, so it advances by real time and the players stand breathing.
     const passed = inPlay(state) ? state.time - before : elapsed;
     actors.sync(state, passed);
-    view.swayNets(state.ball, passed);
     view.follow(state.ball.x);
     view.render();
     const m = shotMeter(state);

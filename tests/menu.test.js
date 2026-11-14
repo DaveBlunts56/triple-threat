@@ -108,14 +108,21 @@ test('starting from the menu begins the match with the menu\'s choice of automat
   assert.notEqual(game.state.phase, 'final');
 });
 
-test('a key still held when Play is chosen is not a fresh press in the match', () => {
+test('a key held when Play is chosen stays unseen through the whole jump ball, repeats too, until it is let go', () => {
   const { game, keyboard, down, up, frame } = onMenu();
   down('Space'); down('KeyS');                                                          // held on the menu, never let go
   startFromMenu(game, keyboard, () => createMatch(8));
   const me = game.state.players[game.state.controlled];
-  assert.deepEqual([me.prev.shoot, me.prev.moveZ], [true, 1]);                          // already seen: not a fresh press
-  up('Space'); up('KeyS');
-  assert.deepEqual([frame().shoot, frame().moveZ], [false, 0]);
-  down('Space');
-  assert.equal(frame().shoot, true);                                                    // a new press is seen as one
+  assert.equal(me.slot, 1);                                                             // you are one of the two jumpers
+  let highest = 0, seen = false, steps = 0;
+  for (; game.state.phase === 'jumpBall' && steps < 600; steps++) {
+    down('Space');                                                                      // the held key's auto-repeat
+    const intent = frame();
+    highest = Math.max(highest, me.y);
+    seen ||= intent.shoot || intent.moveX !== 0 || intent.moveZ !== 0;
+  }
+  assert.notEqual(game.state.phase, 'jumpBall');                                        // the whole jump ball went by
+  assert.deepEqual({ highest, seen }, { highest: 0, seen: false });
+  up('Space'); down('Space');
+  assert.equal(frame().shoot, true);                                                    // let go and pressed again: a press
 });

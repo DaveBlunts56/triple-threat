@@ -28,7 +28,8 @@ const SHOTS = ['', 'One shot', 'Two shots', 'Three shots'];
 
 // The whistle as a sentence: what was called, on whom, and what follows. You are team 0.
 export function callText(call) {
-  const what = CALLS[call.kind] + (call.number === null ? '' : ` on ${surname(call)} (${call.number})`);
+  const who = call.name ? `${surname(call)} (${call.number})` : call.number;
+  const what = CALLS[call.kind] + (call.number === null ? '' : ` on ${who}`);
   return `${what}. ${call.shots ? SHOTS[call.shots] : call.ball === 0 ? 'Your ball' : "Opponent's ball"}`;
 }
 
@@ -47,8 +48,8 @@ export function whoText(state) {
 }
 
 export function subNote(state) {
-  const number = i => surname(state.rosters[0][i]);
-  const queued = state.subQueue.filter(q => q.team === 0).map(q => `${number(q.out)} off, ${number(q.in)} on`);
+  const name = i => surname(state.rosters[0][i]);
+  const queued = state.subQueue.filter(q => q.team === 0).map(q => `${name(q.out)} off, ${name(q.in)} on`);
   return `Automatic substitutions ${state.autoSubs[0] ? 'on' : 'off'}. ${queued.length ? `Queued: ${queued.join('; ')}.` : 'No swap queued.'}`;
 }
 
