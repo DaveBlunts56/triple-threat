@@ -17,6 +17,7 @@ import { createLife, stepLife } from './render/life.js';
 import { actionOf, createKeys, savedKeys } from './keys.js';
 import { readPrefs, storageOf, writePrefs } from './prefs.js';
 import { createBroadcast } from './broadcast/broadcast.js';
+import { PANELS } from './broadcast/director.js';
 import { nextCommentary } from './broadcast/commentary.js';
 import { slowFor } from './broadcast/moments.js';
 import { createEars, frameCues, listen } from './audio/cues.js';
@@ -126,8 +127,9 @@ if (view) {
   window.addEventListener('keyup', e => held.delete(e.code));
   window.addEventListener('keydown', e => {
     audio.wake();
-    // The starting line-ups: any key takes them down, and that key does nothing else, now or while it is held.
-    if (game.show.panel === 'lineups') { e.preventDefault(); broadcast.skip(); keyboard.drop(); held.add(e.code); return; }
+    // A panel (the line-ups, the end of a period, half-time): any key takes it down, and that key does nothing
+    // else, now or while it is held.
+    if (PANELS.includes(game.show.panel)) { e.preventDefault(); broadcast.skip(); keyboard.drop(); held.add(e.code); return; }
     // A replay: any key ends it, and does nothing else.
     if (replays.playing) { e.preventDefault(); endReplay(); keyboard.drop(); held.add(e.code); return; }
     if (held.has(e.code)) { e.preventDefault(); keyboard.drop([e.code]); return; }
@@ -196,9 +198,12 @@ if (view) {
     if (now - since >= 1000) { game.worst = slowest; slowest = 0; since = now; }
     if (autoQuality(quality, ms, inPlay(state) && !game.paused)) showQuality();
     // The match waits while the line-ups are up, and runs slow for the last of a buzzer-beater's flight.
-    const seconds = now / 1000, panel = broadcast.panel(state, seconds);
+    // A replay comes first: while one is on, or a moment is about to be set aside for one, a panel waits its turn.
+    const seconds = now / 1000, busy = prefs.replays && !game.paused && !!(replays.playing || replays.waiting || due(replays, state));
+    const panel = broadcast.panel(state, seconds, busy);
     // A replay that is set aside begins once play has stopped; the match waits while it plays.
-    if (prefs.replays && !game.paused && panel !== 'lineups' && due(replays, state)) {
+    const holding = PANELS.includes(panel);
+    if (prefs.replays && !game.paused && due(replays, state)) {
       startReplay(replays, state);
       replaySide = replays.playing.frames[replays.playing.frames.length - 1].ball.z >= 0 ? 1 : -1;
       actors.cut();
@@ -206,7 +211,7 @@ if (view) {
     const shown = replays.playing && !game.paused ? frameAt(replays, elapsed) : null;   // the frame of the replay to draw, if one is on
     if (replays.playing === null && wasReplaying) { actors.cut(); view.setCamera(game.camera); }   // it has just ended
     wasReplaying = replays.playing !== null;
-    owed = game.paused || panel === 'lineups' || shown ? 0 : owed + elapsed * slowFor(state);
+    owed = game.paused || holding || shown ? 0 : owed + elapsed * slowFor(state);
     last = now;
     const before = state.time;
     for (; owed >= DT; owed -= DT) {

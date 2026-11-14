@@ -2,8 +2,10 @@
 // and the panels between play. It works from what the watcher heard and from the match; it changes neither.
 import { ROSTER } from '../sim/tuning.js';
 
-// Seconds each stays up. lineups: the panel before the tip.
-export const SHOW = Object.freeze({ banner: 2.6, lower: 4, celebrate: 1.6, lineups: 4 });
+// Seconds each stays up. lineups: the panel before the tip. period, half: the panels between periods. The match
+// waits while a panel is up, and any key takes it down.
+export const SHOW = Object.freeze({ banner: 2.6, lower: 4, celebrate: 1.6, lineups: 4, period: 5, half: 9 });
+export const PANELS = Object.freeze(['lineups', 'period', 'half']);
 
 export const BANNER_WORDS = Object.freeze({ ankle: 'ANKLE-BREAKER', block: 'BLOCKED', andOne: 'AND ONE', buzzer: 'BUZZER-BEATER', winner: 'GAME-WINNER',
   poster: 'POSTER', stealScore: 'STEAL AND SCORE', deep: 'FROM DEEP', clutch: 'CLUTCH', heatingUp: 'HEATING UP', onFire: 'ON FIRE',
@@ -13,7 +15,7 @@ const BASKETS = ['ankle', 'andOne', 'buzzer', 'poster', 'stealScore', 'deep', 'c
 const short = team => ROSTER.teams[team].split(' ').pop();
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
-export const createDirector = () => ({ banner: null, lower: null, cheer: null, lineupsUntil: null, phase: 'start' });
+export const createDirector = () => ({ banner: null, lower: null, cheer: null, lineupsUntil: null, betweenUntil: null, phase: 'start' });
 
 // What is on the screen at real time `now` (seconds), after what was `heard` this frame:
 // { banner: { words, name, team } | null, lower: { title, lines } | null, celebrate: id | null, dejected: id | null }.
@@ -58,18 +60,29 @@ function lowerFor(h, state) {
   return null;
 }
 
-// The panel that should be up: 'lineups' for SHOW.lineups seconds from the start of a match (the match waits while
-// it is), 'half' and 'period' between periods, else null. To be asked every frame.
-export function panelFor(d, state, now) {
+// The panel that should be up, or null: 'lineups' for SHOW.lineups seconds from the start of a match; 'period', or
+// 'half' after the second period, for its own seconds from the end of a period. The match waits while one is up.
+// To be asked every frame. `busy`: something else has the screen first (a replay): the panel's time starts when that is over.
+export function panelFor(d, state, now, busy = false) {
   const began = (d.phase === 'start' || d.phase === 'final') && state.phase === 'jumpBall';
+  const ended = d.phase !== 'quarterEnd' && state.phase === 'quarterEnd';
   d.phase = state.phase;
   if (began) d.lineupsUntil = now + SHOW.lineups;
-  if (state.phase !== 'jumpBall') d.lineupsUntil = null;   // the tip has gone up, or the match was left
-  if (d.lineupsUntil !== null && now < d.lineupsUntil) return 'lineups';
-  d.lineupsUntil = null;
-  if (state.phase === 'quarterEnd') return state.quarter === 2 ? 'half' : 'period';
+  if (ended) d.betweenUntil = now + (state.quarter === 2 ? SHOW.half : SHOW.period);
+  if (state.phase !== 'jumpBall') d.lineupsUntil = null;     // the tip has gone up, or the match was left
+  if (state.phase !== 'quarterEnd') d.betweenUntil = null;   // the next period has begun, or the match was left
+  const DONE = -Infinity;   // it has been up, or was skipped: it does not come back
+  if (busy) {
+    if (d.lineupsUntil !== null && d.lineupsUntil !== DONE) d.lineupsUntil = now + SHOW.lineups;
+    if (d.betweenUntil !== null && d.betweenUntil !== DONE) d.betweenUntil = now + (state.quarter === 2 ? SHOW.half : SHOW.period);
+    return null;
+  }
+  if (d.lineupsUntil !== null && now >= d.lineupsUntil) d.lineupsUntil = DONE;
+  if (d.betweenUntil !== null && now >= d.betweenUntil) d.betweenUntil = DONE;
+  if (d.lineupsUntil !== null && d.lineupsUntil !== DONE) return 'lineups';
+  if (d.betweenUntil !== null && d.betweenUntil !== DONE) return state.quarter === 2 ? 'half' : 'period';
   return null;
 }
 
-// Takes the line-ups down at once (any key).
-export const skipPanel = d => { d.lineupsUntil = null; };
+// Takes the panel that is up down at once (any key). It does not come back.
+export const skipPanel = d => { d.lineupsUntil = -Infinity; d.betweenUntil = -Infinity; };

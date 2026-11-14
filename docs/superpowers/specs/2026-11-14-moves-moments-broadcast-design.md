@@ -241,3 +241,16 @@ One plan, four stages, a build sent after each so the owner can play as it goes:
 - **Replays in the way.** They stop the game for a few seconds. They are capped, skipped with a key, and can be turned off.
 - **The file grows.** About 1.5 MB of sound and a little motion on top of 34 MB.
 - **Your team-mates' moves.** A team-mate dribbling on his own initiative could waste the clock; he uses a move only on the way to a drive or a shot he was going to take anyway.
+
+## As built (2026-11-14)
+
+Where the build differs from the text above. Each was my call; the plan's ledger has the reasons.
+
+- **The computer's dribble moves** may come from 6 seconds into the shot clock, and a handler who has just beaten his man drives at once. With a defender within reach of the ball the computer goes between the legs or behind the back, and crosses over only with room.
+- **The hand-made crossover and between-the-legs** cross at waist height, not at the knees. During any move the ball is drawn between the two hands.
+- **Replays** keep the last 16 seconds, not 8, so that a game-winner can be shown from its basket. The camera is in the corner, 2.6 m up, not low beside the hoop.
+- **The period and half-time panels** hold the match for 5 and 9 seconds, or until a key, as the line-ups do. A replay comes before a panel.
+- **Sound:** fifteen recordings are used, not sixteen: the crowd gasp could not be told for one without hearing it, and a groan stands in. Twenty-two sounds, 0.65 MB. The long whistle is the short one stretched.
+- **Turnovers that are nobody's** (the shot clock, eight seconds) are counted for the team, not a player.
+- **Kept but shown nowhere:** each team's biggest lead and longest run.
+- **A defender's slides** make no sound of their own: shoes squeak on hard stops, sharp cuts, moves and stumbles.

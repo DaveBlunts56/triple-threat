@@ -17,9 +17,10 @@ export function createBroadcast(voice = createVoice()) {
     voice,
     // After each step of the match: `events` is what step() returned.
     hear(state, events) { sync(state); heard.push(...watchStep(watch, state, events)); },
-    // The panel that should be up now ('lineups', 'period', 'half' or null). The match waits during the line-ups.
-    panel(state, now) { sync(state); return panelFor(director, state, now); },
-    // Any key during the line-ups.
+    // The panel that should be up now ('lineups', 'period', 'half' or null). The match waits while one is.
+    // `busy`: a replay is on or about to be; the panel comes after it.
+    panel(state, now, busy = false) { sync(state); return panelFor(director, state, now, busy); },
+    // Any key while a panel is up.
     skip() { if (director) skipPanel(director); },
     // Once a frame, at real time `now` (seconds). `commentary` is the setting: 'voice', 'captions' or 'off'.
     // Returns { banner, lower, celebrate, dejected, caption, heard }: `heard` is everything since the last frame.

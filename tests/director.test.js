@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BANNER_WORDS, SHOW, createDirector, direct, panelFor, skipPanel } from '../src/broadcast/director.js';
+import { BANNER_WORDS, PANELS, SHOW, createDirector, direct, panelFor, skipPanel } from '../src/broadcast/director.js';
 import { KINDS, STARS } from '../src/broadcast/moments.js';
 import { createBroadcast } from '../src/broadcast/broadcast.js';
 import { createMatch } from '../src/sim/state.js';
@@ -122,14 +122,27 @@ test('leaving a match while the line-ups are up takes them down', () => {
   assert.equal(panelFor(d, menu, 1.5), null);
 });
 
-test('between periods the period panel is up, and after the second the half-time one', () => {
+test('at the end of a period its panel is up for five seconds, or until a key; after the second period the half-time one, for nine', () => {
   const d = createDirector(), s = live();
+  panelFor(d, s, 49);
   s.phase = 'quarterEnd'; s.quarter = 1;
   assert.equal(panelFor(d, s, 50), 'period');
-  s.quarter = 2;
+  assert.equal(panelFor(d, s, 50 + SHOW.period - 0.01), 'period');
+  assert.equal(panelFor(d, s, 50 + SHOW.period), null);                // its time is up: the break runs on
+  s.phase = 'live'; s.quarter = 2; panelFor(d, s, 99);
+  s.phase = 'quarterEnd';
   assert.equal(panelFor(d, s, 100), 'half');
-  s.quarter = 3; s.phase = 'live';
+  assert.equal(panelFor(d, s, 100 + SHOW.half - 0.01), 'half');
+  skipPanel(d);
   assert.equal(panelFor(d, s, 101), null);
+  assert.equal(panelFor(d, s, 102), null);                             // and it does not come back in the same break
+  s.phase = 'live'; s.quarter = 3; panelFor(d, s, 150);
+  s.phase = 'quarterEnd';
+  assert.equal(panelFor(d, s, 151), 'period');                         // the next break has its own
+});
+
+test('the panels the match waits for are the line-ups, the period\'s and half-time\'s', () => {
+  assert.deepEqual(PANELS, ['lineups', 'period', 'half']);
 });
 
 test('the match does not move while the line-ups are up, as the page runs it, and does after', () => {
@@ -137,10 +150,26 @@ test('the match does not move while the line-ups are up, as the page runs it, an
   const air = createBroadcast({ available: false, speak() {}, stop() {} }), s = createMatch(4, 3);
   air.panel(s, 0); startMatch(s);
   let now = 0;
-  const frame = () => { now += DT; if (air.panel(s, now) !== 'lineups') air.hear(s, step(s, aiIntents(s, DT), DT)); };
+  const frame = () => { now += DT; if (!PANELS.includes(air.panel(s, now))) air.hear(s, step(s, aiIntents(s, DT), DT)); };
   for (let i = 0; i < 120; i++) frame();                               // two seconds
   assert.equal(s.time, 0);
   air.skip();
   for (let i = 0; i < 120; i++) frame();
   assert.ok(s.time > 1.9);
+});
+
+test('a panel waits for a replay: it is not up while the screen is busy, and has its full time afterwards', () => {
+  const d = createDirector(), s = live();
+  panelFor(d, s, 49);
+  s.phase = 'quarterEnd'; s.quarter = 1;
+  assert.equal(panelFor(d, s, 50, true), null);                        // a buzzer-beater's replay is about to play
+  assert.equal(panelFor(d, s, 58, true), null);                        // eight seconds of it
+  assert.equal(panelFor(d, s, 58.1), 'period');
+  assert.equal(panelFor(d, s, 58 + SHOW.period - 0.1), 'period');
+  assert.equal(panelFor(d, s, 58.1 + SHOW.period), null);
+  const e = createDirector(), t = live();
+  panelFor(e, t, 49); t.phase = 'quarterEnd'; t.quarter = 1;
+  panelFor(e, t, 50); skipPanel(e);
+  assert.equal(panelFor(e, t, 51, true), null);
+  assert.equal(panelFor(e, t, 52), null);                              // skipped stays skipped
 });

@@ -74,12 +74,16 @@ test('a move does not start without the ball, in the air, with the dribble picke
     shooting: s => { s.players[0].shooting = true; },
     inbounder: s => { s.players[0].inbounder = true; },
     'dead play': s => { s.phase = 'dead'; },
+    'a free throw': s => { s.phase = 'freeThrow'; },
+    'the tip': s => { s.phase = 'jumpBall'; },
+    'another move under way': s => { s.players[0].move = { kind: 'legs', t: 0.1, dx: 0, dz: 1, cx: 0, cz: 0, push: 1 }; },
+    'just after a move': s => { s.players[0].moveWait = 0.2; },
   };
   for (const [name, spoil] of Object.entries(cases)) for (const kind of [...DRIBBLES, 'stepBack']) {
     const s = scene(); spoil(s);
     assert.equal(canMove(s, s.players[0]), false, name);
     assert.equal(startMove(s, s.players[0], kind, emptyIntent()), false, `${name} ${kind}`);
-    assert.equal(s.players[0].move, null);
+    assert.equal(s.players[0].move?.kind ?? null, name === 'another move under way' ? 'legs' : null);   // the move he was in goes on
   }
 });
 
