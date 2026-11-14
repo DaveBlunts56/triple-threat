@@ -7,14 +7,50 @@
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; color: #fff; font: 16px/1.4 system-ui, sans-serif; }
   #court { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
-  #hud { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 20px; align-items: center;
-         padding: 8px 20px; background: rgba(0, 0, 0, .8); border-radius: 10px; font-variant-numeric: tabular-nums; }
-  #hud .score { font-size: 28px; font-weight: 700; }
-  #hud .home { color: #7fb4ff; }
-  #hud .away { color: #ff8f8f; }
-  #hud .clock { text-align: center; }
-  #gameClock { font-size: 22px; font-weight: 600; }
-  #shotClock { color: #ffd257; font-size: 22px; font-weight: 600; }
+  /* The scorebug: a broadcast strip at the bottom of the picture. Glossy black and dark grey, thin silver edges. */
+  #hud { position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%); display: flex; align-items: stretch; height: 54px;
+         font-variant-numeric: tabular-nums; color: #fff; border: 1px solid #c9ced6; border-radius: 6px; overflow: hidden;
+         background: linear-gradient(#3a3d44 0%, #1b1d22 46%, #0a0b0e 54%, #1d1f25 100%);
+         box-shadow: 0 6px 18px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -1px 0 rgba(255, 255, 255, .08); }
+  /* A soft reflection across the top half, and a shine that sweeps the strip when a basket is scored. */
+  #hud::before { content: ''; position: absolute; inset: 0 0 52% 0; background: linear-gradient(rgba(255, 255, 255, .16), rgba(255, 255, 255, .02)); pointer-events: none; }
+  #hud::after { content: ''; position: absolute; top: 0; bottom: 0; width: 90px; left: -120px; transform: skewX(-20deg);
+                background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent); pointer-events: none; }
+  #hud.shineA::after { animation: bugShineA .9s ease-out; }
+  #hud.shineB::after { animation: bugShineB .9s ease-out; }
+  @keyframes bugShineA { from { left: -120px; } to { left: 110%; } }
+  @keyframes bugShineB { from { left: -120px; } to { left: 110%; } }
+  #hud > * { position: relative; display: flex; align-items: center; border-right: 1px solid rgba(201, 206, 214, .45); }
+  #hud > *:last-child { border-right: 0; }
+  #hud .bugLogo { flex-direction: column; justify-content: center; padding: 0 12px; line-height: 1; background: linear-gradient(#e9edf2, #9aa1ab 55%, #c9ced6); color: #101216; }
+  #hud .bugLogo b { font: italic 900 20px/1 system-ui, sans-serif; letter-spacing: -.04em; }
+  #hud .bugLogo i { font: 700 8px/1.2 system-ui, sans-serif; letter-spacing: .22em; font-style: normal; }
+  #hud .bugTeam { gap: 8px; padding: 0 12px 0 8px; min-width: 150px; }
+  #hud .bugTeam svg { width: 36px; height: 36px; flex: none; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .6)); }
+  #hud .bugTeam .names { display: flex; flex-direction: column; line-height: 1.05; gap: 3px; white-space: nowrap; }
+  #hud .bugTeam .under { display: flex; align-items: center; gap: 6px; }
+  #hud .abbr { font: 800 19px/1 system-ui, sans-serif; letter-spacing: .06em; }
+  #hud .fouls { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #b9bfc8; }
+  #hud .fouls.bonus { color: #ffd257; }
+  #hud .pips { font-size: 7px; letter-spacing: .2em; color: #ffd257; line-height: 1.2; }
+  /* The team with the ball has a lit edge in its colour. */
+  #hud .bugTeam::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: transparent; transition: background .25s; }
+  #hud .bugTeam.home.has::after { background: #4f97ff; }
+  #hud .bugTeam.away.has::after { background: #ff5a5a; }
+  #hud .score { margin-left: auto; font: 900 34px/1 system-ui, sans-serif; color: #fff; text-shadow: 0 2px 2px rgba(0, 0, 0, .6); min-width: 44px; text-align: right; }
+  #hud .score.popA { animation: bugPopA .5s ease-out; }
+  #hud .score.popB { animation: bugPopB .5s ease-out; }
+  @keyframes bugPopA { 0% { transform: scale(1.7); color: #ffd257; } 100% { transform: scale(1); color: #fff; } }
+  @keyframes bugPopB { 0% { transform: scale(1.7); color: #ffd257; } 100% { transform: scale(1); color: #fff; } }
+  #hud .bugBox { justify-content: center; padding: 0 12px; font: 800 17px/1 system-ui, sans-serif; background: linear-gradient(#2a2c32, #121317); }
+  #hud .bugBox.period { min-width: 34px; color: #dfe5ea; }
+  #gameClock { font-size: 22px; font-weight: 800; min-width: 52px; text-align: center; }
+  #hud .bugBox.shot { background: linear-gradient(#ff3b3b, #b30f0f); min-width: 34px; }
+  #shotClock { color: #fff; font-size: 22px; font-weight: 900; text-shadow: 0 1px 1px rgba(0, 0, 0, .5); }
+  #shotClock.low { animation: bugLow .5s steps(2, jump-none) infinite; }
+  @keyframes bugLow { from { color: #fff; } to { color: #ffe14d; } }
+  #hud .energy { flex-direction: column; align-items: flex-start; justify-content: center; padding: 0 12px; font-size: 11px; gap: 2px; color: #dfe5ea; }
+  @media (prefers-reduced-motion: reduce) { #hud::after, #hud .score, #shotClock.low { animation: none !important; } }
   [hidden] { display: none !important; }
   #hud .fouls { font-size: 14px; }
   #hud .energy { display: flex; flex-direction: column; font-size: 12px; }
@@ -115,7 +151,7 @@
   #controls, #backend { position: fixed; bottom: 12px; padding: 6px 12px; background: rgba(0, 0, 0, .8); border-radius: 8px; font-size: 13px; }
   #controls { left: 12px; }
   /* The play your team is running, and the list you call one from. */
-  #playName { position: fixed; left: 50%; bottom: 46px; transform: translateX(-50%); padding: 6px 14px; border-radius: 6px; font: 600 14px/1.2 system-ui, sans-serif;
+  #playName { position: fixed; left: 50%; bottom: 108px; transform: translateX(-50%); padding: 6px 14px; border-radius: 6px; font: 600 14px/1.2 system-ui, sans-serif;
     color: #fff; background: rgba(10, 14, 22, .78); border: 1px solid rgba(255, 255, 255, .25); white-space: nowrap; pointer-events: none; }
   #playList { position: fixed; left: 12px; top: 50%; transform: translateY(-50%); margin: 0; padding: 8px 0; list-style: none; min-width: 190px;
     font: 600 14px/1.2 system-ui, sans-serif; color: #fff; background: rgba(10, 14, 22, .86); border: 1px solid rgba(255, 255, 255, .3); border-radius: 8px; }
@@ -200,15 +236,21 @@
 <canvas id="court"></canvas>
 
 <div id="hud">
-  <span class="fouls" id="fouls0">Fouls 0</span>
-  <span class="score home" id="score0">0</span>
-  <div class="clock">
-    <div><span id="quarter">Q1</span> · <span id="gameClock">3:00</span></div>
-    <div id="shotClock">24</div>
+  <div class="bugLogo"><b>TT</b><i>SPORTS</i></div>
+  <div class="bugTeam home" id="bugTeam0">
+    <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="#1d4fb8" stroke="#e6ecf5" stroke-width="2"/><path d="M5 24c4-7 9-7 13 0s9 7 17-2v6c-7 7-13 6-17 0s-8-5-13 2z" fill="#fff"/><path d="M8 17c3-5 7-5 10 0s7 5 13-1" fill="none" stroke="#9cc4ff" stroke-width="2.4" stroke-linecap="round"/></svg>
+    <span class="names"><span class="abbr" id="abbr0"></span><span class="under"><span class="fouls" id="fouls0">Fouls 0</span><span class="pips" id="timeouts0"></span></span></span>
+    <span class="score home" id="score0">0</span>
   </div>
-  <span class="score away" id="score1">0</span>
-  <span class="fouls" id="fouls1">Fouls 0</span>
-  <label class="energy"><span id="who"></span> Energy <progress id="energy" max="1" value="1"></progress></label>
+  <div class="bugTeam away" id="bugTeam1">
+    <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="#8f1717" stroke="#f1e2e2" stroke-width="2"/><path d="M13 29c-5-5-5-13 1-17 5-3 12-1 13 4" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><path d="M27 16l4-6-1 8z" fill="#fff"/><circle cx="16" cy="29" r="3.2" fill="#fff"/><path d="M19 28l7 2M19 30l6 4" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+    <span class="names"><span class="abbr" id="abbr1"></span><span class="under"><span class="fouls" id="fouls1">Fouls 0</span><span class="pips" id="timeouts1"></span></span></span>
+    <span class="score away" id="score1">0</span>
+  </div>
+  <div class="bugBox period"><span id="quarter">Q1</span></div>
+  <div class="bugBox"><span id="gameClock">3:00</span></div>
+  <div class="bugBox shot"><span id="shotClock">24</span></div>
+  <label class="energy"><span id="who"></span><progress id="energy" max="1" value="1"></progress></label>
 </div>
 <p id="call" hidden></p>
 <div id="ftBox" hidden>

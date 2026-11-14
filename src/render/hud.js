@@ -1,4 +1,4 @@
-import { CLOCK, DIFFICULTY, FOUL, ROSTER } from '../sim/tuning.js';
+import { CLOCK, DIFFICULTY, FOUL, ROSTER, TIMEOUT } from '../sim/tuning.js';
 import { personOf, surname } from '../sim/state.js';
 import { onCourt } from '../sim/roster.js';
 import { menuRows } from '../menu.js';
@@ -107,6 +107,7 @@ export function pauseText(state, menu, row, quality, camera = '2k') {
 // The period as a scoreboard names it: 1ST to 4TH, then OT1, OT2.
 export const periodWord = quarter => (quarter <= CLOCK.quarters ? ['1ST', '2ND', '3RD', '4TH'][quarter - 1] : `OT${quarter - CLOCK.quarters}`);
 
+const SHOT_LOW = 5;   // seconds on the shot clock from which it flashes
 const BACKEND_NAMES = { webgpu: 'WebGPU', webgl2: 'WebGL 2 (WebGPU not available)', webgl2chosen: 'WebGL 2' };
 const SCREENS = { start: 'screenStart', pause: 'screenPause', final: 'screenFinal' };
 
@@ -124,16 +125,30 @@ export function createHud(doc) {
   const classed = (id, name) => { if (changed(`${id}.class`, name)) el(id).className = name; };
   const selected = (id, on) => { if (changed(`${id}.selected`, on)) el(id).ariaSelected = String(on); };
   let screen, lastCall = null, lastScore, lastPanel, lastPause;
+  const bug = { score: [null, null], pops: [0, 0], shines: 0 };   // what the scorebug last showed, for its animations
 
   return {
     // `ui` is what the page itself knows: whether the game is paused, which roster row is selected, and for the
     // corner label the frame rate and the quality level (one of QUALITY.order), and the shot meter with the page position
     // of its top (`head`), or null for none.
     update(state, backend, ui = { paused: false, pick: null }) {
-      set('score0', String(state.score[0]));
-      set('score1', String(state.score[1]));
-      set('fouls0', `Fouls ${state.teamFouls[0]}`);
-      set('fouls1', `Fouls ${state.teamFouls[1]}`);
+      // The scorebug. A score that goes up pops and a shine sweeps the strip; the team with the ball has a lit edge;
+      // a team in the bonus has its fouls lit; the shot clock flashes in its last seconds.
+      const live = state.phase !== 'start' && state.phase !== 'final';
+      for (const team of [0, 1]) {
+        if (bug.score[team] !== null && state.score[team] > bug.score[team]) { bug.pops[team]++; bug.shines++; }
+        bug.score[team] = state.score[team];
+        const side = team === 0 ? 'home' : 'away';
+        set(`score${team}`, String(state.score[team]));
+        classed(`score${team}`, `score ${side}${bug.pops[team] ? (bug.pops[team] % 2 ? ' popA' : ' popB') : ''}`);
+        set(`abbr${team}`, ROSTER.abbr[team]);
+        set(`fouls${team}`, `Fouls ${state.teamFouls[team]}`);
+        classed(`fouls${team}`, state.teamFouls[team] >= FOUL.bonus ? 'fouls bonus' : 'fouls');
+        set(`timeouts${team}`, '●'.repeat(state.timeouts[team]) + '○'.repeat(Math.max(0, TIMEOUT.each - state.timeouts[team])));
+        classed(`bugTeam${team}`, `bugTeam ${side}${live && state.possession === team ? ' has' : ''}`);
+      }
+      classed('hud', bug.shines ? (bug.shines % 2 ? 'shineA' : 'shineB') : '');
+      classed('shotClock', live && state.shotClock <= SHOT_LOW ? 'low' : '');
       set('who', whoText(state));
       // His surname under the player you control, at the place on the page the game says his feet are.
       hide('nameTag', !ui.feet);

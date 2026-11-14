@@ -393,3 +393,42 @@ test('the pause list has a line for each of your eight, the bench of five a side
   assert.deepEqual([doc.els.roster5.textContent, doc.els.roster6.textContent, doc.els.roster7.textContent],
     ['6 · PG · Marcus Bell · No. 1 · bench · 0 fouls', '7 · SF · Noah Vance · No. 13 · bench · 0 fouls · selected', '8 · C · Idris Kane · No. 32 · bench · 0 fouls']);
 });
+
+// ---------- the scorebug ----------
+
+test('the scorebug names each team, lights the one with the ball, shows its timeouts, and lights its fouls in the bonus', async () => {
+  const { FOUL, TIMEOUT } = await import('../src/sim/tuning.js');
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els;
+  s.phase = 'live'; s.possession = 1; s.timeouts = [TIMEOUT.each, 1]; s.teamFouls = [FOUL.bonus, 0];
+  hud.update(s, 'webgl2');
+  assert.deepEqual([e.abbr0.textContent, e.abbr1.textContent], ['WAV', 'SCO']);
+  assert.deepEqual([e.bugTeam0.className, e.bugTeam1.className], ['bugTeam home', 'bugTeam away has']);
+  assert.deepEqual([e.timeouts0.textContent, e.timeouts1.textContent], ['●●●', '●○○']);
+  assert.deepEqual([e.fouls0.className, e.fouls1.className], ['fouls bonus', 'fouls']);
+  s.phase = 'final'; hud.update(s, 'webgl2');
+  assert.equal(e.bugTeam1.className, 'bugTeam away', 'nobody has the ball once the match is over');
+});
+
+test('a score that goes up pops and sweeps a shine across the scorebug, afresh each time; the shot clock flashes in its last seconds', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els;
+  s.phase = 'live';
+  hud.update(s, 'webgl2');
+  assert.deepEqual([e.score0.className, e.hud.className, e.shotClock.className], ['score home', '', '']);
+  s.score[0] = 2; hud.update(s, 'webgl2');
+  assert.deepEqual([e.score0.className, e.score1.className, e.hud.className], ['score home popA', 'score away', 'shineA']);
+  s.score[0] = 5; hud.update(s, 'webgl2');
+  assert.deepEqual([e.score0.className, e.hud.className], ['score home popB', 'shineB']);   // another name, so the animation runs again
+  s.score[1] = 3; hud.update(s, 'webgl2');
+  assert.deepEqual([e.score1.className, e.hud.className], ['score away popA', 'shineA']);
+  s.shotClock = 4.2; hud.update(s, 'webgl2');
+  assert.equal(e.shotClock.className, 'low');
+  s.shotClock = 9; hud.update(s, 'webgl2');
+  assert.equal(e.shotClock.className, '');
+});
+
+test('the page has the scorebug: a logo, a crest, a name, fouls, timeouts and a score for each team, and the period, the clock and the shot clock', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  for (const id of ['hud', 'quarter', 'gameClock', 'shotClock', ...[0, 1].flatMap(t => [`bugTeam${t}`, `abbr${t}`, `fouls${t}`, `timeouts${t}`, `score${t}`])]) assert.match(html, new RegExp(`id="${id}"`), id);
+  assert.match(html, /class="bugLogo"/);
+  assert.equal((html.match(/<svg viewBox="0 0 40 40"/g) ?? []).length, 2, 'a crest for each team');
+});
