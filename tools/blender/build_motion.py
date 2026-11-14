@@ -25,7 +25,13 @@ FPS = 30
 # Name (and file name) of each Mixamo clip: its kind. A 'loop' repeats; in a 'held' one the game sets how far through it is.
 CLIPS = {'idle': 'loop', 'walk': 'loop', 'run': 'loop', 'sprint': 'loop', 'jump': 'held',
          'strafeLeft': 'loop', 'backpedal': 'loop', 'dribble': 'loop'}
-MIRRORS = {'strafeRight': 'strafeLeft', 'dribbleLeft': 'dribble', 'holdLeft': 'hold'}   # motions the build makes: another one in a mirror
+# Motions the build makes: another one in a mirror.
+MIRRORS = {'strafeRight': 'strafeLeft', 'dribbleLeft': 'dribble', 'holdLeft': 'hold',
+           'crossoverLeft': 'crossover', 'betweenLegsLeft': 'betweenLegs', 'behindBackLeft': 'behindBack'}
+# Clips that are taken if their file is in assets/source/mixamo/, and done without if it is not: the first five have a
+# hand-made motion of the same name in poses.py, which is used until the clip is there.
+OPTIONAL = {'crossover': 'once', 'betweenLegs': 'once', 'behindBack': 'once', 'stepBack': 'once', 'fade': 'held',
+            'celebrate': 'once', 'dejected': 'once', 'stumble': 'once'}
 STRIDES = ('walk', 'run', 'sprint')                                                     # the gaits whose footfalls are timed
 STEPS = {'strafeLeft': (1, 0, 0), 'strafeRight': (-1, 0, 0), 'backpedal': (0, 1, 0)}    # the way each step must travel
 GAITS = STRIDES + tuple(STEPS)
@@ -260,6 +266,7 @@ def filmstrip(path, body, frames, box):
 def main():
     args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
     shots = args[args.index('--shots') + 1] if '--shots' in args else None
+    strips = set(args[args.index('--strips') + 1].split(',')) if '--strips' in args else None   # only these motions' film strips
     missing = [f'{name}.fbx' for name in CLIPS if not os.path.exists(clip_path(name))]
     assert not missing, f'no {", ".join(missing)} in assets/source/mixamo/: nothing is written'
     clear_scene()
@@ -279,7 +286,7 @@ def main():
         """Puts one motion in the file, with its facts and, if asked for, its film strip."""
         actions[name] = write_action(rig, name, frames)
         facts['clips'][name] = {'duration': round((len(frames) - 1) / FPS, 4), 'loop': kind == 'loop', 'kind': kind, **more}
-        if shots:
+        if shots and (strips is None or name in strips):
             filmstrip(os.path.join(shots, f'motion-{name}.png'), body, [round((len(frames) - 1) * i / 5) for i in range(6)], framed)
 
     def with_mirrors(name, frames):
@@ -312,9 +319,31 @@ def main():
                 more.update(bounce(frames))
             add(made, kind, frames, **more)
 
+    # The clips that are there if the owner has downloaded them. One that was not made for this skeleton is refused and
+    # the build goes on without it.
+    found = {}
+    for name, kind in OPTIONAL.items():
+        if not os.path.exists(clip_path(name)):
+            continue
+        try:
+            frames = read_clip(name, rig)
+        except AssertionError as refusal:
+            print(f'MOTION refused {name}.fbx: {refusal}')
+            continue
+        scene.render.fps = FPS
+        on_the_spot(frames)
+        for made, mirror in with_mirrors(name, frames):
+            add(made, kind, mirror, **{'from': 'clip'})
+        found[name] = 'clip'
+
     for name, pose in POSES.items():
+        if name in found:
+            continue
         for made, frames in with_mirrors(name, pose_frames(rig, pose, FPS)):
-            add(made, pose['kind'], frames, framed=MADE_BOX)
+            add(made, pose['kind'], frames, framed=MADE_BOX, **({'from': 'hand'} if name in OPTIONAL else {}))
+        if name in OPTIONAL:
+            found[name] = 'hand'
+    print('MOTION optional:', ', '.join(f'{name} {found.get(name, "absent")}' for name in OPTIONAL))
 
     rig.animation_data.action = None
     for name, action in actions.items():

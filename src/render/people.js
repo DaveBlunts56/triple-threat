@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { BALL, ROSTER } from '../sim/tuning.js';
 import { onFloor } from '../sim/state.js';
 import { assetUrl } from './assets.js';
-import { MOTION, legMotion, armMotion, legLook, newMarks, noteChanges, drawnFacing } from './motion.js';
+import { MOTION, legMotion, armMotion, legLook, newMarks, noteChanges, drawnFacing, wholeBody } from './motion.js';
 import { BALL_IN_HAND, ballHands, crossFrom, dribbleSpot } from './hands.js';
 import { checkGaits, checkMotions, checkFacts, personName, courtPeople, sized, missingPeople, checkHands } from './checks.js';
 import { easeFacing, leanOf, lookTarget, headTurn, easeHead } from './bearing.js';
@@ -224,7 +224,9 @@ export async function loadPeople() {
         // The model tips inside the group, about his feet, so the number over his head stays where it is.
         he.model.rotation.set(bearing.lean.forward, 0, -bearing.lean.side);
         he.arms = standing ? null : armMotion(player, state, marks, facts);
-        he.animator.update(legs, he.arms, dt, standing ? null : bearing.head);
+        // A downloaded clip of the whole body (a move, a stumble) is played by the legs as well.
+        const whole = he.arms && 'at' in he.arms && wholeBody(facts.clips, he.arms.clip) ? he.arms : null;
+        he.animator.update(whole ?? legs, he.arms, dt, standing ? null : bearing.head);
       });
     },
     // The hands the holder carries the ball in on this frame (see handsOf). To be asked after `update`.

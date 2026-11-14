@@ -23,6 +23,12 @@ def both(turns):
     return {**turns, **{bone.replace('Right', 'Left'): (x, -y, -z) for bone, (x, y, z) in turns.items()}}
 
 
+def flip(turns):
+    """The pose seen in a mirror: what his right side did his left does, and a lean or a turn goes the other way."""
+    swap = lambda bone: bone.replace('Right', '\0').replace('Left', 'Right').replace('\0', 'Left')
+    return {swap(bone): (x, -y, -z) for bone, (x, y, z) in turns.items()}
+
+
 # ---- The key poses. Each names only the bones it turns. ----
 
 # Arms hanging at the sides, forearms a little forward, as they hang in the standing clip.
@@ -88,6 +94,24 @@ TIP = {'Spine1': (0, 3, 0), 'Spine2': (0, 3, 0), 'Neck': (-10, 0, 0), 'Head': (-
        'RightShoulder': (0, 22, 0), 'RightArm': (-138, 32, -51), 'RightForeArm': (26, 3, -21), 'RightHand': (5, 5, -9),
        'LeftArm': (31, 7, -7), 'LeftForeArm': (-16, 13, -1), 'LeftHand': (-6, 11, 13)}
 
+# The moves. Each of the three dribbles starts with the ball low on the right and ends with it low on the left.
+# Low on the right: the ball on the hip, with the trunk bent over it.
+LOW = {**ON_HIP, 'Spine1': (16, 0, -8), 'Spine2': (12, 0, -7), 'Neck': (-12, 0, 7), 'Head': (-12, 0, 8)}
+# A crossover's middle: both hands in front of the waist, the trunk well over. (Straighter elbows swing the hands
+# behind him, not lower: without a clip the ball crosses at waist height.)
+CROSSING = {**DIP, 'Spine1': (19, 0, 0), 'Spine2': (15, 0, 0), 'Neck': (-14, 0, 0), 'Head': (-14, 0, 0)}
+# Between the legs: bent right over, both hands down between the thighs.
+THROUGH = {**DIP, 'Spine1': (27, 0, 0), 'Spine2': (21, 0, 0), 'Neck': (-18, 0, 0), 'Head': (-18, 0, 0)}
+# Behind the back: the trunk upright and turned to the right, the right arm wrapped back round the hip, the left
+# hand reaching back on its own side to take the ball.
+WRAPPED = {'Spine1': (4, 0, -16), 'Spine2': (3, 0, -12), 'Neck': (-3, 0, 12), 'Head': (-3, 0, 12),
+           'RightArm': (62, 0, -6), 'RightForeArm': (-42, -10, 58), 'RightHand': (-30, -15, -14),
+           'LeftArm': (52, 0, 10), 'LeftForeArm': (-30, 8, -40), 'LeftHand': (-20, 10, 10)}
+# A step-back's gather: the ball brought in to the belly with both hands, the trunk over it.
+TUCKED = {**DIP, 'Spine1': (14, 0, 0), 'Spine2': (10, 0, 0), 'Neck': (-10, 0, 0), 'Head': (-10, 0, 0)}
+# A fade's set point: the set point with the trunk leaning back 12 degrees more at each of the two joints.
+SET_BACK = {**SET, 'Spine1': (-14, 0, 0), 'Spine2': (-14, 0, 0), 'Neck': (6, 0, 0), 'Head': (8, 0, 0)}
+
 # ---- The motions. name: kind (as in motion.json), length in seconds, and keys: (share of the length, key pose). ----
 # `pass` and `reach` show what follows the action, which the rules have already taken: neither has a wind-up, and the
 # reach is fully out at 0.16 of its 0.4 s, inside 0.07 s. A loop's middle key is its first with the trunk a degree or
@@ -107,6 +131,12 @@ POSES = {
     'handUp': {'kind': 'loop', 'seconds': 1, 'keys': [(0, HAND_UP), (0.5, {**HAND_UP, 'Spine1': (5, 0, 0)}), (1, HAND_UP)]},
     'contest': {'kind': 'held', 'seconds': 0.47, 'keys': [(0, GUARD), (0.3, ARMS_UP), (1, ARMS_UP)]},
     'tip': {'kind': 'held', 'seconds': 0.47, 'keys': [(0, SIDES), (0.4, TIP), (1, TIP)]},
+    # The five moves. The game places each by hand (how far through the move he is), whatever its kind says.
+    'crossover': {'kind': 'once', 'seconds': 0.3, 'keys': [(0, LOW), (0.5, CROSSING), (1, flip(LOW))]},
+    'betweenLegs': {'kind': 'once', 'seconds': 0.4, 'keys': [(0, LOW), (0.5, THROUGH), (1, flip(LOW))]},
+    'behindBack': {'kind': 'once', 'seconds': 0.5, 'keys': [(0, LOW), (0.5, WRAPPED), (1, flip(LOW))]},
+    'stepBack': {'kind': 'once', 'seconds': 0.35, 'keys': [(0, LOW), (0.5, TUCKED), (1, LIFT)]},
+    'fade': {'kind': 'held', 'seconds': 0.3, 'keys': [(0, ON_HIP), (0.55, DIP), (0.78, {**LIFT, 'Spine1': (-6, 0, 0), 'Spine2': (-6, 0, 0)}), (1, SET_BACK)]},
 }
 
 

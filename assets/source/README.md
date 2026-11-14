@@ -42,6 +42,21 @@ npm test
 4. `build_motion.py` puts the clips on the player's skeleton and writes `assets/motion.glb` and `assets/motion.json`. With `--shots` it renders six frames of each motion from two sides, brightly lit against grey. It also makes three motions of its own from the clips: `land` from the frames of `jump.fbx` that follow the landing, and `strafeRight` and `dribbleLeft` from `strafeLeft` and `dribble` in a mirror. If a clip is missing the build stops and writes nothing.
 5. After the clips it keys the hand-made motions in `poses.py` (below), which need no download.
 
+### Clips the build takes if they are there
+
+Eight more clips are optional. If its file is in `assets/source/mixamo/`, the build uses it; if not, the build goes on without it and says so in its last lines (`MOTION optional: crossover hand, ... stumble absent`).
+
+| Save as | What it is | Without it |
+|---|---|---|
+| `crossover.fbx`, `betweenLegs.fbx`, `behindBack.fbx` | The three dribble moves, the ball going from the right hand to the left | A motion of the arms made by hand in `poses.py` |
+| `stepBack.fbx` | One hop backwards | The same |
+| `fade.fbx` | A jump shot leaning back | The same |
+| `celebrate.fbx`, `dejected.fbx`, `stumble.fbx` | After a big basket, and a defender beaten by a move | A raised arm; nothing; a low stagger |
+
+They are downloaded with the same settings as the others. A downloaded clip is played by the whole body; a hand-made one moves the arms and the upper trunk and leaves the legs to the step he is taking. The build makes the left-handed twin of each dribble move in a mirror. A clip whose rest pose is not the player's is refused with a line `MOTION refused <name>.fbx: ...` and treated as absent. `assets/motion.json` says for each of these where it came from: `"from": "clip"` or `"from": "hand"`.
+
+`--strips crossover,fade` with `--shots` draws only those motions' film strips.
+
 Why those settings:
 
 - **With Skin.** Without the skin, Mixamo sends the skeleton back resting in a T-pose instead of the player's own rest pose, and the motion can no longer be carried over exactly. `build_motion.py` refuses a clip whose rest pose is more than 5 mm from the player's.
@@ -60,7 +75,7 @@ What `assets/motion.json` says about each clip, besides how long it is:
 
 ## The motions made by hand
 
-`tools/blender/poses.py` holds the motions that are not downloaded: `stance`, `gather`, `hold`, `shoot`, `follow`, `freeThrow`, `pass`, `catch`, `reach`, `handUp`, `contest` and `tip`. The build makes `holdLeft` from `hold` in a mirror. Each is a few key poses; nothing is posed in Blender's window.
+`tools/blender/poses.py` holds the motions that are not downloaded: `stance`, `gather`, `hold`, `shoot`, `follow`, `freeThrow`, `pass`, `catch`, `reach`, `handUp`, `contest` and `tip`. It also holds `crossover`, `betweenLegs`, `behindBack`, `stepBack` and `fade`, used until a clip of that name is downloaded. The build makes `holdLeft` from `hold` in a mirror. Each is a few key poses; nothing is posed in Blender's window.
 
 How a pose is written:
 

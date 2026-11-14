@@ -110,3 +110,64 @@ test('a contest ends with both arms up, a tip with one reaching', () => {
   assert.ok(contest.LeftHand.y > contest.Head.y + 0.35 && contest.RightHand.y > contest.Head.y + 0.35);
   assert.ok(tip.RightHand.y > tip.Head.y + 0.4 && tip.LeftHand.y < tip.LeftArm.y);
 });
+
+// ---------- the five moves, made by hand until a downloaded clip takes their place ----------
+
+const motionFacts = JSON.parse(readFileSync('assets/motion.json', 'utf8'));
+const byHand = name => motionFacts.clips[name]?.from === 'hand';
+const still = posed('hold', 0);   // an arms-only motion: his legs as they rest
+
+test('the file has a motion for each move, the dribbles with a twin for the other hand, each as long as its move', () => {
+  const lengths = { crossover: 0.3, betweenLegs: 0.4, behindBack: 0.5, stepBack: 0.35, fade: 0.3 };
+  for (const [name, seconds] of Object.entries(lengths)) {
+    assert.ok(motionFacts.clips[name], name);
+    assert.ok(['hand', 'clip'].includes(motionFacts.clips[name].from), `${name} says where it is from`);
+    if (byHand(name)) assert.ok(Math.abs(motionFacts.clips[name].duration - seconds) < 0.02, `${name} lasts ${motionFacts.clips[name].duration}`);   // to the nearest frame
+  }
+  for (const name of ['crossover', 'betweenLegs', 'behindBack']) assert.equal(motionFacts.clips[`${name}Left`].duration, motionFacts.clips[name].duration);
+});
+
+test('the motions that were downloaded are as they were', () => {
+  assert.deepEqual(motionFacts.gaits, { walk: 1.844, run: 5.207, sprint: 7.273, strafeLeft: 2.775, strafeRight: 2.775, backpedal: 1.335 });
+  const lengths = { idle: 9.9333, walk: 1.1667, run: 0.7333, sprint: 0.5333, jump: 0.4667, land: 0.1667, strafeLeft: 0.5333, strafeRight: 0.5333, backpedal: 1.2,
+    dribble: 2.1, dribbleLeft: 2.1, stance: 2, gather: 0.3, hold: 2, holdLeft: 2, shoot: 0.3, follow: 0.5, freeThrow: 0.9, pass: 0.3333, catch: 0.3333, reach: 0.4,
+    handUp: 1, contest: 0.4667, tip: 0.4667 };
+  for (const [name, seconds] of Object.entries(lengths)) assert.equal(motionFacts.clips[name].duration, seconds, name);
+});
+
+test('a hand-made move moves the arms and the upper trunk only: the legs and hips stay as they rest', () => {
+  for (const name of ['crossover', 'betweenLegs', 'behindBack', 'stepBack', 'fade'].filter(byHand)) for (const share of [0, 0.5, 1]) {
+    const p = posed(name, share);
+    for (const bone of ['Hips', 'LeftLeg', 'RightLeg', 'LeftFoot', 'RightFoot']) assert.ok(p[bone].distanceTo(still[bone]) < 0.002, `${name} at ${share}: ${bone}`);
+  }
+});
+
+test('each dribble move takes the hands from his right side to his left, and its twin from left to right', () => {
+  for (const name of ['crossover', 'betweenLegs', 'behindBack'].filter(byHand)) {
+    const start = posed(name, 0), end = posed(name, 1);
+    assert.ok(start.mid.x < -0.08 && end.mid.x > 0.08, `${name}: ${start.mid.x} to ${end.mid.x}`);   // his left is +x
+    const twinStart = posed(`${name}Left`, 0), twinEnd = posed(`${name}Left`, 1);
+    assert.ok(twinStart.mid.x > 0.08 && twinEnd.mid.x < -0.08, `${name}Left`);
+  }
+});
+
+test('a crossover passes in front, between the legs lower still, and behind the back behind him', () => {
+  if (byHand('crossover')) {
+    const mid = posed('crossover', 0.5);
+    assert.ok(Math.abs(mid.mid.x) < 0.1 && mid.mid.z > mid.Hips.z + 0.05, 'in front, in the middle');
+    assert.ok(mid.Head.z > still.Head.z + 0.1, 'bent over it');
+  }
+  if (byHand('betweenLegs') && byHand('crossover')) assert.ok(posed('betweenLegs', 0.5).mid.y < posed('crossover', 0.5).mid.y - 0.005);
+  if (byHand('behindBack')) {
+    const mid = posed('behindBack', 0.5);
+    assert.ok(mid.RightHand.z < mid.Hips.z, `the right hand is ${mid.RightHand.z - mid.Hips.z} m in front of the hips`);
+  }
+});
+
+test('a fade ends at the set point with the trunk leaning back', () => {
+  if (!byHand('fade')) return;
+  const fade = posed('fade', 1), shot = posed('shoot', 1);
+  assert.ok(fade.Head.z < shot.Head.z - 0.08, `the head is ${shot.Head.z - fade.Head.z} m further back`);
+  assert.ok(fade.RightHand.y > fade.Head.y, 'the ball hand is above the head');
+  assert.ok(fade.Hips.distanceTo(shot.Hips) < 0.002);
+});

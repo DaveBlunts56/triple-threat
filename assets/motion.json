@@ -144,6 +144,54 @@
       "duration": 0.4667,
       "loop": false,
       "kind": "held"
+    },
+    "crossover": {
+      "duration": 0.3,
+      "loop": false,
+      "kind": "once",
+      "from": "hand"
+    },
+    "crossoverLeft": {
+      "duration": 0.3,
+      "loop": false,
+      "kind": "once",
+      "from": "hand"
+    },
+    "betweenLegs": {
+      "duration": 0.4,
+      "loop": false,
+      "kind": "once",
+      "from": "hand"
+    },
+    "betweenLegsLeft": {
+      "duration": 0.4,
+      "loop": false,
+      "kind": "once",
+      "from": "hand"
+    },
+    "behindBack": {
+      "duration": 0.5,
+      "loop": false,
+      "kind": "once",
+      "from": "hand"
+    },
+    "behindBackLeft": {
+      "duration": 0.5,
+      "loop": false,
+      "kind": "once",
+      "from": "hand"
+    },
+    "stepBack": {
+      "duration": 0.3333,
+      "loop": false,
+      "kind": "once",
+      "from": "hand"
+    },
+    "fade": {
+      "duration": 0.3,
+      "loop": false,
+      "kind": "held",
+      "from": "hand"
     }
   }
 }

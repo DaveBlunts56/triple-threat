@@ -419,3 +419,62 @@ test('a player calling for the ball has his hand up, and so has a defender closi
   s.players[1].calling = true; s.players[3].closing = true;
   assert.deepEqual([arms(s, marks, 1), arms(s, marks, 3)], [{ clip: 'handUp', rate: 1 }, { clip: 'handUp', rate: 1 }]);
 });
+
+// ---------- the five moves ----------
+
+const inMove = (kind, t) => ({ kind, t, dx: 0, dz: 1, cx: 0, cz: 0, push: 1 });
+
+test('a player in a dribble move shows that move, as far through as the move is, for the hand the ball starts in', () => {
+  const [s, marks] = watched();
+  s.players[0].move = inMove('cross', 0.15);
+  assert.deepEqual(arms(s, marks, 0), { clip: marks.hand[0] === 'left' ? 'crossoverLeft' : 'crossover', at: 0.5 });
+  marks.hand[0] = 'left';
+  assert.deepEqual(arms(s, marks, 0), { clip: 'crossoverLeft', at: 0.5 });
+  marks.hand[0] = 'right';
+  s.players[0].move = inMove('legs', 0.1);
+  assert.deepEqual(arms(s, marks, 0), { clip: 'betweenLegs', at: 0.25 });
+  s.players[0].move = inMove('back', 0.5);
+  assert.deepEqual(arms(s, marks, 0), { clip: 'behindBack', at: 1 });
+  s.players[0].move = inMove('stepBack', 0.175);
+  assert.deepEqual(arms(s, marks, 0), { clip: 'stepBack', at: 0.5 });   // one motion for either hand
+});
+
+test('as a dribble move ends the ball is in the other hand, and stays there for a moment', () => {
+  const [s, marks] = watched();
+  for (const p of s.players) if (p.id) at(s, p.id, -10, p.id);          // nobody near enough to choose his hand for him
+  noteChanges(marks, s, DT);
+  const before = marks.hand[0];
+  s.players[0].move = inMove('cross', 0.1); noteChanges(marks, s, DT);
+  assert.equal(marks.hand[0], before);                                 // not during the move
+  s.players[0].move = null; noteChanges(marks, s, DT);
+  assert.notEqual(marks.hand[0], before);
+  assert.equal(marks.switched[0], 0);
+  noteChanges(marks, s, DT);
+  assert.notEqual(marks.hand[0], before);
+});
+
+test('a step-back does not change the hand', () => {
+  const [s, marks] = watched();
+  noteChanges(marks, s, DT);
+  const before = marks.hand[0];
+  s.players[0].move = inMove('stepBack', 0.1); noteChanges(marks, s, DT);
+  s.players[0].move = null; noteChanges(marks, s, DT);
+  assert.equal(marks.hand[0], before);
+});
+
+test('a fade is shown leaning back, a plain shot is not', () => {
+  const [s, marks] = watched();
+  Object.assign(s.players[0], { shooting: true, shotT: SHOT.gather / 2 });
+  assert.deepEqual(arms(s, marks, 0), { clip: 'shoot', at: 0.5 });
+  s.players[0].fading = true;
+  assert.deepEqual(arms(s, marks, 0), { clip: 'fade', at: 0.5 });
+});
+
+test('a defender put on the floor by a move staggers low; with a stumble in the file he plays it', () => {
+  const [s, marks] = watched();
+  s.players[3].stumbleT = 0.5;
+  assert.deepEqual(legMotion(s.players[3], facts.gaits), { clip: 'stance', rate: 1 });
+  assert.notEqual(arms(s, marks, 3)?.clip, 'stumble');                 // the file here has none
+  const withClip = { ...facts, clips: { ...facts.clips, stumble: { duration: 1, from: 'clip' } } };
+  assert.deepEqual(armMotion(s.players[3], s, marks, withClip), { clip: 'stumble', at: 0.5 });
+});

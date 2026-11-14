@@ -1,5 +1,5 @@
 // Which motion a player shows, worked out from the match alone. No Three.js here, so it can be tested without a browser.
-import { BALL, PLAYER, SHOT } from '../sim/tuning.js';
+import { BALL, PLAYER, SHOT, MOVES } from '../sim/tuning.js';
 import { isJumper, onFloor } from '../sim/state.js';
 import { gathering } from '../sim/players.js';
 import { manOf } from '../sim/matchups.js';
@@ -45,7 +45,20 @@ export const MOTION = Object.freeze({
 // Every motion of the legs, and every motion the arms can take over from them.
 export const LEG_CLIPS = Object.freeze(['idle', 'stance', 'walk', 'run', 'sprint', 'strafeLeft', 'strafeRight', 'backpedal', 'jump', 'land', 'gather']);
 
-export const ARM_CLIPS = Object.freeze(['dribble', 'dribbleLeft', 'hold', 'holdLeft', 'shoot', 'follow', 'freeThrow', 'pass', 'catch', 'reach', 'handUp', 'contest', 'tip']);
+export const ARM_CLIPS = Object.freeze(['dribble', 'dribbleLeft', 'hold', 'holdLeft', 'shoot', 'follow', 'freeThrow', 'pass', 'catch', 'reach', 'handUp', 'contest', 'tip',
+  'crossover', 'crossoverLeft', 'betweenLegs', 'betweenLegsLeft', 'behindBack', 'behindBackLeft', 'stepBack', 'fade']);
+
+// Motions the file has only if their clips were downloaded: the game does without any that are missing.
+export const OPTIONAL_CLIPS = Object.freeze(['celebrate', 'dejected', 'stumble']);
+
+// The motion of each move (see sim/moves.js). The three dribbles are made for a ball that starts in the right hand
+// and have a twin, named with Left, for one that starts in the left.
+const MOVE_CLIP = Object.freeze({ cross: 'crossover', legs: 'betweenLegs', back: 'behindBack', stepBack: 'stepBack' });
+const TWINNED = ['cross', 'legs', 'back'];
+
+// Is motion `name` a downloaded clip of the whole body, which the legs play as well as the arms? `clips` is the
+// `clips` of assets/motion.json. A motion made by hand moves the arms only.
+export const wholeBody = (clips, name) => clips?.[name]?.from === 'clip';
 
 export const GAITS = ['idle', 'walk', 'run', 'sprint'];
 
@@ -84,6 +97,7 @@ export function dribbleHand(state, player, last = 'right') {
 }
 
 const HAPPENINGS = ['pass', 'release', 'catch', 'reach', 'land', 'switched'];
+const OTHER_HAND = { left: 'right', right: 'left' };
 
 // What the renderer remembers from frame to frame, by player id. For each of HAPPENINGS, the seconds since it last
 // happened to him (Infinity if never); `guard`, whether he is guarding his man, and `guarded`, the seconds since that
@@ -108,8 +122,10 @@ export function noteChanges(marks, state, dt) {
     const free = marks.guard[id] === undefined || !defending(state, p) || marks.guarded[id] >= MOTION.guardHold;
     if (free && guarding !== marks.guard[id]) [marks.guard[id], marks.guarded[id]] = [guarding, 0];
     // A hand just changed to is kept for a while, so a defender crossing in front does not make the ball flutter.
+    // During a dribble move it stays in the hand the move began in; as the move ends it is in the other.
     const kept = marks.hand[id], settled = kept === undefined || marks.switched[id] >= MOTION.handStick;
-    const hand = settled ? dribbleHand(state, p, kept ?? 'right') : kept;
+    const crossed = before && TWINNED.includes(before.move) && !p.move && state.ball.holder === id;
+    const hand = crossed ? OTHER_HAND[kept ?? 'right'] : settled && !p.move ? dribbleHand(state, p, kept ?? 'right') : kept ?? 'right';
 
     if (before) {
       // A release belongs to the jump it was made on: every take-off forgets the last one. Before the release is
@@ -126,7 +142,7 @@ export function noteChanges(marks, state, dt) {
       if (hand !== marks.hand[id]) marks.switched[id] = 0;
     }
     marks.hand[id] = hand;
-    now.players[id] = { shooting: p.shooting, inAir: !onFloor(p), stealCooldown: p.stealCooldown };
+    now.players[id] = { shooting: p.shooting, inAir: !onFloor(p), stealCooldown: p.stealCooldown, move: p.move?.kind ?? null };
   }
   marks.was = now;
 }
@@ -174,6 +190,7 @@ function guardStep(player, facing, last) {
 // Played at a rate: { clip, rate }. Placed by hand: { clip, at }, with `at` from 0 at the clip's start to 1 at its end.
 export function legMotion(player, gaits, last = null, look = null) {
   if (!onFloor(player)) return { clip: 'jump', at: jumpShare(player) };
+  if (player.stumbleT > 0) return { clip: 'stance', rate: 1 };   // beaten by a move: he staggers low, wherever he was going
   if (look && gathering(player)) return { clip: 'gather', at: player.shotT / SHOT.gather };
   if (look && look.landed < MOTION.land) return { clip: 'land', at: look.landed / MOTION.land };
 
@@ -207,6 +224,13 @@ export function armMotion(player, state, marks, facts) {
   const length = name => facts.clips[name].duration;
   const sided = name => (marks.hand[id] === 'left' ? `${name}Left` : name);
 
+  // In a move: its motion, as far through as the move is.
+  if (hasBall && player.move && MOVE_CLIP[player.move.kind]) {
+    const { kind, t } = player.move, name = MOVE_CLIP[kind];
+    return { clip: TWINNED.includes(kind) ? sided(name) : name, at: Math.min(1, t / MOVES[kind].time) };
+  }
+  // On the floor to a move, if the file has that motion.
+  if (player.stumbleT > 0 && facts.clips.stumble) return { clip: 'stumble', at: Math.min(1, Math.max(0, 1 - player.stumbleT / MOVES.ankle.time)) };
   if (marks.pass[id] < length('pass')) return { clip: 'pass', at: marks.pass[id] / length('pass') };
   const released = marks.release[id], landed = marks.land[id];
   // A free throw leaves from the set point, where he held it, and plays on from there at its own pace.
@@ -221,7 +245,7 @@ export function armMotion(player, state, marks, facts) {
     if (!inAir && landed <= released && at < 1) return { clip: 'follow', at };
   }
   // The set point is reached as his feet leave the floor, and held until he lets go.
-  if (player.shooting) return { clip: 'shoot', at: Math.min(1, player.shotT / SHOT.gather) };
+  if (player.shooting) return { clip: player.fading ? 'fade' : 'shoot', at: Math.min(1, player.shotT / SHOT.gather) };   // a fade leans back as it goes up
   if (hasBall && marks.catch[id] < MOTION.pullIn) {
     return { clip: 'catch', at: MOTION.catchReach + ((1 - MOTION.catchReach) * marks.catch[id]) / MOTION.pullIn };
   }

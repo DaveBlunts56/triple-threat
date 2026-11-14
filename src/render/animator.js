@@ -1,6 +1,6 @@
 // Plays one person's motions on two layers, the legs and the arms, and cross-fades each layer on its own.
 import * as THREE from 'three';
-import { LEG_CLIPS, ARM_CLIPS, STRIDES, crossFade, layerOf, outOfStep, stridePhase } from './motion.js';
+import { LEG_CLIPS, ARM_CLIPS, OPTIONAL_CLIPS, STRIDES, crossFade, layerOf, outOfStep, stridePhase, wholeBody } from './motion.js';
 import { chestTip } from './bearing.js';
 import { keepTrack } from './checks.js';
 
@@ -76,9 +76,13 @@ export function createAnimator(model, clips, facts, scale, index = 0) {
   const own = outOfStep(index);
   // Held where `at` puts it, never played by the mixer, which only blends.
   const held = (name, keep) => Object.assign(mixer.clipAction(part(clips[name], keep, scale)).play(), { timeScale: 0 });
+  // The arms' motions, with those the file may or may not have; and among them the downloaded clips of the whole
+  // body, which the legs play too.
+  const armOnly = [...ARM_CLIPS, ...OPTIONAL_CLIPS.filter(name => name in clips)];
+  const legNames = [...LEG_CLIPS, ...armOnly.filter(name => wholeBody(facts.clips, name))];
   const actions = {
-    legs: Object.fromEntries(LEG_CLIPS.map(name => [name, held(name, track => layerOf(track) === 'legs')])),
-    arms: Object.fromEntries([...LEG_CLIPS, ...ARM_CLIPS].map(name => [name, held(name, track => layerOf(track) === 'arms' && !(name in OFF_ARM && armOf(track) === OFF_ARM[name]))])),
+    legs: Object.fromEntries(legNames.map(name => [name, held(name, track => layerOf(track) === 'legs')])),
+    arms: Object.fromEntries([...LEG_CLIPS, ...armOnly].map(name => [name, held(name, track => layerOf(track) === 'arms' && !(name in OFF_ARM && armOf(track) === OFF_ARM[name]))])),
   };
   // Each arm alone, in every leg motion: what the arm a dribble leaves out shows.
   const offArm = Object.fromEntries(Object.entries(OFF_ARM).map(([dribble, side]) => [dribble, Object.fromEntries(LEG_CLIPS.map(name => [name, held(name, track => armOf(track) === side)]))]));
