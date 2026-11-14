@@ -34,7 +34,7 @@ function flipAutoSubs(game) {
 }
 
 // A key pressed while paused. Returns 'resume', 'quality' or 'quit' when the page has something to do, else null.
-// In Substitutions, 1 to 5 pick two of your players to swap at the next stoppage and A is the automatic switch.
+// In Substitutions, 1 to 8 pick two of your players to swap at the next stoppage and A is the automatic switch.
 export function pauseKey(game, code) {
   const menu = game.pauseMenu, rows = pauseRows(menu);
   const back = () => { menu.panel = 'main'; menu.row = menu.from; game.pick = null; };
