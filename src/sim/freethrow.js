@@ -1,4 +1,5 @@
 import { CLOCK, COURT, FT, PLAYER, levelOf } from './tuning.js';
+import { note } from './stats.js';
 import { addPoints, attackSign, personOf, rand } from './state.js';
 import { rimCentre } from './ball.js';
 import { carryBall, giveBall, launchShot } from './players.js';
@@ -13,6 +14,7 @@ export const ftChance = meter => FT.edgeChance + (FT.centreChance - FT.edgeChanc
 // The ball goes to the shooter for his next attempt.
 function handBall(state) {
   const ft = state.freeThrow;
+  state.board = false;   // a missed attempt that is not the last is nobody's rebound
   giveBall(state, state.players[ft.shooter]);
   carryBall(state, 0);
   Object.assign(ft, { stage: 'aim', meter: 0, dir: 1, t: 0, armed: false, live: false });
@@ -58,13 +60,14 @@ export function stepFreeThrow(state, intents, events, dt) {
     }
     Object.assign(ball, { x: shooter.x, y: shooter.y + PLAYER.releaseHeight, z: shooter.z });
     launchShot(state, shooter, rand(state) < chance * shotFactor(personOf(state, shooter).energy), 1);
+    note(state, shooter, 'fta');
     ft.stage = 'flight';
     ft.live = ft.left === 1 && state.gameClock > 0;   // the last attempt is played on, unless time is up
     return null;
   }
 
   if (ft.stage === 'flight') {
-    if (events.scored) addPoints(state, shooter.team, 1);
+    if (events.scored) { addPoints(state, shooter.team, 1); note(state, shooter, 'ftm'); note(state, shooter, 'pts'); state.board = false; }
     if (ft.live) return events.scored ? 'scored' : ball.holder !== null ? 'live' : null;
     if (events.scored || events.hitFloor) { ft.left--; ft.stage = 'pause'; ft.t = 0; }
     return null;

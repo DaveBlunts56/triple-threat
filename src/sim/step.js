@@ -7,9 +7,10 @@ import { emptyEvents, emptyIntent } from './state.js';
 import { screenSwitches } from './matchups.js';
 import { stepPlays } from './plays.js';
 
-// Advances the whole match by one fixed step. `intents` holds one Intent per player, by id.
+// Advances the whole match by one fixed step. `intents` holds one Intent per player, by id. Returns what happened in
+// the step (see emptyEvents), or null before and after a match.
 export function step(state, intents, dt) {
-  if (state.phase === 'start' || state.phase === 'final') return;
+  if (state.phase === 'start' || state.phase === 'final') return null;
   // While play is stopped players may reposition, but nobody can act on the ball and it cannot score.
   const stopped = state.phase === 'dead' || state.phase === 'quarterEnd';
   // Nobody moves or acts during the tip (the rules lift the jumpers), or during free throws
@@ -38,4 +39,5 @@ export function step(state, intents, dt) {
   stepPlays(state, dt);
   if (wantsTimeout(state, 1)) callTimeout(state, 1);   // the computer's coach; your timeouts are yours to call
   state.time += dt;
+  return events;   // for whoever watches the match: the rules have already judged them
 }

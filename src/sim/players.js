@@ -1,10 +1,11 @@
-import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FOUL, MOVES, PASS, PLAYER, RIM, SHOT, STAMINA, STEAL, THREE_PT, RATE, HEAT, levelOf } from './tuning.js';
+import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FOUL, MOVES, PASS, PLAYER, RIM, SHOT, STAMINA, STAT, STEAL, THREE_PT, RATE, HEAT, levelOf } from './tuning.js';
 import { attackSign, onFloor as grounded, personOf, rand } from './state.js';
 import { shotFactor, speedFactor, spend } from './stamina.js';
 import { rimCentre, solveShot, stepBall } from './ball.js';
 import { rematch } from './matchups.js';
 import { lift, drop, rated, heatOf } from './ratings.js';
 import { DRIBBLES, KINDS, startMove, stepMove, finishMove } from './moves.js';
+import { note } from './stats.js';
 
 // Seconds after the press of a shot: the best moment to let go, and the moment he is back on the floor.
 export const SHOT_BEST = SHOT.gather + SHOT.bestAt * PLAYER.shotJumpV / BALL.gravity;
@@ -207,7 +208,12 @@ export function releaseShot(state, player) {
   const sign = attackSign(player.team), hoop = rimCentre(sign);
   // Judged from where he stands, before the ball is moved to where it leaves his hand.
   const window = shotWindow(state, player), green = greenAt(window, player.shotT);
-  state.shot = { shooter: player.id, t: player.shotT, at: state.time, ...window, green, blocked: false };
+  state.shot = { shooter: player.id, t: player.shotT, at: state.time, clock: state.gameClock, ...window, green, blocked: false };
+  // For the box score: the attempt, and what the basket will be remembered by if it goes in.
+  const three = isThree(player.x, player.z, sign), gap = Math.min(...state.players.filter(o => o.team !== player.team).map(o => dist(o, player)));
+  note(state, player, 'fga'); if (three) note(state, player, 'tpa');
+  const info = { id: player.id, team: player.team, row: player.person, value: three ? 3 : 2, at: state.time, clock: state.gameClock,
+    x: player.x, z: player.z, far: dist(player, hoop), gap, green, assist: player.fed && state.time - player.fed.at <= STAT.assist ? player.fed.row : null };
   // Released from the player's position, but never from right under the rim, where no arc can get over it:
   // a lay-up leaves the hand a little out in front of the hoop.
   let rx = player.x - hoop.x, rz = player.z - hoop.z;
@@ -232,6 +238,11 @@ export function releaseShot(state, player) {
     ball.shooter = null; ball.shotValue = 0;
     state.shot.blocked = true;
     streak(state, player, false);
+    // A chase-down: the blocker came from behind him, at a run toward that hoop.
+    const toHoop = dist(blocker, hoop) || 1, pace = (blocker.vx * (hoop.x - blocker.x) + blocker.vz * (hoop.z - blocker.z)) / toHoop;
+    note(state, blocker, 'blk');
+    state.last.block = { by: blocker.id, on: player.id, at: state.time, chase: pace > STAT.chasePace && dist(blocker, hoop) >= dist(player, hoop) - STAT.chaseBehind };
+    state.board = true; ball.info = null;
     return { shooter: player.id, defender, blocked: true };
   }
 
@@ -241,7 +252,8 @@ export function releaseShot(state, player) {
   streak(state, player, made);
   const dice = made && green ? 1 : rand(state);
   const how = !made ? (dice < SHOT.tease ? 'tease' : 'clean') : green ? 'clean' : ['clean', 'rattle', 'roll', 'bank'][SHOT.ways.findIndex(share => dice < share)];
-  launchShot(state, player, made, isThree(player.x, player.z, sign) ? 3 : 2, how);
+  launchShot(state, player, made, three ? 3 : 2, how);
+  ball.info = info;
   return { shooter: player.id, defender, blocked: false };
 }
 
@@ -299,6 +311,7 @@ export function launchShot(state, player, made, value, how = 'clean') {
   Object.assign(ball, launch ?? solveShot(ball, target, made ? RIM.radius : 0, vary(state, player, 1) * SHOT.loft * room));
   ball.shooter = player.id;
   ball.shotValue = value;
+  ball.made = made; ball.info = null;   // a shot from the floor says what it is after this (releaseShot)
   letGo(state, player, 'shot');
 }
 
@@ -334,6 +347,16 @@ export function passBall(state, player, intent) {
 
 export function giveBall(state, player) {
   const { ball } = state;
+  // For the box score. A missed shot taken is a rebound. A pass caught by the other team is a steal, and by his own
+  // team is remembered, in case he scores off it.
+  const passer = ball.mode === 'pass' ? state.players[state.passer] : null;
+  if (state.board && state.phase !== 'dead') note(state, player, 'reb');
+  state.board = false;
+  if (passer && passer.team !== player.team) {
+    note(state, player, 'stl'); note(state, passer, 'tov');
+    state.last.steal = { by: player.id, on: passer.id, at: state.time };
+  }
+  player.fed = passer && passer.team === player.team && passer !== player ? { row: passer.person, at: state.time } : null;
   ball.holder = player.id; ball.mode = 'held'; ball.target = null;
   ball.shooter = null; ball.shotValue = 0;
   player.held = false; player.steps = 0;   // a live dribble
@@ -358,7 +381,12 @@ export function trySteal(state, player) {
   const move = holder.move && DRIBBLES.includes(holder.move.kind) ? MOVES[holder.move.kind] : null;
   const guarded = move ? (move.hidden && front ? 0 : move.steal) : 1;
   const won = rand(state) < clamp((front ? STEAL.frontChance : STEAL.backChance) * (holder.held ? STEAL.heldFactor : 1) * skill * guarded, 0, 1);
-  if (won) { holder.shooting = false; holder.fading = false; giveBall(state, player); }
+  if (won) {
+    holder.shooting = false; holder.fading = false;
+    note(state, player, 'stl'); note(state, holder, 'tov');
+    state.last.steal = { by: player.id, on: holder.id, at: state.time };
+    giveBall(state, player);
+  }
   return { won, front };
 }
 

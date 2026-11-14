@@ -1,4 +1,5 @@
 import { BALL, CLOCK, FOUL, LINEUP, MATCH, ROSTER, TIMEOUT, TIP } from './tuning.js';
+import { emptyLine } from './stats.js';
 
 const RATING_KEYS = ['inside', 'mid', 'three', 'handle', 'speed', 'defence', 'rebound', 'stamina'];   // ratings.js's KEYS: it imports this file, so they are named here too
 
@@ -26,6 +27,8 @@ export function addPoints(state, team, points) {
   periods[state.quarter - 1] += points;
   state.score[team] += points;
   state.run[team] += points; state.run[1 - team] = 0;
+  const mine = state.teamStats[team];
+  mine.lead = Math.max(mine.lead, state.score[team] - state.score[1 - team]); mine.run = Math.max(mine.run, state.run[team]);
   if (points > 1) state.made[team][points - 2]++;
 }
 
@@ -57,6 +60,7 @@ function createPlayer(id, size) {
     // start another. moved: when his last ended. lateT: seconds he cannot steer, beaten by a move. stumbleT: seconds
     // left of a stumble. fading: his shot is a fade. shotKey: the key his shot is held on, 'shoot' or 'fade'.
     move: null, moveWait: 0, moved: -Infinity, lateT: 0, stumbleT: 0, fading: false, shotKey: 'shoot',
+    fed: null,   // the pass he caught last: { row, at }, the passer's roster row and when; null if the ball came some other way
     man: (id + size) % (2 * size), switchWait: 0,   // the id of the opponent he guards (see matchups.js); seconds until he may be switched again
     prev: emptyIntent(),
     ai: { timer: 0, targetX: 0, targetZ: 0, sprint: false, action: null },
@@ -101,15 +105,21 @@ export function createMatch(seed = 1, size = 3) {
     // manual: you brought him on yourself, so the automatic substitutions leave him alone until he comes off
     // ratings: what he is good at (see ratings.js). streak: his makes in a row from the floor, or his misses if negative.
     rosters: ROSTER.numbers.map((team, t) => team.map((number, row) => ({ number, name: ROSTER.names[t][row], position: ROSTER.positions[row], role: ROSTER.roles[t][row],
-      ratings: Object.fromEntries(RATING_KEYS.map((key, i) => [key, ROSTER.ratings[t][row][i]])), streak: 0, energy: 1, fouls: 0, manual: false }))),
+      ratings: Object.fromEntries(RATING_KEYS.map((key, i) => [key, ROSTER.ratings[t][row][i]])), streak: 0, energy: 1, fouls: 0, manual: false, stats: emptyLine() }))),   // stats: his line in the box score (see stats.js)
     subQueue: [], autoSubs: [true, true], teamFouls: [0, 0],
     call: null, freeThrow: null, pendingFoul: null, tipWinner: null,
     timeouts: [TIMEOUT.each, TIMEOUT.each], lastTimeout: -Infinity,   // each team's timeouts left; when the last was called
     run: [0, 0],              // each team's points since the other last scored
     made: [[0, 0], [0, 0]],   // each team's baskets from the floor: [twos, threes]
     passer: null,             // the player who threw the last pass
-    // What last happened, for whoever watches the match (the rules never read it). stumble: { by, on, at }.
+    // What last happened, for whoever watches the match (the rules never read it). by, on: player ids. at: match time.
+    // stumble: { by, on, at }. block: { by, on, at, chase }. steal: { by, on, at }.
+    // score: a basket from the floor, { team, by, row, points, at, shotAt, clock, x, z, far, gap, green, assist, fouled,
+    // tied, lead }: row his roster row; shotAt and clock the match time and the game clock when it left his hand; far
+    // metres from the hoop; gap metres to the nearest opponent then; assist the roster row of who fed him, or null.
     last: { stumble: null, score: null, block: null, steal: null },
+    teamStats: [{ lead: 0, run: 0, tov: 0 }, { lead: 0, run: 0, tov: 0 }],   // each team's biggest lead, longest run, and turnovers that are nobody's
+    board: false,             // a missed or blocked shot is loose: whoever takes it has a rebound
     tempo: { clock: 0, wait: 0, fed: false },   // how patient this possession is, and the shot clock when that was last looked at (see ai.js)
     side: [1, 1],             // the side of the court each team's offence is set to (see offball.js)
     cut: [null, null],        // each team's player cutting to the hoop, { id, until }, or null
@@ -124,6 +134,8 @@ export function createMatch(seed = 1, size = 3) {
       x: 0, y: BALL.radius, z: 0, vx: 0, vy: 0, vz: 0,
       holder: null, mode: 'loose', shooter: null, shotValue: 0,
       noPickupId: null, noPickupT: 0,
+      made: false,    // whether the last throw at a hoop was on target
+      info: null,     // the shot in the air, for the box score: { id, team, row, value, at, clock, x, z, far, gap, green, assist }
       target: null,   // the id of the team-mate a pass in the air is for
     },
   };

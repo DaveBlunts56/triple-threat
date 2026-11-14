@@ -1,4 +1,5 @@
 import { CLOCK, COURT, PASS, PLAYER, STAMINA, TIMEOUT, TIP, VIOLATION } from './tuning.js';
+import { note, noteRow } from './stats.js';
 import { addPoints, attackSign, isJumper, lineUp, onFloor, personOf, rand } from './state.js';
 import { jump } from './players.js';
 import { inNet } from './ball.js';
@@ -36,6 +37,7 @@ const makeCall = (kind, team, extra = {}) => ({ kind, team, ball: 1 - team, numb
 // If the period clock has run out, the period ends instead of restarting, once any free throws are shot.
 function stopPlay(state, possession, spot, call = null) {
   deadBall(state);
+  state.board = false;   // nothing to rebound once play has stopped
   state.call = call;
   if (possession !== state.possession) state.shotClock = CLOCK.shot;
   state.possession = possession;
@@ -200,9 +202,26 @@ function checkOut(state, events) {
 function shotTouched(state, events) {
   const { ball } = state;
   if (ball.holder === null && (events.hitFloor || events.hitRim || events.hitBoard)) {
+    if (ball.mode === 'shot') state.board = true;   // it has missed, unless it still drops: whoever takes it has a rebound
     ball.mode = 'loose'; ball.target = null;
     if (events.hitFloor) { ball.shooter = null; ball.shotValue = 0; }
   }
+}
+
+// A basket from the floor, for the box score and for whoever watches: the points and the make to the shooter, the
+// assist to whoever fed him, and what the basket was (see state.last.score). `fouled`: a foul was called on the shot.
+function scoreStats(state, team, points, fouled) {
+  const info = state.ball.info;
+  state.board = false;
+  if (!info || info.team !== team) return;   // nobody's shot (a ball knocked in): the points are the team's alone
+  noteRow(state, team, info.row, 'pts', points); noteRow(state, team, info.row, 'fgm');
+  if (points === 3) noteRow(state, team, info.row, 'tpm');
+  if (info.assist !== null) noteRow(state, team, info.assist, 'ast');
+  const mine = state.score[team], theirs = state.score[1 - team];
+  state.last.score = { team, by: info.id, row: info.row, points, at: state.time, shotAt: info.at, clock: info.clock, x: info.x, z: info.z,
+    far: info.far, gap: info.gap, green: info.green, assist: info.assist, fouled,
+    tied: mine + points === theirs, lead: mine <= theirs && mine + points > theirs };
+  state.ball.info = null;
 }
 
 function livePlay(state, events, dt) {
@@ -218,8 +237,9 @@ function livePlay(state, events, dt) {
   const fouledShot = state.pendingFoul && { kind: 'shooting', ...state.pendingFoul };
 
   if (events.scored) {
-    const team = events.scored === 1 ? 0 : 1;
-    addPoints(state, team, ball.shotValue || 2);
+    const team = events.scored === 1 ? 0 : 1, points = ball.shotValue || 2;
+    scoreStats(state, team, points, !!fouledShot);
+    addPoints(state, team, points);
     ball.shooter = null; ball.shotValue = 0; ball.mode = 'loose';
     if (fouledShot) return callFoul(state, fouledShot, 1);   // the basket counts, and one free throw
     stopPlay(state, 1 - team, underHoop(events.scored));
@@ -230,7 +250,11 @@ function livePlay(state, events, dt) {
   if (fouledShot && (ball.shooter === null || isOut(state, events))) return callFoul(state, fouledShot, fouledShot.shots);
   trackCounters(state, dt);
   const violation = findViolation(state, events);
-  if (violation) return stopPlay(state, 1 - violation.team, sidelineSpot(ball), makeCall(violation.kind, violation.team));
+  if (violation) {
+    // A turnover: his, when the call is on a player; otherwise his team's.
+    if (violation.id !== undefined) note(state, state.players[violation.id], 'tov'); else state.teamStats[violation.team].tov++;
+    return stopPlay(state, 1 - violation.team, sidelineSpot(ball), makeCall(violation.kind, violation.team));
+  }
   if (checkOut(state, events)) return;
 
   // Both clocks wait at zero for a shot that is still in the air.
@@ -238,7 +262,7 @@ function livePlay(state, events, dt) {
   state.shotClock = Math.max(0, state.shotClock - dt);
   state.gameClock = Math.max(0, state.gameClock - dt);
   if (state.gameClock <= 0 && !shotInAir) endPeriod(state);
-  else if (state.shotClock <= 0 && !shotInAir) stopPlay(state, 1 - state.possession, sidelineSpot(ball), makeCall('shotClock', state.possession));
+  else if (state.shotClock <= 0 && !shotInAir) { state.teamStats[state.possession].tov++; stopPlay(state, 1 - state.possession, sidelineSpot(ball), makeCall('shotClock', state.possession)); }
 }
 
 export function applyRules(state, events, dt, intents) {

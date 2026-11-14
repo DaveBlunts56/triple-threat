@@ -52,6 +52,11 @@ export const SHOT = f({
 
 export const PASS = f({ speed: 14, noPickup: 0.3, height: 1.3, clearTime: 0.1, interceptRadius: 0.4 });   // clearTime: no opponent can touch a pass this soon after it is thrown; interceptRadius: how close to a pass a defender must be to pick it off
 export const STEAL = f({ reach: 1.2, frontChance: 0.25, backChance: 0.08, cooldown: 1, frontArc: 120, heldFactor: 0.4 });   // heldFactor: steal chance multiplier against a picked-up ball
+// The box score (see stats.js). assist: seconds after a catch within which a shot that scores earns the passer an
+// assist. chasePace, chaseBehind: a block is a chase-down when the blocker is running at the hoop this fast (m/s) and
+// is no nearer to it than this much short of the shooter (metres).
+export const STAT = f({ assist: 3, chasePace: 4, chaseBehind: 0.5 });
+
 // The ball handler's moves (see moves.js). time: seconds a move lasts. push: metres it carries him. keep: the share of
 // his speed he keeps through it. steal: what a reach's chance is multiplied by while it lasts. hidden: a reach from the
 // front cannot win the ball.
