@@ -16,6 +16,9 @@ import { createPlayList, playListKey } from './playlist.js';
 import { createLife, stepLife } from './render/life.js';
 import { actionOf, createKeys, savedKeys } from './keys.js';
 import { readPrefs, storageOf, writePrefs } from './prefs.js';
+import { createBroadcast } from './broadcast/broadcast.js';
+import { nextCommentary } from './broadcast/commentary.js';
+import { slowFor } from './broadcast/moments.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
 const newMatch = size => createMatch(Date.now() % 1e6, size);   // size: 3 or 5 a side; three when not said
@@ -38,10 +41,16 @@ if (view) {
   // meter: the shot meter and where its top is on the page, or null. menu: the start menu. pauseMenu: the pause menu.
   // camera: '2k', behind the team with the ball, or 'broadcast', the sideline view.
   const game = { state: newMatch(), paused: false, pick: null, fps: 60, quality: quality.level, camera: prefs.camera, meter: null, menu: createMenu(prefs),
-    pauseMenu: createPauseMenu(), playList: createPlayList(), keys };
+    pauseMenu: createPauseMenu(), playList: createPlayList(), keys, prefs, show: {} };
   globalThis.game = game;   // handle for poking at the match from the browser console
 
-  const pause = on => { game.playList.open = false; setPaused(game, keyboard, on); };   // the play list never stays up under the pause screen
+  // The broadcast: big moments, the commentator, the panels. It only watches.
+  const broadcast = createBroadcast();
+  game.hasVoice = broadcast.voice.available;
+  // The commentary as it can be here: where the browser has no voice, voice and captions is captions only.
+  const commentary = () => (prefs.commentary === 'voice' && !broadcast.voice.available ? 'captions' : prefs.commentary);
+  const stepCommentary = () => { prefs.commentary = nextCommentary(commentary(), broadcast.voice.available); if (prefs.commentary !== 'voice') broadcast.hush(); };
+  const pause = on => { game.playList.open = false; if (on) broadcast.hush(); setPaused(game, keyboard, on); };   // the play list never stays up under the pause screen
   // Draws the game at the level `quality` is now on: called whenever that changes.
   const showQuality = () => {
     game.quality = quality.level;
@@ -74,6 +83,7 @@ if (view) {
     if (asked === 'play') play();
     else if (asked === 'quality') stepQualityByHand();
     else if (asked === 'camera') switchCamera();
+    else if (asked === 'commentary') stepCommentary();
     remember();
     keyboard.drop();   // a key pressed on a menu, one just given to an action too, does nothing in the match until let go
   };
@@ -85,12 +95,18 @@ if (view) {
     if (asked === 'resume') pause(false);
     else if (asked === 'quality') stepQualityByHand();
     else if (asked === 'camera') switchCamera();
+    else if (asked === 'commentary') stepCommentary();
     else if (asked === 'quit') quitToMenu(game, keyboard, newMatch);
     remember();
     if (listened || asked === 'keys') keyboard.drop();   // the key just given to an action does nothing until let go
   };
 
+  const held = new Set();   // keys pressed to take a panel down, ignored until they are let go
+  window.addEventListener('keyup', e => held.delete(e.code));
   window.addEventListener('keydown', e => {
+    // The starting line-ups: any key takes them down, and that key does nothing else, now or while it is held.
+    if (game.show.panel === 'lineups') { e.preventDefault(); broadcast.skip(); keyboard.drop(); held.add(e.code); return; }
+    if (held.has(e.code)) { e.preventDefault(); keyboard.drop([e.code]); return; }
     const action = actionOf(keys, e.code);
     const onAMenu = game.state.phase === 'start' || game.paused;
     const listening = (game.state.phase === 'start' ? game.menu : game.pauseMenu).listening && onAMenu;
@@ -141,7 +157,7 @@ if (view) {
     });
   });
   // Losing the window pauses a match in play; one already paused stays as it is.
-  window.addEventListener('blur', () => { if (!game.paused) pause(true); });
+  window.addEventListener('blur', () => { held.clear(); if (!game.paused) pause(true); });
   document.addEventListener('visibilitychange', () => { if (document.hidden && !game.paused) pause(true); });
 
   let last = performance.now(), owed = 0, frameMs = 1000 / game.fps;
@@ -155,7 +171,9 @@ if (view) {
     slowest = Math.max(slowest, ms);
     if (now - since >= 1000) { game.worst = slowest; slowest = 0; since = now; }
     if (autoQuality(quality, ms, inPlay(state) && !game.paused)) showQuality();
-    owed = game.paused ? 0 : owed + elapsed;
+    // The match waits while the line-ups are up, and runs slow for the last of a buzzer-beater's flight.
+    const seconds = now / 1000, panel = broadcast.panel(state, seconds);
+    owed = game.paused || panel === 'lineups' ? 0 : owed + elapsed * slowFor(state);
     last = now;
     const before = state.time;
     for (; owed >= DT; owed -= DT) {
@@ -165,15 +183,17 @@ if (view) {
       const keys = keyboard.intent();
       if (!keys.moveX && !keys.moveZ) heading = view.heading();
       intents[state.controlled] = steer(keys, heading);
-      step(state, intents, DT);
+      broadcast.hear(state, step(state, intents, DT));
       view.swayNets(state.ball, DT);   // at every step, so a ball moved far in one step is never swept through a net
     }
     // Motion advances by the match time that passed: none while paused. Before and after a match no match time
     // passes, so it advances by real time and the players stand breathing.
     const passed = inPlay(state) ? state.time - before : elapsed;
-    actors.sync(state, passed);
+    const air = broadcast.frame(state, seconds, commentary());
+    game.show = { banner: air.banner, lower: air.lower, caption: air.caption, panel: game.paused ? null : panel };
+    actors.sync(state, passed, air);
     const real = game.paused ? 0 : elapsed;   // the crowd and the referees stand still with a paused game
-    view.live(state, stepLife(life, state, real), real);
+    view.live(state, stepLife(life, state, real, air.heard), real);
     view.follow(state.ball, attackSign(state.possession));
     view.watch(state);
     view.render();

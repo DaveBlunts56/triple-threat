@@ -61,20 +61,20 @@ test('a key tapped on the pause screen does not act when play resumes', () => {
 
 test('pausing shows the list with the highlight on Resume: Resume, Substitutions, Controls, Settings, Quit to main menu', () => {
   const { game } = paused();
-  assert.deepEqual([at(game), pauseRows(game.pauseMenu)], [['main', 0], ['resume', 'subs', 'controls', 'settings', 'quit']]);
-  assert.deepEqual([PAUSE.settings, PAUSE.quit], [['quality', 'autoSubs', 'camera', 'difficulty', 'keys'], ['stay', 'leave']]);
+  assert.deepEqual([at(game), pauseRows(game.pauseMenu)], [['main', 0], ['resume', 'subs', 'box', 'controls', 'settings', 'quit']]);
+  assert.deepEqual([PAUSE.settings, PAUSE.quit], [['quality', 'autoSubs', 'camera', 'difficulty', 'commentary', 'keys'], ['stay', 'leave']]);
 });
 
 test('the highlight moves by arrows or W and S and wraps; Enter or Space on Resume, or Esc, asks to resume', () => {
   const { game } = paused();
   keys(game, 'ArrowDown', 'KeyS'); assert.deepEqual(at(game), ['main', 2]);
-  keys(game, 'ArrowUp', 'KeyW', 'KeyW'); assert.deepEqual(at(game), ['main', 4]);
+  keys(game, 'ArrowUp', 'KeyW', 'KeyW'); assert.deepEqual(at(game), ['main', 5]);
   keys(game, 'ArrowDown'); assert.deepEqual(at(game), ['main', 0]);
   assert.deepEqual(keys(game, 'Enter', 'Space', 'Escape', 'Backspace', 'KeyX'), ['resume', 'resume', 'resume', null, null]);
 });
 
 test('Substitutions, Controls and Settings open as panels; Esc or Backspace go back to the entry that opened them', () => {
-  for (const [entry, row, rows] of [['subs', 1, []], ['controls', 2, []], ['settings', 3, PAUSE.settings]]) for (const back of ['Escape', 'Backspace']) {
+  for (const [entry, row, rows] of [['subs', 1, []], ['box', 2, []], ['controls', 3, []], ['settings', 4, PAUSE.settings]]) for (const back of ['Escape', 'Backspace']) {
     const { game } = paused();
     assert.equal(open(game, entry), null);
     assert.deepEqual([at(game), pauseRows(game.pauseMenu)], [[entry, 0], rows]);
@@ -103,7 +103,7 @@ test('Quit to main menu asks first, with the highlight on staying', () => {
   assert.equal(open(game, 'quit'), null);
   assert.deepEqual([at(game), pauseRows(game.pauseMenu)], [['quit', 0], ['stay', 'leave']]);
   assert.equal(pauseKey(game, 'Enter'), null);                              // staying goes back to the list
-  assert.deepEqual(at(game), ['main', 4]);
+  assert.deepEqual(at(game), ['main', 5]);
   open(game, 'quit');
   assert.deepEqual(keys(game, 'ArrowDown', 'Enter'), [null, 'quit']);
 });
@@ -111,9 +111,9 @@ test('Quit to main menu asks first, with the highlight on staying', () => {
 test('the mouse selects a row the panel has, and only while paused', () => {
   const { game, keyboard } = paused();
   pausePoint(game, 3); assert.deepEqual(at(game), ['main', 3]);
-  pausePoint(game, 5); pausePoint(game, -1); assert.deepEqual(at(game), ['main', 3]);
-  assert.deepEqual([pauseHasRow(game, 4), pauseHasRow(game, 5)], [true, false]);
-  open(game, 'controls');                                                   // highlight was on Settings: move to Controls first
+  pausePoint(game, 6); pausePoint(game, -1); assert.deepEqual(at(game), ['main', 3]);
+  assert.deepEqual([pauseHasRow(game, 5), pauseHasRow(game, 6)], [true, false]);
+  open(game, 'controls');                                                   // the highlight moves to Controls first
   assert.equal(pauseHasRow(game, 0), false);
   setPaused(game, keyboard, false);
   assert.equal(pauseHasRow(game, 0), false);

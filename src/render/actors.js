@@ -88,9 +88,10 @@ export function createActors(scene, people = null) {
   let carried, seen, last = null, since = 0;
 
   return {
-    // dt: the match time that passed this frame, which drives the players' motion.
-    sync(state, dt = 0) {
-      if (people) people.update(state, dt);
+    // dt: the match time that passed this frame, which drives the players' motion. show: who the broadcast has
+    // celebrating and dejected (see people.update).
+    sync(state, dt = 0, show = null) {
+      if (people) people.update(state, dt, show);
       players.forEach((group, i) => { group.visible = i < state.players.length; });
       state.players.forEach((p, i) => {
         if (!people) {

@@ -102,7 +102,7 @@ const OTHER_HAND = { left: 'right', right: 'left' };
 // What the renderer remembers from frame to frame, by player id. For each of HAPPENINGS, the seconds since it last
 // happened to him (Infinity if never); `guard`, whether he is guarding his man, and `guarded`, the seconds since that
 // last changed; `hand`, the hand the ball goes in; `was`, what the last frame looked like.
-export const newMarks = () => ({ ...Object.fromEntries(HAPPENINGS.map(what => [what, {}])), guard: {}, guarded: {}, hand: {}, was: null });
+export const newMarks = () => ({ ...Object.fromEntries(HAPPENINGS.map(what => [what, {}])), guard: {}, guarded: {}, hand: {}, was: null, show: null });
 
 // One frame of noticing: `dt` seconds have passed since the last. The first frame has nothing to compare with, so
 // nothing counts as having just happened.
@@ -258,6 +258,10 @@ export function armMotion(player, state, marks, facts) {
   if (marks.reach[id] < length('reach')) return { clip: 'reach', at: marks.reach[id] / length('reach') };
   if (inAir && state.phase === 'jumpBall' && isJumper(state, player)) return { clip: 'tip', at: jumpShare(player) };
   if (inAir) return { clip: 'contest', at: jumpShare(player) };
+  // After a big basket the scorer celebrates and the man who guarded him drops his head, if the file has those
+  // motions; without them the scorer raises an arm.
+  if (marks.show?.celebrate === id && !hasBall) return { clip: facts.clips.celebrate ? 'celebrate' : 'handUp', rate: 1 };
+  if (marks.show?.dejected === id && !hasBall && facts.clips.dejected) return { clip: 'dejected', rate: 1 };
   const shooter = o => o.team !== player.team && o.shooting && dist(o, player) <= MOTION.handUpDist;
   if (defending(state, player) && state.players.some(shooter)) return { clip: 'handUp', rate: 1 };
   // A hand up for the ball, or up at a shooter he is closing out on.

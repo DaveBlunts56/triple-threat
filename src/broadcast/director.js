@@ -1,0 +1,75 @@
+// What the broadcast puts on the screen: a banner for a big moment, a small card above the scorebug, who celebrates,
+// and the panels between play. It works from what the watcher heard and from the match; it changes neither.
+import { ROSTER } from '../sim/tuning.js';
+
+// Seconds each stays up. lineups: the panel before the tip.
+export const SHOW = Object.freeze({ banner: 2.6, lower: 4, celebrate: 1.6, lineups: 4 });
+
+export const BANNER_WORDS = Object.freeze({ ankle: 'ANKLE-BREAKER', block: 'BLOCKED', andOne: 'AND ONE', buzzer: 'BUZZER-BEATER', winner: 'GAME-WINNER',
+  poster: 'POSTER', stealScore: 'STEAL AND SCORE', deep: 'FROM DEEP', clutch: 'CLUTCH', heatingUp: 'HEATING UP', onFire: 'ON FIRE',
+  run: '{n}-0 RUN', comeback: 'COMEBACK', perfect: 'PERFECT RELEASE' });
+const BASKETS = ['ankle', 'andOne', 'buzzer', 'poster', 'stealScore', 'deep', 'clutch', 'heatingUp', 'onFire', 'perfect'];   // moments that are a basket
+
+const short = team => ROSTER.teams[team].split(' ').pop();
+const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+
+export const createDirector = () => ({ banner: null, lower: null, cheer: null, lineupsUntil: null, phase: 'start' });
+
+// What is on the screen at real time `now` (seconds), after what was `heard` this frame:
+// { banner: { words, name, team } | null, lower: { title, lines } | null, celebrate: id | null, dejected: id | null }.
+export function direct(d, heard, state, now) {
+  if (state.phase === 'start' || state.phase === 'final') Object.assign(d, { banner: null, lower: null, cheer: null });
+  else for (const h of heard) {
+    if (h.moment) {
+      // A new moment takes the banner unless a bigger one is still up.
+      if (!d.banner || now >= d.banner.until || h.rank <= d.banner.rank) {
+        const words = h.kind === 'block' && h.chase ? 'CHASE-DOWN BLOCK' : BANNER_WORDS[h.kind].replace('{n}', h.n);
+        d.banner = { words, name: h.name ?? short(h.team), team: h.team, rank: h.rank, until: now + SHOW.banner };
+      }
+      const sc = state.last.score;
+      if (BASKETS.includes(h.kind) && sc && state.players[sc.by]) {
+        const scorer = state.players[sc.by], rivals = state.players.filter(o => o.team !== scorer.team);
+        d.cheer = { celebrate: scorer.id, dejected: rivals.reduce((a, b) => (dist(b, scorer) < dist(a, scorer) ? b : a)).id, until: now + SHOW.celebrate };
+      }
+    }
+    const lower = lowerFor(h, state);
+    if (lower) d.lower = { ...lower, until: now + SHOW.lower };
+  }
+  if (d.banner && now >= d.banner.until) d.banner = null;
+  if (d.lower && now >= d.lower.until) d.lower = null;
+  if (d.cheer && now >= d.cheer.until) d.cheer = null;
+  return {
+    banner: d.banner && { words: d.banner.words, name: d.banner.name, team: d.banner.team },
+    lower: d.lower && { title: d.lower.title, lines: d.lower.lines },
+    celebrate: d.cheer?.celebrate ?? null, dejected: d.cheer?.dejected ?? null,
+  };
+}
+
+// The small card for a happening, or null: a free-throw shooter, a substitution, a timeout, a scorer reaching ten
+// points (and every ten after) or heating up.
+function lowerFor(h, state) {
+  const stats = h.row === null || h.row === undefined ? null : state.rosters[h.team][h.row].stats;
+  const lineOf = s => `${s.pts} PTS · ${s.fgm}/${s.fga} FG · ${s.tpm}/${s.tpa} 3PT`;
+  if (h.kind === 'freeThrow') return { title: h.name, lines: [`Free throws ${stats.ftm}/${stats.fta}`] };
+  if (h.kind === 'sub') return { title: `IN ${h.name}`, lines: [`OUT ${h.off}`] };
+  if (h.kind === 'timeout') return { title: `TIMEOUT ${short(h.team)}`, lines: [`${ROSTER.abbr[0]} ${h.left[0]} left · ${ROSTER.abbr[1]} ${h.left[1]} left`] };
+  if (h.kind === 'heatingUp' || h.kind === 'onFire') return { title: h.name, lines: [lineOf(stats)] };
+  if (h.kind === 'made' && stats.pts >= 10 && Math.floor(stats.pts / 10) > Math.floor((stats.pts - h.points) / 10)) return { title: h.name, lines: [lineOf(stats)] };
+  return null;
+}
+
+// The panel that should be up: 'lineups' for SHOW.lineups seconds from the start of a match (the match waits while
+// it is), 'half' and 'period' between periods, else null. To be asked every frame.
+export function panelFor(d, state, now) {
+  const began = (d.phase === 'start' || d.phase === 'final') && state.phase === 'jumpBall';
+  d.phase = state.phase;
+  if (began) d.lineupsUntil = now + SHOW.lineups;
+  if (state.phase !== 'jumpBall') d.lineupsUntil = null;   // the tip has gone up, or the match was left
+  if (d.lineupsUntil !== null && now < d.lineupsUntil) return 'lineups';
+  d.lineupsUntil = null;
+  if (state.phase === 'quarterEnd') return state.quarter === 2 ? 'half' : 'period';
+  return null;
+}
+
+// Takes the line-ups down at once (any key).
+export const skipPanel = d => { d.lineupsUntil = null; };

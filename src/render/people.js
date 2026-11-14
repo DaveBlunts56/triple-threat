@@ -186,12 +186,14 @@ export async function loadPeople() {
       for (const [material, sizes] of dressed) material.map = sizes[level];
     },
     // dt: the time that passed this frame, in seconds (zero while paused, so the motion pauses too).
-    update(state, dt) {
+    // `show`: who the broadcast has celebrating and dejected, { celebrate, dejected } by player id, or null.
+    update(state, dt, show = null) {
       // Before and after a match nobody moves, whatever speed the last step left him with: everyone stands, and
       // nothing of that match is remembered into the next.
       const standing = state.phase === 'start' || state.phase === 'final';
       if (!standing) noteChanges(marks, state, dt);
       else if (marks.was) marks = newMarks();
+      marks.show = show;
       courtPeople(state).forEach((who, i) => {
         const player = state.players[i], group = models[i], he = people[who];
         // The first frame, a substitution, or a match of another size, whose players stand in other places: he

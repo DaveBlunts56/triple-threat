@@ -1,13 +1,14 @@
 import { queueSub } from './sim/roster.js';
 import { nextDifficulty } from './sim/tuning.js';
 import { DEFAULT_KEYS, KEY_ROWS, keysPanelKey } from './keys.js';
+import { PAGE_ROWS } from './menu.js';
 
 const ROWS = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8'];   // one key for each of a team's eight
 
-// The rows of each panel of the pause menu that has rows. Substitutions and Controls have none.
+// The rows of each panel of the pause menu that has rows. Substitutions, the box score and Controls have none.
 export const PAUSE = Object.freeze({
-  main: Object.freeze(['resume', 'subs', 'controls', 'settings', 'quit']),
-  settings: Object.freeze(['quality', 'autoSubs', 'camera', 'difficulty', 'keys']),
+  main: Object.freeze(['resume', 'subs', 'box', 'controls', 'settings', 'quit']),
+  settings: Object.freeze(['quality', 'autoSubs', 'camera', 'difficulty', 'commentary', 'keys']),
   keys: KEY_ROWS,
   quit: Object.freeze(['stay', 'leave']),
 });
@@ -60,7 +61,7 @@ export function pauseKey(game, code, keys = { ...DEFAULT_KEYS }) {
   else if (code === 'Enter' || code === 'Space') {
     const choice = rows[menu.row];
     if (choice === 'resume') return 'resume';
-    if (choice === 'quality' || choice === 'camera') return choice;
+    if (PAGE_ROWS.includes(choice)) return choice;
     if (choice === 'leave') return 'quit';
     if (choice === 'difficulty') {   // for this match, and as the start menu's choice for later ones
       game.state.difficulty = nextDifficulty(game.state.difficulty);

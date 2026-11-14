@@ -4,7 +4,7 @@ import { setLength } from './sim/state.js';
 import { DEFAULT_KEYS, KEY_ROWS, keysPanelKey } from './keys.js';
 import { DEFAULT_PREFS } from './prefs.js';
 
-export const MENU = Object.freeze({ main: ['play', 'mode', 'teams', 'controls', 'settings'], settings: ['quality', 'autoSubs', 'camera', 'difficulty', 'quarter', 'keys'], keys: KEY_ROWS });
+export const MENU = Object.freeze({ main: ['play', 'mode', 'teams', 'controls', 'settings'], settings: ['quality', 'autoSubs', 'camera', 'difficulty', 'quarter', 'commentary', 'keys'], keys: KEY_ROWS });
 
 // size: the mode chosen: 3 for 3 on 3, 5 for 5 on 5. difficulty: the level chosen, one of DIFFICULTY.order.
 // minutes: the length of a quarter chosen, one of MATCH.minutes. listening: on the Keys panel, the next key pressed
@@ -14,8 +14,11 @@ export const createMenu = (prefs = DEFAULT_PREFS) => ({ panel: 'main', row: 0, a
 
 export const menuRows = menu => MENU[menu.panel] ?? [];
 
-// One key on the menu. Returns 'play', 'quality', 'camera' or 'keys' (the keys were changed) when the page has something
-// to do, else null. `keys` is the table the Keys panel changes.
+// The settings the page itself changes when their row is chosen: it knows the renderer, the voice and what is saved.
+export const PAGE_ROWS = Object.freeze(['quality', 'camera', 'commentary', 'replays', 'sound']);
+
+// One key on the menu. Returns 'play', 'quality', 'camera', 'commentary' or 'keys' (the keys were changed) when the page
+// has something to do, else null. `keys` is the table the Keys panel changes.
 export function menuKey(menu, code, keys = { ...DEFAULT_KEYS }) {
   if (menu.panel === 'keys') {
     const did = keysPanelKey(menu, code, keys);
@@ -31,7 +34,7 @@ export function menuKey(menu, code, keys = { ...DEFAULT_KEYS }) {
       if (choice === 'play') return 'play';
       if (choice === 'mode') { menu.size = menu.size === 3 ? 5 : 3; return null; }
       menu.from = menu.row; menu.panel = choice; menu.row = 0;
-    } else if (choice === 'quality' || choice === 'camera') return choice;
+    } else if (PAGE_ROWS.includes(choice)) return choice;
     else if (choice === 'autoSubs') menu.autoSubs = !menu.autoSubs;
     else if (choice === 'difficulty') menu.difficulty = nextDifficulty(menu.difficulty);
     else if (choice === 'quarter') menu.minutes = nextMinutes(menu.minutes);

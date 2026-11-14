@@ -132,6 +132,39 @@
   #pauseList li[aria-selected="true"] { color: #fff; border-color: #dfe5ea; background: linear-gradient(rgba(118, 124, 132, .95), rgba(58, 62, 68, .95));
       box-shadow: 0 0 calc(var(--u) * 1.6) rgba(200, 208, 216, .55), inset 0 1px 0 rgba(255, 255, 255, .35); }
   #pauseList.settings li { margin: 0 0 calc(var(--u) * .4); padding: calc(var(--u) * .45) calc(var(--u) * 1.6); font-size: calc(var(--u) * 1.6); }
+  /* The broadcast. The banner: a big moment, top centre, in the scoring team's colour. */
+  #banner { position: fixed; z-index: 5; left: 50%; top: 9vh; transform: translateX(-50%); display: flex; align-items: baseline; gap: 1.6vmin; padding: 1vmin 3vmin;
+      white-space: nowrap; color: #fff; border: 1px solid #dfe5ea; border-radius: .8vmin; box-shadow: 0 .8vmin 2.4vmin rgba(0, 0, 0, .6);
+      background: linear-gradient(#2a2c32, #0a0b0e); animation: bannerIn .25s ease-out; }
+  #banner.home { border-bottom: .5vmin solid #4f97ff; } #banner.away { border-bottom: .5vmin solid #ff5a5a; }
+  #banner b { font: italic 900 4vmin/1 system-ui, sans-serif; letter-spacing: .06em; color: #ffd257; }
+  #banner span { font: 800 2.6vmin/1 system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+  @keyframes bannerIn { from { transform: translateX(-50%) translateY(-3vmin); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
+  /* The small card and the caption sit above the scorebug: the card to its left, the caption centred over it. */
+  #lower { position: fixed; z-index: 4; left: 50%; bottom: 150px; transform: translateX(-50%); display: flex; gap: 12px; align-items: baseline; padding: 6px 14px;
+      white-space: nowrap; background: linear-gradient(#2a2c32, #121317); border: 1px solid #c9ced6; border-radius: 6px; font: 600 14px/1.2 system-ui, sans-serif; }
+  #lower b { color: #ffd257; letter-spacing: .06em; text-transform: uppercase; }
+  #caption { position: fixed; z-index: 4; left: 50%; bottom: 186px; transform: translateX(-50%); max-width: 80vw; padding: 5px 14px; text-align: center;
+      background: rgba(0, 0, 0, .78); border-radius: 6px; font: 600 16px/1.3 system-ui, sans-serif; }
+  /* The panels before the tip and between periods, and the box score. */
+  .panel, #boxScore { position: fixed; z-index: 20; left: 50%; top: 46%; transform: translate(-50%, -50%); padding: 2vmin 3vmin; text-align: center;
+      background: linear-gradient(rgba(18, 19, 22, .96), rgba(4, 4, 5, .96)); border: 1px solid #9aa3ad; box-shadow: 0 0 4vmin rgba(0, 0, 0, .7); }
+  .panel h2 { margin: 0 0 1.4vmin; font: italic 900 3.2vmin/1 system-ui, sans-serif; letter-spacing: .14em; color: #ffd257; }
+  .panel h3 { margin: 0 0 .8vmin; font: 800 2.2vmin/1 system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+  .panel h3.home { color: #a9c8ff; } .panel h3.away { color: #ffb0b0; }
+  .panel .two { display: flex; gap: 4vmin; text-align: left; }
+  .panel ol, .panel ul { list-style: none; margin: 0; padding: 0; font: 600 1.9vmin/1.7 system-ui, sans-serif; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .panel p { margin: 1.4vmin 0 0; font-size: 1.6vmin; color: #aeb6bf; }
+  #boxScore { z-index: 25; display: flex; gap: 3vmin; top: 58%; padding: 1.4vmin 2vmin; }
+  #boxScore[hidden] { display: none; }
+  #boxScore table { border-collapse: collapse; font: 600 1.55vmin/1.5 system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  #boxScore caption { font: 800 1.9vmin/1.6 system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #ffd257; text-align: left; }
+  #boxScore th { color: #aeb6bf; font-weight: 700; padding: 0 .7vmin; }
+  #boxScore td { padding: 0 .7vmin; text-align: right; white-space: nowrap; }
+  #boxScore td:first-child { text-align: left; }
+  #boxScore tr.total td { border-top: 1px solid #6f7781; color: #ffd257; }
+  #finalPotg { font-weight: 800; letter-spacing: .06em; color: #ffd257; }
+  @media (prefers-reduced-motion: reduce) { #banner { animation: none; } }
   /* The Keys panel: nineteen rows in two columns, over the start menu or the pause menu. */
   #keyRows { position: fixed; z-index: 30; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; padding: 1.6vmin 2vmin; list-style: none;
       display: grid; grid-template-rows: repeat(10, auto); grid-auto-flow: column; gap: .7vmin 2.4vmin;
@@ -383,11 +416,56 @@
   </div>
   <div class="bar"><strong>PAUSED</strong><em id="pauseHint"></em><div class="logo" aria-hidden="true"><span>TT</span></div></div>
 </section>
+<!-- The broadcast: a banner for a big moment, a small card and the commentator's caption above the scorebug, and the
+     panels before the tip and between periods. -->
+<div id="banner" hidden><b id="bannerWords"></b><span id="bannerName"></span></div>
+<div id="lower" hidden><b id="lowerTitle"></b><span id="lowerLine"></span></div>
+<div id="caption" hidden></div>
+<div id="lineups" class="panel" hidden>
+  <h2>STARTING LINE-UPS</h2>
+  <div class="two">
+    <div><h3 id="lineupTeam0" class="home"></h3><ol><li id="lineup00"></li><li id="lineup01"></li><li id="lineup02"></li><li id="lineup03"></li><li id="lineup04"></li></ol></div>
+    <div><h3 id="lineupTeam1" class="away"></h3><ol><li id="lineup10"></li><li id="lineup11"></li><li id="lineup12"></li><li id="lineup13"></li><li id="lineup14"></li></ol></div>
+  </div>
+  <p>Any key to tip off</p>
+</div>
+<div id="between" class="panel" hidden>
+  <h2 id="betweenTitle"></h2>
+  <ul><li id="betweenLine0"></li><li id="betweenLine1"></li><li id="betweenLine2"></li><li id="betweenLine3"></li><li id="betweenLine4"></li><li id="betweenLine5"></li><li id="betweenLine6"></li><li id="betweenLine7"></li></ul>
+</div>
+<!-- The box score: in the pause menu and when the match is over. -->
+<div id="boxScore" hidden>
+  <table><caption id="boxTeam0"></caption>
+    <tr><th></th><th>PTS</th><th>FG</th><th>3PT</th><th>FT</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PF</th></tr>
+    <tr><td id="box0r0c0"></td><td id="box0r0c1"></td><td id="box0r0c2"></td><td id="box0r0c3"></td><td id="box0r0c4"></td><td id="box0r0c5"></td><td id="box0r0c6"></td><td id="box0r0c7"></td><td id="box0r0c8"></td><td id="box0r0c9"></td><td id="box0r0c10"></td></tr>
+    <tr><td id="box0r1c0"></td><td id="box0r1c1"></td><td id="box0r1c2"></td><td id="box0r1c3"></td><td id="box0r1c4"></td><td id="box0r1c5"></td><td id="box0r1c6"></td><td id="box0r1c7"></td><td id="box0r1c8"></td><td id="box0r1c9"></td><td id="box0r1c10"></td></tr>
+    <tr><td id="box0r2c0"></td><td id="box0r2c1"></td><td id="box0r2c2"></td><td id="box0r2c3"></td><td id="box0r2c4"></td><td id="box0r2c5"></td><td id="box0r2c6"></td><td id="box0r2c7"></td><td id="box0r2c8"></td><td id="box0r2c9"></td><td id="box0r2c10"></td></tr>
+    <tr><td id="box0r3c0"></td><td id="box0r3c1"></td><td id="box0r3c2"></td><td id="box0r3c3"></td><td id="box0r3c4"></td><td id="box0r3c5"></td><td id="box0r3c6"></td><td id="box0r3c7"></td><td id="box0r3c8"></td><td id="box0r3c9"></td><td id="box0r3c10"></td></tr>
+    <tr><td id="box0r4c0"></td><td id="box0r4c1"></td><td id="box0r4c2"></td><td id="box0r4c3"></td><td id="box0r4c4"></td><td id="box0r4c5"></td><td id="box0r4c6"></td><td id="box0r4c7"></td><td id="box0r4c8"></td><td id="box0r4c9"></td><td id="box0r4c10"></td></tr>
+    <tr><td id="box0r5c0"></td><td id="box0r5c1"></td><td id="box0r5c2"></td><td id="box0r5c3"></td><td id="box0r5c4"></td><td id="box0r5c5"></td><td id="box0r5c6"></td><td id="box0r5c7"></td><td id="box0r5c8"></td><td id="box0r5c9"></td><td id="box0r5c10"></td></tr>
+    <tr><td id="box0r6c0"></td><td id="box0r6c1"></td><td id="box0r6c2"></td><td id="box0r6c3"></td><td id="box0r6c4"></td><td id="box0r6c5"></td><td id="box0r6c6"></td><td id="box0r6c7"></td><td id="box0r6c8"></td><td id="box0r6c9"></td><td id="box0r6c10"></td></tr>
+    <tr><td id="box0r7c0"></td><td id="box0r7c1"></td><td id="box0r7c2"></td><td id="box0r7c3"></td><td id="box0r7c4"></td><td id="box0r7c5"></td><td id="box0r7c6"></td><td id="box0r7c7"></td><td id="box0r7c8"></td><td id="box0r7c9"></td><td id="box0r7c10"></td></tr>
+    <tr class="total"><td id="box0r8c0"></td><td id="box0r8c1"></td><td id="box0r8c2"></td><td id="box0r8c3"></td><td id="box0r8c4"></td><td id="box0r8c5"></td><td id="box0r8c6"></td><td id="box0r8c7"></td><td id="box0r8c8"></td><td id="box0r8c9"></td><td id="box0r8c10"></td></tr>
+  </table>
+  <table><caption id="boxTeam1"></caption>
+    <tr><th></th><th>PTS</th><th>FG</th><th>3PT</th><th>FT</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PF</th></tr>
+    <tr><td id="box1r0c0"></td><td id="box1r0c1"></td><td id="box1r0c2"></td><td id="box1r0c3"></td><td id="box1r0c4"></td><td id="box1r0c5"></td><td id="box1r0c6"></td><td id="box1r0c7"></td><td id="box1r0c8"></td><td id="box1r0c9"></td><td id="box1r0c10"></td></tr>
+    <tr><td id="box1r1c0"></td><td id="box1r1c1"></td><td id="box1r1c2"></td><td id="box1r1c3"></td><td id="box1r1c4"></td><td id="box1r1c5"></td><td id="box1r1c6"></td><td id="box1r1c7"></td><td id="box1r1c8"></td><td id="box1r1c9"></td><td id="box1r1c10"></td></tr>
+    <tr><td id="box1r2c0"></td><td id="box1r2c1"></td><td id="box1r2c2"></td><td id="box1r2c3"></td><td id="box1r2c4"></td><td id="box1r2c5"></td><td id="box1r2c6"></td><td id="box1r2c7"></td><td id="box1r2c8"></td><td id="box1r2c9"></td><td id="box1r2c10"></td></tr>
+    <tr><td id="box1r3c0"></td><td id="box1r3c1"></td><td id="box1r3c2"></td><td id="box1r3c3"></td><td id="box1r3c4"></td><td id="box1r3c5"></td><td id="box1r3c6"></td><td id="box1r3c7"></td><td id="box1r3c8"></td><td id="box1r3c9"></td><td id="box1r3c10"></td></tr>
+    <tr><td id="box1r4c0"></td><td id="box1r4c1"></td><td id="box1r4c2"></td><td id="box1r4c3"></td><td id="box1r4c4"></td><td id="box1r4c5"></td><td id="box1r4c6"></td><td id="box1r4c7"></td><td id="box1r4c8"></td><td id="box1r4c9"></td><td id="box1r4c10"></td></tr>
+    <tr><td id="box1r5c0"></td><td id="box1r5c1"></td><td id="box1r5c2"></td><td id="box1r5c3"></td><td id="box1r5c4"></td><td id="box1r5c5"></td><td id="box1r5c6"></td><td id="box1r5c7"></td><td id="box1r5c8"></td><td id="box1r5c9"></td><td id="box1r5c10"></td></tr>
+    <tr><td id="box1r6c0"></td><td id="box1r6c1"></td><td id="box1r6c2"></td><td id="box1r6c3"></td><td id="box1r6c4"></td><td id="box1r6c5"></td><td id="box1r6c6"></td><td id="box1r6c7"></td><td id="box1r6c8"></td><td id="box1r6c9"></td><td id="box1r6c10"></td></tr>
+    <tr><td id="box1r7c0"></td><td id="box1r7c1"></td><td id="box1r7c2"></td><td id="box1r7c3"></td><td id="box1r7c4"></td><td id="box1r7c5"></td><td id="box1r7c6"></td><td id="box1r7c7"></td><td id="box1r7c8"></td><td id="box1r7c9"></td><td id="box1r7c10"></td></tr>
+    <tr class="total"><td id="box1r8c0"></td><td id="box1r8c1"></td><td id="box1r8c2"></td><td id="box1r8c3"></td><td id="box1r8c4"></td><td id="box1r8c5"></td><td id="box1r8c6"></td><td id="box1r8c7"></td><td id="box1r8c8"></td><td id="box1r8c9"></td><td id="box1r8c10"></td></tr>
+  </table>
+</div>
 <!-- The Keys panel: over the start menu or the pause menu, whichever opened it. -->
 <ul id="keyRows" role="listbox" aria-label="Keys" hidden><li id="keyRow0" role="option"></li><li id="keyRow1" role="option"></li><li id="keyRow2" role="option"></li><li id="keyRow3" role="option"></li><li id="keyRow4" role="option"></li><li id="keyRow5" role="option"></li><li id="keyRow6" role="option"></li><li id="keyRow7" role="option"></li><li id="keyRow8" role="option"></li><li id="keyRow9" role="option"></li><li id="keyRow10" role="option"></li><li id="keyRow11" role="option"></li><li id="keyRow12" role="option"></li><li id="keyRow13" role="option"></li><li id="keyRow14" role="option"></li><li id="keyRow15" role="option"></li><li id="keyRow16" role="option"></li><li id="keyRow17" role="option"></li><li id="keyRow18" role="option"></li></ul>
 <section class="screen" id="screenFinal" hidden>
   <h1 id="finalTitle">Final</h1>
   <p id="finalScore"></p>
+  <p id="finalPotg"></p>
   <p>Press Enter to play again</p>
 </section>
 

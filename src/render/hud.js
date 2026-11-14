@@ -8,6 +8,8 @@ import { pauseRows } from '../pause.js';
 import { playListRows } from '../playlist.js';
 import { playOn } from '../sim/plays.js';
 import { QUALITY } from './quality.js';
+import { playerOfGame, teamLine as teamStats } from '../sim/stats.js';
+import { DEFAULT_PREFS } from '../prefs.js';
 
 const FPS_EASE = 0.05;   // how fast the frame-rate readout follows the real rate: steady enough to read
 
@@ -109,39 +111,93 @@ export const teamLine = (state, team, row) => {
 };
 
 const CAMERA_WORDS = { '2k': 'Camera: 2K', broadcast: 'Camera: Broadcast' };
+// The Commentary row: what is chosen, or, where the browser has no voice, that it is captions only.
+const commentaryWords = (value, hasVoice) => (value === 'off' ? 'Commentary: Off'
+  : !hasVoice ? 'Commentary: Captions only (no voice in this browser)' : value === 'voice' ? 'Commentary: Voice and captions' : 'Commentary: Captions only');
+// The words of a settings row that the page itself keeps (see PAGE_ROWS), or undefined for any other row.
+function pageRowText(choice, quality, camera, prefs, hasVoice) {
+  if (choice === 'camera') return CAMERA_WORDS[camera];
+  if (choice === 'quality') return `Quality: ${QUALITY[quality].label}`;
+  if (choice === 'commentary') return commentaryWords(prefs.commentary, hasVoice);
+  if (choice === 'replays') return `Replays: ${prefs.replays ? 'On' : 'Off'}`;
+  if (choice === 'sound') return `Sound: ${{ full: 'Full', quiet: 'Quiet', off: 'Off' }[prefs.sound]}`;
+  return undefined;
+}
 
 // The words of row `row` of the panel shown; the settings say their value. quality: one of QUALITY.order. camera:
 // '2k' or 'broadcast'.
-export function menuText(menu, row, quality, camera = '2k') {
-  const choice = menuRows(menu)[row];
-  if (choice === 'camera') return CAMERA_WORDS[camera];
+export function menuText(menu, row, quality, camera = '2k', prefs = DEFAULT_PREFS, hasVoice = true) {
+  const choice = menuRows(menu)[row], kept = pageRowText(choice, quality, camera, prefs, hasVoice);
+  if (kept !== undefined) return kept;
   if (choice === 'difficulty') return `Difficulty: ${DIFFICULTY.label[menu.difficulty]}`;
   if (choice === 'quarter') return `Quarter length: ${menu.minutes} minutes`;
-  if (choice === 'quality') return `Quality: ${QUALITY[quality].label}`;
   if (choice === 'autoSubs') return `Automatic substitutions: ${menu.autoSubs ? 'On' : 'Off'}`;
   if (choice === 'mode') return MODE_WORDS[menu.size];
   return MENU_WORDS[choice];
 }
 
 // The pause menu: the words of each button, and what the hint line says in each panel.
-const PAUSE_WORDS = { resume: 'Resume', subs: 'Substitutions', controls: 'Controls', settings: 'Settings', quit: 'Quit to main menu', keys: 'Keys',
+const PAUSE_WORDS = { resume: 'Resume', subs: 'Substitutions', box: 'Box score', controls: 'Controls', settings: 'Settings', quit: 'Quit to main menu', keys: 'Keys',
   stay: 'No, keep playing', leave: 'Yes, quit' };
 const PAUSE_HINTS = { main: '↑ ↓ choose · Enter select · Esc resume', settings: '↑ ↓ choose · Enter change · Esc back',
-  subs: '1 to 8 swap two players · A automatic substitutions · Esc back', controls: 'Esc back', quit: '↑ ↓ choose · Enter select · Esc back',
+  subs: '1 to 8 swap two players · A automatic substitutions · Esc back', controls: 'Esc back', box: 'Esc back', quit: '↑ ↓ choose · Enter select · Esc back',
   keys: '↑ ↓ choose · Enter change · Esc back' };
 const TAG_SLOTS = 10;     // tag0 to tag9 on the page: one under each player
 const PLAY_SLOTS = 10;    // playRow0 to playRow9 on the page
 const PAUSE_SLOTS = 9;   // pauseRow0 to pauseRow8 on the page
 
 // The words of row `row` of the pause menu's panel shown; the settings say their value.
-export function pauseText(state, menu, row, quality, camera = '2k') {
-  const choice = pauseRows(menu)[row];
-  if (choice === 'camera') return CAMERA_WORDS[camera];
+export function pauseText(state, menu, row, quality, camera = '2k', prefs = DEFAULT_PREFS, hasVoice = true) {
+  const choice = pauseRows(menu)[row], kept = pageRowText(choice, quality, camera, prefs, hasVoice);
+  if (kept !== undefined) return kept;
   if (choice === 'difficulty') return `Difficulty: ${DIFFICULTY.label[state.difficulty]}`;
-  if (choice === 'quality') return `Quality: ${QUALITY[quality].label}`;
   if (choice === 'autoSubs') return `Automatic substitutions: ${state.autoSubs[0] ? 'On' : 'Off'}`;
   return PAUSE_WORDS[choice];
 }
+
+// ---------- the box score and the panels between play ----------
+
+export const BOX_HEAD = Object.freeze(['', 'PTS', 'FG', '3PT', 'FT', 'REB', 'AST', 'STL', 'BLK', 'TO', 'PF']);
+const boxCells = (name, s, fouls) => [name, String(s.pts), `${s.fgm}/${s.fga}`, `${s.tpm}/${s.tpa}`, `${s.ftm}/${s.fta}`, String(s.reb), String(s.ast),
+  String(s.stl), String(s.blk), String(s.tov), String(fouls)];
+// One player's row of the box score, as BOX_HEAD has the columns.
+export const boxRow = (state, team, row) => { const person = state.rosters[team][row]; return boxCells(surname(person), person.stats, person.fouls); };
+// His team's totals.
+export const boxTotal = (state, team) => boxCells('TEAM', teamStats(state, team), state.rosters[team].reduce((sum, person) => sum + person.fouls, 0));
+
+// A starter's line on the line-ups panel: position, name (the team's star marked), what he is for, and his overall.
+export function lineupRow(state, team, slot) {
+  const player = state.players.find(p => p.team === team && p.slot === slot);
+  if (!player) return '';
+  const person = personOf(state, player);
+  return `${person.position} · ${person.name}${starOf(state, team) === player.person ? ' ★' : ''} · ${person.role} · ${overall(person)}`;
+}
+
+// A team's leading scorer: 'Cross 11 PTS'.
+const leader = (state, team) => { const best = state.rosters[team].reduce((a, b) => (b.stats.pts > a.stats.pts ? b : a)); return `${surname(best)} ${best.stats.pts} PTS`; };
+
+// Between periods: each team's points by period and its total, then each team's leading scorer.
+export function periodLines(state) {
+  const byPeriod = team => `${ROSTER.abbr[team]}  ${state.byQuarter[team].map(points => String(points)).join(' · ')}  —  ${state.score[team]}`;
+  return [byPeriod(0), byPeriod(1), leader(state, 0), leader(state, 1)];
+}
+
+const ratio = (made, tried) => `${made}/${tried} (${tried ? Math.round((100 * made) / tried) : 0}%)`;
+// At half-time, the two teams side by side: [what, the home team's, the visitors'].
+export function halfLines(state) {
+  const a = teamStats(state, 0), b = teamStats(state, 1);
+  return [['Field goals', ratio(a.fgm, a.fga), ratio(b.fgm, b.fga)], ['Threes', ratio(a.tpm, a.tpa), ratio(b.tpm, b.tpa)],
+    ['Rebounds', String(a.reb), String(b.reb)], ['Turnovers', String(a.tov), String(b.tov)]];
+}
+
+// The player of the game, with his line.
+export function potgLine(state) {
+  const { team, row } = playerOfGame(state), person = state.rosters[team][row], s = person.stats;
+  return `PLAYER OF THE GAME · ${person.name} · ${s.pts} PTS · ${s.reb} REB · ${s.ast} AST`;
+}
+
+const BETWEEN_SLOTS = 8;   // betweenLine0 to betweenLine7 on the page
+const LINEUP_SLOTS = 5;    // lineup00 to lineup04 and lineup10 to lineup14
 
 // The period as a scoreboard names it: 1ST to 4TH, then OT1, OT2.
 export const periodWord = quarter => (quarter <= CLOCK.quarters ? ['1ST', '2ND', '3RD', '4TH'][quarter - 1] : `OT${quarter - CLOCK.quarters}`);
@@ -227,7 +283,7 @@ export function createHud(doc) {
         classed('menuList', menu.panel);
         for (let row = 0; row < MENU_SLOTS; row++) {
           hide(`menuRow${row}`, row >= rows.length);
-          if (row < rows.length && menu.panel !== 'keys') set(`menuRow${row}`, menuText(menu, row, ui.quality, ui.camera));
+          if (row < rows.length && menu.panel !== 'keys') set(`menuRow${row}`, menuText(menu, row, ui.quality, ui.camera, ui.prefs, ui.hasVoice));
           selected(`menuRow${row}`, row === menu.row && row < rows.length);
         }
         hide('menuTeams', menu.panel !== 'teams');
@@ -249,7 +305,7 @@ export function createHud(doc) {
         classed('pauseList', pause.panel);
         for (let row = 0; row < PAUSE_SLOTS; row++) {
           hide(`pauseRow${row}`, row >= rows.length);
-          if (row < rows.length && pause.panel !== 'keys') set(`pauseRow${row}`, pauseText(state, pause, row, ui.quality, ui.camera));
+          if (row < rows.length && pause.panel !== 'keys') set(`pauseRow${row}`, pauseText(state, pause, row, ui.quality, ui.camera, ui.prefs, ui.hasVoice));
           selected(`pauseRow${row}`, row === pause.row && row < rows.length);
         }
         hide('pauseSubs', pause.panel !== 'subs');
@@ -292,6 +348,41 @@ export function createHud(doc) {
       });
       set('controls', hintLine(keys));
 
+      // The broadcast (`ui.show`, see broadcast/director.js): a banner for a big moment, a small card and the
+      // commentator's caption above the scorebug, and the panels before the tip and between periods.
+      const show = ui.show ?? {};
+      hide('banner', !show.banner);
+      if (show.banner) {
+        set('bannerWords', show.banner.words); set('bannerName', show.banner.name);
+        classed('banner', show.banner.team === 0 ? 'home' : 'away');
+      }
+      hide('lower', !show.lower);
+      if (show.lower) { set('lowerTitle', show.lower.title); set('lowerLine', show.lower.lines.join(' · ')); }
+      hide('caption', !show.caption);
+      if (show.caption) set('caption', show.caption);
+      hide('lineups', show.panel !== 'lineups');
+      if (show.panel === 'lineups') for (const team of [0, 1]) {
+        set(`lineupTeam${team}`, ROSTER.teams[team]);
+        for (let slot = 0; slot < LINEUP_SLOTS; slot++) { hide(`lineup${team}${slot}`, slot >= state.size); if (slot < state.size) set(`lineup${team}${slot}`, lineupRow(state, team, slot)); }
+      }
+      const between = show.panel === 'period' || show.panel === 'half';
+      hide('between', !between);
+      if (between) {
+        const lines = [...periodLines(state), ...(show.panel === 'half' ? halfLines(state).map(([what, a, b]) => `${a}  ·  ${what}  ·  ${b}`) : [])];
+        set('betweenTitle', show.panel === 'half' ? 'HALF-TIME' : `END OF ${periodWord(state.quarter)}`);
+        for (let i = 0; i < BETWEEN_SLOTS; i++) { hide(`betweenLine${i}`, i >= lines.length); if (i < lines.length) set(`betweenLine${i}`, lines[i]); }
+      }
+      // The box score: in the pause menu, and when the match is over.
+      const box = state.phase === 'final' || pause?.panel === 'box';
+      hide('boxScore', !box);
+      if (box) for (const team of [0, 1]) {
+        set(`boxTeam${team}`, ROSTER.teams[team]);
+        for (let row = 0; row <= state.rosters[team].length; row++) {
+          const cells = row < state.rosters[team].length ? boxRow(state, team, row) : boxTotal(state, team);
+          cells.forEach((cell, col) => set(`box${team}r${row}c${col}`, cell));
+        }
+      }
+
       // The play your team is running, and the play list while it is open.
       const play = playOn(state, 0);
       hide('playName', !play);
@@ -310,8 +401,8 @@ export function createHud(doc) {
       const score = `You ${state.score[0]}, opponent ${state.score[1]}`;
       if (state.call && state.call !== lastCall) set('announce', callText(state.call));
       else if (keysPanel) set('announce', keysText(keys, keysPanel.row, keysPanel));
-      else if (menu) set('announce', menuRows(menu).length ? menuText(menu, menu.row, ui.quality, ui.camera) : MENU_WORDS[menu.panel]);
-      else if (pause) set('announce', pauseRows(pause).length ? pauseText(state, pause, pause.row, ui.quality, ui.camera) : PAUSE_WORDS[pause.panel]);
+      else if (menu) set('announce', menuRows(menu).length ? menuText(menu, menu.row, ui.quality, ui.camera, ui.prefs, ui.hasVoice) : MENU_WORDS[menu.panel]);
+      else if (pause) set('announce', pauseRows(pause).length ? pauseText(state, pause, pause.row, ui.quality, ui.camera, ui.prefs, ui.hasVoice) : PAUSE_WORDS[pause.panel]);
       else if (score !== lastScore) set('announce', score);
       lastCall = state.call; lastScore = score;
 
@@ -351,6 +442,7 @@ export function createHud(doc) {
       if (state.phase === 'final') {
         set('finalTitle', state.score[0] > state.score[1] ? 'You win' : 'You lose');
         set('finalScore', `${state.score[0]} – ${state.score[1]}`);
+        set('finalPotg', potgLine(state));
       }
     },
     // name: 'start', 'pause', 'final' or null for none.

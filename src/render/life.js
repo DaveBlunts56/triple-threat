@@ -10,15 +10,22 @@ const FOULS = ['reach', 'block', 'shooting', 'charge'];
 // fans boo a foul called on their team. blowout: the lead at which fans start to leave in the last period. leaveMost:
 // the most of the crowd that goes. leaveRate: the share that can go in a second. flashes: photographers' flashes at a
 // basket. shake: how far the picture shakes, in metres, while the fans behind the hoop put off a free-throw shooter.
-export const LIFE = Object.freeze({ cheer: 2.2, cheerThree: 3.2, boo: 2.6, blowout: 18, leaveMost: 0.45, leaveRate: 0.012, flashes: 4, shake: 0.05 });
+export const LIFE = Object.freeze({ cheer: 2.2, cheerThree: 3.2, boo: 2.6, blowout: 18, leaveMost: 0.45, leaveRate: 0.012, flashes: 4, shake: 0.05, groan: 1.5 });
 
 // cheer: seconds each team's fans have left on their feet. boo: seconds of booing left. distract: the end (+1 or -1)
 // whose fans are waving at a free-throw shooter, or 0. shake: how far the picture shakes now. left: the share of the
-// crowd that has gone home. flashes: photographers' flashes still to fire.
-export const createLife = () => ({ cheer: [0, 0], boo: 0, distract: 0, shake: 0, left: 0, flashes: 0, seen: { score: [0, 0], call: null } });
+// crowd that has gone home. flashes: photographers' flashes still to fire. groan: seconds left of the home crowd's
+// groan at a big moment for the visitors.
+export const createLife = () => ({ cheer: [0, 0], boo: 0, distract: 0, shake: 0, left: 0, flashes: 0, groan: 0, seen: { score: [0, 0], call: null } });
 
 // Moves the crowd's mood on by dt seconds of real time, from what has happened in the match since the last call.
-export function stepLife(life, state, dt) {
+// `heard` is what the broadcast's watcher heard this frame: a big moment for the home team (team 0) brings the home
+// crowd to its feet as a three does; one for the visitors makes it groan.
+export function stepLife(life, state, dt, heard = []) {
+  life.groan = Math.max(0, life.groan - dt);
+  for (const h of heard) if (h.moment) {
+    if (h.team === 0) life.cheer[0] = Math.max(life.cheer[0], LIFE.cheerThree + dt); else life.groan = LIFE.groan;
+  }
   for (const team of [0, 1]) {
     const gained = state.score[team] - life.seen.score[team];
     if (gained > 0) { life.cheer[team] = gained >= 3 ? LIFE.cheerThree : LIFE.cheer; life.flashes = LIFE.flashes; }

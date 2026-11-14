@@ -5,7 +5,7 @@ import { periodLabel, clockText, createHud, callText, rosterLine, subNote, easeF
 import { DEFAULT_KEYS, KEY_ROWS, bind, createKeys } from '../src/keys.js';
 import { createMatch } from '../src/sim/state.js';
 import { createPauseMenu, pauseKey } from '../src/pause.js';
-import { createMenu, menuKey } from '../src/menu.js';
+import { MENU, createMenu, menuKey } from '../src/menu.js';
 
 test('periods are Q1-Q4 then OT1, OT2', () => {
   assert.deepEqual([1, 4, 5, 6].map(periodLabel), ['Q1', 'Q4', 'OT1', 'OT2']);
@@ -296,13 +296,13 @@ function pausedHud() {
   const game = { state: s, paused: true, pick: null, pauseMenu: createPauseMenu(), quality: 'high' };
   return { e: doc.els, s, game, show: () => hud.update(s, 'webgl2', game), choose: (...codes) => codes.forEach(code => pauseKey(game, code)) };
 }
-const PAUSE_ROWS = [0, 1, 2, 3, 4];
+const PAUSE_ROWS = [0, 1, 2, 3, 4, 5];
 
-test('the pause menu shows its five buttons with the highlight on one, and says which', () => {
+test('the pause menu shows its six buttons with the highlight on one, and says which', () => {
   const { e, show, choose } = pausedHud();
   show();
-  assert.deepEqual(PAUSE_ROWS.map(i => e[`pauseRow${i}`].textContent), ['Resume', 'Substitutions', 'Controls', 'Settings', 'Quit to main menu']);
-  assert.deepEqual(PAUSE_ROWS.map(i => e[`pauseRow${i}`].ariaSelected), ['true', 'false', 'false', 'false', 'false']);
+  assert.deepEqual(PAUSE_ROWS.map(i => e[`pauseRow${i}`].textContent), ['Resume', 'Substitutions', 'Box score', 'Controls', 'Settings', 'Quit to main menu']);
+  assert.deepEqual(PAUSE_ROWS.map(i => e[`pauseRow${i}`].ariaSelected), ['true', 'false', 'false', 'false', 'false', 'false']);
   assert.deepEqual([e.pauseList.hidden, e.pauseSubs.hidden, e.pauseControls.hidden, e.pauseAsk.hidden, e.pauseHint.textContent, e.announce.textContent],
     [false, true, true, true, '↑ ↓ choose · Enter select · Esc resume', 'Resume']);
   choose('ArrowDown'); show();
@@ -319,14 +319,16 @@ test('Substitutions and Controls open in place of the buttons, and opening one i
   assert.deepEqual([e.pauseList.hidden, e.pauseSubs.hidden, e.pauseControls.hidden, e.pauseHint.textContent, e.announce.textContent, writes - before],
     [true, false, true, '1 to 8 swap two players · A automatic substitutions · Esc back', 'Substitutions', 1]);
   choose('Escape', 'ArrowDown', 'Enter'); show();
-  assert.deepEqual([e.pauseSubs.hidden, e.pauseControls.hidden, e.pauseHint.textContent, e.announce.textContent], [true, false, 'Esc back', 'Controls']);
+  assert.deepEqual([e.pauseSubs.hidden, e.boxScore.hidden, e.pauseHint.textContent, e.announce.textContent], [true, false, 'Esc back', 'Box score']);
+  choose('Escape', 'ArrowDown', 'Enter'); show();
+  assert.deepEqual([e.boxScore.hidden, e.pauseControls.hidden, e.pauseHint.textContent, e.announce.textContent], [true, false, 'Esc back', 'Controls']);
 });
 
 test('Settings shows each setting with its value, and Quit asks before leaving', () => {
   const { e, s, game, show, choose } = pausedHud();
   choose('ArrowUp', 'ArrowUp', 'Enter'); show();                           // up from Resume wraps to Quit, then Settings
-  assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent, e.pauseRow2.textContent, e.pauseRow3.textContent, e.pauseRow4.textContent, e.pauseRow5.hidden, e.pauseHint.textContent],
-    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', 'Keys', true, '↑ ↓ choose · Enter change · Esc back']);
+  assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent, e.pauseRow2.textContent, e.pauseRow3.textContent, e.pauseRow4.textContent, e.pauseRow5.textContent, e.pauseRow6.hidden, e.pauseHint.textContent],
+    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', 'Commentary: Voice and captions', 'Keys', true, '↑ ↓ choose · Enter change · Esc back']);
   s.autoSubs[0] = false; game.quality = 'low'; show();
   assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent], ['Quality: Low', 'Automatic substitutions: Off']);
   choose('Escape', 'ArrowDown', 'Enter'); show();
@@ -487,7 +489,7 @@ test('the page shows the Keys panel over the menu that opened it, and the change
   const show = () => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high', keys });
   show();
   assert.equal(e.keyRows.hidden, true);
-  menu.row = 4; menuKey(menu, 'Enter', keys); menu.row = 5; menuKey(menu, 'Enter', keys); show();
+  menu.row = 4; menuKey(menu, 'Enter', keys); menu.row = MENU.settings.indexOf('keys'); menuKey(menu, 'Enter', keys); show();
   assert.deepEqual([e.keyRows.hidden, e.menuList.hidden, e.keyRow0.textContent, e.keyRow0.ariaSelected, e.keyRow18.textContent, e.announce.textContent],
     [false, true, 'Move up: W', 'true', 'Reset all keys', 'Move up: W']);
   menuKey(menu, 'Enter', keys); show();
@@ -495,5 +497,5 @@ test('the page shows the Keys panel over the menu that opened it, and the change
   menuKey(menu, 'ArrowUp', keys); show();
   assert.deepEqual([e.keyRow0.textContent, e.keyRow0.className, e.ctlK0.textContent, e.pctlK0.textContent, e.ctlW0.textContent], ['Move up: ↑', '', '↑ A S D', '↑ A S D', 'move']);
   menuKey(menu, 'Escape', keys); show();
-  assert.deepEqual([e.keyRows.hidden, e.menuList.hidden, e.menuRow5.textContent], [true, false, 'Keys']);
+  assert.deepEqual([e.keyRows.hidden, e.menuList.hidden, e[`menuRow${MENU.settings.indexOf('keys')}`].textContent], [true, false, 'Keys']);
 });
