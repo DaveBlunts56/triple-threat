@@ -81,6 +81,9 @@ export function createMatch(seed = 1, size = 3) {
     rosters: ROSTER.numbers.map((team, t) => team.map((number, row) => ({ number, name: ROSTER.names[t][row], position: ROSTER.positions[row], energy: 1, fouls: 0, manual: false }))),
     subQueue: [], autoSubs: [true, true], teamFouls: [0, 0],
     call: null, freeThrow: null, pendingFoul: null, tipWinner: null,
+    plays: [null, null],      // the play each team is running (see plays.js), or null
+    playCall: [null, null],   // the play asked for and not yet started, by its key
+    playWait: [0, 0],         // seconds until each team's coach may call another
     switches: 0,   // how many times men have been changed, by a screen or when getting back
     shot: null,   // how the last shot was let go, as the rules judged it; null from the next press until its release
     frontcourt: false, backcourtT: 0, inboundT: 0, controlTeam: null,

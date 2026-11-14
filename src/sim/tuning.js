@@ -75,6 +75,15 @@ export const AI = f({
   safetyGap: 4,           // metres between those who get back together when a ball is loose
 });
 
+// Plays. wait: seconds after a play ends before the coach calls another. minClock: the least shot clock a play is
+// started with. startX: how far past the centre line the ball must be. screenGap: metres between a screener and the
+// defender he screens, centre to centre. setDist: a screener this near his spot, standing still, is set. useBy: seconds
+// after the screen is set by which the handler is taken to have used it. cut: seconds a turn of the 5-out motion lasts.
+// ripeBy: seconds into any play after which its handler no longer waits for it to form. roll: seconds a screener
+// who rolls stays in front of the rim before he clears out of the key. feedWidth: how near the line of a pass to the
+// man the play is for a defender must be to stop it being thrown: less than for other passes.
+export const PLAY = f({ wait: 1.5, minClock: 9, startX: 1.5, screenGap: 0.66, setDist: 0.9, useBy: 1.6, cut: 4.5, ripeBy: 4, roll: 1.7, feedWidth: 0.65 });
+
 // The difficulty levels, easiest first, and what the menus call them.
 export const DIFFICULTY = f({
   order: f(['rookie', 'starter', 'allstar', 'superstar', 'legend']),

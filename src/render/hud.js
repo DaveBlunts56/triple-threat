@@ -3,6 +3,8 @@ import { personOf, surname } from '../sim/state.js';
 import { onCourt } from '../sim/roster.js';
 import { menuRows } from '../menu.js';
 import { pauseRows } from '../pause.js';
+import { playListRows } from '../playlist.js';
+import { playOn } from '../sim/plays.js';
 import { QUALITY } from './quality.js';
 
 const FPS_EASE = 0.05;   // how fast the frame-rate readout follows the real rate: steady enough to read
@@ -87,6 +89,7 @@ const PAUSE_WORDS = { resume: 'Resume', subs: 'Substitutions', controls: 'Contro
   stay: 'No, keep playing', leave: 'Yes, quit' };
 const PAUSE_HINTS = { main: '↑ ↓ choose · Enter select · Esc resume', settings: '↑ ↓ choose · Enter change · Esc back',
   subs: '1 to 8 swap two players · A automatic substitutions · Esc back', controls: 'Esc back', quit: '↑ ↓ choose · Enter select · Esc back' };
+const PLAY_SLOTS = 10;    // playRow0 to playRow9 on the page
 const PAUSE_SLOTS = 5;   // pauseRow0 to pauseRow4 on the page
 
 // The words of row `row` of the pause menu's panel shown; the settings say their value.
@@ -204,6 +207,17 @@ export function createHud(doc) {
         set('pbShot', `SHOT ${Math.ceil(state.shotClock)}`);
       }
       lastPause = pause?.panel;
+
+      // The play your team is running, and the play list while it is open.
+      const play = playOn(state, 0);
+      hide('playName', !play);
+      if (play) set('playName', `${play.name} · ${play.hint}`);
+      const plays = ui.playList?.open ? playListRows(state) : null;
+      hide('playList', !plays);
+      if (plays) for (let row = 0; row < PLAY_SLOTS; row++) {
+        hide(`playRow${row}`, row >= plays.length);
+        if (row < plays.length) set(`playRow${row}`, plays[row]);
+      }
 
       // The whistle: a banner during the stoppage. Screen readers hear a new call, or else a change of score.
       const banner = state.phase === 'dead' && state.call !== null;

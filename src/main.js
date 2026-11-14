@@ -11,6 +11,7 @@ import { createQuality, autoQuality, stepQuality } from './render/quality.js';
 import { createKeyboard, steer } from './input.js';
 import { createPauseMenu, inPlay, pauseKey, pauseHasRow, pausePoint, quitToMenu, setPaused } from './pause.js';
 import { createMenu, menuKey, menuPoint, menuHasRow, startFromMenu } from './menu.js';
+import { createPlayList, playListKey } from './playlist.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
 const newMatch = size => createMatch(Date.now() % 1e6, size);   // size: 3 or 5 a side; three when not said
@@ -29,10 +30,10 @@ if (view) {
   // meter: the shot meter and where its top is on the page, or null. menu: the start menu. pauseMenu: the pause menu.
   // camera: '2k', behind the team with the ball, or 'broadcast', the sideline view.
   const game = { state: newMatch(), paused: false, pick: null, fps: 60, quality: quality.level, camera: '2k', meter: null, menu: createMenu(),
-    pauseMenu: createPauseMenu() };
+    pauseMenu: createPauseMenu(), playList: createPlayList() };
   globalThis.game = game;   // handle for poking at the match from the browser console
 
-  const pause = on => setPaused(game, keyboard, on);
+  const pause = on => { game.playList.open = false; setPaused(game, keyboard, on); };   // the play list never stays up under the pause screen
   // Draws the game at the level `quality` is now on: called whenever that changes.
   const showQuality = () => {
     game.quality = quality.level;
@@ -78,6 +79,7 @@ if (view) {
       if (!(e.repeat && MENU_ONCE.has(e.code))) onPause(e.code);
       return;
     }
+    if (!e.repeat && inPlay(game.state) && playListKey(game, e.code)) { e.preventDefault(); return; }   // the play list, open over the match
     if (e.code === 'Escape' && !e.repeat) pause(true);
     if (e.code === 'Enter' && game.state.phase === 'final') play();
   });

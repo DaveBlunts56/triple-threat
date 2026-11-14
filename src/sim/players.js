@@ -54,8 +54,10 @@ function separate(players) {
     // Exactly on top of each other there is no direction to push along: pick +x.
     const nx = d < 1e-6 ? 1 : dx / d, nz = d < 1e-6 ? 0 : dz / d;
     const push = min - d;
-    // An inbounder is fixed, so the other player takes the whole push.
-    const shareA = a.inbounder ? 0 : b.inbounder ? 1 : 0.5;
+    // An inbounder is fixed, so the other player takes the whole push. So does whoever runs into a player who has
+    // stood his ground: a screen, or a defender who is set, is a wall.
+    const setA = a.setT >= FOUL.setTime, setB = b.setT >= FOUL.setTime;
+    const shareA = a.inbounder ? 0 : b.inbounder ? 1 : setA && !setB ? 0 : setB && !setA ? 1 : 0.5;
     a.x -= nx * push * shareA; a.z -= nz * push * shareA;
     b.x += nx * push * (1 - shareA); b.z += nz * push * (1 - shareA);
   }

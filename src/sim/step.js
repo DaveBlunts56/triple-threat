@@ -4,6 +4,7 @@ import { applyRules } from './rules.js';
 import { tire } from './stamina.js';
 import { emptyEvents, emptyIntent } from './state.js';
 import { screenSwitches } from './matchups.js';
+import { stepPlays } from './plays.js';
 
 // Advances the whole match by one fixed step. `intents` holds one Intent per player, by id.
 export function step(state, intents, dt) {
@@ -33,5 +34,6 @@ export function step(state, intents, dt) {
   else if (state.phase !== 'jumpBall' || state.phaseT <= 0) Object.assign(events, stepBall(state.ball, dt));   // the referee holds the ball until the toss
 
   applyRules(state, stopped ? emptyEvents() : events, dt, intents);
+  stepPlays(state, dt);
   state.time += dt;
 }

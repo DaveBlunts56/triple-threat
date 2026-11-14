@@ -114,6 +114,13 @@
   #screenPause .logo span { position: relative; }
   #controls, #backend { position: fixed; bottom: 12px; padding: 6px 12px; background: rgba(0, 0, 0, .8); border-radius: 8px; font-size: 13px; }
   #controls { left: 12px; }
+  /* The play your team is running, and the list you call one from. */
+  #playName { position: fixed; left: 50%; bottom: 46px; transform: translateX(-50%); padding: 6px 14px; border-radius: 6px; font: 600 14px/1.2 system-ui, sans-serif;
+    color: #fff; background: rgba(10, 14, 22, .78); border: 1px solid rgba(255, 255, 255, .25); white-space: nowrap; pointer-events: none; }
+  #playList { position: fixed; left: 12px; top: 50%; transform: translateY(-50%); margin: 0; padding: 8px 0; list-style: none; min-width: 190px;
+    font: 600 14px/1.2 system-ui, sans-serif; color: #fff; background: rgba(10, 14, 22, .86); border: 1px solid rgba(255, 255, 255, .3); border-radius: 8px; }
+  #playList::before { content: 'CALL A PLAY'; display: block; padding: 2px 14px 6px; font-size: 11px; letter-spacing: .14em; color: #ffd257; }
+  #playList li { padding: 5px 14px; white-space: nowrap; }
   #backend { right: 12px; }
   section.screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
                    background: rgba(0, 0, 0, .78); text-align: center; }
@@ -215,8 +222,10 @@
   <p id="shotLabel"></p>
 </div>
 <p id="announce" class="sr-only" aria-live="polite"></p>
+<div id="playName" hidden></div>
+<ul id="playList" hidden><li id="playRow0"></li><li id="playRow1"></li><li id="playRow2"></li><li id="playRow3"></li><li id="playRow4"></li><li id="playRow5"></li><li id="playRow6"></li><li id="playRow7"></li><li id="playRow8"></li><li id="playRow9"></li></ul>
 
-<div id="controls">WASD move · Shift sprint · Space shoot / jump · E pass / switch · Q steal · F hold ball · Esc pause · G quality · C camera</div>
+<div id="controls">WASD move · Shift sprint · Space shoot / jump · E pass / switch · Q steal · F hold ball · Esc pause · G quality · C camera · T plays</div>
 
 <section class="screen" id="screenStart" hidden>
   <div class="stage">

@@ -1,9 +1,10 @@
-import { AI, BALL, COURT, DT, FT, PASS, PLAYER, SHOT, STEAL, TIP } from './tuning.js';
+import { AI, BALL, COURT, DT, FT, PASS, PLAY, PLAYER, SHOT, STEAL, TIP } from './tuning.js';
 import { SHOT_BEST, SHOT_LANDS } from './players.js';
 import { ftChance } from './freethrow.js';
 import { attackSign, emptyIntent, isJumper, onFloor, rand } from './state.js';
 import { rimCentre } from './ball.js';
 import { manOf } from './matchups.js';
+import { playHolds, playSpot, playTarget } from './plays.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const nearestTo = (list, point) => list.reduce((a, b) => (dist(b, point) < dist(a, point) ? b : a));
@@ -31,12 +32,13 @@ const shotJump = man => !onFloor(man) && man.shooting;
 
 // No opponent near the straight line from the player to `target` (by default the hoop they attack).
 // `skip` ignores opponents this close to the player: a pass is already past them when it can first be touched.
-export function laneClear(state, player, target = rimCentre(attackSign(player.team)), skip = 0) {
+// `width` is how near the line counts as in the way.
+export function laneClear(state, player, target = rimCentre(attackSign(player.team)), skip = 0, width = AI.laneWidth) {
   const lx = target.x - player.x, lz = target.z - player.z, len2 = lx * lx + lz * lz || 1;
   return opponents(state, player).every(o => {
     if (dist(o, player) < skip) return true;
     const t = Math.min(1, Math.max(0, ((o.x - player.x) * lx + (o.z - player.z) * lz) / len2));
-    return Math.hypot(o.x - (player.x + lx * t), o.z - (player.z + lz * t)) > AI.laneWidth;
+    return Math.hypot(o.x - (player.x + lx * t), o.z - (player.z + lz * t)) > width;
   });
 }
 
@@ -76,7 +78,8 @@ function planWithBall(state, p) {
   if (settled && toHoop < AI.layupDist) return shoot();
   // Nobody between him and the hoop: take it all the way in, don't pull up for a jump shot.
   if (laneClear(state, p)) return goTo(ai, { x: sign * AI.driveX, z: 0 }, true);
-  if (settled && isOpen(state, p) && toHoop <= AI.shootRange) return shoot();
+  const waits = playHolds(state, p);   // his play has not formed yet: he keeps the ball rather than shoot from outside or pass
+  if (settled && !waits && isOpen(state, p) && toHoop <= AI.shootRange) return shoot();
 
   // Running out of time to cross half court: stop looking for a pass and bring it up.
   if (state.backcourtT > AI.hurryAt && !state.frontcourt) return goTo(ai, { x: sign * AI.topX, z: 0 }, true);
@@ -87,9 +90,13 @@ function planWithBall(state, p) {
   const pressured = !isOpen(state, p);
   const open = mates(state, p).filter(m => isOpen(state, m) && dist(m, p) <= AI.passRange
     && (pressured || dist(m, hoop) < toHoop) && laneClear(state, p, m, untouchable));
-  if (settled && open.length) passTo(ai, p, nearestTo(open, hoop));
+  // The man the play is for gets the ball if it can reach him, open or not: a post man is fed with his defender on him.
+  const wanted = playTarget(state, p);
+  if (settled && !waits && wanted && dist(wanted, p) <= AI.passRange && laneClear(state, p, wanted, untouchable, PLAY.feedWidth)) passTo(ai, p, wanted);
+  else if (settled && !waits && open.length) passTo(ai, p, nearestTo(open, hoop));
   // Nothing on: in three a side he takes the ball to the top; in five a side that is a team-mate's place, so he keeps his own.
-  else goTo(ai, state.size === 5 ? spotOf(state, p) : { x: sign * AI.topX, z: 0 });
+  // In a play he takes it where the play says.
+  else goTo(ai, playSpot(state, p) ?? (state.size === 5 ? spotOf(state, p) : { x: sign * AI.topX, z: 0 }));
 }
 
 // Chasing a ball nobody holds. Two per team go for it, the rest get back on defence, side by side.
@@ -137,8 +144,8 @@ function planOffBall(state, p) {
   } else if (holder?.inbounder && nearestTo(mates(state, holder), holder) === p) {
     return goTo(ai, help, true);
   }
-  const spot = spotOf(state, p);
-  goTo(ai, spot, dist(p, spot) > AI.farAway);
+  const spot = playSpot(state, p) ?? spotOf(state, p);   // his part in the play, or his place in the motion
+  goTo(ai, spot, spot.sprint || dist(p, spot) > AI.farAway);
 }
 
 function planDefence(state, p) {
