@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ARENA, seats, shown, boards, scoreLines } from './layout.js';
 import { QUALITY } from './quality.js';
 import { KIT } from './kit.js';
+import { ADS, adAt } from './life.js';
 
 // concrete, seat: the colours of the stands' steps and of an empty seat's back. hall: half the hall's length and
 // width and its height, in metres: the dark shell round everything. panels: the roof's lights, as in light.js's
@@ -16,14 +17,13 @@ const LOOK = Object.freeze({
   skins: Object.freeze(['#f0cfae', '#d9a877', '#a8744a', '#7a4f31', '#55371f']),
 });
 
-// A canvas picture of `words` in the game's lettering, `wide` by `high` metres, light on a dark field or the other
-// way about, turn and turn about along a row of boards.
-function wordsPicture(words, wide, high, light) {
+// A canvas picture of `words` in the game's lettering, `wide` by `high` metres, in `ink` on `back`.
+function wordsPicture(words, wide, high, back, ink) {
   const c = document.createElement('canvas');
   c.height = 128; c.width = Math.round(128 * wide / high);
   const g = c.getContext('2d');
-  g.fillStyle = light ? '#f2f5f8' : '#0e2a66'; g.fillRect(0, 0, c.width, c.height);
-  g.fillStyle = light ? '#0e2a66' : '#f2f5f8';
+  g.fillStyle = back; g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = ink;
   g.font = 'italic 800 64px "Arial Narrow", Arial, sans-serif';
   g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillText(words, c.width / 2, c.height / 2 + 4, c.width * 0.9);
@@ -61,25 +61,54 @@ function crowd() {
   const bodies = new THREE.InstancedMesh(mergeGeometries([torso, lap]), new THREE.MeshStandardMaterial({ roughness: 0.9 }), filled.length);
   const head = new THREE.SphereGeometry(0.115, 8, 6); head.translate(0, 0.94, 0.02);
   const heads = new THREE.InstancedMesh(head, new THREE.MeshStandardMaterial({ roughness: 0.75 }), filled.length);
+  // Something to wave at a free-throw shooter: one for every seat behind a baseline, shown only while they wave.
+  const stick = new THREE.BoxGeometry(0.07, 0.7, 0.07); stick.translate(0, 1.5, 0);
+  const sticks = new THREE.InstancedMesh(stick, new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.6 }), filled.length);
+  sticks.visible = false;
   const place = new THREE.Object3D(), colour = new THREE.Color();
-  filled.forEach((seat, i) => {
+  // Each seat's fan: whose he is (0 the home team's, 1 the visitors', 2 nobody's) and the end he sits behind (+1, -1, or 0).
+  const fans = filled.map((seat, i) => {
     // Not Math.random: the same crowd every time. No two neighbours sit quite alike.
-    const pick = (list, salt) => list[Math.abs(Math.round(seat.x * 37 + seat.z * 91 + seat.y * 53 + salt * i)) % list.length];
-    place.position.set(seat.x, seat.y, seat.z);
-    place.rotation.y = seat.facing + ((i * 7) % 5 - 2) * 0.06;
-    place.scale.setScalar(0.94 + ((i * 13) % 7) * 0.02);
-    place.updateMatrix();
-    bodies.setMatrixAt(i, place.matrix); heads.setMatrixAt(i, place.matrix);
-    bodies.setColorAt(i, colour.set(pick(LOOK.shirts, 3)).multiplyScalar(LOOK.dim));
-    heads.setColorAt(i, colour.set(pick(LOOK.skins, 5)).multiplyScalar(LOOK.dim + 0.15));
+    const pick = (list, salt) => Math.abs(Math.round(seat.x * 37 + seat.z * 91 + seat.y * 53 + salt * i)) % list.length;
+    const shirt = pick(LOOK.shirts, 3);
+    bodies.setColorAt(i, colour.set(LOOK.shirts[shirt]).multiplyScalar(LOOK.dim));
+    heads.setColorAt(i, colour.set(LOOK.skins[pick(LOOK.skins, 5)]).multiplyScalar(LOOK.dim + 0.15));
+    return { seat, turn: seat.facing + ((i * 7) % 5 - 2) * 0.06, size: 0.94 + ((i * 13) % 7) * 0.02, of: shirt < 3 ? 0 : shirt === 3 ? 1 : 2,
+      end: Math.abs(seat.x) >= ARENA.ends.first - 0.5 ? Math.sign(seat.x) : 0 };
   });
-  for (const batch of [bodies, heads]) { batch.instanceMatrix.needsUpdate = true; batch.instanceColor.needsUpdate = true; batch.frustumCulled = false; }
-  return { bodies, heads, seats: filled.length };
+  // Puts the first `count` fans in their seats as the crowd's mood has them at `now`: on their feet and bouncing when
+  // their team scores, shaking with anger at a call against the home team, and behind a hoop waving at a shooter.
+  function sit(count, life, now) {
+    const home = Math.min(1, life?.cheer[0] ?? 0), away = Math.min(1, life?.cheer[1] ?? 0), boo = Math.min(1, life?.boo ?? 0), wave = life?.distract ?? 0;
+    for (let i = 0; i < count; i++) {
+      const fan = fans[i], waving = wave !== 0 && fan.end === wave;
+      const up = waving ? 1 : fan.of === 0 ? home : fan.of === 1 ? away : home * 0.4;
+      const angry = fan.of === 1 ? 0 : boo;
+      place.position.set(fan.seat.x, fan.seat.y + up * (0.2 + 0.3 * Math.abs(Math.sin(now * (waving ? 11 : 8) + i * 1.7))), fan.seat.z);
+      place.rotation.set(0, fan.turn + angry * 0.3 * Math.sin(now * 13 + i * 2.1), 0);
+      place.scale.setScalar(fan.size);
+      place.updateMatrix();
+      bodies.setMatrixAt(i, place.matrix); heads.setMatrixAt(i, place.matrix);
+      if (wave !== 0) {
+        place.rotation.z = waving ? 0.7 * Math.sin(now * 10 + i * 1.3) : 0;
+        place.scale.setScalar(waving ? fan.size : 0);
+        place.updateMatrix();
+        sticks.setMatrixAt(i, place.matrix);
+      }
+    }
+    bodies.instanceMatrix.needsUpdate = heads.instanceMatrix.needsUpdate = true;
+    sticks.visible = wave !== 0;
+    if (wave !== 0) { sticks.count = count; sticks.instanceMatrix.needsUpdate = true; }
+  }
+  sit(filled.length, null, 0);
+  for (const batch of [bodies, heads, sticks]) batch.frustumCulled = false;
+  bodies.instanceColor.needsUpdate = heads.instanceColor.needsUpdate = true;
+  return { bodies, heads, sticks, seats: filled.length, sit };
 }
 
 // The hall round the court, added to `scene`: the stands and their crowd, the lit boards, the scorer's table, the
-// hanging scoreboard, and a dark shell with the roof's lights. Returns { setQuality(level), show(state) }: how full
-// the stands are at a quality level, and the match for the scoreboard to show.
+// hanging scoreboard, and a dark shell with the roof's lights. Returns { setQuality(level), show(state), live(life,
+// now) }: how full the stands are at a quality level, the match for the scoreboard to show, and the crowd's mood.
 export function createArena(scene) {
   const hall = new THREE.Group();
   const shell = new THREE.Mesh(new THREE.BoxGeometry(2 * LOOK.hall.x, LOOK.hall.y, 2 * LOOK.hall.z),
@@ -96,7 +125,7 @@ export function createArena(scene) {
   }
   hall.add(new THREE.Mesh(mergeGeometries(panels), lit));
   const people = crowd();
-  hall.add(shell, steps(), people.bodies, people.heads);
+  hall.add(shell, steps(), people.bodies, people.heads, people.sticks);
 
   // The boards and the table carry words; the hanging scoreboard's four faces share one picture of the score.
   const score = document.createElement('canvas');
@@ -104,9 +133,15 @@ export function createArena(scene) {
   const scorePicture = new THREE.CanvasTexture(score);
   scorePicture.colorSpace = THREE.SRGBColorSpace;
   const scoreLook = new THREE.MeshBasicMaterial({ map: scorePicture, color: new THREE.Color().setScalar(LOOK.glow) });
+  // The boards along the far side and behind the baselines show advertisements, each changing in its turn; the
+  // table's face keeps the game's name.
+  const adBoards = ARENA.sideBoards.count + 2 * ARENA.endBoards.count, adPictures = [], adLooks = [];
   boards().forEach((board, i) => {
     if (board.words === '') { hall.add(face(board, scoreLook)); return; }
-    const look = new THREE.MeshBasicMaterial({ map: wordsPicture(board.words, board.width, board.height, i % 2 === 0), color: new THREE.Color().setScalar(LOOK.glow) });
+    if (i < adBoards && !adPictures.length) for (const ad of ADS) adPictures.push(wordsPicture(ad.words, board.width, board.height, ad.back, ad.ink));
+    const picture = i < adBoards ? adPictures[adAt(i, 0)] : wordsPicture(board.words, board.width, board.height, '#0e2a66', '#f2f5f8');
+    const look = new THREE.MeshBasicMaterial({ map: picture, color: new THREE.Color().setScalar(LOOK.glow) });
+    if (i < adBoards) adLooks.push({ look, board: i, showing: adAt(i, 0) });
     hall.add(face(board, look));
   });
   const table = new THREE.Mesh(new THREE.BoxGeometry(ARENA.table.wide, ARENA.table.high, ARENA.table.deep), new THREE.MeshStandardMaterial({ color: 0x14161b, roughness: 0.8 }));
@@ -116,10 +151,25 @@ export function createArena(scene) {
   hall.add(table, core);
   scene.add(hall);
 
-  let said = '';
+  let said = '', full = people.seats, stirred = false;
   return {
     setQuality(level) {
-      people.bodies.count = people.heads.count = Math.round(people.seats * QUALITY[level].crowd);
+      full = Math.round(people.seats * QUALITY[level].crowd);
+      people.bodies.count = people.heads.count = full;
+    },
+    // The crowd and the boards at `now` seconds, as the crowd's mood (`life`, see life.js) has them: fans who have
+    // gone home are no longer drawn, the rest move when there is something to move for, and each board changes its
+    // advertisement in turn.
+    live(life, now) {
+      const count = Math.round(full * (1 - life.left));
+      people.bodies.count = people.heads.count = count;
+      const stirring = life.cheer[0] > 0 || life.cheer[1] > 0 || life.boo > 0 || life.distract !== 0;
+      if (stirring || stirred) people.sit(count, stirring ? life : null, now);   // once more after it ends, to sit them down
+      stirred = stirring;
+      for (const ad of adLooks) {
+        const now_ = adAt(ad.board, now);
+        if (now_ !== ad.showing) { ad.showing = now_; ad.look.map = adPictures[now_]; ad.look.needsUpdate = true; }
+      }
     },
     // Repaints the hanging scoreboard, only when what it says has changed.
     show(state) {

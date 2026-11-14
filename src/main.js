@@ -13,6 +13,7 @@ import { createKeyboard, steer } from './input.js';
 import { createPauseMenu, inPlay, pauseKey, pauseHasRow, pausePoint, quitToMenu, setPaused } from './pause.js';
 import { createMenu, menuKey, menuPoint, menuHasRow, startFromMenu } from './menu.js';
 import { createPlayList, playListKey } from './playlist.js';
+import { createLife, stepLife } from './render/life.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
 const newMatch = size => createMatch(Date.now() % 1e6, size);   // size: 3 or 5 a side; three when not said
@@ -44,6 +45,7 @@ if (view) {
 
   const switchCamera = () => { game.camera = game.camera === '2k' ? 'broadcast' : '2k'; view.setCamera(game.camera); };
   view.setCamera(game.camera);
+  const life = createLife();   // the crowd's mood
   let heading = view.heading();   // what up the screen means to the movement keys
 
   // Starts play, from the menu or the final screen. startFromMenu drops the keys held then, which relies on the
@@ -127,6 +129,8 @@ if (view) {
     // passes, so it advances by real time and the players stand breathing.
     const passed = inPlay(state) ? state.time - before : elapsed;
     actors.sync(state, passed);
+    const real = game.paused ? 0 : elapsed;   // the crowd and the referees stand still with a paused game
+    view.live(state, stepLife(life, state, real), game.paused ? 0 : inPlay(state) ? state.time - before : 0, real);
     view.follow(state.ball, attackSign(state.possession));
     view.watch(state);
     view.render();

@@ -19,7 +19,7 @@ export const ARENA = f({
   far: f({ rows: 14, first: 10.7, height: 0.9, half: 19 }),
   near: f({ rows: 4, first: 12.6, height: 0.6, half: 19 }),   // far enough back to be under the bottom of the picture
   ends: f({ rows: 12, first: 17.6, height: 0.9, half: 9.3 }),
-  sideBoards: f({ z: -9.95, y: 0.5, wide: 4, high: 1, count: 7 }),
+  sideBoards: f({ z: -9.95, y: 1.45, wide: 4, high: 1, count: 7 }),   // raised: the benches and the table sit in front of them
   endBoards: f({ x: 16.4, y: 0.5, wide: 4, high: 1, count: 3 }),
   table: f({ z: -8.9, wide: 6, high: 0.8, deep: 0.6 }),
   hanging: f({ y: 11.8, wide: 5, high: 2.4 }),   // clear of the 2K camera, which passes under it

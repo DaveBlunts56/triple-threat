@@ -4,6 +4,8 @@ import { pixelRatioFor, prefersWebGL } from './quality.js';
 import { createLight } from './light.js';
 import { createFloor } from './floor.js';
 import { createArena } from './arena.js';
+import { createSideline } from './sideline.js';
+import { createRefs } from './refs.js';
 import { createPost } from './post.js';
 import { ARENA } from './layout.js';
 import { NET, createNet, stepNet } from './net.js';
@@ -138,6 +140,7 @@ export async function createScene(canvas) {
 
   const floor = await createFloor(scene);
   const arena = createArena(scene);
+  const sideline = createSideline(scene), refs = createRefs(scene);
   // The nets' picture as its colour and its see-through, unlit, both sides drawn, and not written to the depth buffer.
   const netLook = new THREE.MeshBasicMaterial({ map: paintNet(), transparent: true, side: THREE.DoubleSide, depthWrite: false });
   const hoops = [buildHoop(1, netLook), buildHoop(-1, netLook)];
@@ -166,7 +169,7 @@ export async function createScene(canvas) {
   // mode: 'broadcast', the sideline view, or '2k', from behind the team with the ball. followX, followZ: the point of
   // the court the camera follows. turn: the way the 2K camera looks, as an angle: 0 toward +x, a half turn toward -x;
   // it swings between them by the camera's own side of the court (+z).
-  let mode = '2k', followX = 0, followZ = 0, turn = 0, turnTo = 0;
+  let mode = '2k', followX = 0, followZ = 0, turn = 0, turnTo = 0, shake = 0, clock = 0;
   const aim = () => {
     if (mode === 'broadcast') {
       camera.position.set(followX, CAMERA.height, CAMERA.back);
@@ -178,6 +181,8 @@ export async function createScene(canvas) {
     camera.position.set(x, BEHIND.height, followZ - hz * BEHIND.back);
     camera.lookAt(followX + hx * BEHIND.ahead, 0, followZ + hz * BEHIND.ahead);
   };
+  // The picture shakes while the crowd puts off a free-throw shooter.
+  const jolt = () => { if (shake) { camera.position.x += shake * Math.sin(clock * 47); camera.position.y += shake * Math.sin(clock * 61 + 1); } };
   const resize = () => {
     renderer.setPixelRatio(pixelRatioFor(drawnAt, window.innerWidth, window.innerHeight, window.devicePixelRatio));   // a bigger window draws coarser
     renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -195,6 +200,14 @@ export async function createScene(canvas) {
     scene, camera, backend, setQuality,
     // The match, for the arena's scoreboard.
     watch: state => arena.show(state),
+    // The people round the court, moved on: the referees by `dt` seconds of match time, the crowd, the boards, the
+    // cameras and the flashes by `real` seconds, as the crowd's mood (`life`, see life.js) has them.
+    live(state, life, dt, real) {
+      clock += real; shake = life.shake;
+      refs.live(state, dt);
+      arena.live(life, clock);
+      sideline.live(state.ball, life, clock);
+    },
     render: () => post.render(),
     missing: post.missing,   // the effects of the current level that this browser could not run, in words
     // Eases the camera toward the ball: along the sideline, or behind the team that has the ball, looking at the hoop
@@ -207,7 +220,7 @@ export async function createScene(canvas) {
         turnTo = sign > 0 ? 0 : Math.PI;
         turn += (turnTo - turn) * BEHIND.swing;
       }
-      aim();
+      aim(); jolt();
     },
     // Changes the camera: 'broadcast' or '2k'.
     setCamera(to) { mode = to; followZ = 0; resize(); aim(); },
