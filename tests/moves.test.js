@@ -411,3 +411,11 @@ test('in five a side the centres are the jumpers at the tip: the player in place
   assert.deepEqual([arms(s, marks, 2).clip, arms(s, marks, 7).clip], ['tip', 'tip']);
   assert.notEqual(arms(s, marks, 1)?.clip, 'tip');
 });
+
+test('a player calling for the ball has his hand up, and so has a defender closing out', () => {
+  const [s, marks] = watched();
+  at(s, 0, 5, 0); at(s, 1, 8, 4); at(s, 3, 12, -5);
+  assert.deepEqual([arms(s, marks, 1), arms(s, marks, 3)], [null, null]);
+  s.players[1].calling = true; s.players[3].closing = true;
+  assert.deepEqual([arms(s, marks, 1), arms(s, marks, 3)], [{ clip: 'handUp', rate: 1 }, { clip: 'handUp', rate: 1 }]);
+});

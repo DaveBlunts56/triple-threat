@@ -4,7 +4,7 @@ import { createMatch, emptyIntent } from '../src/sim/state.js';
 import { giveBall, SHOT_BEST, SHOT_LANDS } from '../src/sim/players.js';
 import { startMatch } from '../src/sim/rules.js';
 import { step } from '../src/sim/step.js';
-import { aiIntents, isOpen, laneClear, spots } from '../src/sim/ai.js';
+import { aiIntents, isOpen, laneClear } from '../src/sim/ai.js';
 import { keyContains } from '../src/sim/violations.js';
 import { DT, RIM, AI, VIOLATION, SHOT, PASS, BALL } from '../src/sim/tuning.js';
 import { plain } from './helpers.js';
@@ -47,11 +47,6 @@ test('laneClear is false with a defender standing on the line to the hoop', () =
   assert.equal(laneClear(s, s.players[0]), true);
   put(s, 3, 2, 0);   // behind the handler: not in the way
   assert.equal(laneClear(s, s.players[0]), true);
-});
-
-test('spots mirror for each hoop', () => {
-  assert.deepEqual(spots(1), [{ x: 6.9, z: -4.5 }, { x: 6.9, z: 4.5 }, { x: 10.9, z: 3.2 }]);
-  assert.deepEqual(spots(-1), [{ x: -6.9, z: -4.5 }, { x: -6.9, z: 4.5 }, { x: -10.9, z: 3.2 }]);
 });
 
 test('an open handler in range, with a defender sagging into the lane, decides to shoot', () => {
@@ -367,14 +362,11 @@ test('the computer never picks up its dribble', () => {
 // A regression test: it passed before the low spot moved, because no spacing spot was inside the key.
 test('a computer player left in the key steps out before 3 seconds', () => {
   const s = live(); put(s, 0, 6, 5); put(s, 1, 11, 0);
-  run(s, 4, [1]);
+  // He may cut back through the key later, as any player does; what he never does is stay in it.
+  let longest = 0;
+  run(s, 12, [1], st => { longest = Math.max(longest, st.players[1].keyT); return false; });
   assert.notEqual(s.call?.kind, 'threeSeconds');
-  assert.equal(keyContains(s.players[1].x, s.players[1].z, 1), false);
-});
-
-test('the low spacing spot is clear of the key', () => {
-  for (const sign of [1, -1]) for (const spot of spots(sign)) assert.equal(keyContains(spot.x, spot.z, sign), false);
-  assert.ok(Math.abs(spots(1)[2].z) >= VIOLATION.keyHalfWidth + 0.6);
+  assert.ok(longest < VIOLATION.key - 0.5, `he was in the key for ${longest} s`);
 });
 
 test('with 5 seconds gone in the back court the handler stops looking for a pass and brings it up', () => {

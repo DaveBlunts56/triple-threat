@@ -6,7 +6,7 @@ import { step } from '../src/sim/step.js';
 import { PLAYS, playsFor, callPlay, stepPlays, playSpot, playOn } from '../src/sim/plays.js';
 import { keyContains } from '../src/sim/violations.js';
 import { guardOf } from '../src/sim/matchups.js';
-import { AI, COURT, DT, FOUL, PLAY, PLAYER, RIM, VIOLATION } from '../src/sim/tuning.js';
+import { AI, CLOCK, COURT, DT, FOUL, PLAY, PLAYER, RIM, VIOLATION } from '../src/sim/tuning.js';
 import { at, ai, idle } from './helpers.js';
 
 const apart = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -134,6 +134,9 @@ test('the coach calls a play the match has, for either team, a moment after the 
     const s = scene(size);
     s.playWait = [0, 0];
     stepPlays(s, DT);
+    assert.equal(s.plays[0], null, 'he called a play before the offence was set');   // the shot clock has only just started
+    s.shotClock = CLOCK.shot - PLAY.startAt;
+    stepPlays(s, DT);
     assert.ok(playsFor(size).includes(s.plays[0].key));
     assert.equal(s.plays[1], null, 'the team without the ball has no play');
     s.plays[0].t = 99; stepPlays(s, DT);
@@ -142,7 +145,7 @@ test('the coach calls a play the match has, for either team, a moment after the 
     assert.ok(s.plays[0], 'no play after the wait');
   }
   const late = scene(5); late.playWait = [0, 0]; late.shotClock = PLAY.minClock - 0.1; stepPlays(late, DT);
-  const back = scene(5); back.playWait = [0, 0]; at(back, 0, 0.5, 0); stepPlays(back, DT);
+  const back = scene(5); back.playWait = [0, 0]; back.shotClock = CLOCK.shot - PLAY.startAt; at(back, 0, 0.5, 0); stepPlays(back, DT);
   assert.deepEqual([late.plays[0], back.plays[0]], [null, null]);
 });
 
@@ -240,7 +243,7 @@ test('the coach calls what suits the floor: a post-up for a post scorer, Floppy 
   const calls = (change, key) => {
     let n = 0;
     for (let seed = 1; seed <= 400; seed++) {
-      const s = scene(5); s.seed = seed * 31; s.playWait = [0, 0];
+      const s = scene(5); s.seed = seed * 31; s.playWait = [0, 0]; s.shotClock = CLOCK.shot - PLAY.startAt;
       change(s); stepPlays(s, DT);
       if (s.plays[0].key === key) n++;
     }

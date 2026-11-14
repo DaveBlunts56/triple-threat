@@ -50,6 +50,7 @@ function createPlayer(id, size) {
     shooting: false, jumpT: 0, inbounder: false, stealCooldown: 0,
     shotT: 0, letGo: false, takeoff: 0,   // seconds since he pressed shoot; the key came up during the gather; the speed he last left the floor at
     held: false, steps: 0, keyT: 0, setT: 0, foulCooldown: 0,
+    calling: false, closing: false,   // he has a hand up for the ball; he is closing out on a shooter (see ai.js)
     man: (id + size) % (2 * size), switchWait: 0,   // the id of the opponent he guards (see matchups.js); seconds until he may be switched again
     prev: emptyIntent(),
     ai: { timer: 0, targetX: 0, targetZ: 0, sprint: false, action: null },
@@ -100,6 +101,8 @@ export function createMatch(seed = 1, size = 3) {
     run: [0, 0],              // each team's points since the other last scored
     made: [[0, 0], [0, 0]],   // each team's baskets from the floor: [twos, threes]
     tempo: { clock: 0, wait: 0 },   // how patient this possession is, and the shot clock when that was last looked at (see ai.js)
+    side: [1, 1],             // the side of the court each team's offence is set to (see offball.js)
+    cut: [null, null],        // each team's player cutting to the hoop, { id, until }, or null
     plays: [null, null],      // the play each team is running (see plays.js), or null
     playCall: [null, null],   // the play asked for and not yet started, by its key
     playWait: [0, 0],         // seconds until each team's coach may call another

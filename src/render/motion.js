@@ -236,6 +236,8 @@ export function armMotion(player, state, marks, facts) {
   if (inAir) return { clip: 'contest', at: jumpShare(player) };
   const shooter = o => o.team !== player.team && o.shooting && dist(o, player) <= MOTION.handUpDist;
   if (defending(state, player) && state.players.some(shooter)) return { clip: 'handUp', rate: 1 };
+  // A hand up for the ball, or up at a shooter he is closing out on.
+  if (player.calling || player.closing) return { clip: 'handUp', rate: 1 };
   return null;
 }
 

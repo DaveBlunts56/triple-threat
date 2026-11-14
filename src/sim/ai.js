@@ -1,4 +1,4 @@
-import { AI, BALL, CLOCK, COURT, DT, FT, LATE, PASS, PLAY, PLAYER, SHOT, STEAL, TIP, levelOf } from './tuning.js';
+import { AI, BALL, CLOCK, COURT, DT, FT, LATE, PASS, PLAY, PLAYER, SHOT, STEAL, TIP, VIOLATION, levelOf } from './tuning.js';
 import { SHOT_BEST, SHOT_LANDS, zoneOf } from './players.js';
 import { lift, drop, rated, starOf, heatOf } from './ratings.js';
 import { ftChance } from './freethrow.js';
@@ -7,21 +7,10 @@ import { rimCentre } from './ball.js';
 import { manOf } from './matchups.js';
 import { playHolds, playSpot, playTarget } from './plays.js';
 import { situation } from './late.js';
+import { offBallSpot, passed } from './offball.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const nearestTo = (list, point) => list.reduce((a, b) => (dist(b, point) < dist(a, point) ? b : a));
-
-// Where a team attacking toward `sign` stands without the ball, in a match of `size` a side.
-export const spots = (sign, size = 3) => (size === 5 ? AI.spots5.map(([x, z]) => ({ x: sign * x, z }))
-  : [{ x: sign * 6.9, z: -4.5 }, { x: sign * 6.9, z: 4.5 }, { x: sign * 10.9, z: AI.lowSpotZ }]);
-
-// The spot of player `p` now. At every turn all of a team move on one place. In five a side the places run round the
-// arc, and the first in the team's order starts at the top of the key.
-function spotOf(state, p) {
-  const all = spots(attackSign(p.team), state.size);
-  if (state.size !== 5) return all[(p.slot + Math.floor(state.time / AI.swapEvery)) % 3];
-  return all[(p.slot + 2 + Math.floor(state.time / AI.swapEvery5)) % 5];
-}
 
 const opponents = (state, p) => state.players.filter(o => o.team !== p.team);
 const mates = (state, p) => state.players.filter(m => m.team === p.team && m !== p);
@@ -107,7 +96,9 @@ function planWithBall(state, p) {
   const waits = !sit.hurry && (playHolds(state, p) || (sit.milk && state.shotClock > LATE.milkClock));
   // A defender this close cannot reach the ball before it is past him.
   const untouchable = PLAYER.carryDist + PASS.speed * PASS.clearTime - PLAYER.pickupRadius;
-  const reaches = m => m && m !== p && dist(m, p) <= AI.passRange && laneClear(state, p, m, untouchable, PLAY.feedWidth);
+  // Once the ball is in the front court it is not passed back over the centre line.
+  const legal = m => !(state.frontcourt && sign * m.x < PLAYER.radius + 0.5);
+  const reaches = m => m && m !== p && legal(m) && dist(m, p) <= AI.passRange && laneClear(state, p, m, untouchable, PLAY.feedWidth);
   // The room a player needs to shoot from where he stands: the better he shoots from there the less it is, so a shot
   // creator shoots over a defender and a sharpshooter needs only a step.
   const roomOf = m => AI.openDist * drop(rated(state, m, zoneOf(m)), AI.roomGap);
@@ -129,7 +120,7 @@ function planWithBall(state, p) {
   // shot clock the ball is moved round the outside, not thrown in to a man near the hoop: that pass is made once the
   // offence has been run.
   const free = m => space(state, m) > Math.min(AI.openDist, roomOf(m));
-  const open = mates(state, p).filter(m => free(m) && dist(m, p) <= AI.passRange
+  const open = mates(state, p).filter(m => free(m) && legal(m) && dist(m, p) <= AI.passRange
     && (pressured || dist(m, hoop) < toHoop) && !(early && dist(m, hoop) < AI.insideDist) && laneClear(state, p, m, untouchable));
   const star = state.players.find(m => m.team === p.team && m.person === starOf(state, p.team));
   // Of the open men the pass leans to the star and to a hot hand, and away from a cold one.
@@ -140,9 +131,8 @@ function planWithBall(state, p) {
   if (settled && reaches(star) && (sit.clutch || (!waits && !early && rand(state) < AI.goTo))) passTo(ai, p, star);
   // Usually to the best of the open men, sometimes to another, so that he is not read.
   else if (settled && !waits && open.length) passTo(ai, p, open.length > 1 && rand(state) < AI.vary ? open[Math.floor(rand(state) * open.length)] : best());
-  // Nothing on: in three a side he takes the ball to the top; in five a side that is a team-mate's place, so he keeps his own.
-  // In a play he takes it where the play says.
-  else goTo(ai, playSpot(state, p) ?? (state.size === 5 ? spotOf(state, p) : { x: sign * AI.topX, z: 0 }));
+  // Nothing on: in a play he takes it where the play says; otherwise to the top, which his team-mates leave to him.
+  else goTo(ai, playSpot(state, p) ?? { x: sign * AI.topX, z: 0 });
 }
 
 // Chasing a ball nobody holds. Two per team go for it, the rest get back on defence, side by side.
@@ -166,7 +156,9 @@ function planFreeBall(state, p) {
 
   // A shot is rebounded by those nearest the rim it is heading for; a loose ball by those nearest it.
   const focus = ball.mode === 'shot' ? rimCentre(ball.x >= 0 ? 1 : -1) : ball;
-  const chasers = [...team].sort((a, b) => dist(a, focus) - dist(b, focus)).slice(0, 2);
+  // To a shot go the team's two best rebounders on the floor; to any other loose ball the two nearest it.
+  const order = ball.mode === 'shot' ? (a, b) => rated(state, b, 'rebound') - rated(state, a, 'rebound') || dist(a, focus) - dist(b, focus) : (a, b) => dist(a, focus) - dist(b, focus);
+  const chasers = [...team].sort(order).slice(0, 2);
   if (!chasers.includes(p)) {
     const back = state.players.filter(m => m.team === p.team && !chasers.includes(m)).sort((a, b) => a.z - b.z);
     return goTo(ai, { x: -sign * AI.safetyX, z: (back.indexOf(p) - (back.length - 1) / 2) * AI.safetyGap }, true);
@@ -190,8 +182,17 @@ function planOffBall(state, p) {
   } else if (holder?.inbounder && nearestTo(mates(state, holder), holder) === p) {
     return goTo(ai, help, true);
   }
-  const spot = playSpot(state, p) ?? spotOf(state, p);   // his part in the play, or his place in the motion
+  // His part in the play, or else what he does off the ball: his place, a cut, room for a drive, a lane on the break.
+  const spot = playSpot(state, p) ?? offBallSpot(state, p) ?? { x: p.x, z: p.z };
+  ai.why = spot.why ?? 'play';   // what he is doing off the ball: a part in a play, his place, a cut, clearing a drive, a break
+  // Whatever he was sent in for, he does not stay in the key: with the count running out he steps out to the side.
+  if (p.keyT > AI.keyOut) { spot.x = p.x; spot.z = Math.sign(p.z || 1) * (VIOLATION.keyHalfWidth + 0.9); spot.sprint = true; }
   goTo(ai, spot, spot.sprint || situation(state, p.team).hustle || dist(p, spot) > AI.farAway);
+  // Open in a place he can score from, he puts a hand up for the ball. (Not the player you control: that is yours to do.)
+  if (holder && holder !== p && holder.team === p.team && !(p.team === 0 && p.id === state.controlled)) {
+    const zone = zoneOf(p), skill = rated(state, p, zone);
+    p.calling = skill >= AI.callAt && dist(p, rimCentre(sign)) <= AI.shootRange && space(state, p) > Math.min(AI.openDist, AI.openDist * drop(skill, AI.roomGap));
+  }
 }
 
 // How the computer's team stands off you for what you have scored with: tighter on a team making threes, and off
@@ -255,6 +256,7 @@ function planDefence(state, p) {
 function plan(state, p) {
   const holder = state.players[state.ball.holder];
   p.ai.action = null; p.ai.chase = false;
+  p.calling = p.closing = false;
   if (holder === p) planWithBall(state, p);
   // A dead ball is not chased: the team about to inbound sets up, the other gets back on defence.
   else if (state.phase === 'dead') (p.team === state.possession ? planOffBall : planDefence)(state, p);
@@ -282,7 +284,7 @@ function act(state, p) {
   } else if (ai.action === 'pass' && hasBall) {
     intent.pass = !p.prev.pass;
     intent.moveX = ai.passX; intent.moveZ = ai.passZ;
-    if (intent.pass) ai.action = null;
+    if (intent.pass) { ai.action = null; passed(state, p); }   // and he may cut for the ball back
   } else if (ai.action === 'jump') {
     intent.shoot = true;
     ai.action = null;

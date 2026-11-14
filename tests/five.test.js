@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createMatch, isJumper, lineUp } from '../src/sim/state.js';
 import { startMatch } from '../src/sim/rules.js';
-import { spots, aiIntents } from '../src/sim/ai.js';
+import { aiIntents } from '../src/sim/ai.js';
 import { setupFreeThrow } from '../src/sim/freethrow.js';
 import { step } from '../src/sim/step.js';
 import { AI, COURT, DT, FOUL, PLAYER, RIM, VIOLATION } from '../src/sim/tuning.js';
@@ -39,18 +39,6 @@ test('the centres jump the tip in five a side; in three a side the jumper is who
   assert.deepEqual(five.players.filter(p => isJumper(five, p)).map(p => p.id), [2, 7]);
   assert.deepEqual([three.controlled, five.controlled], [1, 2]);
   assert.equal(five.phase, 'jumpBall');
-});
-
-test('five have five spots: in the front court, inside the lines, apart, and mirrored for the other team', () => {
-  assert.deepEqual(spots(1), spots(1, 3));
-  assert.equal(spots(1).length, 3);
-  const mine = spots(1, 5), theirs = spots(-1, 5);
-  assert.equal(mine.length, 5);
-  for (const [i, s] of mine.entries()) {
-    assert.ok(s.x > 0 && s.x <= COURT.halfLength - PLAYER.radius && Math.abs(s.z) <= COURT.halfWidth - PLAYER.radius, JSON.stringify(s));
-    assert.deepEqual([theirs[i].x, theirs[i].z], [-s.x, s.z]);
-    for (const other of mine) if (other !== s) assert.ok(apart(s, other) >= 3, `${JSON.stringify(s)} and ${JSON.stringify(other)}`);
-  }
 });
 
 test('a free throw in five a side gives all ten a place: nobody in the lane, nobody on top of another, at either hoop', () => {
@@ -102,49 +90,9 @@ test('in five a side a fouled-out player is replaced from the bench, and with th
   assert.equal(t.players.length, 10);
 });
 
-// Five a side in live play, team 0 attacking the hoop at +x, with `holderId` holding the ball. Team 0 stand on their
-// spots; each of team 1 stands a metre from his man, on the line to the hoop, so nobody is open and no lane is clear.
-function set(holderId = 0, time = 0) {
-  const s = createMatch(1, 5); startMatch(s);
-  s.phase = 'live'; s.time = time;
-  const places = spots(1, 5);
-  for (const p of s.players) {
-    const spot = places[p.slot], d = Math.hypot(RIM.x - spot.x, spot.z), near = p.team === 0 ? 0 : 1;
-    Object.assign(p, { inbounder: false, x: spot.x + near * (RIM.x - spot.x) / d, z: spot.z - near * spot.z / d });
-  }
-  giveBall(s, s.players[holderId]);
-  return s;
-}
 const target = p => ({ x: p.ai.targetX, z: p.ai.targetZ });
 const allApart = (points, least, what) => points.forEach((a, i) => points.slice(i + 1).forEach(b =>
   assert.ok(apart(a, b) >= least, `${what}: ${JSON.stringify(a)} and ${JSON.stringify(b)}`)));
-
-test('five a side: whoever holds the ball and whenever, the five of a team are sent to five places apart from each other', () => {
-  for (const holder of [0, 1, 2, 3, 4]) for (const time of [0, 1, 2, 3, 4].map(turn => turn * AI.swapEvery5)) {
-    const s = set(holder, time);
-    aiIntents(s, DT);
-    allApart(s.players.filter(p => p.team === 0).map(target), 3, `holder ${holder} at ${time} s`);
-  }
-});
-
-test('five a side: a pass sends nobody across the court: every team-mate off the ball keeps the place he had', () => {
-  const before = set(0), after = set(3);
-  aiIntents(before, DT); aiIntents(after, DT);
-  for (const id of [1, 2, 4]) assert.deepEqual(target(after.players[id]), target(before.players[id]), `player ${id}`);
-});
-
-test('five a side: the first of a team starts at the top; at each turn all move one place round the arc, and only one crosses the court, along the baseline', () => {
-  const now = set(0), later = set(0, AI.swapEvery5);
-  aiIntents(now, DT); aiIntents(later, DT);
-  assert.deepEqual(target(now.players[0]), { x: AI.topX, z: 0 });
-  let crossed = 0;
-  for (const id of [0, 1, 2, 3, 4]) {
-    const a = target(now.players[id]), b = target(later.players[id]);
-    if (a.z * b.z < 0) { crossed++; assert.ok(a.x >= 10 && b.x >= 10, `player ${id} crosses at ${a.x} to ${b.x}`); }
-    else assert.ok(apart(a, b) > 1 && apart(a, b) <= 6.5, `player ${id}: ${JSON.stringify(a)} to ${JSON.stringify(b)}`);
-  }
-  assert.equal(crossed, 1);
-});
 
 test('a ball nobody holds: two of a team go for it and the rest get back apart from each other, in five a side and in three', () => {
   for (const size of [3, 5]) {

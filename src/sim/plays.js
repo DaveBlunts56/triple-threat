@@ -1,7 +1,7 @@
 // Offensive plays: where the team with the ball goes, moment by moment, while a play is on. A play is called by the
 // coach (the computer, for either team) or by you from the play list; the computer's players and your team-mates
 // run it. The rules never read a play: it only says where players should go.
-import { AI, FOUL, PLAY, RIM } from './tuning.js';
+import { AI, CLOCK, FOUL, PLAY, RIM } from './tuning.js';
 import { attackSign, onFloor, personOf, rand } from './state.js';
 import { guardOf } from './matchups.js';
 import { rated, starOf, heatOf } from './ratings.js';
@@ -229,7 +229,8 @@ export function stepPlays(state, dt) {
     if (!ready(state, team)) continue;
     const list = playsFor(state.size);
     let key = state.playCall[team];
-    if (!key && state.playWait[team] <= 0) {
+    // The coach lets the ball be walked up and the offence set before he calls anything; a play you ask for starts at once.
+    if (!key && state.playWait[team] <= 0 && CLOCK.shot - state.shotClock >= PLAY.startAt) {
       // The coach's pick: any play the match has, the likelier the better it suits who is on the floor.
       const weights = list.map(play => suits(state, team, play));
       let at = rand(state) * weights.reduce((sum, w) => sum + w, 0);

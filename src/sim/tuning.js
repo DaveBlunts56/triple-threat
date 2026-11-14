@@ -51,7 +51,7 @@ export const CLOCK = f({ quarters: 4, quarter: 180, overtime: 60, shot: 24, shot
 
 export const AI = f({
   interval: 0.3, openDist: 1.8, shootRange: 7.5, laneWidth: 1.07, panicClock: 4,
-  stealRate: 0.03, inboundDelay: 1, swapEvery: 6, onBallGap: 1.35, offBallGap: 1.8,
+  stealRate: 0.03, inboundDelay: 1, onBallGap: 1.35, offBallGap: 1.8,
   jitter: 0.1,            // random extra seconds between decisions
   arrive: 0.3,            // close enough to a target to stop
   slowDist: 1.5,          // within this of a target a player asks for part speed, in proportion to the distance left
@@ -67,6 +67,8 @@ export const AI = f({
   holdTime: 0.5,          // seconds a player keeps the ball after getting it before shooting or passing
   pickupX: 4,             // defenders wait this far inside their own half for an opponent still up the court
   hurryAt: 5,             // seconds in the back court after which the handler stops looking for a pass and brings the ball up
+  keyOut: 1.9,            // seconds in the key after which a player off the ball steps out of it, whatever he was doing
+  callAt: 70,             // he calls for the ball only where his rating for the shot is at least this
   shootAt: 60,            // he takes an open shot only if his rating for it is at least this (unless the clock is short)
   earlyThree: 88, roomFor: 3,   // early in the shot clock a three is taken only by a shooter this good with this much room
   roomGap: 0.2,          // per 10 points of his rating for the shot: how much less room he needs to take it
@@ -74,7 +76,7 @@ export const AI = f({
   lean: 1.5, shy: 0.6,    // how much a pass leans to the star and to a hot hand, and away from a cold one
   shooterGap: 0.06, quickGap: 0.04, offShooterGap: 0.08,   // per 10 points: closer on a shooter, further off a quick man, on the ball and off it
   gapRange: f([0.9, 1.9]),   // the nearest and furthest an on-ball defender stands, in metres
-  patience: f([10, 18]),   // seconds into the shot clock before a team will shoot from outside: between these, afresh each possession
+  patience: f([12, 19]),   // seconds into the shot clock before a team will shoot from outside: between these, afresh each possession
   insideDist: 5,          // a team-mate nearer the hoop than this is inside: early in the shot clock he is not passed to
   breakLead: 2.5,         // a handler this many metres nearer the hoop than every defender is on a fast break
   helpFrom: 8,            // a handler with a clear lane this near the hoop draws a helper
@@ -83,13 +85,20 @@ export const AI = f({
   adaptAfter: 4,          // baskets you must have made before the computer's defence changes for them
   vary: 0.3,              // how often a pass goes to an open man other than the one nearest the hoop
   lowSpotZ: 3.2,          // the low spacing spot sits this far from the middle, clear of the key
-  // Where five stand: [metres from centre court toward the hoop they attack, z], in order round the arc: a corner,
-  // a wing, the top of the key, the other wing and the low post. swapEvery5: seconds between turns in five a side:
-  // at each all five move one place round, so nobody crosses the court but the one who cuts along the baseline.
-  spots5: f([f([11.6, -6.3]), f([7.5, -5.5]), f([5.2, 0]), f([7.5, 5.5]), f([10.9, 3.2])]),
-  swapEvery5: 8,
   safetyGap: 4,           // metres between those who get back together when a ball is loose
 });
+
+// Off the ball, for the team that has it (see offball.js). shooterAt: the three rating from which a player is a
+// shooter. apart: no two places nearer than this. sideHold: how far past the middle the ball must go before the
+// places change sides. every: seconds between a player's own moments to move, between these two. cutGap: his defender
+// this far from him is beaten. cutFrom: he does not cut from nearer the hoop than this. cutWidth: how near his way to
+// the rim a defender must be to stop the cut. cutFor: seconds a cut lasts. rimAt: how far up the court a cut ends,
+// in front of the rim. giveAndGo: seconds after passing in which he may cut for the ball back. drivePace: a handler
+// moving at the hoop faster than this is driving. clear, clearTo: a
+// team-mate within the first of the drive's line moves the second off it. breakUntil: a fast break is run until the
+// ball is this far up the court. breakWide, breakTrail: the lanes run on it: wide of the ball, and behind it.
+export const OFF = f({ shooterAt: 80, apart: 2.5, sideHold: 1.5, every: f([2.5, 5]), cutGap: 2.4, cutFrom: 4.5, cutWidth: 0.9, cutFor: 1.6, rimAt: 11,
+  giveAndGo: 0.8, drivePace: 2.5, clear: 2.2, clearTo: 3, breakUntil: 6, breakWide: 6, breakTrail: 4 });
 
 // Plays. wait: seconds after a play ends before the coach calls another. minClock: the least shot clock a play is
 // started with. startX: how far past the centre line the ball must be. screenGap: metres between a screener and the
@@ -97,8 +106,9 @@ export const AI = f({
 // after the screen is set by which the handler is taken to have used it. cut: seconds a turn of the 5-out motion lasts.
 // ripeBy: seconds into any play after which its handler no longer waits for it to form. roll: seconds a screener
 // who rolls stays in front of the rim before he clears out of the key. feedWidth: how near the line of a pass to the
-// man the play is for a defender must be to stop it being thrown: less than for other passes.
-export const PLAY = f({ wait: 1.5, minClock: 9, startX: 1.5, screenGap: 0.66, setDist: 0.9, useBy: 1.6, cut: 4.5, ripeBy: 4, roll: 1.7, feedWidth: 0.65 });
+// man the play is for a defender must be to stop it being thrown: less than for other passes. startAt: seconds into
+// the shot clock before the coach calls a play.
+export const PLAY = f({ wait: 1.5, minClock: 9, startX: 1.5, screenGap: 0.66, setDist: 0.9, useBy: 1.6, cut: 4.5, ripeBy: 4, roll: 1.7, feedWidth: 0.65, startAt: 6 });
 
 // The difficulty levels, easiest first, what the menus call them, and what each changes. For you (team 0): green: how
 // wide the green window of your shots is, against All-Star's; make: the share of its chance a shot of yours that is

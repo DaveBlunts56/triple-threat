@@ -102,7 +102,7 @@ test('with the period running out the computer shoots before it ends, whatever t
 
 test('far out with a few seconds left he runs nearer first, and still gets the shot away', () => {
   const s = scene({ quarter: 1, left: 3 });
-  at(s, 0, -4, 0); at(s, 5, 3, 3);
+  at(s, 0, -4, 0); at(s, 5, 3, 7);   // his defender well off his line, so that no foul ends the run
   ai(s);
   assert.equal(s.players[0].ai.action, null);
   assert.ok(s.players[0].ai.targetX > 6 && s.players[0].ai.sprint, 'he did not run for the hoop');
