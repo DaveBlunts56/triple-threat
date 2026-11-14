@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { pass, mrt, normalView, screenUV, builtinAOContext, renderOutput, smoothstep, float } from 'three/tsl';
+import { pass, mrt, output, normalView, screenUV, renderOutput, smoothstep, float } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
@@ -31,22 +31,22 @@ export function createPost(renderer, scene, camera) {
     const scenePass = pass(scene, camera);
     parts.push(scenePass);
     const attempt = (words, add) => { try { add(); } catch (error) { console.warn(`No ${words} here.`, error); missing.push(words); } };
-    let picture = scenePass;
+    let picture = scenePass, lit = scenePass;   // the picture so far, and the scene as drawn, which is what glows
     if (q.ao) attempt('ambient occlusion', () => {
-      // A first pass draws only how far away and which way each surface faces; the occlusion worked out from it
-      // darkens the scene's own ambient light as the scene is drawn.
-      const before = pass(scene, camera);
-      before.setMRT(mrt({ output: normalView }));
-      const occlusion = ao(before.getTextureNode('depth'), before.getTextureNode(), camera);
+      // The scene's one pass also writes which way each surface faces. From that and its depth the occlusion is
+      // worked out and darkens the picture: no second drawing of the scene is needed.
+      scenePass.setMRT(mrt({ output, normal: normalView }));
+      const occlusion = ao(scenePass.getTextureNode('depth'), scenePass.getTextureNode('normal'), camera);
       occlusion.resolutionScale = POST.aoSize;
-      parts.push(before, occlusion);
-      scenePass.contextNode = builtinAOContext(occlusion.getTextureNode().sample(screenUV).r);
+      parts.push(occlusion);
+      lit = scenePass.getTextureNode('output');
+      picture = lit.mul(occlusion.getTextureNode().r);
     });
     if (q.bloom) attempt('bloom', () => {
-      const glow = bloom(scenePass, POST.bloom.strength, POST.bloom.radius, POST.bloom.threshold);
+      const glow = bloom(lit, POST.bloom.strength, POST.bloom.radius, POST.bloom.threshold);
       parts.push(glow);
       const edge = smoothstep(POST.vignette.from, POST.vignette.to, screenUV.sub(0.5).length().mul(1.4));
-      picture = scenePass.add(glow).mul(float(1).sub(edge.mul(POST.vignette.dark)));
+      picture = picture.add(glow).mul(float(1).sub(edge.mul(POST.vignette.dark)));
     });
     // Edges are smoothed last, on the picture as the screen will show it: tone-mapped and in the screen's colours.
     made.outputColorTransform = false;

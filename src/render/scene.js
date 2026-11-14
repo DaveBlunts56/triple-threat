@@ -116,7 +116,8 @@ function buildHoop(s, netLook) {
 
 // Builds the renderer, court, hoops, lights and camera. Resolves to null (after telling the player) if nothing can draw.
 export async function createScene(canvas) {
-  const renderer = new THREE.WebGPURenderer({ canvas, antialias: true });
+  // With #webgl on the end of the page's address the game draws with WebGL 2 even where WebGPU is on: for comparing the two.
+  const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, forceWebGL: window.location.hash.includes('webgl') });
   try {
     await renderer.init();   // falls back to WebGL 2 by itself when WebGPU is missing
   } catch {

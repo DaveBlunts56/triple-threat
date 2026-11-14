@@ -119,3 +119,9 @@ The current renderer is upgraded in steps. The game stays playable after each on
 - **The Chromebook.** Medium may be too much for it; the game's own choice then lands on Low, which must look no worse than today.
 - **File size and start-up.** About 25 MB after this pass. How long the Chromebook takes to open it is not known until the owner tries.
 - **Cost of the mirror.** It draws the scene twice. If High cannot hold 60 frames a second at home with it, High loses it and only Ultra keeps it.
+
+## After the owner's play-test (2026-11-13)
+
+- **Frame rate:** the Chromebook held a smooth 60 on High. The owner's Linux PC, on WebGPU, stuttered at 35 to 40 on both High and Ultra. In answer: each level now has a budget of drawn pixels, so a large or dense screen costs no more than a full HD one; the game steps down a level under 50 frames a second, not 40; ambient occlusion is worked out from the scene's one pass, not from a second drawing of it; changing level frees what the old level held; and the corner label shows the slowest frame of the last second. Adding `#webgl` to the page's address draws with WebGL 2, to compare.
+- **Kept:** the floor's mirror on High and Ultra, which the owner likes.
+- **Asked for, for pass 2:** referees; courtside seats; camera operators and photographers; a commentary crew at a courtside table; and a crowd that reacts to the game instead of sitting still. "It does look like a real arena, but there is no real detail, just the bare minimum."
