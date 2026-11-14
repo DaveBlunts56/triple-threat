@@ -205,12 +205,14 @@ test('the start menu shows its rows with the bar on the selected one, and announ
   const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
   const show = () => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
   show();
-  assert.deepEqual([0, 1, 2, 3].map(i => e[`menuRow${i}`].textContent), ['Play', 'Teams', 'Controls', 'Settings']);
-  assert.deepEqual([0, 1, 2, 3].map(i => e[`menuRow${i}`].ariaSelected), ['true', 'false', 'false', 'false']);
+  assert.deepEqual([0, 1, 2, 3, 4].map(i => e[`menuRow${i}`].textContent), ['Play', 'Mode: 3 on 3', 'Teams', 'Controls', 'Settings']);
+  assert.deepEqual([0, 1, 2, 3, 4].map(i => e[`menuRow${i}`].ariaSelected), ['true', 'false', 'false', 'false', 'false']);
   assert.deepEqual([e.menuTeams.hidden, e.menuControls.hidden, e.menuHint.textContent, e.announce.textContent],
     [true, true, '↑ ↓ choose · Enter select', 'Play']);
   menuKey(menu, 'ArrowDown'); show();
-  assert.deepEqual([e.menuRow0.ariaSelected, e.menuRow1.ariaSelected, e.announce.textContent], ['false', 'true', 'Teams']);
+  assert.deepEqual([e.menuRow0.ariaSelected, e.menuRow1.ariaSelected, e.announce.textContent], ['false', 'true', 'Mode: 3 on 3']);
+  menuKey(menu, 'Enter'); show();                                                       // the mode changes, and says so
+  assert.deepEqual([e.menuRow1.textContent, e.announce.textContent], ['Mode: 5 on 5', 'Mode: 5 on 5']);
 });
 
 test('the Teams panel lists both teams by position, number and name', () => {
@@ -218,13 +220,13 @@ test('the Teams panel lists both teams by position, number and name', () => {
   let said = '', writes = 0;                                                            // the live region counts what is written to it
   e.announce = { hidden: false, style: {}, get textContent() { return said; }, set textContent(v) { said = v; writes++; } };
   const show = () => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
-  menuKey(menu, 'ArrowDown'); show();
+  menuKey(menu, 'ArrowDown'); menuKey(menu, 'ArrowDown'); show();
   assert.equal(e.announce.textContent, 'Teams');
   const moved = writes;
   menuKey(menu, 'Enter'); show();
   assert.deepEqual([e.menuTeams.hidden, e.menuControls.hidden, e.menuHint.textContent, e.announce.textContent], [false, true, 'Esc back', 'Teams']);
   assert.equal(writes, moved + 1, 'opening the panel is announced, though in the same words as the bar');
-  assert.ok([0, 1, 2, 3].every(i => e[`menuRow${i}`].hidden));
+  assert.ok([0, 1, 2, 3, 4].every(i => e[`menuRow${i}`].hidden));
   assert.deepEqual([e.teamName0.textContent, e.teamName1.textContent], ['Harbor City Waves', 'Red Rock Scorpions']);
   assert.deepEqual([e.teamPlayer00.textContent, e.teamPlayer04.textContent, e.teamPlayer12.textContent],
     ['PG · 4 · Jalen Cross', 'PF · 23 · Andre Volkov', 'C · 10 · Viktor Lund']);
@@ -237,8 +239,8 @@ test('the Teams panel lists both teams by position, number and name', () => {
 test('the Settings panel shows each setting with its value, and a change is announced', () => {
   const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
   const show = quality => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality });
-  menu.row = 3; menuKey(menu, 'Enter'); show('high');
-  assert.deepEqual([e.menuRow0.textContent, e.menuRow1.textContent, e.menuRow2.hidden, e.menuRow3.hidden, e.menuHint.textContent],
+  menu.row = 4; menuKey(menu, 'Enter'); show('high');
+  assert.deepEqual([e.menuRow0.textContent, e.menuRow1.textContent, e.menuRow2.hidden, e.menuRow4.hidden, e.menuHint.textContent],
     ['Quality: High', 'Automatic substitutions: On', true, true, '↑ ↓ choose · Enter change · Esc back']);
   show('low');
   assert.deepEqual([e.menuRow0.textContent, e.announce.textContent], ['Quality: Low', 'Quality: Low']);
@@ -257,7 +259,7 @@ test('in play the menu writes nothing and the score is announced as before', () 
 
 test('the page has the menu: four rows, both panels, ten players, every key in the controls panel, and a ring that stops for reduced motion', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  for (const id of ['menuList', 'menuRow0', 'menuRow1', 'menuRow2', 'menuRow3', 'menuTeams', 'menuControls', 'menuHint', 'teamName0', 'teamName1',
+  for (const id of ['menuList', 'menuRow0', 'menuRow1', 'menuRow2', 'menuRow3', 'menuRow4', 'menuTeams', 'menuControls', 'menuHint', 'teamName0', 'teamName1',
     ...[0, 1].flatMap(t => [0, 1, 2, 3, 4].map(i => `teamPlayer${t}${i}`))]) assert.match(html, new RegExp(`id="${id}"`), id);
   const controls = html.match(/id="menuControls"[\s\S]*?<\/(?:ul|dl|div)>/)[0];
   for (const word of ['WASD', 'Shift', 'Space', 'E', 'Q', 'F', 'Esc', 'G']) assert.match(controls, new RegExp(`\\b${word}\\b`), word);

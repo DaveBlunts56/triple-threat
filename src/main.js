@@ -13,7 +13,7 @@ import { createPauseMenu, inPlay, pauseKey, pauseHasRow, pausePoint, quitToMenu,
 import { createMenu, menuKey, menuPoint, menuHasRow, startFromMenu } from './menu.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
-const newMatch = () => createMatch(Date.now() % 1e6);
+const newMatch = size => createMatch(Date.now() % 1e6, size);   // size: 3 or 5 a side; three when not said
 const MENU_KEYS = new Set(['ArrowUp', 'ArrowDown', 'KeyW', 'KeyS', 'Enter', 'Space', 'Escape', 'Backspace']);
 const MENU_ONCE = new Set(['Enter', 'Space', 'Escape', 'Backspace']);   // a held one counts once; the bar keys may repeat
 

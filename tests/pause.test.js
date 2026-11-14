@@ -142,3 +142,10 @@ test('Space held when Resume is chosen does not shoot when play resumes; a movem
   down('Space');                                                          // its auto-repeat is still ignored
   assert.equal(keyboard.intent().shoot, false);
 });
+
+test('quitting leaves a match of the start menu\'s size waiting', () => {
+  const { game, keyboard } = paused(); game.menu = createMenu(); game.menu.size = 5;
+  const made = [];
+  quitToMenu(game, keyboard, size => { made.push(size); return createMatch(9, size); });
+  assert.deepEqual([made, game.state.players.length, game.state.phase], [[5], 10, 'start']);
+});

@@ -159,6 +159,8 @@
                  text-shadow: 0 2px 0 rgba(0, 20, 60, .7), 0 0 10px rgba(0, 20, 60, .6); }
   #menuList li[aria-selected="true"] { background: linear-gradient(90deg, transparent, #1f9dff 12%, #7ad6ff 50%, #1f9dff 88%, transparent);
                                        box-shadow: 0 0 26px 4px rgba(70, 185, 255, .85); text-shadow: 0 2px 0 rgba(0, 40, 110, .8); }
+  /* Five entries on the main list, one of them saying its value: a little smaller than four were, to sit inside the disc. */
+  #menuList.main li { font-size: calc(var(--d) * .066); margin: calc(var(--d) * .008) 0; padding: calc(var(--d) * .013) 0; white-space: nowrap; }
   /* The settings say their value too, so they are smaller: Automatic substitutions: Off fits across the disc. */
   #menuList.settings li { font-size: calc(var(--d) * .045); white-space: nowrap; }
   /* Teams and Controls: smaller words, inside the disc. */
@@ -223,9 +225,10 @@
       <h1>Triple Threat</h1>
       <ul id="menuList" class="main" role="listbox" aria-label="Menu">
         <li id="menuRow0" role="option" aria-selected="true">Play</li>
-        <li id="menuRow1" role="option" aria-selected="false">Teams</li>
-        <li id="menuRow2" role="option" aria-selected="false">Controls</li>
-        <li id="menuRow3" role="option" aria-selected="false">Settings</li>
+        <li id="menuRow1" role="option" aria-selected="false">Mode: 3 on 3</li>
+        <li id="menuRow2" role="option" aria-selected="false">Teams</li>
+        <li id="menuRow3" role="option" aria-selected="false">Controls</li>
+        <li id="menuRow4" role="option" aria-selected="false">Settings</li>
       </ul>
       <div id="menuTeams" hidden>
         <div><h2 id="teamName0" class="home"></h2><ol>

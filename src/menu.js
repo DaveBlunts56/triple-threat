@@ -1,8 +1,9 @@
 import { startMatch } from './sim/rules.js';
 
-export const MENU = Object.freeze({ main: ['play', 'teams', 'controls', 'settings'], settings: ['quality', 'autoSubs'] });
+export const MENU = Object.freeze({ main: ['play', 'mode', 'teams', 'controls', 'settings'], settings: ['quality', 'autoSubs'] });
 
-export const createMenu = () => ({ panel: 'main', row: 0, autoSubs: true, from: 0 });
+// size: the mode chosen: 3 for 3 on 3, 5 for 5 on 5.
+export const createMenu = () => ({ panel: 'main', row: 0, autoSubs: true, size: 3, from: 0 });
 
 export const menuRows = menu => MENU[menu.panel] ?? [];
 
@@ -15,6 +16,7 @@ export function menuKey(menu, code) {
     const choice = rows[menu.row];
     if (menu.panel === 'main') {
       if (choice === 'play') return 'play';
+      if (choice === 'mode') { menu.size = menu.size === 3 ? 5 : 3; return null; }
       menu.from = menu.row; menu.panel = choice; menu.row = 0;
     } else if (choice === 'quality') return 'quality';
     else if (choice === 'autoSubs') menu.autoSubs = !menu.autoSubs;
@@ -34,7 +36,8 @@ export const menuHasRow = (game, row) => game.state.phase === 'start' && row < m
 
 // Starts play from the menu or the final screen. `game` is { state, menu, ... }.
 export function startFromMenu(game, keyboard, newMatch) {
-  if (game.state.phase === 'final') game.state = newMatch();
+  // A new match when the last one is over, or when the one waiting is not of the size the menu now shows.
+  if (game.state.phase === 'final' || game.state.size !== game.menu.size) game.state = newMatch(game.menu.size);
   startMatch(game.state);
   game.state.autoSubs[0] = game.menu.autoSubs;
   keyboard.drop();   // a key still held stays unseen in the match, through the jump ball, until it is let go

@@ -72,7 +72,7 @@ export function pausePoint(game, row) {
 // Leaves the match for the start menu: a new match waiting to begin, the menu back on its main list with its own
 // choices kept, and the keys held right now ignored until they are let go.
 export function quitToMenu(game, keyboard, newMatch) {
-  game.state = newMatch();
+  game.state = newMatch(game.menu?.size);
   setPaused(game, keyboard, false);
   if (game.menu) Object.assign(game.menu, { panel: 'main', row: 0 });
   keyboard.drop();

@@ -62,8 +62,9 @@ const share = value => `${Math.round(value * 1000) / 10}%`;
 
 // The start menu: the words of each entry, what the hint line says in each panel, and the two teams' lines.
 const MENU_WORDS = { play: 'Play', teams: 'Teams', controls: 'Controls', settings: 'Settings' };
+const MODE_WORDS = { 3: 'Mode: 3 on 3', 5: 'Mode: 5 on 5' };
 const MENU_HINTS = { main: '↑ ↓ choose · Enter select', settings: '↑ ↓ choose · Enter change · Esc back', teams: 'Esc back', controls: 'Esc back' };
-const MENU_SLOTS = 4;   // menuRow0 to menuRow3 on the page
+const MENU_SLOTS = 5;   // menuRow0 to menuRow4 on the page
 const TEAM_LINES = ROSTER.teams.map((_, team) => ROSTER.positions.map((position, row) =>
   `${position} · ${ROSTER.numbers[team][row]} · ${ROSTER.names[team][row]}`));
 
@@ -72,6 +73,7 @@ export function menuText(menu, row, quality) {
   const choice = menuRows(menu)[row];
   if (choice === 'quality') return `Quality: ${QUALITY[quality].label}`;
   if (choice === 'autoSubs') return `Automatic substitutions: ${menu.autoSubs ? 'On' : 'Off'}`;
+  if (choice === 'mode') return MODE_WORDS[menu.size];
   return MENU_WORDS[choice];
 }
 

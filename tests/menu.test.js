@@ -10,19 +10,20 @@ import { DT } from '../src/sim/tuning.js';
 const keys = (menu, ...codes) => codes.map(code => menuKey(menu, code));
 const key = (type, code) => Object.assign(new Event(type, { cancelable: true }), { code });
 
-test('the main list is Play, Teams, Controls, Settings, with the bar on Play', () => {
+test('the main list is Play, Mode, Teams, Controls, Settings, with the bar on Play and the mode on 3 on 3', () => {
   const m = createMenu();
-  assert.deepEqual([m.panel, m.row, m.autoSubs, menuRows(m)], ['main', 0, true, ['play', 'teams', 'controls', 'settings']]);
+  assert.deepEqual([m.panel, m.row, m.autoSubs, m.size, menuRows(m)], ['main', 0, true, 3, ['play', 'mode', 'teams', 'controls', 'settings']]);
   assert.deepEqual(MENU.settings, ['quality', 'autoSubs']);
 });
 
 test('the bar moves down and up by arrows or W and S, and wraps at both ends', () => {
   const m = createMenu();
   keys(m, 'ArrowDown', 'KeyS'); assert.equal(m.row, 2);
-  keys(m, 'ArrowDown', 'ArrowDown'); assert.equal(m.row, 0);
-  keys(m, 'ArrowUp'); assert.equal(m.row, 3);
-  keys(m, 'KeyW'); assert.equal(m.row, 2);
-  assert.deepEqual(keys(m, 'KeyX', 'ArrowLeft'), [null, null]); assert.equal(m.row, 2);
+  keys(m, 'ArrowDown', 'ArrowDown'); assert.equal(m.row, 4);
+  keys(m, 'ArrowDown'); assert.equal(m.row, 0);
+  keys(m, 'ArrowUp'); assert.equal(m.row, 4);
+  keys(m, 'KeyW'); assert.equal(m.row, 3);
+  assert.deepEqual(keys(m, 'KeyX', 'ArrowLeft'), [null, null]); assert.equal(m.row, 3);
 });
 
 test('Enter or Space on Play asks for the match to start and changes nothing', () => {
@@ -34,7 +35,7 @@ test('Enter or Space on Play asks for the match to start and changes nothing', (
 });
 
 test('Teams, Controls and Settings open inside the menu, and Esc or Backspace go back to the entry that opened them', () => {
-  for (const [row, panel, rows] of [[1, 'teams', []], [2, 'controls', []], [3, 'settings', ['quality', 'autoSubs']]]) {
+  for (const [row, panel, rows] of [[2, 'teams', []], [3, 'controls', []], [4, 'settings', ['quality', 'autoSubs']]]) {
     for (const back of ['Escape', 'Backspace']) {
       const m = createMenu(); m.row = row;
       assert.equal(menuKey(m, 'Enter'), null);
@@ -50,13 +51,13 @@ test('Teams, Controls and Settings open inside the menu, and Esc or Backspace go
 });
 
 test('a panel with no rows ignores the bar keys and Enter', () => {
-  const m = createMenu(); m.row = 1; menuKey(m, 'Enter');
+  const m = createMenu(); m.row = 2; menuKey(m, 'Enter');
   assert.deepEqual(keys(m, 'ArrowDown', 'ArrowUp', 'Enter', 'Space'), [null, null, null, null]);
   assert.deepEqual([m.panel, m.row], ['teams', 0]);
 });
 
 test('in Settings, Enter on Quality asks for the quality switch and Enter on Automatic substitutions flips the choice', () => {
-  const m = createMenu(); m.row = 3; menuKey(m, 'Enter');
+  const m = createMenu(); m.row = 4; menuKey(m, 'Enter');
   assert.equal(menuKey(m, 'Enter'), 'quality');
   assert.equal(m.autoSubs, true);
   assert.deepEqual(keys(m, 'ArrowDown', 'Space'), [null, null]);
@@ -68,16 +69,16 @@ test('in Settings, Enter on Quality asks for the quality switch and Enter on Aut
 test('pointing with the mouse selects a row the panel has, and no other', () => {
   const m = createMenu();
   menuPoint(m, 2); assert.equal(m.row, 2);
-  menuPoint(m, 4); menuPoint(m, -1); assert.equal(m.row, 2);
-  m.row = 1; menuKey(m, 'Enter'); menuPoint(m, 1); assert.equal(m.row, 0);              // Teams has no rows
+  menuPoint(m, 5); menuPoint(m, -1); assert.equal(m.row, 2);
+  menuKey(m, 'Enter'); menuPoint(m, 1); assert.equal(m.row, 0);                          // row 2 is Teams, which has no rows
 });
 
 test('the mouse acts on a row only before the match, and only on a row the panel shown has', () => {
   const game = { state: createMatch(7), menu: createMenu() };
-  assert.deepEqual([0, 1, 2, 3].map(row => menuHasRow(game, row)), [true, true, true, true]);
-  game.menu.row = 3; menuKey(game.menu, 'Enter');                                       // Settings: two rows
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map(row => menuHasRow(game, row)), [true, true, true, true, true, false]);
+  game.menu.row = 4; menuKey(game.menu, 'Enter');                                       // Settings: two rows
   assert.deepEqual([0, 1, 2, 3].map(row => menuHasRow(game, row)), [true, true, false, false]);
-  menuKey(game.menu, 'Escape'); game.menu.row = 1; menuKey(game.menu, 'Enter');         // Teams: none
+  menuKey(game.menu, 'Escape'); game.menu.row = 2; menuKey(game.menu, 'Enter');         // Teams: none
   assert.equal(menuHasRow(game, 0), false);
   menuKey(game.menu, 'Escape');
   startFromMenu(game, createKeyboard(new EventTarget()), () => createMatch(8));          // play has started
@@ -125,4 +126,28 @@ test('a key held when Play is chosen stays unseen through the whole jump ball, r
   assert.deepEqual({ highest, seen }, { highest: 0, seen: false });
   up('Space'); down('Space');
   assert.equal(frame().shoot, true);                                                    // let go and pressed again: a press
+});
+
+test('Enter or Space on Mode switches between 3 on 3 and 5 on 5 and starts nothing', () => {
+  const m = createMenu(); m.row = 1;
+  assert.deepEqual([menuKey(m, 'Enter'), m.size, m.panel, m.row], [null, 5, 'main', 1]);
+  assert.deepEqual([menuKey(m, 'Space'), m.size], [null, 3]);
+  assert.deepEqual([menuKey(m, 'Enter'), m.size], [null, 5]);
+});
+
+test('Play makes a match of the menu\'s size: ten players for 5 on 5, the same again after a final, six once it is switched back', () => {
+  const { game, keyboard } = onMenu();
+  const made = [], make = size => { made.push(size); return createMatch(20 + made.length, size); };
+  game.menu.size = 5;
+  startFromMenu(game, keyboard, make);                                                  // the match waiting was three a side
+  assert.deepEqual([game.state.players.length, game.state.size, game.state.phase, made], [10, 5, 'jumpBall', [5]]);
+  game.state.phase = 'final';
+  startFromMenu(game, keyboard, make);
+  assert.deepEqual([game.state.players.length, made], [10, [5, 5]]);
+  game.state.phase = 'final'; game.menu.size = 3;
+  startFromMenu(game, keyboard, make);
+  assert.deepEqual([game.state.players.length, game.state.size, made], [6, 3, [5, 5, 3]]);
+  const waiting = { state: createMatch(1), menu: createMenu() };                        // a match of the right size is not made again
+  startFromMenu(waiting, keyboard, () => { throw new Error('made a match it did not need'); });
+  assert.equal(waiting.state.players.length, 6);
 });
