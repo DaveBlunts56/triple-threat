@@ -109,6 +109,7 @@ if (view) {
     const passed = inPlay(state) ? state.time - before : elapsed;
     actors.sync(state, passed);
     view.follow(state.ball.x);
+    view.watch(state);
     view.render();
     // Where the feet of the player you control are on the page, for his name; nothing before and after a match.
     const me = state.players[state.controlled];

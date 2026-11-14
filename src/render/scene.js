@@ -3,10 +3,12 @@ import { COURT, RIM, BOARD, THREE_PT } from '../sim/tuning.js';
 import { QUALITY } from './quality.js';
 import { createLight } from './light.js';
 import { createFloor } from './floor.js';
+import { createArena } from './arena.js';
+import { ARENA } from './layout.js';
 import { NET, createNet, stepNet } from './net.js';
 
 const MESH = 64;                           // texture pixels on a side of one cell of the net's picture
-const CAMERA = { height: 11, back: 18, lookZ: 1, maxX: 9, ease: 0.08, fov: 40, minAcross: 60 };   // degrees; minAcross: narrowest horizontal view allowed
+const CAMERA = { ...ARENA.camera, lookZ: 1, ease: 0.08, fov: 40, minAcross: 60 };   // degrees; minAcross: narrowest horizontal view allowed
 
 // The net's picture: a faint white wash, and in each of its NET.strings by NET.knots cells both diagonals, so the
 // cells read as a net's diamonds. The diagonals of the cells either side of it are drawn too and cut off at the edge,
@@ -127,6 +129,7 @@ export async function createScene(canvas) {
   scene.background = new THREE.Color(0x0b0d12);
 
   const floor = await createFloor(scene);
+  const arena = createArena(scene);
   // The nets' picture as its colour and its see-through, unlit, both sides drawn, and not written to the depth buffer.
   const netLook = new THREE.MeshBasicMaterial({ map: paintNet(), transparent: true, side: THREE.DoubleSide, depthWrite: false });
   const hoops = [buildHoop(1, netLook), buildHoop(-1, netLook)];
@@ -142,6 +145,7 @@ export async function createScene(canvas) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY[level].pixelRatio));
     light.setQuality(level);
     floor.setQuality(level);
+    arena.setQuality(level);
   };
   setQuality('high');
 
@@ -165,6 +169,8 @@ export async function createScene(canvas) {
 
   return {
     scene, camera, backend, setQuality,
+    // The match, for the arena's scoreboard.
+    watch: state => arena.show(state),
     render: () => renderer.render(scene, camera),
     // Eases the camera along the sideline toward court position x.
     follow(x) {

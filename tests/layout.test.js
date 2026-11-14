@@ -1,0 +1,65 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { ARENA, seats, shown, boards, blocks, scoreLines } from '../src/render/layout.js';
+import { QUALITY } from '../src/render/quality.js';
+import { COURT } from '../src/sim/tuning.js';
+import { createMatch } from '../src/sim/state.js';
+
+const HEAD = 1.3;   // metres from a seat up to the top of a seated head
+// The space a seated person takes up.
+const body = s => ({ min: { x: s.x - 0.3, y: s.y, z: s.z - 0.3 }, max: { x: s.x + 0.3, y: s.y + HEAD, z: s.z + 0.3 } });
+const cameras = [-ARENA.camera.maxX, 0, ARENA.camera.maxX].map(x => ({ x, y: ARENA.camera.height, z: ARENA.camera.back }));
+// Points of the court the camera must always see: the floor's corners and edges, a head's height above each, and a
+// ball six metres up over each hoop.
+const sights = [];
+for (const x of [-COURT.halfLength, -7, 0, 7, COURT.halfLength]) for (const z of [-COURT.halfWidth, 0, COURT.halfWidth]) sights.push({ x, y: 0, z }, { x, y: 2, z });
+sights.push({ x: 12.4, y: 6, z: 0 }, { x: -12.4, y: 6, z: 0 });
+
+test('there are between one and four thousand seats, the same every time, on all four sides', () => {
+  const all = seats();
+  assert.ok(all.length >= 1000 && all.length <= 4000, `${all.length} seats`);
+  assert.deepEqual(seats(), all);
+  for (const side of [s => s.z < -ARENA.clearZ, s => s.z > ARENA.clearZ, s => s.x < -ARENA.clearX, s => s.x > ARENA.clearX])
+    assert.ok(all.filter(side).length >= 100);
+});
+
+test('no seat, board or table stands on the court or its run-off', () => {
+  for (const s of seats()) assert.ok(Math.abs(s.x) >= ARENA.clearX || Math.abs(s.z) >= ARENA.clearZ, JSON.stringify(s));
+  for (const b of boards().filter(b => b.y < 6)) {           // the hanging scoreboard is overhead
+    const nearestX = Math.min(Math.abs(b.box.min.x), Math.abs(b.box.max.x)), nearestZ = Math.min(Math.abs(b.box.min.z), Math.abs(b.box.max.z));
+    const spans = b.box.min.x * b.box.max.x < 0 && b.box.min.z * b.box.max.z < 0;   // it straddles the middle both ways
+    assert.ok(!spans && (nearestX >= COURT.halfLength + 0.5 || nearestZ >= COURT.halfWidth + 0.5), JSON.stringify(b));
+  }
+});
+
+test('nothing in the arena comes between the camera and the court, wherever the camera is', () => {
+  const things = [...seats().map(body), ...boards().map(b => b.box)];
+  for (const from of cameras) for (const to of sights) for (const box of things)
+    assert.ok(!blocks(box, from, to), `the view from ${JSON.stringify(from)} to ${JSON.stringify(to)} is blocked by ${JSON.stringify(box)}`);
+});
+
+test('a line through a box is blocked, one past it is not', () => {
+  const box = { min: { x: -1, y: 0, z: -1 }, max: { x: 1, y: 2, z: 1 } };
+  assert.equal(blocks(box, { x: -5, y: 1, z: 0 }, { x: 5, y: 1, z: 0 }), true);
+  assert.equal(blocks(box, { x: -5, y: 3, z: 0 }, { x: 5, y: 3, z: 0 }), false);
+  assert.equal(blocks(box, { x: -5, y: 1, z: 0 }, { x: -2, y: 1, z: 0 }), false);          // it stops short
+  assert.equal(blocks(box, { x: 0, y: 5, z: 0 }, { x: 0, y: 1, z: 0 }), true);             // straight down into it
+});
+
+test('each quality level shows its share of the crowd, always the same people, and a fuller crowd keeps the thinner one', () => {
+  const all = seats();
+  const at = level => shown(all, QUALITY[level].crowd);
+  assert.deepEqual(QUALITY.order.map(level => at(level).length), [0.15, 0.5, 1, 1].map(share => Math.round(all.length * share)));
+  assert.deepEqual(at('low'), at('low'));
+  const medium = new Set(at('medium'));
+  assert.ok(at('low').every(seat => medium.has(seat)));
+  for (const side of [s => s.z < -ARENA.clearZ, s => s.x > ARENA.clearX]) assert.ok(at('low').filter(side).length >= 10);   // thin, not empty
+});
+
+test('the boards carry only the game\'s own words, and the scoreboard says the score and the period', () => {
+  const words = new Set(boards().map(b => b.words));
+  for (const word of words) assert.ok(['TRIPLE THREAT', 'HARBOR CITY WAVES', 'RED ROCK SCORPIONS', ''].includes(word), word);
+  assert.ok(words.has('TRIPLE THREAT'));
+  const s = createMatch(); s.score = [28, 26]; s.quarter = 3;
+  assert.deepEqual(scoreLines(s), { home: 'WAV 28', away: 'SCO 26', period: '3RD' });
+});
