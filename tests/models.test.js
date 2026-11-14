@@ -18,10 +18,10 @@ function heightOf(gltf, name) {
   return { minY: Math.min(...primitives.map(p => gltf.accessors[p.attributes.POSITION].min[1])), maxY: gltf.accessors[skin.attributes.POSITION].max[1] };
 }
 
-test('the table has the ten people the rosters name, each one different', () => {
+test('the table has the sixteen people the rosters name, each one different', () => {
   for (const team of [0, 1]) assert.deepEqual(people.filter(p => p.team === team).map(p => p.number), [...ROSTER.numbers[team]]);
   for (const p of people) assert.ok(p.height >= 1.85 && p.height <= 2.08, `${rootName(p)}: ${p.height} m`);
-  assert.equal(new Set(people.map(p => [p.skin, p.hair, p.hairColour, p.build, p.face].join())).size, 10);
+  assert.equal(new Set(people.map(p => [p.skin, p.hair, p.hairColour, p.build, p.face].join())).size, 16);
 });
 
 test('the file holds every person in the table, named by team and number', () => {
@@ -70,8 +70,9 @@ test('each player stands as tall as the table says, feet on the floor', () => {
   }
 });
 
-test('the player file leaves room in the single file: under 9 MB', () => {
-  assert.ok(statSync('assets/players.glb').size < 9e6, `${(statSync('assets/players.glb').size / 1e6).toFixed(1)} MB`);
+// Sixteen players at under a megabyte each. Nothing caps the single file's size now; this catches a player grown by accident.
+test('the player file stays under 15 MB', () => {
+  assert.ok(statSync('assets/players.glb').size < 15e6, `${(statSync('assets/players.glb').size / 1e6).toFixed(1)} MB`);
 });
 
 test('textures are no larger than 2048 pixels a side', () => {

@@ -2,8 +2,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { onCourt, benchOf, substitute, queueSub, applySubs } from '../src/sim/roster.js';
 import { step } from '../src/sim/step.js';
-import { DT } from '../src/sim/tuning.js';
-import { live, idle } from './helpers.js';
+import { DT, FOUL } from '../src/sim/tuning.js';
+import { live as whole, idle } from './helpers.js';
+
+// These tests were written when a team had five people, two of them on the bench of a three-a-side match. The three
+// who joined since are fouled out here, so that the bench is those two again and each test reads as it did.
+function live(...args) {
+  const s = whole(...args);
+  for (const roster of s.rosters) for (const person of roster.slice(5)) person.fouls = FOUL.limit;
+  return s;
+}
 
 test('a substitution changes who the court player is, not where he stands or who you control', () => {
   const s = live(); Object.assign(s.players[1], { x: 3, z: 4 }); s.controlled = 1;
@@ -126,4 +134,20 @@ test('a swap queued during a dead ball is made as soon as play steps again', () 
   queueSub(s, 0, 1, 3);
   step(s, idle(), DT);
   assert.deepEqual([s.players[1].person, s.controlled, s.subQueue.length], [3, 1, 0]);
+});
+
+test('with eight a side the bench of a three-a-side match is five, and a swap reaches the newest of them', () => {
+  const s = whole();
+  assert.deepEqual([onCourt(s, 0), benchOf(s, 0)], [[0, 1, 2], [3, 4, 5, 6, 7]]);
+  assert.equal(queueSub(s, 0, 7, 1), true);                                 // given in either order
+  applySubs(s);
+  assert.deepEqual([s.players[1].person, s.rosters[0][7].manual, benchOf(s, 0)], [7, true, [1, 3, 4, 5, 6]]);
+});
+
+test('in five a side the bench is the three newest, and a tired starter is rested for the freshest of them', () => {
+  const s = whole(1, 5);
+  assert.deepEqual([onCourt(s, 0), benchOf(s, 0), benchOf(s, 1)], [[0, 1, 2, 3, 4], [5, 6, 7], [5, 6, 7]]);
+  s.rosters[0][3].energy = 0.2; s.rosters[0][5].energy = 0.8; s.rosters[0][6].energy = 0.95; s.rosters[0][7].energy = 0.75;
+  applySubs(s);
+  assert.deepEqual([s.players[3].person, s.players[3].slot, onCourt(s, 0)], [6, 3, [0, 1, 2, 6, 4]]);
 });

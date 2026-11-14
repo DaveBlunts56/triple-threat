@@ -93,7 +93,7 @@
   #pauseSubs, #pauseControls { width: max-content; max-width: 88vw; padding: calc(var(--u) * 1.2) calc(var(--u) * 1.6); font-size: calc(var(--u) * 1.6);
       background: linear-gradient(rgba(18, 19, 22, .92), rgba(4, 4, 5, .92)); border: 1px solid #6f7781; }
   #roster { list-style: none; padding: 0; margin: 0 0 calc(var(--u) * .8); font-variant-numeric: tabular-nums; }
-  #roster li { display: flex; gap: calc(var(--u) * 1.6); justify-content: space-between; align-items: center; margin: calc(var(--u) * .5) 0; }
+  #roster li { display: flex; gap: calc(var(--u) * 1.6); justify-content: space-between; align-items: center; margin: calc(var(--u) * .28) 0; }   /* eight rows above the bottom bar */
   #subNote { margin: 0; color: #d6dbe0; }
   #pauseControls { display: grid; grid-template-columns: auto auto; gap: calc(var(--u) * .5) calc(var(--u) * 1.6); margin: 0; }
   #pauseControls dt { text-align: right; font-weight: 800; color: #ffd257; }
@@ -171,7 +171,7 @@
   #menuTeams .home { color: #a9c8ff; }
   #menuTeams .away { color: #ff8f8f; }
   #menuTeams ol { list-style: none; margin: 0; padding: 0; }
-  #menuTeams li { margin: calc(var(--d) * .01) 0; white-space: nowrap; }
+  #menuTeams li { margin: calc(var(--d) * .006) 0; white-space: nowrap; }   /* eight a side inside the disc */
   #menuControls { display: grid; grid-template-columns: auto auto; gap: calc(var(--d) * .01) calc(var(--d) * .03); margin: 0; }
   #menuControls dt { text-align: right; font-weight: 800; color: #cfeeff; }
   #menuControls dd { margin: 0; text-align: left; }
@@ -232,10 +232,10 @@
       </ul>
       <div id="menuTeams" hidden>
         <div><h2 id="teamName0" class="home"></h2><ol>
-          <li id="teamPlayer00"></li><li id="teamPlayer01"></li><li id="teamPlayer02"></li><li id="teamPlayer03"></li><li id="teamPlayer04"></li>
+          <li id="teamPlayer00"></li><li id="teamPlayer01"></li><li id="teamPlayer02"></li><li id="teamPlayer03"></li><li id="teamPlayer04"></li><li id="teamPlayer05"></li><li id="teamPlayer06"></li><li id="teamPlayer07"></li>
         </ol></div>
         <div><h2 id="teamName1" class="away"></h2><ol>
-          <li id="teamPlayer10"></li><li id="teamPlayer11"></li><li id="teamPlayer12"></li><li id="teamPlayer13"></li><li id="teamPlayer14"></li>
+          <li id="teamPlayer10"></li><li id="teamPlayer11"></li><li id="teamPlayer12"></li><li id="teamPlayer13"></li><li id="teamPlayer14"></li><li id="teamPlayer15"></li><li id="teamPlayer16"></li><li id="teamPlayer17"></li>
         </ol></div>
       </div>
       <dl id="menuControls" hidden>
@@ -280,6 +280,9 @@
         <li><span id="roster2"></span> <progress id="rosterEnergy2" max="1" value="1" aria-label="Energy"></progress></li>
         <li><span id="roster3"></span> <progress id="rosterEnergy3" max="1" value="1" aria-label="Energy"></progress></li>
         <li><span id="roster4"></span> <progress id="rosterEnergy4" max="1" value="1" aria-label="Energy"></progress></li>
+        <li><span id="roster5"></span> <progress id="rosterEnergy5" max="1" value="1" aria-label="Energy"></progress></li>
+        <li><span id="roster6"></span> <progress id="rosterEnergy6" max="1" value="1" aria-label="Energy"></progress></li>
+        <li><span id="roster7"></span> <progress id="rosterEnergy7" max="1" value="1" aria-label="Energy"></progress></li>
       </ol>
       <p id="subNote"></p>
     </div>

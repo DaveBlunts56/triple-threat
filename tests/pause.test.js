@@ -149,3 +149,14 @@ test('quitting leaves a match of the start menu\'s size waiting', () => {
   quitToMenu(game, keyboard, size => { made.push(size); return createMatch(9, size); });
   assert.deepEqual([made, game.state.players.length, game.state.phase], [[5], 10, 'start']);
 });
+
+test('in Substitutions the keys 6, 7 and 8 pick the three newest players', () => {
+  const { game } = paused();
+  open(game, 'subs');
+  pauseKey(game, 'Digit8');
+  assert.equal(game.pick, 7);
+  pauseKey(game, 'Digit2');
+  assert.deepEqual([game.pick, game.state.subQueue], [null, [{ team: 0, out: 1, in: 7 }]]);
+  pauseKey(game, 'Digit6'); pauseKey(game, 'Digit7');                       // two bench players: nothing to swap
+  assert.equal(game.state.subQueue.length, 1);
+});

@@ -1,6 +1,6 @@
 import { queueSub } from './sim/roster.js';
 
-const ROWS = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'];
+const ROWS = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8'];   // one key for each of a team's eight
 
 // The rows of each panel of the pause menu that has rows. Substitutions and Controls have none.
 export const PAUSE = Object.freeze({

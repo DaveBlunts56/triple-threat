@@ -33,7 +33,7 @@ function stealing(seed, { shotClock = 24, teamFouls = [0, 0], fouls = 0, benchFo
   s.players[0].facing = 0;
   Object.assign(s, { shotClock, teamFouls, gameClock });
   s.rosters[1][0].fouls = fouls;
-  s.rosters[1][3].fouls = s.rosters[1][4].fouls = benchFouls;
+  for (const person of s.rosters[1].slice(3)) person.fouls = benchFouls;   // everyone on the bench
   return s;
 }
 const stealKeys = s => only(3, { steal: Math.round(s.time / DT) % 2 === 0 });   // player 3 keeps pressing steal

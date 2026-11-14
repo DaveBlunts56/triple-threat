@@ -5,7 +5,8 @@ import { startMatch } from '../src/sim/rules.js';
 import { spots, aiIntents } from '../src/sim/ai.js';
 import { setupFreeThrow } from '../src/sim/freethrow.js';
 import { step } from '../src/sim/step.js';
-import { COURT, DT, PLAYER, RIM, VIOLATION } from '../src/sim/tuning.js';
+import { COURT, DT, FOUL, PLAYER, RIM, VIOLATION } from '../src/sim/tuning.js';
+import { applySubs } from '../src/sim/roster.js';
 
 const apart = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
@@ -85,4 +86,17 @@ test('the computer plays whole five-a-side matches against itself: they end, bot
     for (const [kind, count] of Object.entries(calls)) assert.ok(count <= 60, `seed ${seed}: ${count} calls of ${kind}`);
     assert.equal(s.players.length, 10);
   }
+});
+
+test('in five a side a fouled-out player is replaced from the bench, and with the bench fouled out too he stays on', () => {
+  const s = createMatch(1, 5); startMatch(s);
+  s.rosters[0][2].fouls = FOUL.limit;
+  applySubs(s);
+  assert.ok([5, 6, 7].includes(s.players[2].person), `place 2 holds person ${s.players[2].person}`);
+  const t = createMatch(1, 5); startMatch(t);
+  for (const row of [2, 5, 6, 7]) t.rosters[0][row].fouls = FOUL.limit;
+  applySubs(t);
+  assert.equal(t.players[2].person, 2);
+  for (let i = 0; i < 120; i++) step(t, aiIntents(t, DT), DT);              // and the match carries on
+  assert.equal(t.players.length, 10);
 });

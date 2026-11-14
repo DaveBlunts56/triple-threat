@@ -98,7 +98,7 @@ test('the free-throw box shows which attempt it is and where the marker is', () 
   assert.equal(doc.els.ftBox.hidden, true);
 });
 
-test('the pause screen lists your five with where they are, their fouls and what is queued', () => {
+test('the pause screen lists your eight with where they are, their fouls and what is queued', () => {
   const s = createMatch(); s.rosters[0][3].fouls = 3; s.rosters[0][1].fouls = 1;
   assert.equal(rosterLine(s, 0, false), '1 · PG · Jalen Cross · No. 4 · on court · 0 fouls');
   assert.equal(rosterLine(s, 1, true), '2 · SF · Theo Marsh · No. 7 · on court · 1 foul · selected');
@@ -129,7 +129,7 @@ test('a label names the player you control: surname, position, number', () => {
 test('the page has every element the scoreboard writes to', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   for (const id of ['fouls0', 'fouls1', 'energy', 'who', 'nameTag', 'call', 'ftBox', 'ftText', 'ftBar', 'ftMarker', 'subNote',
-    ...[0, 1, 2, 3, 4].flatMap(i => [`roster${i}`, `rosterEnergy${i}`])]) assert.match(html, new RegExp(`id="${id}"`), id);
+    ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap(i => [`roster${i}`, `rosterEnergy${i}`])]) assert.match(html, new RegExp(`id="${id}"`), id);
   assert.match(html, /F hold ball/);
 });
 
@@ -228,8 +228,8 @@ test('the Teams panel lists both teams by position, number and name', () => {
   assert.equal(writes, moved + 1, 'opening the panel is announced, though in the same words as the bar');
   assert.ok([0, 1, 2, 3, 4].every(i => e[`menuRow${i}`].hidden));
   assert.deepEqual([e.teamName0.textContent, e.teamName1.textContent], ['Harbor City Waves', 'Red Rock Scorpions']);
-  assert.deepEqual([e.teamPlayer00.textContent, e.teamPlayer04.textContent, e.teamPlayer12.textContent],
-    ['PG · 4 · Jalen Cross', 'PF · 23 · Andre Volkov', 'C · 10 · Viktor Lund']);
+  assert.deepEqual([e.teamPlayer00.textContent, e.teamPlayer04.textContent, e.teamPlayer12.textContent, e.teamPlayer07.textContent, e.teamPlayer15.textContent],
+    ['PG · 4 · Jalen Cross', 'PF · 23 · Andre Volkov', 'C · 10 · Viktor Lund', 'C · 32 · Idris Kane', 'PG · 2 · Rafael Ortiz']);
   menuKey(menu, 'Escape'); show();
   assert.deepEqual([e.menuTeams.hidden, e.announce.textContent, writes], [true, 'Teams', moved + 2]);   // closing it too
   show();
@@ -260,7 +260,7 @@ test('in play the menu writes nothing and the score is announced as before', () 
 test('the page has the menu: four rows, both panels, ten players, every key in the controls panel, and a ring that stops for reduced motion', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   for (const id of ['menuList', 'menuRow0', 'menuRow1', 'menuRow2', 'menuRow3', 'menuRow4', 'menuTeams', 'menuControls', 'menuHint', 'teamName0', 'teamName1',
-    ...[0, 1].flatMap(t => [0, 1, 2, 3, 4].map(i => `teamPlayer${t}${i}`))]) assert.match(html, new RegExp(`id="${id}"`), id);
+    ...[0, 1].flatMap(t => [0, 1, 2, 3, 4, 5, 6, 7].map(i => `teamPlayer${t}${i}`))]) assert.match(html, new RegExp(`id="${id}"`), id);
   const controls = html.match(/id="menuControls"[\s\S]*?<\/(?:ul|dl|div)>/)[0];
   for (const word of ['WASD', 'Shift', 'Space', 'E', 'Q', 'F', 'Esc', 'G']) assert.match(controls, new RegExp(`\\b${word}\\b`), word);
   assert.match(html, /prefers-reduced-motion/);
@@ -308,7 +308,7 @@ test('Substitutions and Controls open in place of the buttons, and opening one i
   const before = writes;
   choose('Enter'); show();
   assert.deepEqual([e.pauseList.hidden, e.pauseSubs.hidden, e.pauseControls.hidden, e.pauseHint.textContent, e.announce.textContent, writes - before],
-    [true, false, true, '1 to 5 swap two players · A automatic substitutions · Esc back', 'Substitutions', 1]);
+    [true, false, true, '1 to 8 swap two players · A automatic substitutions · Esc back', 'Substitutions', 1]);
   choose('Escape', 'ArrowDown', 'Enter'); show();
   assert.deepEqual([e.pauseSubs.hidden, e.pauseControls.hidden, e.pauseHint.textContent, e.announce.textContent], [true, false, 'Esc back', 'Controls']);
 });
@@ -381,4 +381,13 @@ test('the corner label tells WebGL 2 chosen by the game from WebGL 2 as the only
   assert.equal(doc.els.backend.textContent, 'WebGL 2 (WebGPU not available) · High · 60 fps');
   hud.update(s, 'webgl2chosen', { paused: false, pick: null, fps: 60, quality: 'high' });
   assert.equal(doc.els.backend.textContent, 'WebGL 2 · High · 60 fps');
+});
+
+test('the pause list has a line for each of your eight, the bench of five a side among them', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(1, 5);
+  s.phase = 'live';
+  hud.update(s, 'webgl2', { paused: true, pick: 6 });
+  assert.equal(rosterLine(s, 4, false), '5 · PF · Andre Volkov · No. 23 · on court · 0 fouls');
+  assert.deepEqual([doc.els.roster5.textContent, doc.els.roster6.textContent, doc.els.roster7.textContent],
+    ['6 · PG · Marcus Bell · No. 1 · bench · 0 fouls', '7 · SF · Noah Vance · No. 13 · bench · 0 fouls · selected', '8 · C · Idris Kane · No. 32 · bench · 0 fouls']);
 });

@@ -81,7 +81,7 @@ export function menuText(menu, row, quality) {
 const PAUSE_WORDS = { resume: 'Resume', subs: 'Substitutions', controls: 'Controls', settings: 'Settings', quit: 'Quit to main menu',
   stay: 'No, keep playing', leave: 'Yes, quit' };
 const PAUSE_HINTS = { main: '↑ ↓ choose · Enter select · Esc resume', settings: '↑ ↓ choose · Enter change · Esc back',
-  subs: '1 to 5 swap two players · A automatic substitutions · Esc back', controls: 'Esc back', quit: '↑ ↓ choose · Enter select · Esc back' };
+  subs: '1 to 8 swap two players · A automatic substitutions · Esc back', controls: 'Esc back', quit: '↑ ↓ choose · Enter select · Esc back' };
 const PAUSE_SLOTS = 5;   // pauseRow0 to pauseRow4 on the page
 
 // The words of row `row` of the pause menu's panel shown; the settings say their value.

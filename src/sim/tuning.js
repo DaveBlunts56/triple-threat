@@ -106,10 +106,11 @@ export const TIP = f({ wait: 1, height: 1.5, tossV: 6.6, gap: 0.6, speed: 7, aiJ
 export const LINEUP = f({ gap: f({ 3: 3, 5: 2.4 }) });
 
 export const ROSTER = f({
-  numbers: f([f([4, 7, 11, 15, 23]), f([5, 8, 10, 21, 33])]),
+  // Eight a side, in roster order: the first three start a three-a-side match, the first five a five-a-side one.
+  numbers: f([f([4, 7, 11, 15, 23, 1, 13, 32]), f([5, 8, 10, 21, 33, 2, 14, 30])]),
   teams: f(['Harbor City Waves', 'Red Rock Scorpions']),
   abbr: f(['WAV', 'SCO']),   // each team's name on a scoreboard
-  names: f([f(['Jalen Cross', 'Theo Marsh', 'Darius Stone', 'Sam Okoro', 'Andre Volkov']),
-    f(['Kai Mercer', 'Luca Reyes', 'Viktor Lund', 'Devon Hale', 'Emeka Bright'])]),
-  positions: f(['PG', 'SF', 'C', 'SG', 'PF']),   // by roster row, the same for both teams
+  names: f([f(['Jalen Cross', 'Theo Marsh', 'Darius Stone', 'Sam Okoro', 'Andre Volkov', 'Marcus Bell', 'Noah Vance', 'Idris Kane']),
+    f(['Kai Mercer', 'Luca Reyes', 'Viktor Lund', 'Devon Hale', 'Emeka Bright', 'Rafael Ortiz', 'Jamal Whitaker', 'Bogdan Ilic'])]),
+  positions: f(['PG', 'SF', 'C', 'SG', 'PF', 'PG', 'SF', 'C']),   // by roster row, the same for both teams
 });

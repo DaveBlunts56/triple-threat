@@ -40,9 +40,10 @@ test('emptyIntent is all zeros and falses', () => {
   assert.deepEqual(emptyIntent(), { moveX: 0, moveZ: 0, sprint: false, shoot: false, pass: false, steal: false, switch: false, hold: false });
 });
 
-test('each team has five people, three of them on court', () => {
+test('each team has eight people, three of them on court in three a side and five in five a side', () => {
   const s = createMatch();
-  assert.deepEqual(s.rosters.map(r => r.map(p => p.number)), [[4, 7, 11, 15, 23], [5, 8, 10, 21, 33]]);
+  assert.deepEqual(s.rosters.map(r => r.map(p => p.number)), [[4, 7, 11, 15, 23, 1, 13, 32], [5, 8, 10, 21, 33, 2, 14, 30]]);
+  assert.deepEqual(createMatch(1, 5).players.map(p => p.person), [0, 1, 2, 3, 4, 0, 1, 2, 3, 4]);
   assert.ok(s.rosters.flat().every(p => p.energy === 1 && p.fouls === 0));
   assert.deepEqual(s.players.map(p => p.person), [0, 1, 2, 0, 1, 2]);
   assert.equal(personOf(s, s.players[4]), s.rosters[1][1]);
@@ -65,9 +66,9 @@ test('an empty intent has hold off, and empty events report nothing', () => {
 test('every player has a name and a position, and the first three are a guard, a forward and a centre', () => {
   const s = createMatch();
   assert.deepEqual(s.rosters.map(r => r.map(p => p.name)), [
-    ['Jalen Cross', 'Theo Marsh', 'Darius Stone', 'Sam Okoro', 'Andre Volkov'],
-    ['Kai Mercer', 'Luca Reyes', 'Viktor Lund', 'Devon Hale', 'Emeka Bright']]);
-  for (const r of s.rosters) assert.deepEqual(r.map(p => p.position), ['PG', 'SF', 'C', 'SG', 'PF']);
+    ['Jalen Cross', 'Theo Marsh', 'Darius Stone', 'Sam Okoro', 'Andre Volkov', 'Marcus Bell', 'Noah Vance', 'Idris Kane'],
+    ['Kai Mercer', 'Luca Reyes', 'Viktor Lund', 'Devon Hale', 'Emeka Bright', 'Rafael Ortiz', 'Jamal Whitaker', 'Bogdan Ilic']]);
+  for (const r of s.rosters) assert.deepEqual(r.map(p => p.position), ['PG', 'SF', 'C', 'SG', 'PF', 'PG', 'SF', 'C']);
   assert.deepEqual(ROSTER.teams, ['Harbor City Waves', 'Red Rock Scorpions']);
   assert.equal(surname(s.rosters[0][4]), 'Volkov');
 });
