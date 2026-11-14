@@ -9,12 +9,12 @@ import {
   lookTarget, headTurn, easeHead,
 } from './motion.js';
 import { createAnimator } from './animator.js';
-import { KIT, kitOps, paintKit } from './kit.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { ATLAS, KIT, atlasPart, atlasRect, atlasUV, kitOps, paintKit } from './kit.js';
 import { QUALITY } from './quality.js';
 
 // cutout: hair, brows and lashes: a pixel is drawn if it is at least this opaque.
 const PEOPLE = Object.freeze({ cutout: 0.4 });
-const SHADOWED = /^(skin|jersey|shorts|hair|shoes)/;   // materials of the parts that cast a shadow: not eyes, brows or lashes
 
 const IDLE = Object.freeze({ clip: 'idle', rate: 1 });   // what everyone's legs do before and after a match
 const UPRIGHT = Object.freeze({ forward: 0, side: 0 }), AHEAD = Object.freeze({ yaw: 0, pitch: 0 });
@@ -35,21 +35,6 @@ async function json(path) {
   const response = await fetch(assetUrl(path));
   if (!response.ok) throw new Error(`${path}: ${response.status}`);
   return response.json();
-}
-
-// A copy of `picture` that is `scale` times as wide and as tall, and alike in everything else: colour space, wrapping,
-// flipY and filtering. The browser makes the smaller image a moment later: the promise of it is added to `pending`.
-// (Drawn on a canvas instead, the browser puts the work off until the copy is first shown, and the game stalls then.)
-function shrunk(picture, scale, pending) {
-  const { width, height } = picture.image;
-  const copy = picture.clone();   // which shares the original's image until its own arrives
-  // premultiplyAlpha 'none', as the loader's own images are: hair keeps the colour under its clear pixels.
-  const size = { resizeWidth: Math.ceil(width * scale), resizeHeight: Math.ceil(height * scale), resizeQuality: 'high' };
-  pending.push(createImageBitmap(picture.image, { ...size, premultiplyAlpha: 'none' }).then(image => {
-    copy.source = new THREE.TextureSource(image);
-    copy.needsUpdate = true;
-  }));
-  return copy;
 }
 
 // What `make` returns for the size of the players' pictures at each quality level: 1 is full size.
@@ -81,50 +66,93 @@ export async function loadPeople() {
   checkFacts(facts);
   const hipHeight = hipsOf(motion.scene).position.y;   // of the player the motions were made on, standing at rest
 
-  // Every picture the players wear, as it is at each quality level ({ low, medium, high, ultra }), found by the picture a material
-  // was given. All are made here, while the game loads, so that changing level later only swaps them.
-  const pictures = new Map();
-  const pending = [];   // the smaller images still being made
+  const pending = [];   // the pictures still being made
+  const dressed = [];   // [material, his one picture at each quality level], for every person
 
-  // The kit of `team` on a `part` ('jersey' or 'shorts'), and on a jersey the `number`, painted `scale` times KIT.size.
-  function kitPicture(part, team, number, scale) {
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = KIT.size * scale;
-    paintKit(canvas.getContext('2d'), canvas.width, kitOps(part, number), team);
-    const picture = new THREE.CanvasTexture(canvas);
+  // His one picture at `scale` times ATLAS.size: the skin, hair and shoes of the file and the kit of `team` with his
+  // `number`, each drawn in its own place (see ATLAS). `drawn` is { part: the file's picture of it }. The picture is
+  // handed over as an image made off the main thread, so that showing a player for the first time does not stall.
+  function onePicture(drawn, team, number, scale) {
+    const canvas = document.createElement('canvas'), size = Math.round(ATLAS.size * scale);
+    canvas.width = canvas.height = size;
+    const g = canvas.getContext('2d');
+    for (const part of Object.keys(ATLAS.cells)) {
+      const [x, y, w, h] = atlasRect(part).map(n => n * size);
+      if (part === 'jersey' || part === 'shorts') {
+        g.save();
+        g.translate(x, y); g.scale(w / KIT.size, h / KIT.size);
+        paintKit(g, KIT.size, kitOps(part, number), team);
+        g.restore();
+      } else if (drawn[part]) g.drawImage(drawn[part], x, y, w, h);
+    }
+    const picture = new THREE.Texture();
     picture.flipY = false;   // as in the file, where the top row of a picture is v = 0
     picture.colorSpace = THREE.SRGBColorSpace;
+    picture.anisotropy = 4;
+    pending.push(createImageBitmap(canvas).then(image => { picture.image = image; picture.needsUpdate = true; }));
     return picture;
   }
-  // The file has one white jersey and one white shorts material for all ten. This is a copy of `material` with the
-  // kit of `team` painted on it, and on a jersey the `number`: painted again at each level's size, not shrunk.
-  function painted(material, team, number) {
-    const kit = material.clone();
-    const sizes = atEachLevel(scale => kitPicture(material.name, team, number, scale));
-    kit.map = sizes.high;
-    pictures.set(kit.map, sizes);
-    return kit;
-  }
-  const shorts = [];   // one pair per team: shorts carry no number
+
+  // How rough each part is, as a tiny picture laid out like ATLAS.cells (quarters across, halves down): the green of
+  // a pixel is the roughness there.
+  const roughness = (() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 4; canvas.height = 2;
+    const g = canvas.getContext('2d');
+    for (const [part, [x, y, w, h]] of Object.entries(ATLAS.cells)) {
+      g.fillStyle = `rgb(0, ${Math.round(ATLAS.rough[part] * 255)}, 0)`;
+      g.fillRect(x * 4, y * 2, w * 4, h * 2);
+    }
+    const picture = new THREE.CanvasTexture(canvas);
+    picture.flipY = false;
+    picture.magFilter = picture.minFilter = THREE.NearestFilter;
+    picture.generateMipmaps = false;
+    return picture;
+  })();
 
   // One model and animator per person, made once: a substitution only changes who is shown. `index` is his place
-  // among the ten.
+  // among the ten. His skin, hair, shoes and kit come from the file as separate meshes, each one more thing to draw
+  // in every pass; here they become one mesh that wears one picture.
   function person(model, team, number, index) {
+    const parts = [], drawn = {};
     model.traverse(part => {
       // GLTFLoader numbers the bone names that repeat in the file (mixamorigHips_1); the motions look for the plain ones.
       if (part.isBone) part.name = THREE.PropertyBinding.sanitizeNodeName(part.userData.name);
       if (!part.isMesh) return;
-      const material = part.material;
-      part.castShadow = SHADOWED.test(material.name);
-      // Eyes, brows and lashes are smaller than a pixel from the game's camera, and each is one more thing to draw for
-      // every player in every pass: they are left out until a camera comes close enough to show them.
-      part.visible = part.castShadow;
-      part.frustumCulled = false;   // its bounds are those of the rest pose, not of where the motion puts it
-      if (material.name === 'jersey') part.material = painted(material, team, number);
-      if (material.name === 'shorts') part.material = shorts[team] ??= painted(material, team);
-      // Cut-outs instead of blending: no sorting artefacts, and they write depth like everything else.
-      if (material.transparent) Object.assign(material, { transparent: false, alphaTest: PEOPLE.cutout, depthWrite: true });
+      const place = atlasPart(part.material.name);
+      // Eyes, brows and lashes are smaller than a pixel from the game's camera: they are left out until a camera
+      // comes close enough to show them.
+      part.visible = false;
+      if (!place) return;
+      parts.push([part, place]);
+      if (part.material.map) drawn[place] = part.material.map.image;
     });
+    if (!parts.length) throw new Error(`${model.name} has nothing to draw`);
+    const whole = mergeGeometries(parts.map(([part, place]) => {
+      const from = part.geometry, uv = from.getAttribute('uv'), geometry = new THREE.BufferGeometry();
+      // Every part's numbers in the same form, so that they can be joined; its picture's points moved to its place.
+      const floats = (attribute, size) => new THREE.Float32BufferAttribute(Float32Array.from({ length: attribute.count * size }, (_, i) => attribute.getComponent(Math.floor(i / size), i % size)), size);
+      geometry.setAttribute('position', floats(from.getAttribute('position'), 3));
+      geometry.setAttribute('normal', floats(from.getAttribute('normal'), 3));
+      geometry.setAttribute('uv', new THREE.Float32BufferAttribute(Array.from({ length: uv.count }, (_, i) => atlasUV(place, uv.getX(i), uv.getY(i))).flat(), 2));
+      const joints = from.getAttribute('skinIndex');
+      geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(Uint16Array.from({ length: joints.count * 4 }, (_, i) => joints.getComponent(Math.floor(i / 4), i % 4)), 4));
+      geometry.setAttribute('skinWeight', floats(from.getAttribute('skinWeight'), 4));
+      geometry.setIndex(Array.from(from.getIndex().array));
+      return geometry;
+    }));
+    if (!whole) throw new Error(`${model.name}'s parts could not be joined`);
+    const sizes = atEachLevel(scale => onePicture(drawn, team, number, scale));
+    // Cut-outs instead of blending for the hair: no sorting artefacts, and it writes depth like everything else.
+    const material = new THREE.MeshStandardMaterial({ map: sizes.high, roughnessMap: roughness, roughness: 1, metalness: 0, alphaTest: PEOPLE.cutout, side: THREE.DoubleSide });
+    dressed.push([material, sizes]);
+    const [first] = parts[0], body = new THREE.SkinnedMesh(whole, material);
+    body.name = 'body';
+    body.bind(first.skeleton, first.bindMatrix);
+    body.castShadow = true;
+    body.frustumCulled = false;   // its bounds are those of the rest pose, not of where the motion puts it
+    first.parent.add(body);
+    for (const [part] of parts) { part.removeFromParent(); part.geometry.dispose(); part.material.dispose(); }
     const scale = hipsOf(model).position.y / hipHeight;   // his size against the player the motions were made on
     const hands = { left: model.getObjectByName('mixamorigLeftHand'), right: model.getObjectByName('mixamorigRightHand') };
     checkHands(model.name, hands);   // so a broken file falls back to capsules at load, not on the first possession
@@ -136,20 +164,6 @@ export async function loadPeople() {
     const name = personName(team, number);
     people[name] = person(roots.find(root => root.name === name), team, number, team * numbers.length + row);
   }));
-
-  // Each place a picture is worn, on the bench too: [material, the property it is in, the picture at each level].
-  const worn = [];
-  const materials = new Set();   // each one once: a team's five wear the same shorts
-  for (const root of roots) root.traverse(part => part.isMesh && materials.add(part.material));
-  for (const material of materials) {
-    for (const [slot, picture] of Object.entries(material)) {
-      if (!picture?.isTexture) continue;
-      const sizes = pictures.get(picture) ?? atEachLevel(scale => (scale === 1 ? picture : shrunk(picture, scale, pending)));
-      pictures.set(picture, sizes);
-      worn.push([material, slot, sizes]);
-      material[slot] = sizes.high;   // `picture` itself, while High is full size
-    }
-  }
   await Promise.all(pending);
 
   const models = Array.from({ length: 6 }, () => new THREE.Group());
@@ -170,7 +184,7 @@ export async function loadPeople() {
     models,
     // level: one of QUALITY.order. The bench changes too, so a substitute comes on in the right pictures.
     setQuality(level) {
-      for (const [material, slot, sizes] of worn) material[slot] = sizes[level];
+      for (const [material, sizes] of dressed) material.map = sizes[level];
     },
     // dt: the time that passed this frame, in seconds (zero while paused, so the motion pauses too).
     update(state, dt) {

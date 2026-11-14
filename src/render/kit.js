@@ -45,3 +45,31 @@ export function paintKit(context, size, ops, team) {
     }
   }
 }
+
+// The one picture a player wears. Each part of him had a picture of its own, and each was one more thing to draw in
+// every pass; drawn side by side on one picture, the whole player is drawn at once.
+// size: pixels along each side at full quality. gutter: pixels left clear round each part's picture, so that
+// neighbours do not bleed into it when the picture is shrunk for distance. cells: where each part's picture lies, as
+// [x, y, width, height] in shares of the whole, from its top left corner. rough: how rough each part's surface is.
+export const ATLAS = f({
+  size: 1024, gutter: 6,
+  cells: f({ skin: f([0, 0, 0.5, 0.5]), jersey: f([0.5, 0, 0.5, 0.5]), shorts: f([0, 0.5, 0.5, 0.5]), hair: f([0.5, 0.5, 0.25, 0.5]), shoes: f([0.75, 0.5, 0.25, 0.5]) }),
+  rough: f({ skin: 0.5, jersey: 0.85, shorts: 0.85, hair: 0.7, shoes: 0.2 }),
+});
+
+// The part of the one picture that a material of the players' file is drawn in, by its name, or null for the parts
+// that are not on it (eyes, brows and lashes).
+export const atlasPart = name => Object.keys(ATLAS.cells).find(part => name.startsWith(part)) ?? null;
+
+// Where a part's own picture is drawn on the one picture: its cell, less the gutter, as [x, y, width, height].
+export function atlasRect(part) {
+  const [x, y, w, h] = ATLAS.cells[part], gutter = ATLAS.gutter / ATLAS.size;
+  return [x + gutter, y + gutter, w - 2 * gutter, h - 2 * gutter];
+}
+
+// The point (u, v) of a part's own picture, as a point of the one picture. A point outside the part's picture is held
+// to its edge.
+export function atlasUV(part, u, v) {
+  const [x, y, w, h] = atlasRect(part), hold = n => Math.min(Math.max(n, 0), 1);
+  return [x + hold(u) * w, y + hold(v) * h];
+}
