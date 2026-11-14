@@ -109,9 +109,13 @@ function beginPeriod(state) {
 
 const jumpers = state => state.players.filter(p => isJumper(state, p));
 
-// The opening jump ball: a jumper from each team either side of the centre spot, the ball held above it.
+// The opening jump ball: a jumper from each team either side of the centre spot, the ball held above it, and the
+// rest round the circle.
 function setupTip(state) {
-  for (const p of jumpers(state)) Object.assign(p, { x: -attackSign(p.team) * TIP.gap, z: 0 });
+  for (const p of state.players) {
+    const [back, z] = TIP.around[state.size][p.slot] ?? [TIP.gap, 0], x = -attackSign(p.team) * back;
+    Object.assign(p, { x, z, facing: Math.atan2(-z, -x) });   // everyone faces the ball
+  }
   Object.assign(state.ball, {
     holder: null, mode: 'loose', shooter: null, shotValue: 0, noPickupT: 0,
     x: 0, y: TIP.height, z: 0, vx: 0, vy: 0, vz: 0,

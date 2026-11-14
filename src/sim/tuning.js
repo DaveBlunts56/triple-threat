@@ -107,8 +107,11 @@ export const STAMINA = f({
   subOut: 0.35, subIn: 0.7,
 });
 
-// slot: the place in his team's order of the player who jumps the tip, by the match's size.
-export const TIP = f({ wait: 1, height: 1.5, tossV: 6.6, gap: 0.6, speed: 7, aiJumpAt: 3.6, aiError: 0.25, slot: f({ 3: 1, 5: 2 }) });
+// slot: the place in his team's order of the player who jumps the tip, by the match's size. around: where the others
+// stand for it, by size and place in the order (null: the jumper): [metres back from the centre line toward his own
+// basket, z]. Two stand on the circle beside the centre line; in five a side a guard stands back and a forward up.
+export const TIP = f({ wait: 1, height: 1.5, tossV: 6.6, gap: 0.6, speed: 7, aiJumpAt: 3.6, aiError: 0.25, slot: f({ 3: 1, 5: 2 }),
+  around: f({ 3: f([f([0.6, -2.4]), null, f([0.6, 2.4])]), 5: f([f([6, 0]), f([0.6, -2.4]), null, f([0.6, 2.4]), f([-5, 1.3])]) }) });
 
 // gap: metres between team-mates lined up before the tip, by the match's size.
 export const LINEUP = f({ gap: f({ 3: 3, 5: 2.4 }) });

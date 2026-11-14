@@ -81,3 +81,33 @@ test('the tip loser starts quarters 2 and 4, the winner quarter 3, and overtime 
     assert.deepEqual([s.quarter, s.phase, s.possession], [quarter, 'inbound', starts], `quarter ${quarter}`);
   }
 });
+
+// ---------- how the teams stand for the tip ----------
+
+test('at the tip the jumpers meet at the centre and the rest stand round the circle, facing the ball: two pairs on the centre line, and in five a side a guard back and a forward up', async () => {
+  const { createMatch: make, attackSign: sign, isJumper: jumps } = await import('../src/sim/state.js');
+  const { startMatch: start } = await import('../src/sim/rules.js');
+  const { TIP: tip } = await import('../src/sim/tuning.js');
+  for (const size of [3, 5]) {
+    const s = make(1, size); start(s);
+    assert.equal(s.phase, 'jumpBall');
+    for (const p of s.players) {
+      const own = -sign(p.team), far = Math.hypot(p.x, p.z);
+      if (jumps(s, p)) { assert.deepEqual([p.x, p.z], [own * tip.gap, 0]); continue; }
+      assert.ok(far >= 1.8 + 0.3, `${size} a side: player ${p.id} stands in the circle`);
+      assert.ok(Math.cos(p.facing - Math.atan2(-p.z, -p.x)) > 0.99, `${size} a side: player ${p.id} does not face the ball`);
+      for (const o of s.players) if (o !== p) assert.ok(Math.hypot(o.x - p.x, o.z - p.z) >= 0.9, `${size} a side: players ${p.id} and ${o.id} are on top of each other`);
+    }
+    for (const team of [0, 1]) {
+      const round = s.players.filter(p => p.team === team && !jumps(s, p) && Math.hypot(p.x, p.z) < 3);
+      assert.equal(round.length, 2, `${size} a side, team ${team}: two on the circle`);
+      assert.ok(round.every(p => Math.sign(p.x) === -sign(team) && Math.abs(p.x) < 1), 'each on his own side of the centre line, beside it');
+      assert.equal(round[0].z * round[1].z < 0, true, 'one either side of the jumpers');
+      if (size === 5) {
+        const guard = s.players.find(p => p.team === team && p.slot === 0), forward = s.players.find(p => p.team === team && p.slot === 4);
+        assert.ok(-sign(team) * guard.x >= 5, 'the guard stands back in his own half');
+        assert.ok(sign(team) * forward.x >= 4, 'a forward stands up the court');
+      }
+    }
+  }
+});
