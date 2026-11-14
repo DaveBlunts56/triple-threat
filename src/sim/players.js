@@ -2,6 +2,7 @@ import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FOUL, PASS, PLAYER, RIM, SHOT, ST
 import { attackSign, onFloor as grounded, personOf, rand } from './state.js';
 import { shotFactor, speedFactor, spend } from './stamina.js';
 import { rimCentre, solveShot, stepBall } from './ball.js';
+import { rematch } from './matchups.js';
 
 // Seconds after the press of a shot: the best moment to let go, and the moment he is back on the floor.
 export const SHOT_BEST = SHOT.gather + SHOT.bestAt * PLAYER.shotJumpV / BALL.gravity;
@@ -274,7 +275,10 @@ export function giveBall(state, player) {
   ball.holder = player.id; ball.mode = 'held'; ball.target = null;
   ball.shooter = null; ball.shotValue = 0;
   player.held = false; player.steps = 0;   // a live dribble
-  if (state.possession !== player.team) state.shotClock = CLOCK.shot;
+  if (state.possession !== player.team) {
+    state.shotClock = CLOCK.shot;
+    if (state.phase === 'live') rematch(state, 1 - player.team);   // the team that lost it gets back to whoever is nearest
+  }
   state.possession = state.lastTouch = player.team;
   if (player.team === 0) state.controlled = player.id;
 }

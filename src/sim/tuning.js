@@ -75,6 +75,11 @@ export const AI = f({
   safetyGap: 4,           // metres between those who get back together when a ball is loose
 });
 
+// Switching. lost: a screened defender's man is getting away when he is further than this, in metres. save: the least
+// running, in metres over the whole team, that makes a new matching worth taking when getting back. wait: seconds a
+// defender who has just swapped men swaps with nobody.
+export const MATCHUP = f({ lost: 2, save: 6, wait: 2 });
+
 export const VIOLATION = f({ backcourt: 8, key: 3, inbound: 5, keyHalfWidth: 2.45, keyDepth: 5.8 });
 
 export const FOUL = f({
