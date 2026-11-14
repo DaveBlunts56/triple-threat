@@ -12,7 +12,8 @@ export const inNet = ball => ball.y < RIM.height && ball.y > RIM.height - HOOP_N
 // The angle is steep enough that the ball drops into the target at SHOT.minEntry or more.
 // Pass `rimRadius` when the target is the centre of a rim: the arc is then steepened until
 // the ball also clears the front of that rim, which matters for lay-ups released low and close.
-export function solveShot(from, target, rimRadius = 0) {
+// `loft` is how much steeper than it need be the launch is, in radians: the same shot can be thrown flat or high.
+export function solveShot(from, target, rimRadius = 0, loft = 0) {
   const dx = target.x - from.x, dz = target.z - from.z;
   const d = Math.max(Math.hypot(dx, dz), 0.05);
   const h = target.y - from.y;
@@ -30,6 +31,7 @@ export function solveShot(from, target, rimRadius = 0) {
 
   const steepest = Math.tan(rad(SHOT.maxAngle));
   let tan = Math.max(Math.tan(rad(SHOT.minAngle)), Math.tan(rad(SHOT.minEntry)) + (2 * h) / d);
+  if (loft > 0) tan = Math.tan(Math.min(Math.atan(tan) + loft, rad(SHOT.maxAngle)));
   if (rimRadius > 0) {
     const room = BALL.radius + RIM.tube + SHOT.rimClear;
     while (tan < steepest && rimGap(tan) < room) tan *= 1.15;

@@ -246,7 +246,7 @@ function floor({ early = false } = {}) {
   if (!early) s.tempo = { clock: Infinity, wait: 0 };
   s.players.forEach((p, i) => at(s, p.id, -12 + (i % 5) * 0.8, p.team === 0 ? -6 : 6));
   giveBall(s, s.players[0]);
-  s.players[0].ai.heldT = 1; s.players[0].ai.had = true;
+  s.players[0].ai.heldT = 2; s.players[0].ai.had = true;
   return s;
 }
 const plan = s => { s.players.forEach(p => { p.ai.timer = 0; }); return aiIntents(s, DT); };
@@ -268,7 +268,7 @@ test('early in the shot clock only a great shooter with room takes the three', (
 test('the pass leans to the star and to a hot player, and away from a cold one', () => {
   // The handler (player 1) is covered; two team-mates are open, one a little nearer the hoop than the other.
   const pass = change => {
-    const s = floor(); giveBall(s, s.players[1]); s.players[1].ai.heldT = 1; s.players[1].ai.had = true; s.seed = 99;
+    const s = floor(); giveBall(s, s.players[1]); s.players[1].ai.heldT = 2; s.players[1].ai.had = true; s.seed = 99;
     at(s, 1, 6.5, 0); at(s, 6, 7.9, -0.6);
     at(s, 2, 7.6, 5); at(s, 0, 7.0, -5);          // player 2 is 0.5 m nearer the hoop than player 0
     change(s);
@@ -283,7 +283,7 @@ test('the pass leans to the star and to a hot player, and away from a cold one',
 });
 
 test('with the game on the line the ball goes to the star', () => {
-  const s = floor(); giveBall(s, s.players[1]); s.players[1].ai.heldT = 1; s.players[1].ai.had = true;
+  const s = floor(); giveBall(s, s.players[1]); s.players[1].ai.heldT = 2; s.players[1].ai.had = true;
   Object.assign(s, { quarter: CLOCK.quarters, gameClock: 10, score: [20, 21] });
   at(s, 1, 6.5, 0); at(s, 6, 7.9, -0.6);
   at(s, 0, 6, 5); at(s, 5, 7, 4.2);               // the star, with his defender on him

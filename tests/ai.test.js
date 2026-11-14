@@ -78,7 +78,7 @@ test('a handler with 3 s on the shot clock shoots even when covered and far out'
 test('a covered handler with an open teammate passes', () => {
   const s = live();
   put(s, 0, 4, 0); put(s, 3, 5, 0); put(s, 1, 8, -4);
-  assert.ok(run(s, 1.2, [0], st => st.ball.mode === 'pass'));
+  assert.ok(run(s, 2.4, [0], st => st.ball.mode === 'pass'));   // he keeps it a moment first
   assert.ok(s.ball.vz < 0, 'pass should head toward the open teammate');
 });
 

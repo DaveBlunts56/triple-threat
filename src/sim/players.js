@@ -229,42 +229,68 @@ export function releaseShot(state, player) {
     return { shooter: player.id, defender, blocked: true };
   }
 
-  // A green release always goes in, clean, and draws no random number to find out. Other makes sometimes rattle in.
+  // A green release always goes in, clean, and draws no random number to find out. Other makes go in every way a
+  // shot can: clean, off the rim, rolling round it, or off the glass. Some misses sit on the rim before they fall out.
   const made = green || rand(state) < makeChance(state, player);
   streak(state, player, made);
-  launchShot(state, player, made, isThree(player.x, player.z, sign) ? 3 : 2, made && !green && rand(state) < SHOT.rattle);
+  const dice = made && green ? 1 : rand(state);
+  const how = !made ? (dice < SHOT.tease ? 'tease' : 'clean') : green ? 'clean' : ['clean', 'rattle', 'roll', 'bank'][SHOT.ways.findIndex(share => dice < share)];
+  launchShot(state, player, made, isThree(player.x, player.z, sign) ? 3 : 2, how);
   return { shooter: player.id, defender, blocked: false };
 }
 
-// A launch from where the ball is that bounces on the rim of the hoop at `sign` and then goes in, or null if none of
-// the aims tried does. Each aim's flight is played ahead with the ball's own physics.
-function rimIn(state, ball, sign) {
+// A number from 0 to 1 that differs from shot to shot, worked out from where and when the shot is taken: it draws
+// nothing from the match's dice, so a green release still draws none.
+function vary(state, player, salt) {
+  const v = Math.sin(state.time * 127.1 + player.x * 311.7 + player.z * 74.7 + salt * 19.19) * 43758.5453;
+  return v - Math.floor(v);
+}
+
+// A launch from where the ball is, at the hoop at `sign`, that does what `how` asks, or null if none of the aims tried
+// does. Each aim's flight is played ahead with the ball's own physics. 'rattle': it comes off the rim and drops (a
+// ball that only clips the rim on its way down does not count). 'roll': it bounces on the rim two times or more
+// before it drops. 'bank': it goes in off the backboard. 'tease': it bounces on the rim twice or more and stays out.
+function findShot(state, ball, sign, how) {
   for (let i = 0; i < SHOT.rattleTries; i++) {
-    const target = rimCentre(sign);
-    const off = SHOT.rattleMin + rand(state) * (SHOT.rattleMax - SHOT.rattleMin), angle = rand(state) * 2 * Math.PI;
-    target.x += off * Math.cos(angle); target.z += off * Math.sin(angle);
-    const launch = solveShot(ball, target), flight = { x: ball.x, y: ball.y, z: ball.z, ...launch };
-    for (let step = 0, touched = -1; step < 300 && flight.y > RIM.height - 1; step++) {
-      const events = stepBall(flight, DT);
-      if (events.hitRim && touched < 0) touched = step;
-      if (!events.scored) continue;
-      if (events.scored === sign && touched >= 0 && step - touched >= SHOT.rattleSteps) return launch;
-      break;
+    const target = rimCentre(sign), turn = rand(state) * 2 * Math.PI, loft = rand(state) * SHOT.loft;
+    if (how === 'bank') {
+      // A spot on the glass above the rim, a little to either side.
+      Object.assign(target, { x: sign * (BOARD.x - BALL.radius), y: RIM.height + SHOT.bankLow + rand(state) * (SHOT.bankHigh - SHOT.bankLow), z: Math.cos(turn) * SHOT.bankWide });
+    } else {
+      const off = SHOT.rattleMin + rand(state) * (SHOT.rattleMax - SHOT.rattleMin);
+      target.x += off * Math.cos(turn); target.z += off * Math.sin(turn);
     }
+    const launch = solveShot(ball, target, 0, loft), flight = { x: ball.x, y: ball.y, z: ball.z, ...launch };
+    let first = -1, last = -9, bounces = 0, board = false, scored = false, step = 0;
+    for (; step < 400 && flight.y > RIM.height - 1; step++) {
+      const events = stepBall(flight, DT);
+      if (events.hitBoard) board = true;
+      if (events.hitRim) { if (first < 0) first = step; if (step - last > 2) bounces++; last = step; }   // touches on steps apart are separate bounces
+      if (events.scored) { scored = events.scored === sign; break; }
+    }
+    const good = how === 'tease' ? !scored && bounces >= SHOT.rollBounces
+      : scored && (how === 'bank' ? board : how === 'roll' ? bounces >= SHOT.rollBounces : first >= 0 && step - first >= SHOT.rattleSteps);
+    if (good) return launch;
   }
   return null;
 }
 
-// Throws the ball from where it is at the hoop `player` attacks: on target if `made`, otherwise nudged off it. A made
-// shot asked to `rattle` comes off the rim on its way in, if such a shot can be found from there.
-export function launchShot(state, player, made, value, rattle = false) {
-  const { ball } = state;
-  const target = rimCentre(attackSign(player.team));
-  if (!made) {
+// Throws the ball from where it is at the hoop `player` attacks: on target if `made`, otherwise nudged off it. No two
+// shots fly alike: each is thrown a little flatter or higher than the last. A made shot is 'clean', or is asked to
+// 'rattle', 'roll' on the rim or 'bank' in, if such a shot can be found from there; a miss may be asked to 'tease':
+// to sit on the rim and fall out.
+export function launchShot(state, player, made, value, how = 'clean') {
+  const { ball } = state, sign = attackSign(player.team);
+  const target = rimCentre(sign);
+  let launch = null;
+  if (how !== 'clean') launch = findShot(state, ball, sign, how) ?? (made && how !== 'rattle' ? findShot(state, ball, sign, 'rattle') : null);
+  if (!launch && !made) {
     const off = SHOT.missMin + rand(state) * (SHOT.missMax - SHOT.missMin), angle = rand(state) * 2 * Math.PI;
     target.x += off * Math.cos(angle); target.z += off * Math.sin(angle);
   }
-  Object.assign(ball, (made && rattle && rimIn(state, ball, attackSign(player.team))) || solveShot(ball, target, made ? RIM.radius : 0));
+  // A lay-up is thrown as it must be to clear the rim; from further out there is room to throw it higher.
+  const room = Math.min(1, Math.max(0, (dist(ball, target) - SHOT.loftFrom) / SHOT.loftFrom));
+  Object.assign(ball, launch ?? solveShot(ball, target, made ? RIM.radius : 0, vary(state, player, 1) * SHOT.loft * room));
   ball.shooter = player.id;
   ball.shotValue = value;
   letGo(state, player, 'shot');
@@ -272,6 +298,7 @@ export function launchShot(state, player, made, value, rattle = false) {
 
 export function passBall(state, player, intent) {
   const { ball } = state;
+  state.passer = player.id;   // who threw the last pass, for whoever catches it
   const mates = state.players.filter(m => m.team === player.team && m !== player);
   const len = Math.hypot(intent.moveX, intent.moveZ);
   // With a direction held, the teammate most in line with it; otherwise the nearest.

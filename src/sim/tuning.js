@@ -14,7 +14,7 @@ export const BALL = f({ radius: 0.12, gravity: 9.81, floorBounce: 0.75, rimBounc
 // most of a ball's sideways speed. exit: the fastest a ball drops out of its bottom, in metres a second.
 export const HOOP_NET = f({ depth: 0.45, slow: 0.015, exit: 3.5 });
 
-export const PLAYER = f({ radius: 0.3, run: 5, sprint: 7, accel: 30, jumpV: 4, shotJumpV: 2.2, releaseHeight: 2.3, reach: 2.4, pickupRadius: 0.7, handHeight: 1, carryDist: 0.4, dribbleRate: 2, jumpCarry: 0.2, dribbleSpeed: 0.85, gatherDist: 1.5 });   // shotJumpV: the smaller jump of a shot; jumpCarry: share of running speed kept when jumping; dribbleSpeed: share of top speed with the ball; gatherDist: metres a player may move after picking up his dribble
+export const PLAYER = f({ radius: 0.3, run: 4.5, sprint: 6.3, accel: 30, jumpV: 4, shotJumpV: 2.2, releaseHeight: 2.3, reach: 2.4, pickupRadius: 0.7, handHeight: 1, carryDist: 0.4, dribbleRate: 2, jumpCarry: 0.2, dribbleSpeed: 0.85, gatherDist: 1.5 });   // shotJumpV: the smaller jump of a shot; jumpCarry: share of running speed kept when jumping; dribbleSpeed: share of top speed with the ball; gatherDist: metres a player may move after picking up his dribble
 
 export const SHOT = f({
   nearChance: 0.85, farChance: 0.15, farDist: 8, minChance: 0.05,
@@ -29,7 +29,14 @@ export const SHOT = f({
   // aimed between rattleMin and rattleMax metres off the rim's centre, trying up to rattleTries aims for one that
   // goes in at least rattleSteps steps after it first touches the rim (a ball that only clips the rim on its way down
   // does not count). Few aims do, fewer from far out, so some of those asked swish after all.
-  rattle: 0.35, rattleMin: 0.07, rattleMax: 0.17, rattleSteps: 6, rattleTries: 40,
+  rattleMin: 0.07, rattleMax: 0.17, rattleSteps: 6, rattleTries: 40,
+  // No two shots fly alike. loft: the most a shot is thrown steeper than it need be, in radians; none of it nearer the
+  // hoop than loftFrom, all of it from twice that. ways: of the makes
+  // that are not green, the share that go in clean, then (running totals) off the rim, rolling round it, and off the
+  // glass. rollBounces: bounces on the rim that make a roll. bankLow, bankHigh, bankWide: where on the glass a bank
+  // shot is aimed: metres above the rim, and to either side of its middle. tease: the share of misses that sit on the
+  // rim before they fall out.
+  loft: 0.2, loftFrom: 2.5, ways: f([0.3, 0.62, 0.84, 1]), rollBounces: 2, bankLow: 0.2, bankHigh: 0.55, bankWide: 0.25, tease: 0.25,
   minRelease: 0.6,    // a shot is never released closer to the rim centre than this
   insideDist: 3,      // a shot from nearer the hoop than this is taken on his inside rating
   greenFull: 4, greenNone: 12,   // metres from the hoop: the green window is full width up to the first and gone at the second
@@ -72,6 +79,8 @@ export const AI = f({
   shootAt: 60,            // he takes an open shot only if his rating for it is at least this (unless the clock is short)
   earlyThree: 88, roomFor: 3,   // early in the shot clock a three is taken only by a shooter this good with this much room
   roomGap: 0.2,          // per 10 points of his rating for the shot: how much less room he needs to take it
+  passAfter: 1.4,         // seconds a player keeps a ball he has caught before he passes it on, unless to a man at the rim
+  noReturn: 4,            // seconds in which he does not pass back to the man who passed to him, unless that man has cut
   goTo: 0.5,              // how often, once the offence has been run, a handler without a shot gives the ball to the star
   lean: 1.5, shy: 0.6,    // how much a pass leans to the star and to a hot hand, and away from a cold one
   shooterGap: 0.06, quickGap: 0.04, offShooterGap: 0.08,   // per 10 points: closer on a shooter, further off a quick man, on the ball and off it
@@ -172,7 +181,7 @@ export const FOUL = f({
   reachFront: 0.12, reachBack: 0.3,          // chance a failed steal is a foul
   shooting: 0.25, contactDist: 0.8,          // chance, and how close an airborne defender must be at release
   charge: 0.6, block: 0.15,                  // chance when a sprinting handler hits a set / a moving defender
-  chargeSpeed: 5.5, setTime: 0.4, setSpeed: 0.5, cooldown: 1,
+  chargeSpeed: 5, setTime: 0.4, setSpeed: 0.5, cooldown: 1,
   limit: 3, bonus: 3,                        // personal fouls to foul out; team foul that starts the bonus
 });
 

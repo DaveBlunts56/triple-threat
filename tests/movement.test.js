@@ -17,19 +17,20 @@ function run(s, seconds, intents) {
 }
 const speed = p => Math.hypot(p.vx, p.vz);
 
-test('reaches run speed 5 and sprint speed 7', () => {
+test('reaches run speed 4.5 and sprint speed 6.3', () => {
   const s = spread();
   run(s, 1, intentsFor(0, { moveZ: 1 }));
-  assert.ok(Math.abs(speed(s.players[0]) - 5) < 0.05);
+  assert.ok(Math.abs(speed(s.players[0]) - 4.5) < 0.05);
   run(s, 1, intentsFor(0, { moveZ: 1, sprint: true }));
-  assert.ok(Math.abs(speed(s.players[0]) - 7) < 0.05);
+  assert.ok(Math.abs(speed(s.players[0]) - 6.3) < 0.05);
+  assert.deepEqual([PLAYER.run, PLAYER.sprint], [4.5, 6.3]);
 });
 
 test('diagonal input is no faster than straight', () => {
   const s = spread();
   run(s, 1, intentsFor(0, { moveX: 1, moveZ: 1 }));
-  assert.ok(speed(s.players[0]) <= 5.05, `speed ${speed(s.players[0])}`);
-  assert.ok(speed(s.players[0]) >= 4.9);
+  assert.ok(speed(s.players[0]) <= PLAYER.run + 0.05, `speed ${speed(s.players[0])}`);
+  assert.ok(speed(s.players[0]) >= PLAYER.run - 0.1);
 });
 
 test('stops when input is released', () => {

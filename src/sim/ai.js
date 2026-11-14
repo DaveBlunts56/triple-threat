@@ -48,7 +48,7 @@ const passTo = (ai, p, mate) => {
 // a fast break is taken whenever it comes.)
 function patience(state) {
   const { tempo } = state;
-  if (state.shotClock > tempo.clock + 0.5) tempo.wait = AI.patience[0] + rand(state) * (AI.patience[1] - AI.patience[0]);
+  if (state.shotClock > tempo.clock + 0.5) { tempo.wait = AI.patience[0] + rand(state) * (AI.patience[1] - AI.patience[0]); tempo.fed = false; }
   tempo.clock = state.shotClock;
   return tempo.wait;
 }
@@ -99,6 +99,11 @@ function planWithBall(state, p) {
   // Once the ball is in the front court it is not passed back over the centre line.
   const legal = m => !(state.frontcourt && sign * m.x < PLAYER.radius + 0.5);
   const reaches = m => m && m !== p && legal(m) && dist(m, p) <= AI.passRange && laneClear(state, p, m, untouchable, PLAY.feedWidth);
+  // The ball is not thrown about for its own sake. Whoever has just caught a pass keeps it a moment before he moves
+  // it on (a man at the rim apart), and does not give it straight back to the man it came from unless that man has
+  // cut to the hoop.
+  const cutter = state.cut[p.team]?.id, mayPass = ai.heldT >= AI.passAfter;
+  const back = m => m.id === ai.from && state.time - ai.gotAt < AI.noReturn && m.id !== cutter;
   // The room a player needs to shoot from where he stands: the better he shoots from there the less it is, so a shot
   // creator shoots over a defender and a sharpshooter needs only a step.
   const roomOf = m => AI.openDist * drop(rated(state, m, zoneOf(m)), AI.roomGap);
@@ -120,7 +125,7 @@ function planWithBall(state, p) {
   // shot clock the ball is moved round the outside, not thrown in to a man near the hoop: that pass is made once the
   // offence has been run.
   const free = m => space(state, m) > Math.min(AI.openDist, roomOf(m));
-  const open = mates(state, p).filter(m => free(m) && legal(m) && dist(m, p) <= AI.passRange
+  const open = mates(state, p).filter(m => free(m) && legal(m) && !back(m) && (mayPass || dist(m, hoop) < AI.layupDist) && dist(m, p) <= AI.passRange
     && (pressured || dist(m, hoop) < toHoop) && !(early && dist(m, hoop) < AI.insideDist) && laneClear(state, p, m, untouchable));
   const star = state.players.find(m => m.team === p.team && m.person === starOf(state, p.team));
   // Of the open men the pass leans to the star and to a hot hand, and away from a cold one.
@@ -128,7 +133,9 @@ function planWithBall(state, p) {
   const best = () => open.reduce((a, b) => (dist(b, hoop) / pull(b) < dist(a, hoop) / pull(a) ? b : a));
   // With the game on the line the ball goes to the star, if it can reach him. And once the offence has been run, a
   // handler with no shot of his own often gives it to the star to make one.
-  if (settled && reaches(star) && (sit.clutch || (!waits && !early && rand(state) < AI.goTo))) passTo(ai, p, star);
+  // (Once in a possession: after that the star is expected to make something of it.)
+  const feed = !waits && !early && mayPass && !state.tempo.fed && !back(star ?? p) && rand(state) < AI.goTo;
+  if (settled && reaches(star) && (sit.clutch || feed)) { passTo(ai, p, star); state.tempo.fed = true; }
   // Usually to the best of the open men, sometimes to another, so that he is not read.
   else if (settled && !waits && open.length) passTo(ai, p, open.length > 1 && rand(state) < AI.vary ? open[Math.floor(rand(state) * open.length)] : best());
   // Nothing on: in a play he takes it where the play says; otherwise to the top, which his team-mates leave to him.
@@ -354,7 +361,12 @@ export function aiIntents(state, dt) {
     p.ai.timer -= dt;
     // Getting the ball is not something you take a moment to notice.
     const has = state.ball.holder === p.id;
-    if (has && !p.ai.had) p.ai.timer = 0;
+    if (has && !p.ai.had) {
+      p.ai.timer = 0;
+      // Whom the ball came from, if a team-mate passed it, and when: he is not passed straight back to.
+      const passer = state.players[state.passer];
+      p.ai.from = passer && passer !== p && passer.team === p.team ? passer.id : null; p.ai.gotAt = state.time;
+    }
     // Nor is a pass from a teammate: the receiver runs onto it at once.
     const ownPass = state.ball.mode === 'pass' && state.lastTouch === p.team;
     if (ownPass && !p.ai.sawPass) p.ai.timer = 0;

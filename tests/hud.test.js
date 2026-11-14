@@ -435,8 +435,21 @@ test('the page has the scorebug: a logo, a crest, a name, fouls, timeouts and a 
   assert.equal((html.match(/<svg viewBox="0 0 40 40"/g) ?? []).length, 2, 'a crest for each team');
 });
 
-test('the name under your player says HOT or COLD beside it', () => {
-  const doc = fakeDoc(), hud = createHud(doc), s = createMatch();
-  const tag = streak => { s.rosters[0][0].streak = streak; hud.update(s, 'webgl2', { paused: false, pick: null, feet: { x: 10, y: 20 } }); return doc.els.nameTag.textContent; };
-  assert.deepEqual([tag(0), tag(3), tag(-3), tag(2)], ['Cross', 'Cross · HOT', 'Cross · COLD', 'Cross']);
+test('under a player there is a star if he is his team\'s star, a flame if he is hot and an ice cube if he is cold; nothing under anyone else, or outside play', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(1, 5), e = doc.els;
+  const spots = s.players.map((_, i) => ({ x: 100 + i * 10, y: 300 }));
+  const show = on => hud.update(s, 'webgl2', { paused: false, pick: null, feet: { x: 10, y: 20 }, spots: on ? spots : null });
+  s.rosters[0][1].streak = 3; s.rosters[1][2].streak = -3; s.rosters[0][0].streak = 3;
+  show(true);
+  assert.equal(e.nameTag.textContent, 'Cross');                                   // the name alone: the icons say the rest
+  assert.deepEqual([0, 1, 5, 7].map(i => e[`tag${i}`].className), ['tag star hot', 'tag hot', 'tag star', 'tag cold']);
+  assert.deepEqual([0, 1, 2, 5, 7].map(i => e[`tag${i}`].hidden), [false, false, true, false, false]);
+  assert.deepEqual([e.tag1.style.left, e.tag1.style.top], ['110px', '300px']);
+  s.rosters[0][1].streak = 0; show(true);
+  assert.equal(e.tag1.hidden, true);
+  show(false);
+  assert.ok([0, 5, 7].every(i => e[`tag${i}`].hidden), 'icons are shown outside play');
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  for (let i = 0; i < 10; i++) assert.match(html, new RegExp(`id="tag${i}"`));
+  for (const kind of ['star', 'hot', 'cold']) assert.match(html, new RegExp(`\\.tag\\.${kind}::`), kind);
 });

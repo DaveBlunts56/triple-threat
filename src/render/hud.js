@@ -96,6 +96,7 @@ const PAUSE_WORDS = { resume: 'Resume', subs: 'Substitutions', controls: 'Contro
   stay: 'No, keep playing', leave: 'Yes, quit' };
 const PAUSE_HINTS = { main: '↑ ↓ choose · Enter select · Esc resume', settings: '↑ ↓ choose · Enter change · Esc back',
   subs: '1 to 8 swap two players · A automatic substitutions · Esc back', controls: 'Esc back', quit: '↑ ↓ choose · Enter select · Esc back' };
+const TAG_SLOTS = 10;     // tag0 to tag9 on the page: one under each player
 const PLAY_SLOTS = 10;    // playRow0 to playRow9 on the page
 const PAUSE_SLOTS = 5;   // pauseRow0 to pauseRow4 on the page
 
@@ -158,10 +159,20 @@ export function createHud(doc) {
       // His surname under the player you control, at the place on the page the game says his feet are.
       hide('nameTag', !ui.feet);
       if (ui.feet) {
-        const me = personOf(state, state.players[state.controlled]), heat = heatOf(me);
-        set('nameTag', surname(me) + (heat ? ` · ${heat.toUpperCase()}` : ''));   // HOT or COLD beside his name
+        set('nameTag', surname(personOf(state, state.players[state.controlled])));
         style('nameTag', 'left', pixels(ui.feet.x));
         style('nameTag', 'top', pixels(ui.feet.y));
+      }
+      // Under each player, at the place on the page the game says his feet are: a star for his team's star, a flame
+      // if he is hot, an ice cube if he is cold. Nothing for anyone else.
+      for (let i = 0; i < TAG_SLOTS; i++) {
+        const player = state.players[i], at = player && ui.spots?.[i], person = player && personOf(state, player);
+        const star = person && starOf(state, player.team) === player.person, heat = person && heatOf(person);
+        hide(`tag${i}`, !(at && (star || heat)));
+        if (!at || !(star || heat)) continue;
+        classed(`tag${i}`, `tag${star ? ' star' : ''}${heat ? ` ${heat}` : ''}`);
+        style(`tag${i}`, 'left', pixels(at.x));
+        style(`tag${i}`, 'top', pixels(at.y));
       }
       bar('energy', personOf(state, state.players[state.controlled]).energy);
       set('quarter', periodLabel(state.quarter));

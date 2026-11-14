@@ -12,7 +12,7 @@ function scene() {
   s.phase = 'live'; s.playWait = [Infinity, Infinity];
   s.players.forEach((p, i) => at(s, p.id, -12 + (i % 5) * 0.8, p.team === 0 ? -6 : 6));
   giveBall(s, s.players[0]);
-  s.players[0].ai.heldT = 1; s.players[0].ai.had = true;
+  s.players[0].ai.heldT = 2; s.players[0].ai.had = true;
   return s;
 }
 const again = s => { s.players[0].ai.timer = 0; return ai(s)[0]; };

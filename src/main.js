@@ -137,6 +137,8 @@ if (view) {
     // Where the feet of the player you control are on the page, for his name; nothing before and after a match.
     const me = state.players[state.controlled];
     game.feet = inPlay(state) ? view.toScreen(me.x, 0, me.z) : null;
+    // And where everyone's feet are, for the star, the flame and the ice cube under those who have one.
+    game.spots = inPlay(state) ? state.players.map(p => view.toScreen(p.x, 0, p.z)) : null;
     const m = shotMeter(state);
     game.meter = m && { ...m, head: view.toScreen(m.x, SHOT_METER.high, m.z) };
     game.missing = view.missing;
