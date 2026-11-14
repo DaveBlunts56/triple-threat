@@ -44,7 +44,7 @@ export function rosterLine(state, row, picked) {
   const person = state.rosters[0][row];
   const fouls = `${person.fouls} foul${person.fouls === 1 ? '' : 's'}`;
   const where = onCourt(state, 0).includes(row) ? `on court · ${fouls}` : person.fouls >= state.foulLimit ? 'fouled out' : `bench · ${fouls}`;
-  return `${row + 1} · ${person.position} · ${person.name} · No. ${person.number} · ${where}${picked ? ' · selected' : ''}`;
+  return `${row + 1} · ${person.position} · ${person.name} · No. ${person.number} · ${person.role} ${overall(person)} · ${where}${picked ? ' · selected' : ''}`;
 }
 
 // The player you control: surname, position, number.
@@ -70,8 +70,11 @@ const MENU_WORDS = { play: 'Play', teams: 'Teams', controls: 'Controls', setting
 const MODE_WORDS = { 3: 'Mode: 3 on 3', 5: 'Mode: 5 on 5' };
 const MENU_HINTS = { main: '↑ ↓ choose · Enter select', settings: '↑ ↓ choose · Enter change · Esc back', teams: 'Esc back', controls: 'Esc back' };
 const MENU_SLOTS = 5;   // menuRow0 to menuRow4 on the page
-const TEAM_LINES = ROSTER.teams.map((_, team) => ROSTER.positions.map((position, row) =>
-  `${position} · ${ROSTER.numbers[team][row]} · ${ROSTER.names[team][row]}`));
+// A player's line on the Teams panel: his overall, his name (the team's star marked) and what he is for.
+export const teamLine = (state, team, row) => {
+  const person = state.rosters[team][row];
+  return `${overall(person)} · ${person.name}${starOf(state, team) === row ? ' ★' : ''} · ${person.role}`;
+};
 
 const CAMERA_WORDS = { '2k': 'Camera: 2K', broadcast: 'Camera: Broadcast' };
 
@@ -186,9 +189,9 @@ export function createHud(doc) {
         hide('menuTeams', menu.panel !== 'teams');
         hide('menuControls', menu.panel !== 'controls');
         set('menuHint', MENU_HINTS[menu.panel]);
-        TEAM_LINES.forEach((lines, team) => {
+        state.rosters.forEach((roster, team) => {
           set(`teamName${team}`, ROSTER.teams[team]);
-          lines.forEach((line, row) => set(`teamPlayer${team}${row}`, line));
+          roster.forEach((_, row) => set(`teamPlayer${team}${row}`, teamLine(state, team, row)));
         });
       }
 

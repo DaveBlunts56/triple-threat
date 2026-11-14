@@ -207,8 +207,10 @@
   /* The settings say their value too, so they are smaller: Automatic substitutions: Off fits across the disc. */
   #menuList.settings li { font-size: calc(var(--d) * .045); white-space: nowrap; }
   /* Teams and Controls: smaller words, inside the disc. */
-  #menuTeams, #menuControls { font-size: calc(var(--d) * .03); text-shadow: 0 2px 0 rgba(0, 20, 60, .7), 0 0 10px rgba(0, 20, 60, .6); }
-  #menuTeams { display: flex; gap: calc(var(--d) * .05); text-align: left; }
+  #menuTeams { font-size: calc(var(--d) * .0235); }   /* overall, name and role for eight a side, two teams across the disc */
+  #menuControls { font-size: calc(var(--d) * .03); }
+  #menuTeams, #menuControls { text-shadow: 0 2px 0 rgba(0, 20, 60, .7), 0 0 10px rgba(0, 20, 60, .6); }
+  #menuTeams { display: flex; gap: calc(var(--d) * .035); text-align: left; }
   #menuTeams h2 { margin: 0 0 calc(var(--d) * .015); font-size: calc(var(--d) * .031); font-weight: 800; font-style: italic;
                   letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
   #menuTeams .home { color: #a9c8ff; }

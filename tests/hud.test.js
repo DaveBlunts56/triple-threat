@@ -100,10 +100,10 @@ test('the free-throw box shows which attempt it is and where the marker is', () 
 
 test('the pause screen lists your eight with where they are, their fouls and what is queued', () => {
   const s = createMatch(); s.rosters[0][3].fouls = 3; s.rosters[0][1].fouls = 1;
-  assert.equal(rosterLine(s, 0, false), '1 · PG · Jalen Cross · No. 4 · on court · 0 fouls');
-  assert.equal(rosterLine(s, 1, true), '2 · SF · Theo Marsh · No. 7 · on court · 1 foul · selected');
-  assert.equal(rosterLine(s, 3, false), '4 · SG · Sam Okoro · No. 15 · fouled out');
-  assert.equal(rosterLine(s, 4, false), '5 · PF · Andre Volkov · No. 23 · bench · 0 fouls');
+  assert.equal(rosterLine(s, 0, false), '1 · PG · Jalen Cross · No. 4 · Playmaker 88 · on court · 0 fouls');
+  assert.equal(rosterLine(s, 1, true), '2 · SF · Theo Marsh · No. 7 · Slasher 82 · on court · 1 foul · selected');
+  assert.equal(rosterLine(s, 3, false), '4 · SG · Sam Okoro · No. 15 · Sharpshooter 83 · fouled out');
+  assert.equal(rosterLine(s, 4, false), '5 · PF · Andre Volkov · No. 23 · Stretch big 80 · bench · 0 fouls');
   assert.equal(subNote(s), 'Automatic substitutions on. No swap queued.');
   s.autoSubs[0] = false; s.subQueue = [{ team: 0, out: 1, in: 4 }];
   assert.equal(subNote(s), 'Automatic substitutions off. Queued: Marsh off, Volkov on.');
@@ -114,7 +114,7 @@ test('the pause screen is filled in with the roster, energy and the selected row
   s.rosters[0][4].energy = 0.5;
   hud.update(s, 'webgl2', { paused: true, pick: 4 });
   assert.deepEqual([doc.els.roster4.textContent, doc.els.rosterEnergy4.value, doc.els.subNote.textContent],
-    ['5 · PF · Andre Volkov · No. 23 · bench · 0 fouls · selected', 0.5, 'Automatic substitutions on. No swap queued.']);
+    ['5 · PF · Andre Volkov · No. 23 · Stretch big 80 · bench · 0 fouls · selected', 0.5, 'Automatic substitutions on. No swap queued.']);
 });
 
 test('a label names the player you control: surname, position, number', () => {
@@ -215,7 +215,7 @@ test('the start menu shows its rows with the bar on the selected one, and announ
   assert.deepEqual([e.menuRow1.textContent, e.announce.textContent], ['Mode: 5 on 5', 'Mode: 5 on 5']);
 });
 
-test('the Teams panel lists both teams by position, number and name', () => {
+test('the Teams panel lists both teams by overall, name and role, with each team\'s star marked', () => {
   const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
   let said = '', writes = 0;                                                            // the live region counts what is written to it
   e.announce = { hidden: false, style: {}, get textContent() { return said; }, set textContent(v) { said = v; writes++; } };
@@ -229,7 +229,9 @@ test('the Teams panel lists both teams by position, number and name', () => {
   assert.ok([0, 1, 2, 3, 4].every(i => e[`menuRow${i}`].hidden));
   assert.deepEqual([e.teamName0.textContent, e.teamName1.textContent], ['Harbor City Waves', 'Red Rock Scorpions']);
   assert.deepEqual([e.teamPlayer00.textContent, e.teamPlayer04.textContent, e.teamPlayer12.textContent, e.teamPlayer07.textContent, e.teamPlayer15.textContent],
-    ['PG · 4 · Jalen Cross', 'PF · 23 · Andre Volkov', 'C · 10 · Viktor Lund', 'C · 32 · Idris Kane', 'PG · 2 · Rafael Ortiz']);
+    ['88 · Jalen Cross ★ · Playmaker', '80 · Andre Volkov · Stretch big', '83 · Viktor Lund · Post scorer', '76 · Idris Kane · Rebounder', '78 · Rafael Ortiz · Lockdown guard']);
+  for (const team of [0, 1]) assert.equal([0, 1, 2, 3, 4, 5, 6, 7].filter(row => e[`teamPlayer${team}${row}`].textContent.includes('★')).length, 1, 'one star a team');
+  assert.equal(e.teamPlayer10.textContent, '89 · Kai Mercer ★ · Shot creator');
   menuKey(menu, 'Escape'); show();
   assert.deepEqual([e.menuTeams.hidden, e.announce.textContent, writes], [true, 'Teams', moved + 2]);   // closing it too
   show();
@@ -389,9 +391,9 @@ test('the pause list has a line for each of your eight, the bench of five a side
   const doc = fakeDoc(), hud = createHud(doc), s = createMatch(1, 5);
   s.phase = 'live';
   hud.update(s, 'webgl2', { paused: true, pick: 6 });
-  assert.equal(rosterLine(s, 4, false), '5 · PF · Andre Volkov · No. 23 · on court · 0 fouls');
+  assert.equal(rosterLine(s, 4, false), '5 · PF · Andre Volkov · No. 23 · Stretch big 80 · on court · 0 fouls');
   assert.deepEqual([doc.els.roster5.textContent, doc.els.roster6.textContent, doc.els.roster7.textContent],
-    ['6 · PG · Marcus Bell · No. 1 · bench · 0 fouls', '7 · SF · Noah Vance · No. 13 · bench · 0 fouls · selected', '8 · C · Idris Kane · No. 32 · bench · 0 fouls']);
+    ['6 · PG · Marcus Bell · No. 1 · Shot creator 78 · bench · 0 fouls', '7 · SF · Noah Vance · No. 13 · Lockdown wing 77 · bench · 0 fouls · selected', '8 · C · Idris Kane · No. 32 · Rebounder 76 · bench · 0 fouls']);
 });
 
 // ---------- the scorebug ----------
