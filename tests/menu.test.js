@@ -6,6 +6,8 @@ import { createMatch } from '../src/sim/state.js';
 import { aiIntents } from '../src/sim/ai.js';
 import { step } from '../src/sim/step.js';
 import { DT } from '../src/sim/tuning.js';
+import { DEFAULT_PREFS } from '../src/prefs.js';
+import { KEY_ROWS, createKeys } from '../src/keys.js';
 
 const keys = (menu, ...codes) => codes.map(code => menuKey(menu, code));
 const key = (type, code) => Object.assign(new Event(type, { cancelable: true }), { code });
@@ -13,7 +15,7 @@ const key = (type, code) => Object.assign(new Event(type, { cancelable: true }),
 test('the main list is Play, Mode, Teams, Controls, Settings, with the bar on Play and the mode on 3 on 3', () => {
   const m = createMenu();
   assert.deepEqual([m.panel, m.row, m.autoSubs, m.size, menuRows(m)], ['main', 0, true, 3, ['play', 'mode', 'teams', 'controls', 'settings']]);
-  assert.deepEqual(MENU.settings, ['quality', 'autoSubs', 'camera', 'difficulty', 'quarter']);
+  assert.deepEqual(MENU.settings, ['quality', 'autoSubs', 'camera', 'difficulty', 'quarter', 'keys']);
 });
 
 test('the bar moves down and up by arrows or W and S, and wraps at both ends', () => {
@@ -35,7 +37,7 @@ test('Enter or Space on Play asks for the match to start and changes nothing', (
 });
 
 test('Teams, Controls and Settings open inside the menu, and Esc or Backspace go back to the entry that opened them', () => {
-  for (const [row, panel, rows] of [[2, 'teams', []], [3, 'controls', []], [4, 'settings', ['quality', 'autoSubs', 'camera', 'difficulty', 'quarter']]]) {
+  for (const [row, panel, rows] of [[2, 'teams', []], [3, 'controls', []], [4, 'settings', MENU.settings]]) {
     for (const back of ['Escape', 'Backspace']) {
       const m = createMenu(); m.row = row;
       assert.equal(menuKey(m, 'Enter'), null);
@@ -70,7 +72,8 @@ test('in Settings, Enter on Quality asks for the quality switch and Enter on Aut
   keys(m, 'ArrowDown'); assert.equal(m.minutes, 3);
   keys(m, 'Enter'); assert.equal(m.minutes, 5);                                         // Quarter length steps through 3, 5, 8, 12
   keys(m, 'Enter', 'Enter', 'Enter'); assert.equal(m.minutes, 3);                       // and round again
-  keys(m, 'ArrowDown'); assert.equal(m.row, 0);                                         // five rows: it wraps
+  keys(m, 'ArrowDown'); assert.equal(MENU.settings[m.row], 'keys');                     // the last row
+  keys(m, 'ArrowDown'); assert.equal(m.row, 0);                                         // and it wraps
 });
 
 test('pointing with the mouse selects a row the panel has, and no other', () => {
@@ -83,8 +86,8 @@ test('pointing with the mouse selects a row the panel has, and no other', () => 
 test('the mouse acts on a row only before the match, and only on a row the panel shown has', () => {
   const game = { state: createMatch(7), menu: createMenu() };
   assert.deepEqual([0, 1, 2, 3, 4, 5].map(row => menuHasRow(game, row)), [true, true, true, true, true, false]);
-  game.menu.row = 4; menuKey(game.menu, 'Enter');                                       // Settings: five rows
-  assert.deepEqual([0, 1, 2, 3, 4, 5].map(row => menuHasRow(game, row)), [true, true, true, true, true, false]);
+  game.menu.row = 4; menuKey(game.menu, 'Enter');                                       // Settings: a row for each setting
+  assert.deepEqual([0, MENU.settings.length - 1, MENU.settings.length].map(row => menuHasRow(game, row)), [true, true, false]);
   menuKey(game.menu, 'Escape'); game.menu.row = 2; menuKey(game.menu, 'Enter');         // Teams: none
   assert.equal(menuHasRow(game, 0), false);
   menuKey(game.menu, 'Escape');
@@ -157,4 +160,43 @@ test('Play makes a match of the menu\'s size: ten players for 5 on 5, the same a
   const waiting = { state: createMatch(1), menu: createMenu() };                        // a match of the right size is not made again
   startFromMenu(waiting, keyboard, () => { throw new Error('made a match it did not need'); });
   assert.equal(waiting.state.players.length, 6);
+});
+
+// ---------- remembered choices and the Keys panel ----------
+
+test('the menu starts with the choices that were saved', () => {
+  const m = createMenu({ ...DEFAULT_PREFS, size: 5, difficulty: 'legend', minutes: 8, autoSubs: false });
+  assert.deepEqual([m.size, m.difficulty, m.minutes, m.autoSubs, m.panel, m.row], [5, 'legend', 8, false, 'main', 0]);
+});
+
+const toKeys = m => { m.row = 4; menuKey(m, 'Enter'); m.row = MENU.settings.indexOf('keys'); return menuKey(m, 'Enter'); };
+
+test('the Keys row of Settings opens the Keys panel, a row for every action and one to reset', () => {
+  const m = createMenu();
+  assert.equal(toKeys(m), null);
+  assert.deepEqual([m.panel, m.row, m.listening, menuRows(m)], ['keys', 0, false, KEY_ROWS]);
+});
+
+test('on the Keys panel a key is set, the page is told, and Escape goes back to Settings with the bar on Keys', () => {
+  const m = createMenu(), table = createKeys();
+  toKeys(m);
+  m.row = KEY_ROWS.indexOf('cross');
+  assert.deepEqual([menuKey(m, 'Enter', table), m.listening], [null, true]);
+  assert.equal(menuKey(m, 'KeyR', table), 'keys');
+  assert.equal(table.cross, 'KeyR');
+  assert.equal(menuKey(m, 'Escape', table), null);
+  assert.deepEqual([m.panel, MENU.settings[m.row]], ['settings', 'keys']);
+  assert.equal(menuKey(m, 'Escape', table), null);
+  assert.deepEqual([m.panel, m.row], ['main', 4]);
+});
+
+test('while the Keys panel waits for a key, Enter and Space start no match and the mouse moves nothing', () => {
+  const m = createMenu(), table = createKeys();
+  toKeys(m); m.row = 3; menuKey(m, 'Enter', table);
+  assert.deepEqual([menuKey(m, 'Enter', table), menuKey(m, 'Escape', table)], [null, null]);
+  assert.deepEqual([m.panel, m.listening, m.row], ['keys', false, 3]);
+  menuKey(m, 'Enter', table); menuPoint(m, 7);
+  assert.equal(m.row, 3);
+  assert.equal(menuKey(m, 'Space', table), 'keys');   // Space is set as the key
+  assert.equal(table.right, 'Space');
 });

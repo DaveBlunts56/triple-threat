@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createKeyboard } from '../src/input.js';
 import { emptyIntent } from '../src/sim/state.js';
+import { bind, createKeys } from '../src/keys.js';
 
 const key = (type, code) => Object.assign(new Event(type, { cancelable: true }), { code });
 function keyboard() {
@@ -130,4 +131,61 @@ test('the movement keys follow the camera: W runs up the screen whichever way th
   near(steer(keys(0, -1), { x: -1, z: 0 }), -1, 0);
   near(steer(keys(1, 0), { x: -1, z: 0 }), 0, -1);
   assert.equal(steer(keys(1, 0), { x: 1, z: 0 }).sprint, true);   // the other keys pass through
+});
+
+// ---------- keys that can be changed ----------
+
+function bound(change) {
+  const target = new EventTarget(), keys = createKeys();
+  change?.(keys);
+  const k = createKeyboard(target, keys), events = [];
+  const send = (type, code) => { const e = key(type, code); target.dispatchEvent(e); events.push(e); return e; };
+  return { k, keys, down: code => send('keydown', code), up: code => send('keyup', code) };
+}
+
+test('the five moves have keys of their own', () => {
+  const { k, down } = bound();
+  down('KeyJ'); down('KeyU');
+  const intent = k.intent();
+  assert.equal(intent.cross, true);
+  assert.equal(intent.fade, true);
+  assert.equal(intent.legs, false);
+  assert.equal(intent.back, false);
+  assert.equal(intent.stepBack, false);
+});
+
+test('an intent has every field an empty one has', () => {
+  const { k } = bound();
+  assert.deepEqual(Object.keys(k.intent()).sort(), Object.keys(emptyIntent()).sort());
+});
+
+test('a changed key acts and the old one no longer does', () => {
+  const { k, down, up } = bound(keys => bind(keys, 'shoot', 'KeyP'));
+  down('KeyP');
+  assert.equal(k.intent().shoot, true);
+  up('KeyP'); down('Space');
+  assert.equal(k.intent().shoot, false);
+});
+
+test('a key changed after the keyboard was made counts at once', () => {
+  const { k, keys, down } = bound();
+  bind(keys, 'cross', 'KeyR');
+  down('KeyR');
+  assert.equal(k.intent().cross, true);
+});
+
+test('only keys that do something are kept from the browser', () => {
+  const { down } = bound();
+  assert.equal(down('KeyJ').defaultPrevented, true);
+  assert.equal(down('KeyP').defaultPrevented, false);
+  assert.equal(down('KeyT').defaultPrevented, false);   // the page's own key, not the keyboard's
+});
+
+test('dropping by keyboard code drops a Shift key as the one key it is', () => {
+  const { k, down, up } = bound();
+  down('ShiftRight');
+  k.drop(['ShiftRight']);
+  assert.equal(k.intent().sprint, false);
+  up('ShiftRight'); down('ShiftLeft');
+  assert.equal(k.intent().sprint, true);
 });

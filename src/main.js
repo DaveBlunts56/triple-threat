@@ -14,6 +14,8 @@ import { createPauseMenu, inPlay, pauseKey, pauseHasRow, pausePoint, quitToMenu,
 import { createMenu, menuKey, menuPoint, menuHasRow, startFromMenu } from './menu.js';
 import { createPlayList, playListKey } from './playlist.js';
 import { createLife, stepLife } from './render/life.js';
+import { actionOf, createKeys, savedKeys } from './keys.js';
+import { readPrefs, storageOf, writePrefs } from './prefs.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
 const newMatch = size => createMatch(Date.now() % 1e6, size);   // size: 3 or 5 a side; three when not said
@@ -26,13 +28,17 @@ if (view) {
   const people = await loadPeople().catch(error => { console.warn('Players could not be loaded; using capsules.', error); return null; });
   const actors = createActors(view.scene, people);
   const hud = createHud(document);
-  const keyboard = createKeyboard(window);
+  // What was saved the last time, and the keys as they were left. Both are kept up to date and saved at every change.
+  const storage = storageOf(), prefs = readPrefs(storage);
+  const keys = createKeys(prefs.keys);
+  const keyboard = createKeyboard(window, keys);
   const quality = createQuality();
+  if (prefs.quality) { quality.level = prefs.quality; quality.settled = true; }   // a level you chose is yours: the game leaves it alone
   // pick: the roster row chosen first on the pause screen. quality: the level the game is drawn at, one of QUALITY.order.
   // meter: the shot meter and where its top is on the page, or null. menu: the start menu. pauseMenu: the pause menu.
   // camera: '2k', behind the team with the ball, or 'broadcast', the sideline view.
-  const game = { state: newMatch(), paused: false, pick: null, fps: 60, quality: quality.level, camera: '2k', meter: null, menu: createMenu(),
-    pauseMenu: createPauseMenu(), playList: createPlayList() };
+  const game = { state: newMatch(), paused: false, pick: null, fps: 60, quality: quality.level, camera: prefs.camera, meter: null, menu: createMenu(prefs),
+    pauseMenu: createPauseMenu(), playList: createPlayList(), keys };
   globalThis.game = game;   // handle for poking at the match from the browser console
 
   const pause = on => { game.playList.open = false; setPaused(game, keyboard, on); };   // the play list never stays up under the pause screen
@@ -43,7 +49,17 @@ if (view) {
     people?.setQuality(quality.level);
   };
 
-  const switchCamera = () => { game.camera = game.camera === '2k' ? 'broadcast' : '2k'; view.setCamera(game.camera); };
+  if (prefs.quality) showQuality();
+  // Keeps what the menus and the keys have just changed for the next time. `chose`: the quality was stepped by hand,
+  // which is the only way a level is remembered; one the game fell to by itself is not.
+  const remember = (chose = false) => {
+    const { size, difficulty, minutes, autoSubs } = game.menu;
+    Object.assign(prefs, { size, difficulty, minutes, autoSubs, camera: game.camera, keys: savedKeys(keys) });
+    if (chose) prefs.quality = quality.level;
+    writePrefs(storage, prefs);
+  };
+  const stepQualityByHand = () => { stepQuality(quality); showQuality(); remember(true); };
+  const switchCamera = () => { game.camera = game.camera === '2k' ? 'broadcast' : '2k'; view.setCamera(game.camera); remember(); };
   view.setCamera(game.camera);
   const life = createLife();   // the crowd's mood
   let heading = view.heading();   // what up the screen means to the movement keys
@@ -54,36 +70,52 @@ if (view) {
   const play = () => startFromMenu(game, keyboard, newMatch);
   // A key on the start menu, or a click on a row (as Enter).
   const onMenu = code => {
-    const asked = menuKey(game.menu, code);
+    const asked = menuKey(game.menu, code, keys);
     if (asked === 'play') play();
-    else if (asked === 'quality') { stepQuality(quality); showQuality(); }
+    else if (asked === 'quality') stepQualityByHand();
     else if (asked === 'camera') switchCamera();
+    remember();
+    keyboard.drop();   // a key pressed on a menu, one just given to an action too, does nothing in the match until let go
   };
 
   // A key on the pause menu, or a click on one of its buttons (as Enter).
   const onPause = code => {
-    const asked = pauseKey(game, code);
+    const listened = game.pauseMenu.listening;
+    const asked = pauseKey(game, code, keys);
     if (asked === 'resume') pause(false);
-    else if (asked === 'quality') { stepQuality(quality); showQuality(); }
+    else if (asked === 'quality') stepQualityByHand();
     else if (asked === 'camera') switchCamera();
     else if (asked === 'quit') quitToMenu(game, keyboard, newMatch);
+    remember();
+    if (listened || asked === 'keys') keyboard.drop();   // the key just given to an action does nothing until let go
   };
 
   window.addEventListener('keydown', e => {
-    if (e.code === 'KeyG' && !e.repeat) { stepQuality(quality); showQuality(); }   // on any screen; a held key counts once
-    if (e.code === 'KeyC' && !e.repeat) switchCamera();
+    const action = actionOf(keys, e.code);
+    const onAMenu = game.state.phase === 'start' || game.paused;
+    const listening = (game.state.phase === 'start' ? game.menu : game.pauseMenu).listening && onAMenu;
+    // The quality and camera keys work on any screen, a held key counting once; but not while the Keys panel waits for
+    // a key, and on a menu not when the key is one the menu itself uses.
+    if (!e.repeat && !listening && !(onAMenu && MENU_KEYS.has(e.code))) {
+      if (action === 'quality') stepQualityByHand();
+      if (action === 'camera') switchCamera();
+    }
     if (game.state.phase === 'start') {
-      if (MENU_KEYS.has(e.code)) e.preventDefault();
-      if (!(e.repeat && MENU_ONCE.has(e.code))) onMenu(e.code);
+      if (MENU_KEYS.has(e.code) || listening) e.preventDefault();
+      if (!(e.repeat && (MENU_ONCE.has(e.code) || listening))) onMenu(e.code);
       return;
     }
     if (game.paused) {
-      if (MENU_KEYS.has(e.code)) e.preventDefault();
-      if (!(e.repeat && MENU_ONCE.has(e.code))) onPause(e.code);
+      if (MENU_KEYS.has(e.code) || listening) e.preventDefault();
+      if (!(e.repeat && (MENU_ONCE.has(e.code) || listening))) onPause(e.code);
       return;
     }
-    if (!e.repeat && inPlay(game.state) && playListKey(game, e.code)) { e.preventDefault(); return; }   // the play list, open over the match
-    if (e.code === 'KeyZ' && !e.repeat && inPlay(game.state)) callTimeout(game.state, 0);   // a timeout, when the rules allow one
+    if (!e.repeat && inPlay(game.state) && playListKey(game, e.code, keys)) {   // the play list, open over the match
+      e.preventDefault();
+      keyboard.drop([e.code]);   // a number that called a play is not also a move, if a move was put on it
+      return;
+    }
+    if (action === 'timeout' && !e.repeat && inPlay(game.state)) callTimeout(game.state, 0);   // a timeout, when the rules allow one
     if (e.code === 'Escape' && !e.repeat) pause(true);
     if (e.code === 'Enter' && game.state.phase === 'final') play();
   });
@@ -96,6 +128,17 @@ if (view) {
   document.querySelectorAll('#pauseList li').forEach((item, row) => {
     item.addEventListener('mousemove', () => pausePoint(game, row));
     item.addEventListener('click', () => { if (pauseHasRow(game, row)) { pausePoint(game, row); onPause('Enter'); } });
+  });
+  // The Keys panel's rows, over whichever menu opened it.
+  document.querySelectorAll('#keyRows li').forEach((item, row) => {
+    const panel = () => (game.state.phase === 'start' ? (game.menu.panel === 'keys' ? game.menu : null) : game.paused && game.pauseMenu.panel === 'keys' ? game.pauseMenu : null);
+    item.addEventListener('mousemove', () => { const p = panel(); if (p && !p.listening) p.row = row; });
+    item.addEventListener('click', () => {
+      const p = panel();
+      if (!p || p.listening) return;
+      p.row = row;
+      if (game.state.phase === 'start') onMenu('Enter'); else onPause('Enter');
+    });
   });
   // Losing the window pauses a match in play; one already paused stays as it is.
   window.addEventListener('blur', () => { if (!game.paused) pause(true); });

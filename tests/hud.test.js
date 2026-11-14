@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { periodLabel, clockText, createHud, callText, rosterLine, subNote, easeFrame, menuText } from '../src/render/hud.js';
+import { periodLabel, clockText, createHud, callText, rosterLine, subNote, easeFrame, menuText, keysText, controlsLines, hintLine } from '../src/render/hud.js';
+import { DEFAULT_KEYS, KEY_ROWS, bind, createKeys } from '../src/keys.js';
 import { createMatch } from '../src/sim/state.js';
 import { createPauseMenu, pauseKey } from '../src/pause.js';
 import { createMenu, menuKey } from '../src/menu.js';
@@ -130,7 +131,7 @@ test('the page has every element the scoreboard writes to', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   for (const id of ['fouls0', 'fouls1', 'energy', 'who', 'nameTag', 'call', 'ftBox', 'ftText', 'ftBar', 'ftMarker', 'subNote',
     ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap(i => [`roster${i}`, `rosterEnergy${i}`])]) assert.match(html, new RegExp(`id="${id}"`), id);
-  assert.match(html, /F hold ball/);
+  assert.match(html, /id="controls"/);
 });
 
 test('the corner label shows the renderer and the frame rate', () => {
@@ -152,8 +153,10 @@ test('the corner label names the quality level between the renderer and the fram
 });
 
 test('the controls line says which keys change the quality and the camera and open the play list', () => {
-  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  assert.match(html.match(/<div id="controls">([^<]*)<\/div>/)[1], /· G quality · C camera · T plays · Z timeout$/);
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch();
+  hud.update(s, 'webgl2', { paused: false, pick: null });
+  assert.equal(doc.els.controls.textContent, 'W A S D move · Shift sprint · Space shoot / jump · E pass / switch · Q steal · F hold ball · J K L I U moves · Esc pause · G quality · C camera · T plays · Z timeout');
+  assert.equal(hintLine(DEFAULT_KEYS), doc.els.controls.textContent);
 });
 
 test('the frame-rate readout follows the time frames really take, not the average of their rates', () => {
@@ -266,7 +269,9 @@ test('the page has the menu: four rows, both panels, ten players, every key in t
   for (const id of ['menuList', 'menuRow0', 'menuRow1', 'menuRow2', 'menuRow3', 'menuRow4', 'menuTeams', 'menuControls', 'menuHint', 'teamName0', 'teamName1',
     ...[0, 1].flatMap(t => [0, 1, 2, 3, 4, 5, 6, 7].map(i => `teamPlayer${t}${i}`))]) assert.match(html, new RegExp(`id="${id}"`), id);
   const controls = html.match(/id="menuControls"[\s\S]*?<\/(?:ul|dl|div)>/)[0];
-  for (const word of ['WASD', 'Shift', 'Space', 'E', 'Q', 'F', 'Esc', 'G']) assert.match(controls, new RegExp(`\\b${word}\\b`), word);
+  for (let i = 0; i < 11; i++) for (const id of [`ctlK${i}`, `ctlW${i}`]) assert.match(controls, new RegExp(`id="${id}"`), id);   // a line for each of controlsLines
+  for (let i = 5; i < 9; i++) assert.match(html, new RegExp(`id="menuRow${i}"`));   // room for nine settings
+  for (let i = 0; i < 19; i++) assert.match(html, new RegExp(`id="keyRow${i}"`));   // the Keys panel
   assert.match(html, /prefers-reduced-motion/);
   assert.doesNotMatch(html, /Press Enter to play</);
   assert.equal((html.match(/<[^>]*aria-live[^>]*>/g) ?? []).length, 1);                // still one live region
@@ -320,8 +325,8 @@ test('Substitutions and Controls open in place of the buttons, and opening one i
 test('Settings shows each setting with its value, and Quit asks before leaving', () => {
   const { e, s, game, show, choose } = pausedHud();
   choose('ArrowUp', 'ArrowUp', 'Enter'); show();                           // up from Resume wraps to Quit, then Settings
-  assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent, e.pauseRow2.textContent, e.pauseRow3.textContent, e.pauseRow4.hidden, e.pauseHint.textContent],
-    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', true, '↑ ↓ choose · Enter change · Esc back']);
+  assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent, e.pauseRow2.textContent, e.pauseRow3.textContent, e.pauseRow4.textContent, e.pauseRow5.hidden, e.pauseHint.textContent],
+    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', 'Keys', true, '↑ ↓ choose · Enter change · Esc back']);
   s.autoSubs[0] = false; game.quality = 'low'; show();
   assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent], ['Quality: Low', 'Automatic substitutions: Off']);
   choose('Escape', 'ArrowDown', 'Enter'); show();
@@ -359,7 +364,8 @@ test('the page has the pause menu: five buttons, three panels, the scoreboard, t
   assert.match(pause, />PAUSED</);
   for (const id of ['roster0', 'roster4', 'rosterEnergy0', 'subNote']) assert.match(pause, new RegExp(`id="${id}"`), id);   // Substitutions keeps the swap list
   const controls = pause.match(/id="pauseControls"[\s\S]*?<\/(?:ul|dl|div)>/)[0];
-  for (const word of ['WASD', 'Shift', 'Space', 'E', 'Q', 'F', 'Esc', 'G']) assert.match(controls, new RegExp(`\\b${word}\\b`), word);
+  for (let i = 0; i < 11; i++) for (const id of [`pctlK${i}`, `pctlW${i}`]) assert.match(controls, new RegExp(`id="${id}"`), id);
+  for (let i = 5; i < 9; i++) assert.match(pause, new RegExp(`id="pauseRow${i}"`));
   assert.equal((html.match(/<[^>]*aria-live[^>]*>/g) ?? []).length, 1);
 });
 
@@ -452,4 +458,42 @@ test('under a player there is a star if he is his team\'s star, a flame if he is
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   for (let i = 0; i < 10; i++) assert.match(html, new RegExp(`id="tag${i}"`));
   for (const kind of ['star', 'hot', 'cold']) assert.match(html, new RegExp(`\\.tag\\.${kind}::`), kind);
+});
+
+// ---------- keys ----------
+
+test('a row of the Keys panel says what the key does and the key, or that it waits for one', () => {
+  const keys = createKeys(), row = KEY_ROWS.indexOf('cross');
+  assert.equal(row, 9);
+  assert.equal(keysText(keys, row, { row, listening: false }), 'Crossover: J');
+  assert.equal(keysText(keys, row, { row, listening: true }), 'Crossover: press a key…');
+  assert.equal(keysText(keys, row, { row: 2, listening: true }), 'Crossover: J');   // another row is the one waiting
+  assert.equal(keysText(keys, 18, { row: 18, listening: false }), 'Reset all keys');
+  assert.equal(keysText(keys, 4, { row: 0, listening: false }), 'Sprint: Shift');
+});
+
+test('the Controls lines and the line under the court show the keys as they are now', () => {
+  const keys = createKeys();
+  assert.deepEqual(controlsLines(keys)[0], ['W A S D', 'move']);
+  assert.equal(controlsLines(keys).length, 11);
+  assert.deepEqual(controlsLines(keys)[6], ['J · K · L', 'crossover · between the legs · behind the back']);
+  bind(keys, 'sprint', 'KeyX'); bind(keys, 'up', 'ArrowUp');
+  assert.deepEqual(controlsLines(keys).slice(0, 2), [['↑ A S D', 'move'], ['X', 'sprint']]);
+  assert.match(hintLine(keys), /^↑ A S D move · X sprint · Space shoot \/ jump/);
+});
+
+test('the page shows the Keys panel over the menu that opened it, and the changed keys on Controls', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu(), keys = createKeys();
+  const show = () => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high', keys });
+  show();
+  assert.equal(e.keyRows.hidden, true);
+  menu.row = 4; menuKey(menu, 'Enter', keys); menu.row = 5; menuKey(menu, 'Enter', keys); show();
+  assert.deepEqual([e.keyRows.hidden, e.menuList.hidden, e.keyRow0.textContent, e.keyRow0.ariaSelected, e.keyRow18.textContent, e.announce.textContent],
+    [false, true, 'Move up: W', 'true', 'Reset all keys', 'Move up: W']);
+  menuKey(menu, 'Enter', keys); show();
+  assert.deepEqual([e.keyRow0.textContent, e.keyRow0.className, e.menuHint.textContent], ['Move up: press a key…', 'listening', 'Press the new key · Esc to leave it as it was']);
+  menuKey(menu, 'ArrowUp', keys); show();
+  assert.deepEqual([e.keyRow0.textContent, e.keyRow0.className, e.ctlK0.textContent, e.pctlK0.textContent, e.ctlW0.textContent], ['Move up: ↑', '', '↑ A S D', '↑ A S D', 'move']);
+  menuKey(menu, 'Escape', keys); show();
+  assert.deepEqual([e.keyRows.hidden, e.menuList.hidden, e.menuRow5.textContent], [true, false, 'Keys']);
 });

@@ -131,6 +131,16 @@
       background: linear-gradient(rgba(18, 19, 22, .92), rgba(4, 4, 5, .92)); border: 1px solid #6f7781; }
   #pauseList li[aria-selected="true"] { color: #fff; border-color: #dfe5ea; background: linear-gradient(rgba(118, 124, 132, .95), rgba(58, 62, 68, .95));
       box-shadow: 0 0 calc(var(--u) * 1.6) rgba(200, 208, 216, .55), inset 0 1px 0 rgba(255, 255, 255, .35); }
+  #pauseList.settings li { margin: 0 0 calc(var(--u) * .4); padding: calc(var(--u) * .45) calc(var(--u) * 1.6); font-size: calc(var(--u) * 1.6); }
+  /* The Keys panel: nineteen rows in two columns, over the start menu or the pause menu. */
+  #keyRows { position: fixed; z-index: 30; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; padding: 1.6vmin 2vmin; list-style: none;
+      display: grid; grid-template-rows: repeat(10, auto); grid-auto-flow: column; gap: .7vmin 2.4vmin;
+      background: linear-gradient(rgba(18, 19, 22, .96), rgba(4, 4, 5, .96)); border: 1px solid #9aa3ad; box-shadow: 0 0 4vmin rgba(0, 0, 0, .7); }
+  #keyRows[hidden] { display: none; }
+  #keyRows li { padding: .8vmin 1.6vmin; min-width: 34vmin; cursor: pointer; font-size: 2.1vmin; font-weight: 700; letter-spacing: .06em; color: #e8ecef;
+      border: 1px solid #4b525a; white-space: nowrap; }
+  #keyRows li[aria-selected="true"] { color: #fff; border-color: #dfe5ea; background: linear-gradient(rgba(118, 124, 132, .95), rgba(58, 62, 68, .95)); }
+  #keyRows li.listening { color: #1b1300; border-color: #ffd257; background: #ffd257; }
   #pauseAsk { margin: 0 0 calc(var(--u) * 1.2); font-size: calc(var(--u) * 1.7); font-weight: 700; }
   #pauseSubs, #pauseControls { width: max-content; max-width: 88vw; padding: calc(var(--u) * 1.2) calc(var(--u) * 1.6); font-size: calc(var(--u) * 1.6);
       background: linear-gradient(rgba(18, 19, 22, .92), rgba(4, 4, 5, .92)); border: 1px solid #6f7781; }
@@ -210,8 +220,8 @@
                                        box-shadow: 0 0 26px 4px rgba(70, 185, 255, .85); text-shadow: 0 2px 0 rgba(0, 40, 110, .8); }
   /* Five entries on the main list, one of them saying its value: a little smaller than four were, to sit inside the disc. */
   #menuList.main li { font-size: calc(var(--d) * .066); margin: calc(var(--d) * .008) 0; padding: calc(var(--d) * .013) 0; white-space: nowrap; }
-  /* The settings say their value too, so they are smaller: Automatic substitutions: Off fits across the disc. */
-  #menuList.settings li { font-size: calc(var(--d) * .045); white-space: nowrap; }
+  /* The settings: up to nine rows, each saying its value, so they are smaller and closer. */
+  #menuList.settings li { font-size: calc(var(--d) * .036); margin: calc(var(--d) * .004) 0; padding: calc(var(--d) * .009) 0; white-space: nowrap; }
   /* Teams and Controls: smaller words, inside the disc. */
   #menuTeams { font-size: calc(var(--d) * .0235); }   /* overall, name and role for eight a side, two teams across the disc */
   #menuControls { font-size: calc(var(--d) * .03); }
@@ -276,7 +286,7 @@
 <div id="playName" hidden></div>
 <ul id="playList" hidden><li id="playRow0"></li><li id="playRow1"></li><li id="playRow2"></li><li id="playRow3"></li><li id="playRow4"></li><li id="playRow5"></li><li id="playRow6"></li><li id="playRow7"></li><li id="playRow8"></li><li id="playRow9"></li></ul>
 
-<div id="controls">WASD move · Shift sprint · Space shoot / jump · E pass / switch · Q steal · F hold ball · Esc pause · G quality · C camera · T plays · Z timeout</div>
+<div id="controls"></div>
 
 <section class="screen" id="screenStart" hidden>
   <div class="stage">
@@ -289,6 +299,10 @@
         <li id="menuRow2" role="option" aria-selected="false">Teams</li>
         <li id="menuRow3" role="option" aria-selected="false">Controls</li>
         <li id="menuRow4" role="option" aria-selected="false">Settings</li>
+        <li id="menuRow5" role="option" aria-selected="false" hidden></li>
+        <li id="menuRow6" role="option" aria-selected="false" hidden></li>
+        <li id="menuRow7" role="option" aria-selected="false" hidden></li>
+        <li id="menuRow8" role="option" aria-selected="false" hidden></li>
       </ul>
       <div id="menuTeams" hidden>
         <div><h2 id="teamName0" class="home"></h2><ol>
@@ -299,15 +313,17 @@
         </ol></div>
       </div>
       <dl id="menuControls" hidden>
-        <dt>WASD</dt><dd>move</dd>
-        <dt>Shift</dt><dd>sprint</dd>
-        <dt>Space</dt><dd>shoot / jump</dd>
-        <dt>E</dt><dd>pass / switch</dd>
-        <dt>Q</dt><dd>steal</dd>
-        <dt>F</dt><dd>hold ball</dd>
-        <dt>Esc</dt><dd>pause</dd>
-        <dt>G · C</dt><dd>quality · camera</dd>
-        <dt>T · Z</dt><dd>plays · timeout</dd>
+        <dt id="ctlK0"></dt><dd id="ctlW0"></dd>
+        <dt id="ctlK1"></dt><dd id="ctlW1"></dd>
+        <dt id="ctlK2"></dt><dd id="ctlW2"></dd>
+        <dt id="ctlK3"></dt><dd id="ctlW3"></dd>
+        <dt id="ctlK4"></dt><dd id="ctlW4"></dd>
+        <dt id="ctlK5"></dt><dd id="ctlW5"></dd>
+        <dt id="ctlK6"></dt><dd id="ctlW6"></dd>
+        <dt id="ctlK7"></dt><dd id="ctlW7"></dd>
+        <dt id="ctlK8"></dt><dd id="ctlW8"></dd>
+        <dt id="ctlK9"></dt><dd id="ctlW9"></dd>
+        <dt id="ctlK10"></dt><dd id="ctlW10"></dd>
       </dl>
       <p id="menuHint" class="hint">↑ ↓ choose · Enter select</p>
     </div></div>
@@ -333,6 +349,10 @@
       <li id="pauseRow2" role="option"></li>
       <li id="pauseRow3" role="option"></li>
       <li id="pauseRow4" role="option"></li>
+      <li id="pauseRow5" role="option" hidden></li>
+      <li id="pauseRow6" role="option" hidden></li>
+      <li id="pauseRow7" role="option" hidden></li>
+      <li id="pauseRow8" role="option" hidden></li>
     </ul>
     <div id="pauseSubs" hidden>
       <ol id="roster">
@@ -348,19 +368,23 @@
       <p id="subNote"></p>
     </div>
     <dl id="pauseControls" hidden>
-      <dt>WASD</dt><dd>move</dd>
-      <dt>Shift</dt><dd>sprint</dd>
-      <dt>Space</dt><dd>shoot / jump</dd>
-      <dt>E</dt><dd>pass / switch</dd>
-      <dt>Q</dt><dd>steal</dd>
-      <dt>F</dt><dd>hold ball</dd>
-      <dt>Esc</dt><dd>pause</dd>
-      <dt>G · C</dt><dd>quality · camera</dd>
-      <dt>T · Z</dt><dd>plays · timeout</dd>
+      <dt id="pctlK0"></dt><dd id="pctlW0"></dd>
+      <dt id="pctlK1"></dt><dd id="pctlW1"></dd>
+      <dt id="pctlK2"></dt><dd id="pctlW2"></dd>
+      <dt id="pctlK3"></dt><dd id="pctlW3"></dd>
+      <dt id="pctlK4"></dt><dd id="pctlW4"></dd>
+      <dt id="pctlK5"></dt><dd id="pctlW5"></dd>
+      <dt id="pctlK6"></dt><dd id="pctlW6"></dd>
+      <dt id="pctlK7"></dt><dd id="pctlW7"></dd>
+      <dt id="pctlK8"></dt><dd id="pctlW8"></dd>
+      <dt id="pctlK9"></dt><dd id="pctlW9"></dd>
+      <dt id="pctlK10"></dt><dd id="pctlW10"></dd>
     </dl>
   </div>
   <div class="bar"><strong>PAUSED</strong><em id="pauseHint"></em><div class="logo" aria-hidden="true"><span>TT</span></div></div>
 </section>
+<!-- The Keys panel: over the start menu or the pause menu, whichever opened it. -->
+<ul id="keyRows" role="listbox" aria-label="Keys" hidden><li id="keyRow0" role="option"></li><li id="keyRow1" role="option"></li><li id="keyRow2" role="option"></li><li id="keyRow3" role="option"></li><li id="keyRow4" role="option"></li><li id="keyRow5" role="option"></li><li id="keyRow6" role="option"></li><li id="keyRow7" role="option"></li><li id="keyRow8" role="option"></li><li id="keyRow9" role="option"></li><li id="keyRow10" role="option"></li><li id="keyRow11" role="option"></li><li id="keyRow12" role="option"></li><li id="keyRow13" role="option"></li><li id="keyRow14" role="option"></li><li id="keyRow15" role="option"></li><li id="keyRow16" role="option"></li><li id="keyRow17" role="option"></li><li id="keyRow18" role="option"></li></ul>
 <section class="screen" id="screenFinal" hidden>
   <h1 id="finalTitle">Final</h1>
   <p id="finalScore"></p>

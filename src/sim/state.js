@@ -11,7 +11,9 @@ export const attackSign = team => (team === 0 ? 1 : -1);
 export const onFloor = p => p.y === 0 && p.vy === 0;
 
 // foul: reach in to foul the ball handler on purpose (only the computer does).
-export const emptyIntent = () => ({ moveX: 0, moveZ: 0, sprint: false, shoot: false, pass: false, steal: false, switch: false, hold: false, foul: false });
+// cross, legs, back, stepBack, fade: the five moves (see moves.js).
+export const emptyIntent = () => ({ moveX: 0, moveZ: 0, sprint: false, shoot: false, pass: false, steal: false, switch: false, hold: false, foul: false,
+  cross: false, legs: false, back: false, stepBack: false, fade: false });
 
 // What happened in one step, reported to the rules.
 export const emptyEvents = () => ({ hitFloor: false, hitRim: false, hitBoard: false, scored: 0,

@@ -1,4 +1,5 @@
 import { CLOCK, DIFFICULTY, ROSTER, TIMEOUT } from '../sim/tuning.js';
+import { ACTION_WORDS, DEFAULT_KEYS, KEY_ROWS, keyLabel } from '../keys.js';
 import { personOf, surname } from '../sim/state.js';
 import { onCourt } from '../sim/roster.js';
 import { heatOf, overall, starOf } from '../sim/ratings.js';
@@ -66,10 +67,41 @@ const pixels = value => `${Math.round(value)}px`;
 const share = value => `${Math.round(value * 1000) / 10}%`;
 
 // The start menu: the words of each entry, what the hint line says in each panel, and the two teams' lines.
-const MENU_WORDS = { play: 'Play', teams: 'Teams', controls: 'Controls', settings: 'Settings' };
+const MENU_WORDS = { play: 'Play', teams: 'Teams', controls: 'Controls', settings: 'Settings', keys: 'Keys' };
 const MODE_WORDS = { 3: 'Mode: 3 on 3', 5: 'Mode: 5 on 5' };
-const MENU_HINTS = { main: '↑ ↓ choose · Enter select', settings: '↑ ↓ choose · Enter change · Esc back', teams: 'Esc back', controls: 'Esc back' };
-const MENU_SLOTS = 5;   // menuRow0 to menuRow4 on the page
+const MENU_HINTS = { main: '↑ ↓ choose · Enter select', settings: '↑ ↓ choose · Enter change · Esc back', teams: 'Esc back', controls: 'Esc back',
+  keys: '↑ ↓ choose · Enter change · Esc back' };
+const LISTENING_HINT = 'Press the new key · Esc to leave it as it was';
+const MENU_SLOTS = 9;   // menuRow0 to menuRow8 on the page
+const CONTROL_SLOTS = 11;   // ctlK0/ctlW0 to ctlK10/ctlW10 on the start menu, pctlK0/pctlW0 and on in the pause menu
+
+// The words of row `row` of the Keys panel: what the key does and the key, or that it is waiting for one.
+// `panel` is the menu showing it: { row, listening }.
+export function keysText(keys, row, panel) {
+  const action = KEY_ROWS[row];
+  if (action === 'reset') return 'Reset all keys';
+  return `${ACTION_WORDS[action]}: ${panel.listening && panel.row === row ? 'press a key…' : keyLabel(keys[action])}`;
+}
+
+// The Controls panel: each line's keys as they are now, and what they do.
+export function controlsLines(keys) {
+  const k = action => keyLabel(keys[action]);
+  return [
+    [['up', 'left', 'down', 'right'].map(k).join(' '), 'move'], [k('sprint'), 'sprint'], [k('shoot'), 'shoot / jump'],
+    [k('pass'), 'pass / switch'], [k('steal'), 'steal'], [k('hold'), 'hold ball'],
+    [`${k('cross')} · ${k('legs')} · ${k('back')}`, 'crossover · between the legs · behind the back'],
+    [`${k('stepBack')} · ${k('fade')}`, 'step-back · post fade'], ['Esc', 'pause'],
+    [`${k('quality')} · ${k('camera')}`, 'quality · camera'], [`${k('plays')} · ${k('timeout')}`, 'plays · timeout'],
+  ];
+}
+
+// The line of keys under the court.
+export function hintLine(keys) {
+  const k = action => keyLabel(keys[action]);
+  return [`${['up', 'left', 'down', 'right'].map(k).join(' ')} move`, `${k('sprint')} sprint`, `${k('shoot')} shoot / jump`, `${k('pass')} pass / switch`,
+    `${k('steal')} steal`, `${k('hold')} hold ball`, `${['cross', 'legs', 'back', 'stepBack', 'fade'].map(k).join(' ')} moves`, 'Esc pause',
+    `${k('quality')} quality`, `${k('camera')} camera`, `${k('plays')} plays`, `${k('timeout')} timeout`].join(' · ');
+}
 // A player's line on the Teams panel: his overall, his name (the team's star marked) and what he is for.
 export const teamLine = (state, team, row) => {
   const person = state.rosters[team][row];
@@ -92,13 +124,14 @@ export function menuText(menu, row, quality, camera = '2k') {
 }
 
 // The pause menu: the words of each button, and what the hint line says in each panel.
-const PAUSE_WORDS = { resume: 'Resume', subs: 'Substitutions', controls: 'Controls', settings: 'Settings', quit: 'Quit to main menu',
+const PAUSE_WORDS = { resume: 'Resume', subs: 'Substitutions', controls: 'Controls', settings: 'Settings', quit: 'Quit to main menu', keys: 'Keys',
   stay: 'No, keep playing', leave: 'Yes, quit' };
 const PAUSE_HINTS = { main: '↑ ↓ choose · Enter select · Esc resume', settings: '↑ ↓ choose · Enter change · Esc back',
-  subs: '1 to 8 swap two players · A automatic substitutions · Esc back', controls: 'Esc back', quit: '↑ ↓ choose · Enter select · Esc back' };
+  subs: '1 to 8 swap two players · A automatic substitutions · Esc back', controls: 'Esc back', quit: '↑ ↓ choose · Enter select · Esc back',
+  keys: '↑ ↓ choose · Enter change · Esc back' };
 const TAG_SLOTS = 10;     // tag0 to tag9 on the page: one under each player
 const PLAY_SLOTS = 10;    // playRow0 to playRow9 on the page
-const PAUSE_SLOTS = 5;   // pauseRow0 to pauseRow4 on the page
+const PAUSE_SLOTS = 9;   // pauseRow0 to pauseRow8 on the page
 
 // The words of row `row` of the pause menu's panel shown; the settings say their value.
 export function pauseText(state, menu, row, quality, camera = '2k') {
@@ -190,16 +223,16 @@ export function createHud(doc) {
         const rows = menuRows(menu);
         if (menu.panel !== lastPanel) delete shown.announce;   // a panel opened or closed: say so, even in the same words
         lastPanel = menu.panel;
-        hide('menuList', !rows.length);
+        hide('menuList', !rows.length || menu.panel === 'keys');
         classed('menuList', menu.panel);
         for (let row = 0; row < MENU_SLOTS; row++) {
           hide(`menuRow${row}`, row >= rows.length);
-          if (row < rows.length) set(`menuRow${row}`, menuText(menu, row, ui.quality, ui.camera));
+          if (row < rows.length && menu.panel !== 'keys') set(`menuRow${row}`, menuText(menu, row, ui.quality, ui.camera));
           selected(`menuRow${row}`, row === menu.row && row < rows.length);
         }
         hide('menuTeams', menu.panel !== 'teams');
         hide('menuControls', menu.panel !== 'controls');
-        set('menuHint', MENU_HINTS[menu.panel]);
+        set('menuHint', menu.listening ? LISTENING_HINT : MENU_HINTS[menu.panel]);
         state.rosters.forEach((roster, team) => {
           set(`teamName${team}`, ROSTER.teams[team]);
           roster.forEach((_, row) => set(`teamPlayer${team}${row}`, teamLine(state, team, row)));
@@ -212,16 +245,17 @@ export function createHud(doc) {
       if (pause) {
         const rows = pauseRows(pause);
         if (pause.panel !== lastPause) delete shown.announce;   // a panel opened or closed: say so, even in the same words
-        hide('pauseList', !rows.length);
+        hide('pauseList', !rows.length || pause.panel === 'keys');
+        classed('pauseList', pause.panel);
         for (let row = 0; row < PAUSE_SLOTS; row++) {
           hide(`pauseRow${row}`, row >= rows.length);
-          if (row < rows.length) set(`pauseRow${row}`, pauseText(state, pause, row, ui.quality, ui.camera));
+          if (row < rows.length && pause.panel !== 'keys') set(`pauseRow${row}`, pauseText(state, pause, row, ui.quality, ui.camera));
           selected(`pauseRow${row}`, row === pause.row && row < rows.length);
         }
         hide('pauseSubs', pause.panel !== 'subs');
         hide('pauseControls', pause.panel !== 'controls');
         hide('pauseAsk', pause.panel !== 'quit');
-        set('pauseHint', PAUSE_HINTS[pause.panel]);
+        set('pauseHint', pause.listening ? LISTENING_HINT : PAUSE_HINTS[pause.panel]);
         const extra = state.quarter > CLOCK.quarters;
         hide('pbOtHead', !extra);
         for (const team of [0, 1]) {
@@ -243,6 +277,21 @@ export function createHud(doc) {
       }
       lastPause = pause?.panel;
 
+      // The Keys panel, over whichever menu opened it, and the keys as they are now on both Controls panels and on
+      // the line under the court.
+      const keys = ui.keys ?? DEFAULT_KEYS, keysPanel = menu?.panel === 'keys' ? menu : pause?.panel === 'keys' ? pause : null;
+      hide('keyRows', !keysPanel);
+      if (keysPanel) for (let row = 0; row < KEY_ROWS.length; row++) {
+        set(`keyRow${row}`, keysText(keys, row, keysPanel));
+        selected(`keyRow${row}`, row === keysPanel.row);
+        classed(`keyRow${row}`, keysPanel.listening && row === keysPanel.row ? 'listening' : '');
+      }
+      controlsLines(keys).forEach(([label, words], i) => {
+        if (i >= CONTROL_SLOTS) return;
+        set(`ctlK${i}`, label); set(`ctlW${i}`, words); set(`pctlK${i}`, label); set(`pctlW${i}`, words);
+      });
+      set('controls', hintLine(keys));
+
       // The play your team is running, and the play list while it is open.
       const play = playOn(state, 0);
       hide('playName', !play);
@@ -260,6 +309,7 @@ export function createHud(doc) {
       hide('call', !banner);
       const score = `You ${state.score[0]}, opponent ${state.score[1]}`;
       if (state.call && state.call !== lastCall) set('announce', callText(state.call));
+      else if (keysPanel) set('announce', keysText(keys, keysPanel.row, keysPanel));
       else if (menu) set('announce', menuRows(menu).length ? menuText(menu, menu.row, ui.quality, ui.camera) : MENU_WORDS[menu.panel]);
       else if (pause) set('announce', pauseRows(pause).length ? pauseText(state, pause, pause.row, ui.quality, ui.camera) : PAUSE_WORDS[pause.panel]);
       else if (score !== lastScore) set('announce', score);

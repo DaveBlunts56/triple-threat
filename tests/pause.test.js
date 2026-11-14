@@ -5,6 +5,7 @@ import { PAUSE, pauseKey, pauseRows, pausePoint, pauseHasRow, quitToMenu, setPau
 import { createMenu } from '../src/menu.js';
 import { createMatch } from '../src/sim/state.js';
 import { live } from './helpers.js';
+import { KEY_ROWS, createKeys } from '../src/keys.js';
 
 const key = (type, code) => Object.assign(new Event(type, { cancelable: true }), { code });
 function paused() {
@@ -61,7 +62,7 @@ test('a key tapped on the pause screen does not act when play resumes', () => {
 test('pausing shows the list with the highlight on Resume: Resume, Substitutions, Controls, Settings, Quit to main menu', () => {
   const { game } = paused();
   assert.deepEqual([at(game), pauseRows(game.pauseMenu)], [['main', 0], ['resume', 'subs', 'controls', 'settings', 'quit']]);
-  assert.deepEqual([PAUSE.settings, PAUSE.quit], [['quality', 'autoSubs', 'camera', 'difficulty'], ['stay', 'leave']]);
+  assert.deepEqual([PAUSE.settings, PAUSE.quit], [['quality', 'autoSubs', 'camera', 'difficulty', 'keys'], ['stay', 'leave']]);
 });
 
 test('the highlight moves by arrows or W and S and wraps; Enter or Space on Resume, or Esc, asks to resume', () => {
@@ -73,7 +74,7 @@ test('the highlight moves by arrows or W and S and wraps; Enter or Space on Resu
 });
 
 test('Substitutions, Controls and Settings open as panels; Esc or Backspace go back to the entry that opened them', () => {
-  for (const [entry, row, rows] of [['subs', 1, []], ['controls', 2, []], ['settings', 3, ['quality', 'autoSubs', 'camera', 'difficulty']]]) for (const back of ['Escape', 'Backspace']) {
+  for (const [entry, row, rows] of [['subs', 1, []], ['controls', 2, []], ['settings', 3, PAUSE.settings]]) for (const back of ['Escape', 'Backspace']) {
     const { game } = paused();
     assert.equal(open(game, entry), null);
     assert.deepEqual([at(game), pauseRows(game.pauseMenu)], [[entry, 0], rows]);
@@ -162,4 +163,40 @@ test('in Substitutions the keys 6, 7 and 8 pick the three newest players', () =>
   assert.deepEqual([game.pick, game.state.subQueue], [null, [{ team: 0, out: 1, in: 7 }]]);
   pauseKey(game, 'Digit6'); pauseKey(game, 'Digit7');                       // two bench players: nothing to swap
   assert.equal(game.state.subQueue.length, 1);
+});
+
+// ---------- the Keys panel ----------
+
+test('the Keys row of the pause Settings opens the Keys panel; a key set there is reported; Escape goes back, never resumes', () => {
+  const { game } = paused(), table = createKeys();
+  open(game, 'settings');
+  game.pauseMenu.row = PAUSE.settings.indexOf('keys');
+  assert.equal(pauseKey(game, 'Enter', table), null);
+  assert.deepEqual([at(game), pauseRows(game.pauseMenu)], [['keys', 0], KEY_ROWS]);
+  game.pauseMenu.row = KEY_ROWS.indexOf('fade');
+  pauseKey(game, 'Enter', table);
+  assert.equal(game.pauseMenu.listening, true);
+  assert.equal(pauseKey(game, 'Escape', table), null);               // stops waiting; still paused, still on the panel
+  assert.deepEqual([game.pauseMenu.panel, game.pauseMenu.listening], ['keys', false]);
+  pauseKey(game, 'Enter', table);
+  assert.equal(pauseKey(game, 'KeyP', table), 'keys');
+  assert.equal(table.fade, 'KeyP');
+  assert.equal(pauseKey(game, 'Escape', table), null);
+  assert.deepEqual([game.pauseMenu.panel, PAUSE.settings[game.pauseMenu.row]], ['settings', 'keys']);
+});
+
+test('in the Keys panel the keys of Substitutions do nothing', () => {
+  const { game } = paused(), table = createKeys();
+  open(game, 'settings'); game.pauseMenu.row = PAUSE.settings.indexOf('keys'); pauseKey(game, 'Enter', table);
+  const autoSubs = [...game.state.autoSubs];
+  pauseKey(game, 'KeyA', table); pauseKey(game, 'Digit1', table);
+  assert.deepEqual([game.state.autoSubs, game.pick], [autoSubs, null]);
+});
+
+test('pausing again while the Keys panel waited for a key leaves nothing waiting', () => {
+  const { game, keyboard } = paused(), table = createKeys();
+  open(game, 'settings'); game.pauseMenu.row = PAUSE.settings.indexOf('keys'); pauseKey(game, 'Enter', table); pauseKey(game, 'Enter', table);
+  assert.equal(game.pauseMenu.listening, true);
+  setPaused(game, keyboard, false); setPaused(game, keyboard, true);
+  assert.deepEqual([game.pauseMenu.panel, game.pauseMenu.listening], ['main', false]);
 });
