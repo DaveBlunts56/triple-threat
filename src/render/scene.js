@@ -15,7 +15,7 @@ const MESH = 64;                           // texture pixels on a side of one ce
 // ahead: how far beyond that point it looks. side: the share of the ball's distance from the middle it moves across
 // with. swing: the share of a turn to the other hoop it makes each frame. maxX: it never goes further along the court
 // than this, so it stays out of the stands behind the baselines.
-const BEHIND = { height: 9, back: 13.5, ahead: 6, side: 0.5, fov: 42, swing: 0.1, maxX: 16 };
+const BEHIND = { height: 6, back: 12.5, ahead: 5, side: 0.5, fov: 42, swing: 0.1, maxX: 16 };
 const CAMERA = { ...ARENA.camera, lookZ: 1, ease: 0.08, fov: 40, minAcross: 60 };   // degrees; minAcross: narrowest horizontal view allowed
 
 // The net's picture: a faint white wash, and in each of its NET.strings by NET.knots cells both diagonals, so the

@@ -144,8 +144,16 @@ function context(state, play) {
     holds: part => holder === who(part),
     // Where the screener stands: beside the defender of whoever has the ball, on the play's side.
     screen() { const { u, v, d } = beside(holder); return { x: d.x + v.x * PLAY.screenGap - u.x * 0.1, z: d.z + v.z * PLAY.screenGap - u.z * 0.1, sprint: true }; },
-    // Where the handler goes to use the screen: round the outside of it and on toward the hoop.
-    past() { const { u, v } = beside(holder), s = c.screen(); return { x: s.x + v.x * 0.8 + u.x * 1.8, z: s.z + v.z * 0.8 + u.z * 1.8 }; },
+    // Where the handler goes to use the screen: round the outside of the man setting it, never through him. First
+    // across, until he is wide of the screener's outside shoulder; then past him; then on toward the hoop.
+    past() {
+      const { u, v } = beside(holder), part = PLAYS[play.key].screener, spot = c.screen();
+      const man = part && who(part) && dist(who(part), spot) < PLAY.setDist ? who(part) : spot;   // the screener himself, if he is where the screen is
+      const level = (holder.x - man.x) * u.x + (holder.z - man.z) * u.z;   // how far past the screener he is, toward the hoop
+      const out = (holder.x - man.x) * v.x + (holder.z - man.z) * v.z;     // how far wide of him, on the play's side
+      const [on, wide] = level >= PLAY.roundBy ? [1.8, 0.8] : out < PLAY.roundGap - 0.15 ? [level, PLAY.roundGap] : [PLAY.roundBy + 0.2, PLAY.roundGap];
+      return { x: man.x + v.x * wide + u.x * on, z: man.z + v.z * wide + u.z * on };
+    },
     // A screen set behind the defender of `part`, on his way back to the hoop.
     backScreen(part) { const { u, d } = beside(who(part)); return { x: d.x + u.x * PLAY.screenGap, z: d.z + u.z * PLAY.screenGap, sprint: true }; },
   };

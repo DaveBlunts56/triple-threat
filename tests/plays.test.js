@@ -82,7 +82,7 @@ test('pick and roll: the big screens beside the handler\'s defender on the play\
   stepPlays(s, DT);
   assert.notEqual(play.setAt, null, 'the screen was not seen to be set');
   const round = playSpot(s, s.players[0]);
-  assert.ok((round.z - screen.z) * play.side > 0.3 && round.x > screen.x + 1, `the handler is sent to ${JSON.stringify(round)}`);
+  assert.ok((round.z - screen.z) * play.side > 0.9, `the handler is sent to ${JSON.stringify(round)}`);   // first across, wide of the screener's outside shoulder
   // Once he is past it the screen is used, and the big rolls.
   at(s, 0, big.x + 0.6, big.z + play.side);
   stepPlays(s, DT);
@@ -257,4 +257,26 @@ test('the coach calls what suits the floor: a post-up for a post scorer, Floppy 
   giveBall(other, other.players[1]); giveBall(hot, hot.players[1]); hot.rosters[0][1].streak = 3;
   assert.deepEqual([suits(star, 0, 'iso'), suits(other, 0, 'iso'), suits(hot, 0, 'iso')], [3, 1, 3]);
   assert.equal(suits(star, 1, 'iso'), 1, 'the team without the ball');
+});
+
+test('the handler goes round the screener, not through him: his way to where he is sent never crosses the man setting the screen', () => {
+  for (const key of ['pickRoll', 'pickPop', 'spain']) {
+    const s = scene(5), play = run(s, key), big = s.players[play.ids.big], handler = s.players[0];
+    const screen = playSpot(s, big);
+    at(s, big.id, screen.x, screen.z); big.setT = FOUL.setTime;
+    stepPlays(s, DT);
+    assert.notEqual(play.setAt, null, `${key}: the screen was not set`);
+    // He walks to where he is sent, a short step at a time, until the screen is used.
+    let nearest = Infinity;
+    for (let i = 0; i < 400 && play.usedAt === null; i++) {
+      const to = playSpot(s, handler), far = apart(to, handler) || 1, pace = 0.05;
+      // The straight line from him to his target, as far as he will get along it before he is told again.
+      for (let t = 0; t <= 1; t += 0.25) nearest = Math.min(nearest, apart({ x: handler.x + (to.x - handler.x) * t * Math.min(1, 0.6 / far), z: handler.z + (to.z - handler.z) * t * Math.min(1, 0.6 / far) }, big));
+      at(s, 0, handler.x + ((to.x - handler.x) / far) * pace, handler.z + ((to.z - handler.z) / far) * pace);
+      play.t += DT; stepPlays(s, DT);
+    }
+    assert.notEqual(play.usedAt, null, `${key}: he never got round the screen`);
+    assert.ok(nearest >= 2 * PLAYER.radius + 0.1, `${key}: his way passes ${nearest.toFixed(2)} m from the screener's middle`);
+    assert.ok((handler.z - big.z) * play.side > 0.5, `${key}: he went round the wrong side`);
+  }
 });

@@ -37,20 +37,22 @@ const their = options => { const s = scene(options); for (const p of s.players) 
 
 test('the levels run from Rookie to Legend, and All-Star is the game as it was', () => {
   assert.deepEqual(DIFFICULTY.order.map(k => DIFFICULTY.label[k]), ['Rookie', 'Starter', 'All-Star', 'Superstar', 'Legend']);
-  assert.deepEqual(DIFFICULTY.levels.allstar, { green: 1, make: 1, sweep: 1, timing: 0.6, jitter: AI.releaseJitter, interval: AI.interval, steal: 1, adapt: 0.6 });
+  assert.deepEqual(DIFFICULTY.levels.allstar, { green: 1, make: 1, sweep: 1, timing: 0.6, jitter: AI.releaseJitter, cpuGreen: 1, cpuMake: 1, interval: AI.interval, steal: 1, adapt: 0.6 });
   assert.ok(DIFFICULTY.levels.legend.make < DIFFICULTY.levels.superstar.make && DIFFICULTY.levels.superstar.make < 1 && DIFFICULTY.levels.rookie.make === 1);
   const keys = ['green', 'timing', 'jitter', 'interval'], down = DIFFICULTY.order.map(k => DIFFICULTY.levels[k]);
   for (const key of keys) for (let i = 1; i < down.length; i++) assert.ok(down[i][key] < down[i - 1][key], `${key} does not fall from level ${i - 1} to ${i}`);
-  for (const key of ['sweep', 'steal', 'adapt']) for (let i = 1; i < down.length; i++) assert.ok(down[i][key] > down[i - 1][key], `${key} does not rise`);
+  for (const key of ['sweep', 'steal', 'adapt', 'cpuGreen', 'cpuMake']) for (let i = 1; i < down.length; i++) assert.ok(down[i][key] > down[i - 1][key], `${key} does not rise`);
   assert.equal(levelOf({ difficulty: 'nonsense' }), DIFFICULTY.levels.allstar);
 });
 
-test('your green window is wider on the easy levels and narrower on the hard ones; the computer\'s is the same on all', () => {
+test('your green window is wider on the easy levels and narrower on the hard ones; the computer\'s team\'s is wider on the hard ones', () => {
   const half = (level, id) => { const s = scene(); s.difficulty = level; at(s, id, id < 5 ? 8 : -8, 0); return shotWindow(s, s.players[id]).half; };
   const mine = DIFFICULTY.order.map(level => half(level, 0));
   DIFFICULTY.order.forEach((level, i) => assert.ok(Math.abs(mine[i] / mine[2] - DIFFICULTY.levels[level].green) < 1e-9, `${level}: ${mine}`));
   for (let i = 1; i < mine.length; i++) assert.ok(mine[i] < mine[i - 1]);
-  assert.equal(new Set(DIFFICULTY.order.map(level => half(level, 5))).size, 1);
+  // The computer's team's window widens with the level, as yours narrows.
+  const theirs = DIFFICULTY.order.map(level => half(level, 5));
+  DIFFICULTY.order.forEach((level, i) => assert.ok(Math.abs(theirs[i] / theirs[2] - DIFFICULTY.levels[level].cpuGreen) < 1e-9, `${level}: ${theirs}`));
 });
 
 test('a badly timed shot of yours keeps more of its chance on the easy levels', () => {
@@ -240,9 +242,12 @@ test('how many steps a shot of yours is green on: an open one seven at All-Star 
   assert.deepEqual(['allstar', 'superstar', 'legend'].map(level => steps(level, true)), [5, 3, 1]);
 });
 
-test('a shot of yours that is not green goes in less often at Superstar and less again at Legend, however well it is timed; the computer\'s is not changed', () => {
+test('a shot of yours that is not green goes in less often at Superstar and less again at Legend, however well it is timed; the computer\'s goes in more often the harder the level', () => {
   const chance = (level, id) => { const s = scene(); s.difficulty = level; s.players[id].shotT = SHOT_BEST; at(s, id, id < 5 ? 8 : -8, 0); return makeChance(s, s.players[id]); };
-  assert.ok(Math.abs(chance('superstar', 0) / chance('allstar', 0) - 0.85) < 1e-9 && Math.abs(chance('legend', 0) / chance('allstar', 0) - 0.7) < 1e-9);
+  assert.ok(Math.abs(chance('superstar', 0) / chance('allstar', 0) - 0.5) < 1e-9 && Math.abs(chance('legend', 0) / chance('allstar', 0) - 0.08) < 1e-9);
+  assert.ok(chance('legend', 0) < 0.06, `a shot that is not green goes in ${chance('legend', 0)} of the time at Legend`);
   assert.equal(chance('rookie', 0), chance('allstar', 0));
-  assert.equal(chance('legend', 5), chance('rookie', 5));
+  // The computer's team goes the other way: its shots that are not green go in more often the harder the level.
+  assert.ok(chance('legend', 5) > chance('allstar', 5) && chance('allstar', 5) > chance('rookie', 5));
+  assert.ok(Math.abs(chance('legend', 5) / chance('allstar', 5) - DIFFICULTY.levels.legend.cpuMake) < 1e-9);
 });

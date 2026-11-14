@@ -121,27 +121,29 @@ export const OFF = f({ shooterAt: 80, apart: 2.5, sideHold: 1.5, every: f([2.5, 
 // ripeBy: seconds into any play after which its handler no longer waits for it to form. roll: seconds a screener
 // who rolls stays in front of the rim before he clears out of the key. feedWidth: how near the line of a pass to the
 // man the play is for a defender must be to stop it being thrown: less than for other passes. startAt: seconds into
-// the shot clock before the coach calls a play.
-export const PLAY = f({ wait: 1.5, minClock: 9, startX: 1.5, screenGap: 0.66, setDist: 0.9, useBy: 1.6, cut: 4.5, ripeBy: 4, roll: 1.7, feedWidth: 0.65, startAt: 6 });
+// the shot clock before the coach calls a play. roundGap: how wide of the screener's centre the handler goes to get
+// round him. roundBy: how far past the screener he must be before he turns for the hoop.
+export const PLAY = f({ wait: 1.5, minClock: 9, startX: 1.5, screenGap: 0.66, setDist: 0.9, useBy: 1.6, cut: 4.5, ripeBy: 4, roll: 1.7, feedWidth: 0.65, startAt: 6, roundGap: 1.05, roundBy: 0.3 });
 
 // The difficulty levels, easiest first, what the menus call them, and what each changes. For you (team 0): green: how
 // wide the green window of your shots is, against All-Star's; make: the share of its chance a shot of yours that is
 // not green keeps; sweep: how fast the free-throw meter moves; timing:
 // the share of a shot's chance a badly timed release keeps (SHOT.worstTiming at All-Star). For the computer's team
-// (team 1): jitter: seconds either side of the best moment its shots are let go; interval: seconds between its
+// (team 1): jitter: seconds either side of the best moment its shots are let go; cpuGreen: how wide its green window
+// is, against All-Star's; cpuMake: the share of its chance a shot of its own that is not green keeps; interval: seconds between its
 // players' decisions; steal: how often it reaches for the ball, against All-Star; adapt: how far it changes its
 // defence to what you score with, from 0 (not at all) to 1.
 export const DIFFICULTY = f({
   order: f(['rookie', 'starter', 'allstar', 'superstar', 'legend']),
   label: f({ rookie: 'Rookie', starter: 'Starter', allstar: 'All-Star', superstar: 'Superstar', legend: 'Legend' }),
   levels: f({
-    rookie: f({ green: 2, make: 1, sweep: 0.6, timing: 0.8, jitter: 0.3, interval: 0.45, steal: 0.5, adapt: 0 }),
-    starter: f({ green: 1.5, make: 1, sweep: 0.8, timing: 0.7, jitter: 0.22, interval: 0.36, steal: 0.75, adapt: 0.3 }),
-    allstar: f({ green: 1, make: 1, sweep: 1, timing: 0.6, jitter: 0.16, interval: 0.3, steal: 1, adapt: 0.6 }),
+    rookie: f({ green: 2, make: 1, sweep: 0.6, timing: 0.8, jitter: 0.3, cpuGreen: 0.7, cpuMake: 0.85, interval: 0.45, steal: 0.5, adapt: 0 }),
+    starter: f({ green: 1.5, make: 1, sweep: 0.8, timing: 0.7, jitter: 0.22, cpuGreen: 0.85, cpuMake: 0.92, interval: 0.36, steal: 0.75, adapt: 0.3 }),
+    allstar: f({ green: 1, make: 1, sweep: 1, timing: 0.6, jitter: 0.16, cpuGreen: 1, cpuMake: 1, interval: 0.3, steal: 1, adapt: 0.6 }),
     // An open shot is green on seven steps at All-Star, on three at Superstar and at Legend; a guarded one on five,
-    // three and one. A shot that is not green goes in less often on these two.
-    superstar: f({ green: 0.34, make: 0.85, sweep: 1.25, timing: 0.45, jitter: 0.11, interval: 0.25, steal: 1.25, adapt: 0.85 }),
-    legend: f({ green: 0.2, make: 0.7, sweep: 1.5, timing: 0.3, jitter: 0.07, interval: 0.2, steal: 1.5, adapt: 1 }),
+    // three and one. A shot of yours that is not green goes in half as often at Superstar and almost never at Legend.
+    superstar: f({ green: 0.34, make: 0.5, sweep: 1.25, timing: 0.45, jitter: 0.09, cpuGreen: 1.25, cpuMake: 1.1, interval: 0.25, steal: 1.25, adapt: 0.85 }),
+    legend: f({ green: 0.2, make: 0.08, sweep: 1.5, timing: 0.3, jitter: 0.06, cpuGreen: 1.35, cpuMake: 1.18, interval: 0.2, steal: 1.5, adapt: 1 }),
   }),
 });
 // What the match's level changes: see DIFFICULTY.levels.

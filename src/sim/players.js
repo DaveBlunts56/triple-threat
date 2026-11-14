@@ -159,7 +159,7 @@ export function makeChance(state, player) {
   // His rating for a shot from where he stands counts for or against him.
   const heat = heatOf(personOf(state, player));
   const skill = lift(rated(state, player, zoneOf(player)), RATE.shot) * (heat === 'hot' ? HEAT.hot : heat === 'cold' ? HEAT.cold : 1);
-  return clamp(byDistance * timing * contest(state, player) * shotFactor(personOf(state, player).energy) * (player.team === 0 ? levelOf(state).make : 1) * skill, 0, 1);
+  return clamp(byDistance * timing * contest(state, player) * shotFactor(personOf(state, player).energy) * (player.team === 0 ? levelOf(state).make : levelOf(state).cpuMake) * skill, 0, 1);
 }
 
 // Behind the backboard of the hoop he attacks, with the board between him and the rim.
@@ -179,8 +179,8 @@ export function shotWindow(state, player) {
   const { name, steps } = SHOT.levels.find(level => level.above <= guarded);
   return {
     best: SHOT_BEST,
-    // Your window is the level's; anybody's is wider the better he shoots from there.
-    half: steps * DT * range * shotFactor(personOf(state, player).energy) * (player.team === 0 ? levelOf(state).green : 1)
+    // Your window is the level's, and so is the computer's team's; anybody's is wider the better he shoots from there.
+    half: steps * DT * range * shotFactor(personOf(state, player).energy) * (player.team === 0 ? levelOf(state).green : levelOf(state).cpuGreen)
       * Math.max(0, lift(rated(state, player, zoneOf(player)), RATE.window)) * (heatOf(personOf(state, player)) === 'hot' ? HEAT.hotWindow : 1),
     level: name,
     inRange: range > 0 && !boardInWay(player),
