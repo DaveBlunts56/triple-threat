@@ -59,3 +59,114 @@ test('a shot is inside within three metres, a three behind the line, and mid-ran
 test('hot is three makes in a row and cold three misses', () => {
   assert.deepEqual([0, 2, 3, 5, -2, -3].map(streak => heatOf({ streak })), [null, null, 'hot', 'hot', null, 'cold']);
 });
+
+// ---------- what the ratings change ----------
+
+import { giveBall, makeChance, shotWindow, contest, trySteal, tryPickup, movePlayers, releaseShot, greenAt, SHOT_BEST } from '../src/sim/players.js';
+import { tire } from '../src/sim/stamina.js';
+import { emptyIntent } from '../src/sim/state.js';
+import { DT, PLAYER, RATE, SHOT, STAMINA } from '../src/sim/tuning.js';
+import { live, idle, plain } from './helpers.js';
+
+// Live play with plain players; `set(id, ratings)` gives one player ratings of his own.
+const set = (s, id, ratings) => { Object.assign(s.rosters[s.players[id].team][s.players[id].person].ratings, ratings); return s; };
+// The shooter (player 0) `out` metres from the hoop at the best moment of his shot, his defender `gap` metres off.
+function shooting(out, gap = 9, ratings = {}) {
+  const s = set(live(1, 5), 0, ratings);
+  at(s, 0, RIM.x - out, 0); at(s, 5, RIM.x - out - gap, 0);
+  s.players[0].shotT = SHOT_BEST;
+  return s;
+}
+
+test('at 70 throughout, every number is the one the game had', () => {
+  const s = shooting(5, 1);
+  const byDistance = SHOT.nearChance + (SHOT.farChance - SHOT.nearChance) * (5 / SHOT.farDist), guarded = SHOT.maxContest + (1 - SHOT.maxContest) * (1 / SHOT.contestDist);
+  near(contest(s, s.players[0]), guarded, 'contest');
+  near(makeChance(s, s.players[0]), byDistance * guarded, 'chance');
+  const fresh = live(1, 5); at(fresh, 1, 0, 0);
+  const sprint = idle(10); sprint[1] = { ...emptyIntent(), moveX: 1, sprint: true };
+  for (let i = 0; i < 120; i++) { movePlayers(fresh, sprint, DT); tire(fresh, sprint, DT); }
+  near(Math.hypot(fresh.players[1].vx, fresh.players[1].vz), PLAYER.sprint, 'sprint speed');
+  assert.ok(Math.abs(1 - fresh.rosters[0][1].energy - 2 * STAMINA.sprint) < 0.001, 'two seconds of sprinting');   // but for the step it takes to get going
+});
+
+test('a better shooter makes more and has a wider green window, in the zone the rating is for and no other', () => {
+  const chance = (out, ratings) => { const s = shooting(out, 9, ratings); return makeChance(s, s.players[0]); };
+  const half = (out, ratings) => { const s = shooting(out, 9, ratings); return shotWindow(s, s.players[0]).half; };
+  near(chance(7.2, { three: 90 }) / chance(7.2, { three: 50 }), lift(90, RATE.shot) / lift(50, RATE.shot), 'threes');
+  near(half(7.2, { three: 90 }) / half(7.2, { three: 50 }), lift(90, RATE.window) / lift(50, RATE.window), 'the window');
+  near(chance(2, { three: 90 }), chance(2, { three: 50 }), 'inside, the three rating');
+  near(chance(2, { inside: 90 }) / chance(2, { inside: 70 }), lift(90, RATE.shot), 'inside');
+  near(chance(4.5, { mid: 80 }) / chance(4.5, { mid: 70 }), lift(80, RATE.shot), 'mid-range');
+  near(chance(4.5, { inside: 99, three: 99 }), chance(4.5, {}), 'mid-range, the other two ratings');
+});
+
+test('a quicker player covers more ground; with the ball his handle counts too', () => {
+  const topSpeed = (ratings, ball) => {
+    const s = set(live(1, 5), 1, ratings); at(s, 1, -8, 0);
+    if (ball) giveBall(s, s.players[1]);
+    const go = idle(10); go[1] = { ...emptyIntent(), moveX: 1 };
+    for (let i = 0; i < 90; i++) movePlayers(s, go, DT);
+    return s.players[1].vx;
+  };
+  near(topSpeed({ speed: 90 }) / topSpeed({}), lift(90, RATE.speed), 'speed');
+  near(topSpeed({ handle: 90 }), topSpeed({}), 'handle without the ball');
+  near(topSpeed({ handle: 90, speed: 80 }, true) / topSpeed({}, true), lift(90, RATE.speed) * lift(80, RATE.speed), 'with the ball');
+});
+
+test('a better defender takes more off a shot and wins more of his reaches; a better handler loses fewer', () => {
+  const left = defence => { const s = set(shooting(5, 1), 5, { defence }); return contest(s, s.players[0]); };
+  near((1 - left(90)) / (1 - left(70)), lift(90, RATE.contest), 'what a contest takes off');
+  assert.ok(left(90) < left(70) && left(50) > left(70));
+  const steals = (defence, handle) => {
+    let won = 0;
+    for (let seed = 1; seed <= 3000; seed++) {
+      const s = set(set(live(seed, 5), 5, { defence }), 0, { handle });
+      at(s, 0, 0, 0); at(s, 5, 1, 0); s.players[0].facing = 0;   // the defender in front of him, within reach
+      if (trySteal(s, s.players[5]).won) won++;
+    }
+    return won / 3000;
+  };
+  const plainRate = steals(70, 70);
+  assert.ok(Math.abs(steals(95, 70) / plainRate - lift(95, RATE.steal)) < 0.12, `a 95 defender: ${steals(95, 70) / plainRate}`);
+  assert.ok(Math.abs(steals(70, 95) / plainRate - drop(95, RATE.steal)) < 0.12, `a 95 handler: ${steals(70, 95) / plainRate}`);
+});
+
+test('of two players who can both reach a rebound the better rebounder gets it, though the other is a little nearer; a pass is still caught by whoever it reaches first', () => {
+  const ball = mode => {
+    const s = set(live(1, 5), 6, { rebound: 95 });
+    at(s, 1, 0.30, 0); at(s, 6, -0.36, 0);
+    Object.assign(s.ball, { holder: null, mode, x: 0, y: 1, z: 0, vx: 0, vy: -1, vz: 0, noPickupT: 0, noPickupId: null });
+    s.lastTouch = 1;
+    return tryPickup(s).id;
+  };
+  assert.equal(ball('loose'), 6, 'the nearer man took the rebound from the better rebounder');
+  const pass = set(live(1, 5), 2, { rebound: 40 });
+  at(pass, 1, 0.5, 0); at(pass, 2, 0.3, 0);
+  Object.assign(pass.ball, { holder: null, mode: 'pass', x: 0, y: 1, z: 0, vx: 0, vy: 0, vz: 0, noPickupT: 0, noPickupId: null });
+  pass.lastTouch = 0;
+  assert.equal(tryPickup(pass).id, 2, 'a pass went to the better rebounder, not the nearer man');
+});
+
+test('a player with more stamina tires more slowly and rests no faster', () => {
+  const after = (stamina, sprint) => {
+    const s = set(live(1, 5), 1, { stamina }); at(s, 1, 0, 0);
+    s.rosters[0][1].energy = 0.6;
+    const go = idle(10); go[1] = { ...emptyIntent(), moveX: sprint ? 1 : 0, sprint };
+    for (let i = 0; i < 60; i++) { movePlayers(s, go, DT); tire(s, go, DT); }
+    return s.rosters[0][1].energy - 0.6;
+  };
+  assert.ok(Math.abs(after(90, true) / after(70, true) - drop(90, RATE.tire)) < 0.02, `${after(90, true) / after(70, true)}`);
+  near(after(90, false), after(70, false), 'resting');
+});
+
+test('at the ends of the scale nothing breaks: chances stay between 0 and 1, windows and speeds stay positive, and a green shot goes in', () => {
+  for (const rating of [40, 99]) for (const streak of [-5, 0, 5]) for (const out of [0.8, 2, 5, 7.5, 11]) for (const gap of [0.4, 1.2, 9]) {
+    const all = Object.fromEntries(KEYS.map(key => [key, rating]));
+    const s = set(set(shooting(out, gap, all), 5, all), 0, {});
+    s.rosters[0][0].streak = streak;
+    const chance = makeChance(s, s.players[0]), window = shotWindow(s, s.players[0]), left = contest(s, s.players[0]);
+    assert.ok(chance >= 0 && chance <= 1 && left >= 0 && left <= 1 && window.half >= 0, `rating ${rating}, streak ${streak}, ${out} m, ${gap} m: ${chance}, ${left}, ${window.half}`);
+    if (greenAt(window, SHOT_BEST)) { s.players[0].shooting = true; releaseShot(s, s.players[0]); assert.equal(s.shot.green, true); }
+  }
+});

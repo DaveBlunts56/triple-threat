@@ -1,4 +1,5 @@
-import { STAMINA } from './tuning.js';
+import { RATE, STAMINA } from './tuning.js';
+import { drop } from './ratings.js';
 import { personOf } from './state.js';
 
 // 1 at or above STAMINA.fadeBelow, falling in a straight line to `min` at zero energy.
@@ -14,7 +15,8 @@ export function tire(state, intents, dt) {
   state.players.forEach((p, i) => {
     const person = personOf(state, p);
     onCourt.add(person);
-    const rate = Math.hypot(p.vx, p.vz) < STAMINA.restSpeed ? STAMINA.rest : -(intents[i].sprint ? STAMINA.sprint : STAMINA.run);
+    // A player with more stamina tires more slowly; everyone rests alike.
+    const rate = Math.hypot(p.vx, p.vz) < STAMINA.restSpeed ? STAMINA.rest : -(intents[i].sprint ? STAMINA.sprint : STAMINA.run) * drop(person.ratings.stamina, RATE.tire);
     person.energy = clamp01(person.energy + rate * dt);
   });
   for (const person of state.rosters.flat()) if (!onCourt.has(person)) person.energy = clamp01(person.energy + STAMINA.bench * dt);

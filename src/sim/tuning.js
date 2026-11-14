@@ -199,7 +199,7 @@ export const ROSTER = f({
 
 // What 10 points of a rating are worth, as a share of the thing it changes: a shot's chance, the green window's
 // width, running speed, a steal's chance, what a contest takes off a shot, how fast he tires, his pull on a rebound.
-export const RATE = f({ shot: 0.07, window: 0.1, speed: 0.02, steal: 0.1, contest: 0.08, tire: 0.08, rebound: 0.1 });
+export const RATE = f({ shot: 0.07, window: 0.1, speed: 0.012, steal: 0.1, contest: 0.08, tire: 0.08, rebound: 0.1 });
 // Streaks. after: the makes (or misses) in a row that make a player hot (or cold). hot, hotWindow: what a hot
 // player's chance and green window are multiplied by. cold: the same for a cold player's chance.
 export const HEAT = f({ after: 3, hot: 1.1, hotWindow: 1.2, cold: 0.92 });

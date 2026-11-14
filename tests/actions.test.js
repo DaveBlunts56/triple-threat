@@ -8,10 +8,11 @@ import {
 import { stepBall } from '../src/sim/ball.js';
 import { step } from '../src/sim/step.js';
 import { DT, RIM, PLAYER, BALL, BLOCK, SHOT, STEAL } from '../src/sim/tuning.js';
+import { plain } from './helpers.js';
 
 // Team 0 near the +x hoop, team 1 parked far away at the other end. Player 0 has the ball.
 function setup(seed = 1) {
-  const s = createMatch(seed);
+  const s = plain(createMatch(seed));   // plain players: these are the game's own numbers
   s.phase = 'live';
   const at = (id, x, z) => Object.assign(s.players[id], { x, z });
   at(0, 8, 0); at(1, 8, -4); at(2, 8, 4);

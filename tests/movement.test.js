@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { createMatch, emptyIntent } from '../src/sim/state.js';
 import { movePlayers, carryBall, jump } from '../src/sim/players.js';
 import { DT, COURT, PLAYER, BALL } from '../src/sim/tuning.js';
+import { plain } from './helpers.js';
 
 // A match with everyone spread far apart so nobody bumps into the player under test.
 function spread() {
-  const s = createMatch();
+  const s = plain(createMatch());   // plain players: these are the game's own speeds
   s.players.forEach((p, i) => { p.x = -10 + i * 4; p.z = -5; });
   return s;
 }

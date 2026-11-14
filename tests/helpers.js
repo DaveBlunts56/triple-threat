@@ -5,9 +5,16 @@ import { step } from '../src/sim/step.js';
 import { aiIntents } from '../src/sim/ai.js';
 import { DT } from '../src/sim/tuning.js';
 
-// Live play: team 0 at x=5, team 1 at x=-5, spread across the court, player 0 holding the ball.
+// Makes every player the plain one the game's numbers are written for: 70 in every rating, which changes nothing.
+// Tests of the game's own numbers use it; tests of what the ratings do set the ratings they need.
+export function plain(s) {
+  for (const person of s.rosters.flat()) for (const key of Object.keys(person.ratings)) person.ratings[key] = 70;
+  return s;
+}
+
+// Live play: team 0 at x=5, team 1 at x=-5, spread across the court, player 0 holding the ball. Everyone is plain.
 export function live(seed = 1, size = 3) {
-  const s = createMatch(seed, size);
+  const s = plain(createMatch(seed, size));
   s.players.forEach(p => { p.x = p.team === 0 ? 5 : -5; p.z = (p.slot - (size - 1) / 2) * (size === 5 ? 2.4 : 3); });
   s.phase = 'live';
   giveBall(s, s.players[0]);

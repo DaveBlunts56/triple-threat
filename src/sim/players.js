@@ -1,8 +1,9 @@
-import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FOUL, PASS, PLAYER, RIM, SHOT, STAMINA, STEAL, THREE_PT, levelOf } from './tuning.js';
+import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FOUL, PASS, PLAYER, RIM, SHOT, STAMINA, STEAL, THREE_PT, RATE, levelOf } from './tuning.js';
 import { attackSign, onFloor as grounded, personOf, rand } from './state.js';
 import { shotFactor, speedFactor, spend } from './stamina.js';
 import { rimCentre, solveShot, stepBall } from './ball.js';
 import { rematch } from './matchups.js';
+import { lift, drop, rated } from './ratings.js';
 
 // Seconds after the press of a shot: the best moment to let go, and the moment he is back on the floor.
 export const SHOT_BEST = SHOT.gather + SHOT.bestAt * PLAYER.shotJumpV / BALL.gravity;
@@ -19,7 +20,8 @@ export function jump(player, speed = PLAYER.jumpV) {
   player.vx *= PLAYER.jumpCarry; player.vz *= PLAYER.jumpCarry;
 }
 
-function moveOne(p, intent, dt, hasBall, tired) {
+// `pace`: what his top speed is multiplied by: his tiredness, his speed rating, and with the ball his handle.
+function moveOne(p, intent, dt, hasBall, pace) {
   if (p.inbounder) { p.vx = p.vz = 0; return; }
 
   if (grounded(p)) {
@@ -27,7 +29,7 @@ function moveOne(p, intent, dt, hasBall, tired) {
     // A player gathering for a shot is deaf to the move keys, so he brakes to a stop.
     const [moveX, moveZ] = gathering(p) ? [0, 0] : [intent.moveX, intent.moveZ];
     const len = Math.hypot(moveX, moveZ);
-    const scale = ((intent.sprint ? PLAYER.sprint : PLAYER.run) * (hasBall ? PLAYER.dribbleSpeed : 1) * tired) / Math.max(len, 1);
+    const scale = ((intent.sprint ? PLAYER.sprint : PLAYER.run) * (hasBall ? PLAYER.dribbleSpeed : 1) * pace) / Math.max(len, 1);
     const dvx = moveX * scale - p.vx, dvz = moveZ * scale - p.vz;
     const dv = Math.hypot(dvx, dvz), step = PLAYER.accel * dt;
     const k = dv <= step ? 1 : step / dv;
@@ -75,7 +77,8 @@ function clampToCourt(p) {
 export function movePlayers(state, intents, dt) {
   state.players.forEach((p, i) => {
     const hasBall = state.ball.holder === p.id;
-    moveOne(p, intents[i], dt, hasBall, speedFactor(personOf(state, p).energy));
+    const pace = speedFactor(personOf(state, p).energy) * lift(rated(state, p, 'speed'), RATE.speed) * (hasBall ? lift(rated(state, p, 'handle'), RATE.speed) : 1);
+    moveOne(p, intents[i], dt, hasBall, pace);
     // Once he has picked up his dribble, every metre on the floor counts toward a travel, but not the slide of a gather.
     const speed = Math.hypot(p.vx, p.vz);
     if (hasBall && p.held && grounded(p) && !gathering(p)) p.steps += speed * dt;
@@ -137,13 +140,15 @@ export function shotTiming(t, worst = SHOT.worstTiming) {
   return 1 - (1 - worst) * Math.min(1, off);
 }
 
-// The share of a shot's chance the nearest defender leaves it: half with him on the shooter, all of it from
-// SHOT.contestDist away, and less again if he is in the air close by.
+// The share of a shot's chance the nearest defender leaves it: half with him on the shooter (less with a good
+// defender, more with a poor one), all of it from SHOT.contestDist away, and less again if he is in the air close by.
 export function contest(state, player) {
   let nearest = null;
   for (const o of state.players) if (o.team !== player.team && (!nearest || dist(o, player) < dist(nearest, player))) nearest = o;
   const d = dist(nearest, player);
-  const factor = clamp(SHOT.maxContest + (1 - SHOT.maxContest) * (d / SHOT.contestDist), SHOT.maxContest, 1);
+  const byDistance = clamp(SHOT.maxContest + (1 - SHOT.maxContest) * (d / SHOT.contestDist), SHOT.maxContest, 1);
+  // A better defender takes more off the shot from the same distance.
+  const factor = clamp(1 - (1 - byDistance) * lift(rated(state, nearest, 'defence'), RATE.contest), 0, 1);
   return nearest.y > 0 && d < SHOT.airContestDist ? factor * SHOT.airContest : factor;
 }
 
@@ -151,7 +156,9 @@ export function makeChance(state, player) {
   const hoop = rimCentre(attackSign(player.team));
   const byDistance = Math.max(SHOT.minChance, SHOT.nearChance + (SHOT.farChance - SHOT.nearChance) * (dist(player, hoop) / SHOT.farDist));
   const timing = shotTiming(player.shotT, player.team === 0 ? levelOf(state).timing : SHOT.worstTiming);   // a bad release costs you what the level says
-  return byDistance * timing * contest(state, player) * shotFactor(personOf(state, player).energy) * (player.team === 0 ? levelOf(state).make : 1);
+  // His rating for a shot from where he stands counts for or against him.
+  const skill = lift(rated(state, player, zoneOf(player)), RATE.shot);
+  return clamp(byDistance * timing * contest(state, player) * shotFactor(personOf(state, player).energy) * (player.team === 0 ? levelOf(state).make : 1) * skill, 0, 1);
 }
 
 // Behind the backboard of the hoop he attacks, with the board between him and the rim.
@@ -171,7 +178,9 @@ export function shotWindow(state, player) {
   const { name, steps } = SHOT.levels.find(level => level.above <= guarded);
   return {
     best: SHOT_BEST,
-    half: steps * DT * range * shotFactor(personOf(state, player).energy) * (player.team === 0 ? levelOf(state).green : 1),   // your window is the level's
+    // Your window is the level's; anybody's is wider the better he shoots from there.
+    half: steps * DT * range * shotFactor(personOf(state, player).energy) * (player.team === 0 ? levelOf(state).green : 1)
+      * Math.max(0, lift(rated(state, player, zoneOf(player)), RATE.window)),
     level: name,
     inRange: range > 0 && !boardInWay(player),
   };
@@ -301,7 +310,9 @@ export function trySteal(state, player) {
   if (dist(holder, player) > STEAL.reach) return null;
   player.stealCooldown = STEAL.cooldown;
   const front = inArc(holder, player, STEAL.frontArc);
-  const won = rand(state) < (front ? STEAL.frontChance : STEAL.backChance) * (holder.held ? STEAL.heldFactor : 1);
+  // A better defender wins more of his reaches, and a better handler loses fewer.
+  const skill = lift(rated(state, player, 'defence'), RATE.steal) * drop(rated(state, holder, 'handle'), RATE.steal);
+  const won = rand(state) < clamp((front ? STEAL.frontChance : STEAL.backChance) * (holder.held ? STEAL.heldFactor : 1) * skill, 0, 1);
   if (won) { holder.shooting = false; giveBall(state, player); }
   return { won, front };
 }
@@ -311,14 +322,17 @@ export function tryPickup(state) {
   if (ball.holder !== null || ball.mode === 'shot') return null;
   // A pass just thrown cannot be snatched at the hand by a defender; teammates may catch it at any range.
   const justThrown = ball.mode === 'pass' && ball.noPickupT > PASS.noPickup - PASS.clearTime;
-  let best = null;
+  let best = null, bestFar = Infinity;
   for (const p of state.players) {
     if (justThrown && p.team !== state.lastTouch) continue;
     if (p.inbounder || (p.id === ball.noPickupId && ball.noPickupT > 0)) continue;
     // A pass is caught by the team it was meant for at arm's length; a defender must be right in its path.
     const radius = ball.mode === 'pass' && p.team !== state.lastTouch ? PASS.interceptRadius : PLAYER.pickupRadius;
     if (dist(p, ball) > radius || p.y + PLAYER.reach < ball.y) continue;
-    if (!best || dist(p, ball) < dist(best, ball)) best = p;
+    // A pass goes to whoever it reaches first. Any other ball two can reach goes to the better rebounder more often
+    // than to the nearer man: each counts as nearer by his rebound rating.
+    const far = dist(p, ball) / (ball.mode === 'pass' ? 1 : lift(rated(state, p, 'rebound'), RATE.rebound));
+    if (!best || far < bestFar) { best = p; bestFar = far; }
   }
   return best;
 }

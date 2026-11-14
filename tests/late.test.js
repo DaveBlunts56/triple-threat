@@ -9,7 +9,7 @@ import { newFreeThrow, setupFreeThrow, stepFreeThrow } from '../src/sim/freethro
 import { aiIntents } from '../src/sim/ai.js';
 import { callText } from '../src/render/hud.js';
 import { AI, CLOCK, DIFFICULTY, DT, FT, LATE, RIM, TIMEOUT, levelOf } from '../src/sim/tuning.js';
-import { at, ai, idle, run } from './helpers.js';
+import { at, ai, idle, run, plain } from './helpers.js';
 
 const apart = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const target = p => ({ x: p.ai.targetX, z: p.ai.targetZ });
@@ -17,7 +17,7 @@ const target = p => ({ x: p.ai.targetX, z: p.ai.targetZ });
 // Five a side, live, no coach. Team 0 attack +x from their spots; each of team 1 stands 1.35 m from his man toward
 // the hoop. `holder` has the ball. The last period unless told.
 function scene({ holder = 0, quarter = CLOCK.quarters, left = 120, score = [0, 0] } = {}) {
-  const s = createMatch(1, 5);
+  const s = plain(createMatch(1, 5));   // plain players: what the ratings do has its own tests
   s.phase = 'live'; s.playWait = [Infinity, Infinity];
   s.tempo = { clock: Infinity, wait: 0 };   // no waiting early in the shot clock: that has its own tests
   Object.assign(s, { quarter, gameClock: left, score: [...score] });
