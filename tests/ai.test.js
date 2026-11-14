@@ -375,3 +375,90 @@ test('with 5 seconds gone in the back court the handler stops looking for a pass
   assert.ok(!run(s, 1.5, [0], st => st.ball.mode === 'pass'));
   assert.ok(s.players[0].x > -8);
 });
+
+// ---------- the moves ----------
+
+// The computer's handler (player 3, attacking the hoop on -x) `out` metres from it with the ball settled in his hands,
+// one defender (player 0) `gap` metres from him toward the hoop, and everybody else behind the centre line, where no
+// pass may go. On Legend unless told otherwise.
+function handler(out, gap, { seed = 1, level = 'legend', id = 3, defender = 0 } = {}) {
+  const s = plain(createMatch(seed));
+  startMatch(s);
+  s.phase = 'live'; s.difficulty = level; s.frontcourt = true;
+  s.playWait = [Infinity, Infinity]; s.tempo = { clock: Infinity, wait: 0 };
+  const sign = s.players[id].team === 0 ? 1 : -1;
+  s.players.forEach(p => { p.inbounder = false; p.x = -sign * (8 + p.slot); p.z = p.team === 0 ? 6 : -6; });
+  giveBall(s, s.players[id]);
+  put(s, id, sign * (RIM.x - out), 0); put(s, defender, sign * (RIM.x - out + gap), 0);
+  Object.assign(s.players[id].ai, { heldT: 1, had: true });
+  s.shotClock = 12;   // the offence is set
+  s.rosters[s.players[id].team][s.players[id].person].role = 'Lockdown guard';   // no role that brings a move of its own
+  return s;
+}
+const rate = (s, id, key, value) => { s.rosters[s.players[id].team][s.players[id].person].ratings[key] = value; };
+const role = (s, id, value) => { s.rosters[s.players[id].team][s.players[id].person].role = value; };
+
+test('a good handler makes a dribble move on a defender who is up on him; an ordinary one never does', () => {
+  const s = handler(6.2, 1.4); rate(s, 3, 'handle', 90);              // out of the defender's reach: he crosses over
+  assert.ok(run(s, 1, [3], st => st.players[3].move !== null));
+  assert.equal(s.players[3].move.kind, 'cross');
+  const t = handler(6.2, 1.4);
+  assert.equal(run(t, 3, [3], st => st.players[3].move !== null), false);
+  const early = handler(6.2, 1.4); rate(early, 3, 'handle', 90); early.shotClock = 22;   // the offence is not set yet
+  assert.equal(run(early, 1, [3], st => st.players[3].move !== null), false);
+});
+
+test('against a defender within reach, or one who has just reached, he goes between the legs standing and behind the back at a run', () => {
+  const near = handler(6.2, 1); rate(near, 3, 'handle', 90);
+  run(near, 1, [3], st => st.players[3].move !== null);
+  assert.equal(near.players[3].move?.kind, 'legs');
+  const s = handler(6.2, 1.4); rate(s, 3, 'handle', 90); s.players[0].stealCooldown = 0.9;
+  run(s, 1, [3], st => st.players[3].move !== null);
+  assert.equal(s.players[3].move?.kind, 'legs');
+  const t = handler(6.2, 1); rate(t, 3, 'handle', 90); t.players[0].stealCooldown = 0.9; t.players[3].vx = -4;
+  run(t, 0.1, [3], st => st.players[3].move !== null);
+  assert.equal(t.players[3].move?.kind, 'back');
+});
+
+test('a shot creator crowded at mid-range steps back and then shoots; a big man who cannot shoot from there does not', () => {
+  const s = handler(5, 1); rate(s, 3, 'mid', 88); role(s, 3, 'Shot creator');
+  assert.ok(run(s, 1, [3], st => st.players[3].move?.kind === 'stepBack'));
+  assert.ok(run(s, 1.5, [3], st => st.players[3].shooting));
+  assert.equal(s.players[3].fading, false);
+  const t = handler(5, 1); rate(t, 3, 'mid', 60); role(t, 3, 'Rim protector');
+  assert.equal(run(t, 3, [3], st => st.players[3].move !== null), false);
+});
+
+test('a post scorer with a defender on him fades; with a clear lane to the rim he just shoots', () => {
+  const s = handler(3.5, 0.8); rate(s, 3, 'inside', 88); role(s, 3, 'Post scorer');
+  assert.ok(run(s, 2, [3], st => st.players[3].shooting));
+  assert.equal(s.players[3].fading, true);
+  assert.ok(run(s, 2, [3], st => st.ball.mode === 'shot'), 'the fade is let go');
+  const t = handler(2, 8); rate(t, 3, 'inside', 88); role(t, 3, 'Post scorer');
+  assert.ok(run(t, 2, [3], st => st.players[3].shooting));
+  assert.equal(t.players[3].fading, false);
+});
+
+test('on Rookie the computer seldom makes the move it makes every time on Legend', () => {
+  const moved = level => {
+    let n = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+      const s = handler(6.2, 1, { seed, level }); rate(s, 3, 'handle', 90);
+      if (run(s, 1.5, [3], st => st.players[3].move !== null)) n++;
+    }
+    return n;
+  };
+  const legend = moved('legend'), rookie = moved('rookie');
+  assert.equal(legend, 200);
+  assert.ok(rookie < legend / 4 && rookie > 5, `${rookie} of 200 on Rookie`);
+});
+
+test('your team-mates use the moves too', () => {
+  let n = 0;
+  for (let seed = 1; seed <= 60; seed++) {
+    const s = handler(6.2, 1, { seed, id: 1, defender: 3 }); rate(s, 1, 'handle', 90);
+    s.controlled = 0;
+    if (run(s, 1.5, [1], st => st.players[1].move !== null)) n++;
+  }
+  assert.ok(n > 20 && n < 50, `${n} of 60`);
+});

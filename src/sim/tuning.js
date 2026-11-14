@@ -84,6 +84,13 @@ export const AI = f({
   arrive: 0.3,            // close enough to a target to stop
   slowDist: 1.5,          // within this of a target a player asks for part speed, in proportion to the distance left
   layupDist: 2.8,         // this close to the rim, just shoot
+  // The moves (see moves.js). moveAt: the Handle from which he tries a dribble move on a defender this near (moveNear).
+  // moveEvery: seconds between one player's moves. stepAt: the rating, for where he stands, from which he steps back
+  // from a defender within stepNear. fadeAt: the Inside from which he fades over a defender within fadeNear.
+  // mateMoves: how often your team-mates take a move that is right (the computer's team: the level's `moves`).
+  // moveFrom: seconds into the shot clock from which he may try a dribble move. beatFor: seconds after a move in which
+  // he drives at a clear lane even early in the shot clock.
+  moveAt: 78, moveNear: 1.5, moveEvery: 2.5, stepAt: 82, stepNear: 1.3, fadeAt: 80, fadeNear: 1.5, mateMoves: 0.6, moveFrom: 6, beatFor: 1,
   releaseJitter: 0.16,    // seconds either side of the best moment that a shot may be released
   driveX: 11.2, topX: 5.2, safetyX: 4,   // distances from centre court: drive target, top of the key, the player who gets back
   inboundHelp: 4,         // how far into the court a teammate comes to receive an inbound pass
@@ -158,13 +165,13 @@ export const DIFFICULTY = f({
   order: f(['rookie', 'starter', 'allstar', 'superstar', 'legend']),
   label: f({ rookie: 'Rookie', starter: 'Starter', allstar: 'All-Star', superstar: 'Superstar', legend: 'Legend' }),
   levels: f({
-    rookie: f({ green: 2, make: 1, sweep: 0.6, timing: 0.8, jitter: 0.3, cpuGreen: 0.7, cpuMake: 0.85, interval: 0.45, steal: 0.5, adapt: 0 }),
-    starter: f({ green: 1.5, make: 1, sweep: 0.8, timing: 0.7, jitter: 0.22, cpuGreen: 0.85, cpuMake: 0.92, interval: 0.36, steal: 0.75, adapt: 0.3 }),
-    allstar: f({ green: 1, make: 1, sweep: 1, timing: 0.6, jitter: 0.16, cpuGreen: 1, cpuMake: 1, interval: 0.3, steal: 1, adapt: 0.6 }),
+    rookie: f({ green: 2, make: 1, sweep: 0.6, timing: 0.8, jitter: 0.3, cpuGreen: 0.7, cpuMake: 0.85, interval: 0.45, steal: 0.5, adapt: 0, moves: 0.15 }),
+    starter: f({ green: 1.5, make: 1, sweep: 0.8, timing: 0.7, jitter: 0.22, cpuGreen: 0.85, cpuMake: 0.92, interval: 0.36, steal: 0.75, adapt: 0.3, moves: 0.35 }),
+    allstar: f({ green: 1, make: 1, sweep: 1, timing: 0.6, jitter: 0.16, cpuGreen: 1, cpuMake: 1, interval: 0.3, steal: 1, adapt: 0.6, moves: 0.6 }),
     // An open shot is green on seven steps at All-Star, on three at Superstar and at Legend; a guarded one on five,
     // three and one. A shot of yours that is not green goes in half as often at Superstar and almost never at Legend.
-    superstar: f({ green: 0.34, make: 0.5, sweep: 1.25, timing: 0.45, jitter: 0.09, cpuGreen: 1.25, cpuMake: 1.1, interval: 0.25, steal: 1.25, adapt: 0.85 }),
-    legend: f({ green: 0.2, make: 0.08, sweep: 1.5, timing: 0.3, jitter: 0.06, cpuGreen: 1.35, cpuMake: 1.18, interval: 0.2, steal: 1.5, adapt: 1 }),
+    superstar: f({ green: 0.34, make: 0.5, sweep: 1.25, timing: 0.45, jitter: 0.09, cpuGreen: 1.25, cpuMake: 1.1, interval: 0.25, steal: 1.25, adapt: 0.85, moves: 0.8 }),
+    legend: f({ green: 0.2, make: 0.08, sweep: 1.5, timing: 0.3, jitter: 0.06, cpuGreen: 1.35, cpuMake: 1.18, interval: 0.2, steal: 1.5, adapt: 1, moves: 1 }),
   }),
 });
 // What the match's level changes: see DIFFICULTY.levels.

@@ -37,11 +37,11 @@ const their = options => { const s = scene(options); for (const p of s.players) 
 
 test('the levels run from Rookie to Legend, and All-Star is the game as it was', () => {
   assert.deepEqual(DIFFICULTY.order.map(k => DIFFICULTY.label[k]), ['Rookie', 'Starter', 'All-Star', 'Superstar', 'Legend']);
-  assert.deepEqual(DIFFICULTY.levels.allstar, { green: 1, make: 1, sweep: 1, timing: 0.6, jitter: AI.releaseJitter, cpuGreen: 1, cpuMake: 1, interval: AI.interval, steal: 1, adapt: 0.6 });
+  assert.deepEqual(DIFFICULTY.levels.allstar, { green: 1, make: 1, sweep: 1, timing: 0.6, jitter: AI.releaseJitter, cpuGreen: 1, cpuMake: 1, interval: AI.interval, steal: 1, adapt: 0.6, moves: 0.6 });
   assert.ok(DIFFICULTY.levels.legend.make < DIFFICULTY.levels.superstar.make && DIFFICULTY.levels.superstar.make < 1 && DIFFICULTY.levels.rookie.make === 1);
   const keys = ['green', 'timing', 'jitter', 'interval'], down = DIFFICULTY.order.map(k => DIFFICULTY.levels[k]);
   for (const key of keys) for (let i = 1; i < down.length; i++) assert.ok(down[i][key] < down[i - 1][key], `${key} does not fall from level ${i - 1} to ${i}`);
-  for (const key of ['sweep', 'steal', 'adapt', 'cpuGreen', 'cpuMake']) for (let i = 1; i < down.length; i++) assert.ok(down[i][key] > down[i - 1][key], `${key} does not rise`);
+  for (const key of ['sweep', 'steal', 'adapt', 'cpuGreen', 'cpuMake', 'moves']) for (let i = 1; i < down.length; i++) assert.ok(down[i][key] > down[i - 1][key], `${key} does not rise`);
   assert.equal(levelOf({ difficulty: 'nonsense' }), DIFFICULTY.levels.allstar);
 });
 
