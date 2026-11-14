@@ -44,6 +44,27 @@ function numberTexture(number) {
   return numberTextures.get(number);
 }
 
+// The ball's leather: its colour with the black seams, and the pebbles as bumps. Both are painted once, here.
+function paintBall() {
+  const colour = document.createElement('canvas'), bumps = document.createElement('canvas');
+  colour.width = bumps.width = 512; colour.height = bumps.height = 256;
+  const g = colour.getContext('2d'), b = bumps.getContext('2d');
+  g.fillStyle = '#d9692a'; g.fillRect(0, 0, 512, 256);
+  g.strokeStyle = '#1a1210'; g.lineWidth = 5; g.lineCap = 'round';
+  const line = points => { g.beginPath(); points.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke(); };
+  line([[0, 128], [512, 128]]);                                             // round the middle
+  for (const x of [0, 256, 512]) line([[x, 0], [x, 256]]);                  // over the top and under, front and back
+  for (const side of [-1, 1]) line(Array.from({ length: 65 }, (_, i) => [i * 8, 128 + side * (62 + 34 * Math.cos(i * Math.PI / 16))]));   // the two curved seams
+  // Pebbles: a grey field of lighter dots. Not random: the same ball every time.
+  b.fillStyle = '#707070'; b.fillRect(0, 0, 512, 256);
+  b.fillStyle = '#b8b8b8';
+  for (let y = 0; y < 256; y += 4) for (let x = (y / 4) % 2 * 2; x < 512; x += 4) { b.beginPath(); b.arc(x, y, 1.2, 0, 2 * Math.PI); b.fill(); }
+  const map = new THREE.CanvasTexture(colour), bumpMap = new THREE.CanvasTexture(bumps);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.anisotropy = 4;
+  return { map, bumpMap, bumpScale: 0.6 };
+}
+
 // The six players, the ball and the ring under the player you control.
 // `people` are the generated, animated players (see people.js); without them the capsules stand in.
 export function createActors(scene, people = null) {
@@ -56,7 +77,7 @@ export function createActors(scene, people = null) {
     group.add(label);
     return label;
   });
-  const ball = new THREE.Mesh(new THREE.SphereGeometry(BALL.radius, 24, 16), new THREE.MeshStandardMaterial({ color: 0xe8792b, roughness: 0.8 }));
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(BALL.radius, 32, 24), new THREE.MeshStandardMaterial({ ...paintBall(), roughness: 0.78 }));
   ball.castShadow = true;
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.52, 32), new THREE.MeshBasicMaterial({ color: 0xffe14d }));
   ring.rotation.x = -Math.PI / 2;

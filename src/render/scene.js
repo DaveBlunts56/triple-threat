@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { COURT, RIM, BOARD, THREE_PT } from '../sim/tuning.js';
 import { QUALITY } from './quality.js';
+import { createLight } from './light.js';
 import { NET, createNet, stepNet } from './net.js';
 
 const FLOOR = { length: 32, width: 19 };   // court plus run-off
@@ -99,15 +100,37 @@ function drape(sleeve, net) {
 }
 
 // The hoop at x = s * RIM.x, its net drawn in `netLook`. Returns the hoop and its net, and the sleeve that shows it.
+// The white paint on a backboard: its edge and the square above the rim. Clear everywhere else.
+function paintBoard() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = Math.round(512 * (BOARD.top - BOARD.bottom) / (2 * BOARD.halfWidth));
+  const g = c.getContext('2d'), per = c.width / (2 * BOARD.halfWidth);   // pixels per metre
+  g.strokeStyle = '#ffffff';
+  g.lineWidth = 0.05 * per;
+  g.strokeRect(g.lineWidth / 2, g.lineWidth / 2, c.width - g.lineWidth, c.height - g.lineWidth);
+  const square = { wide: 0.59, high: 0.45 }, foot = c.height - (RIM.height - BOARD.bottom) * per;   // the square sits on the rim's height
+  g.strokeRect((c.width - square.wide * per) / 2, foot - square.high * per, square.wide * per, square.high * per);
+  const texture = new THREE.CanvasTexture(c);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 function buildHoop(s, netLook) {
   const hoop = new THREE.Group();
-  const white = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.4 });
-  const steel = new THREE.MeshStandardMaterial({ color: 0x30343c, roughness: 0.6 });
+  const steel = new THREE.MeshStandardMaterial({ color: 0x30343c, roughness: 0.45, metalness: 0.7 });
+  const pad = new THREE.MeshStandardMaterial({ color: 0x1b2f6b, roughness: 0.9 });
 
-  const board = new THREE.Mesh(new THREE.BoxGeometry(0.05, BOARD.top - BOARD.bottom, 2 * BOARD.halfWidth), white);
-  board.position.set(s * (BOARD.x + 0.025), (BOARD.top + BOARD.bottom) / 2, 0);
+  // The backboard: a pane of glass, with its white edge and the shooter's square painted on the side the court sees.
+  const high = BOARD.top - BOARD.bottom, wide = 2 * BOARD.halfWidth;
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0xdfeef5, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.28, depthWrite: false });
+  const board = new THREE.Mesh(new THREE.BoxGeometry(0.03, high, wide), glass);
+  board.position.set(s * (BOARD.x + 0.015), (BOARD.top + BOARD.bottom) / 2, 0);
+  const marks = new THREE.Mesh(new THREE.PlaneGeometry(wide, high),
+    new THREE.MeshBasicMaterial({ map: paintBoard(), transparent: true, depthWrite: false, toneMapped: false }));
+  marks.rotation.y = -s * Math.PI / 2;
+  marks.position.set(s * (BOARD.x - 0.002), board.position.y, 0);
 
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(RIM.radius, RIM.tube, 8, 32), new THREE.MeshStandardMaterial({ color: 0xff5a1f }));
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(RIM.radius, RIM.tube, 10, 40), new THREE.MeshStandardMaterial({ color: 0xff5a1f, roughness: 0.35, metalness: 0.6 }));
   rim.rotation.x = Math.PI / 2;
   rim.position.set(s * RIM.x, RIM.height, 0);
 
@@ -115,14 +138,14 @@ function buildHoop(s, netLook) {
   drape(sleeve, net);
 
   const poleX = s * (COURT.halfLength + 1);
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 3.5), steel);
+  const pole = new THREE.Mesh(new THREE.BoxGeometry(0.36, 3.5, 0.36), pad);
   pole.position.set(poleX, 1.75, 0);
   const armLength = Math.abs(poleX) - BOARD.x;
   const arm = new THREE.Mesh(new THREE.BoxGeometry(armLength, 0.12, 0.12), steel);
   arm.position.set(s * (BOARD.x + armLength / 2), 3.4, 0);
 
-  hoop.add(board, rim, sleeve, pole, arm);
-  for (const m of [board, pole, arm]) m.castShadow = true;
+  hoop.add(board, marks, rim, sleeve, pole, arm);
+  for (const m of [rim, pole, arm]) m.castShadow = true;
   return { hoop, net, sleeve };
 }
 
@@ -153,19 +176,14 @@ export async function createScene(canvas) {
   scene.add(floor, ...hoops.map(h => h.hoop));
   let ball = null;   // the ball as it was on the last call of swayNets: x, y, z, vx, vy, vz
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x3a3a44, 1.2));
-  const sun = new THREE.DirectionalLight(0xffffff, 2.2);
-  sun.position.set(4, 20, 8);
-  sun.castShadow = true;
-  Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 12, bottom: -12, near: 1, far: 40 });
-  scene.add(sun);
+  const light = createLight(renderer, scene);
 
   // The render resolution and the shadow map of a quality level (one of QUALITY.order). Nothing else is needed: the
   // renderer resizes its drawing buffer when the pixel ratio changes, and resizes the shadow map to mapSize, throwing
   // the old one away, before it next draws the shadow.
   const setQuality = level => {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY[level].pixelRatio));
-    sun.shadow.mapSize.setScalar(QUALITY[level].shadow);
+    light.setQuality(level);
   };
   setQuality('high');
 
