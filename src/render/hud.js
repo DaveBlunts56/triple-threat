@@ -93,7 +93,7 @@ export function pauseText(state, menu, row, quality) {
 // The period as a scoreboard names it: 1ST to 4TH, then OT1, OT2.
 export const periodWord = quarter => (quarter <= CLOCK.quarters ? ['1ST', '2ND', '3RD', '4TH'][quarter - 1] : `OT${quarter - CLOCK.quarters}`);
 
-const BACKEND_NAMES = { webgpu: 'WebGPU', webgl2: 'WebGL 2 (WebGPU not available)' };
+const BACKEND_NAMES = { webgpu: 'WebGPU', webgl2: 'WebGL 2 (WebGPU not available)', webgl2chosen: 'WebGL 2' };
 const SCREENS = { start: 'screenStart', pause: 'screenPause', final: 'screenFinal' };
 
 // The scoreboard and the start / pause / final screens. Plain HTML over the canvas.

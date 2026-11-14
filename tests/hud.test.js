@@ -372,3 +372,11 @@ test('the corner label can say how long the slowest frame of the last second too
   hud.update(s, 'webgpu', { paused: false, pick: null, fps: 59.6, quality: 'high' });
   assert.equal(doc.els.backend.textContent, 'WebGPU · High · 60 fps');
 });
+
+test('the corner label tells WebGL 2 chosen by the game from WebGL 2 as the only thing the browser has', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch();
+  hud.update(s, 'webgl2', { paused: false, pick: null, fps: 60, quality: 'high' });
+  assert.equal(doc.els.backend.textContent, 'WebGL 2 (WebGPU not available) · High · 60 fps');
+  hud.update(s, 'webgl2chosen', { paused: false, pick: null, fps: 60, quality: 'high' });
+  assert.equal(doc.els.backend.textContent, 'WebGL 2 · High · 60 fps');
+});

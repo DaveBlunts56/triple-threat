@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { COURT, RIM, BOARD } from '../sim/tuning.js';
-import { pixelRatioFor } from './quality.js';
+import { pixelRatioFor, prefersWebGL } from './quality.js';
 import { createLight } from './light.js';
 import { createFloor } from './floor.js';
 import { createArena } from './arena.js';
@@ -116,15 +116,16 @@ function buildHoop(s, netLook) {
 
 // Builds the renderer, court, hoops, lights and camera. Resolves to null (after telling the player) if nothing can draw.
 export async function createScene(canvas) {
-  // With #webgl on the end of the page's address the game draws with WebGL 2 even where WebGPU is on: for comparing the two.
-  const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, forceWebGL: window.location.hash.includes('webgl') });
+  // WebGL 2 where the game prefers it (see prefersWebGL) or the browser has nothing else; WebGPU otherwise.
+  const chosen = prefersWebGL(window.navigator.userAgent, window.location.hash);
+  const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, forceWebGL: chosen });
   try {
     await renderer.init();   // falls back to WebGL 2 by itself when WebGPU is missing
   } catch {
     document.body.textContent = 'This browser supports neither WebGPU nor WebGL 2, so the game cannot run.';
     return null;
   }
-  const backend = renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl2';
+  const backend = renderer.backend.isWebGPUBackend ? 'webgpu' : chosen ? 'webgl2chosen' : 'webgl2';
   renderer.shadowMap.enabled = true;
 
   const scene = new THREE.Scene();

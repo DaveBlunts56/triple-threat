@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { QUALITY, createQuality, autoQuality, stepQuality, pixelRatioFor } from '../src/render/quality.js';
+import { QUALITY, createQuality, autoQuality, stepQuality, pixelRatioFor, prefersWebGL } from '../src/render/quality.js';
 
 // `seconds` of frames `ms` long, playing or not. Returns how many times the level changed.
 const play = (q, ms, seconds, playing = true) => { let changed = 0; for (let t = 0; t < seconds * 1000; t += ms) changed += autoQuality(q, ms, playing); return changed; }
@@ -143,4 +143,12 @@ test('a level never draws more pixels than its budget, whatever the screen, and 
     assert.ok(pixelRatioFor('ultra', w, h, dpr) >= pixelRatioFor('high', w, h, dpr));
   }
   assert.ok(Number.isFinite(pixelRatioFor('high', 0, 0, 1)));                   // a window with no size yet
+});
+
+test('the game draws with WebGL 2 in Firefox, whose WebGPU is slow, and wherever the address asks for it', () => {
+  const firefox = 'Mozilla/5.0 (X11; Linux x86_64; rv:146.0) Gecko/20100101 Firefox/146.0';
+  const chrome = 'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+  assert.deepEqual([prefersWebGL(firefox, ''), prefersWebGL(chrome, '')], [true, false]);
+  assert.deepEqual([prefersWebGL(chrome, '#webgl'), prefersWebGL(firefox, '#webgpu')], [true, false]);   // the address has the last word
+  assert.equal(prefersWebGL(undefined, undefined), false);
 });
