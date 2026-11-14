@@ -100,16 +100,15 @@ const SCREENS = { start: 'screenStart', pause: 'screenPause', final: 'screenFina
 export function createHud(doc) {
   const el = id => doc.getElementById(id);
   const shown = {};
-  // Only touch the page when a value changes, so screen readers are not spammed every frame.
-  const put = (id, value, write) => {
-    if (shown[id] === value) return;
-    shown[id] = value;
-    write(el(id), value);
-  };
-  const set = (id, text) => put(id, text, (e, v) => { e.textContent = v; });
-  const hide = (id, hidden) => put(`${id}.hidden`, hidden, () => { el(id).hidden = hidden; });
-  const bar = (id, energy) => put(id, Math.round(energy * 100) / 100, (e, v) => { e.value = v; });
-  const style = (id, key, value) => put(`${id}.${key}`, value, () => { el(id).style[key] = value; });
+  // Only touch the page when a value changes, so screen readers are not spammed every frame. `changed` notes what
+  // `key` now shows and says whether that is new. (No function is made per call: this runs many times a frame.)
+  const changed = (key, value) => (shown[key] === value ? false : ((shown[key] = value), true));
+  const set = (id, text) => { if (changed(id, text)) el(id).textContent = text; };
+  const hide = (id, hidden) => { if (changed(`${id}.hidden`, hidden)) el(id).hidden = hidden; };
+  const bar = (id, energy) => { const value = Math.round(energy * 100) / 100; if (changed(id, value)) el(id).value = value; };
+  const style = (id, key, value) => { if (changed(`${id}.${key}`, value)) el(id).style[key] = value; };
+  const classed = (id, name) => { if (changed(`${id}.class`, name)) el(id).className = name; };
+  const selected = (id, on) => { if (changed(`${id}.selected`, on)) el(id).ariaSelected = String(on); };
   let screen, lastCall = null, lastScore, lastPanel, lastPause;
 
   return {
@@ -135,7 +134,8 @@ export function createHud(doc) {
       set('shotClock', String(Math.ceil(state.shotClock)));
       const level = ui.quality ? ` · ${QUALITY[ui.quality].label}` : '';
       const without = (ui.missing ?? []).map(words => ` · no ${words}`).join('');   // effects this browser could not run
-      set('backend', BACKEND_NAMES[backend] + level + without + (typeof ui.fps === 'number' ? ` · ${Math.round(ui.fps)} fps` : ''));
+      const slowest = typeof ui.worst === 'number' ? ` · slowest frame ${Math.round(ui.worst)} ms` : '';   // of the last second: a stutter shows here
+      set('backend', BACKEND_NAMES[backend] + level + without + (typeof ui.fps === 'number' ? ` · ${Math.round(ui.fps)} fps` : '') + slowest);
 
       // The start menu (`ui.menu`), before the match: the rows of the panel shown with the bar on one, or a panel with
       // no rows (Teams, Controls), and the hint line. Screen readers hear the selected row, or the panel's name.
@@ -145,11 +145,11 @@ export function createHud(doc) {
         if (menu.panel !== lastPanel) delete shown.announce;   // a panel opened or closed: say so, even in the same words
         lastPanel = menu.panel;
         hide('menuList', !rows.length);
-        put('menuList.class', menu.panel, (_, v) => { el('menuList').className = v; });
+        classed('menuList', menu.panel);
         for (let row = 0; row < MENU_SLOTS; row++) {
           hide(`menuRow${row}`, row >= rows.length);
           if (row < rows.length) set(`menuRow${row}`, menuText(menu, row, ui.quality));
-          put(`menuRow${row}.selected`, String(row === menu.row && row < rows.length), (_, v) => { el(`menuRow${row}`).ariaSelected = v; });
+          selected(`menuRow${row}`, row === menu.row && row < rows.length);
         }
         hide('menuTeams', menu.panel !== 'teams');
         hide('menuControls', menu.panel !== 'controls');
@@ -170,7 +170,7 @@ export function createHud(doc) {
         for (let row = 0; row < PAUSE_SLOTS; row++) {
           hide(`pauseRow${row}`, row >= rows.length);
           if (row < rows.length) set(`pauseRow${row}`, pauseText(state, pause, row, ui.quality));
-          put(`pauseRow${row}.selected`, String(row === pause.row && row < rows.length), (_, v) => { el(`pauseRow${row}`).ariaSelected = v; });
+          selected(`pauseRow${row}`, row === pause.row && row < rows.length);
         }
         hide('pauseSubs', pause.panel !== 'subs');
         hide('pauseControls', pause.panel !== 'controls');
@@ -183,7 +183,7 @@ export function createHud(doc) {
           set(`pbAbbr${team}`, ROSTER.abbr[team]);
           for (let q = 0; q < CLOCK.quarters; q++) {
             set(`pbQ${team}${q}`, q < state.quarter ? String(periods[q] ?? 0) : '–');
-            put(`pbQ${team}${q}.class`, q === state.quarter - 1 ? 'live' : '', (_, v) => { el(`pbQ${team}${q}`).className = v; });
+            classed(`pbQ${team}${q}`, q === state.quarter - 1 ? 'live' : '');
           }
           hide(`pbOt${team}`, !extra);
           if (extra) set(`pbOt${team}`, String(periods.slice(CLOCK.quarters).reduce((sum, points) => sum + points, 0)));
@@ -214,7 +214,7 @@ export function createHud(doc) {
         const aiming = ft.stage === 'aim' && state.players[ft.shooter].team === 0;
         set('ftText', `Free throw ${Math.min(ft.total, ft.total - ft.left + 1)} of ${ft.total}`);
         hide('ftBar', !aiming);
-        if (aiming) put('ftMarker', `${Math.round(ft.meter * 100)}%`, (e, v) => { e.style.left = v; });
+        if (aiming) style('ftMarker', 'left', `${Math.round(ft.meter * 100)}%`);
       }
 
       // The shot meter: an upright bar beside the shooter, its top at `head`; the page sizes it. The fill climbs to the
@@ -231,7 +231,7 @@ export function createHud(doc) {
         hide('shotMark', !m.frozen);
         if (m.frozen) set('shotMark', markText(m.frozen));
         const made = m.frozen?.verdict === 'green' && !m.frozen.blocked;
-        put('shotMeter.class', made ? 'green' : '', (_, v) => { el('shotMeter').className = v; });
+        classed('shotMeter', made ? 'green' : '');
       }
 
       state.rosters[0].forEach((person, row) => {

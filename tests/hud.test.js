@@ -364,3 +364,11 @@ test('the corner label says which effects this browser could not run', () => {
   hud.update(s, 'webgl2', { paused: false, pick: null, fps: 58.2, quality: 'high', missing: [] });
   assert.equal(doc.els.backend.textContent, 'WebGL 2 (WebGPU not available) · High · 58 fps');
 });
+
+test('the corner label can say how long the slowest frame of the last second took', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch();
+  hud.update(s, 'webgpu', { paused: false, pick: null, fps: 59.6, quality: 'high', worst: 21.4 });
+  assert.equal(doc.els.backend.textContent, 'WebGPU · High · 60 fps · slowest frame 21 ms');
+  hud.update(s, 'webgpu', { paused: false, pick: null, fps: 59.6, quality: 'high' });
+  assert.equal(doc.els.backend.textContent, 'WebGPU · High · 60 fps');
+});

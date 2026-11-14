@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { QUALITY, createQuality, autoQuality, stepQuality } from '../src/render/quality.js';
+import { QUALITY, createQuality, autoQuality, stepQuality, pixelRatioFor } from '../src/render/quality.js';
 
 // `seconds` of frames `ms` long, playing or not. Returns how many times the level changed.
 const play = (q, ms, seconds, playing = true) => { let changed = 0; for (let t = 0; t < seconds * 1000; t += ms) changed += autoQuality(q, ms, playing); return changed; }
@@ -9,11 +9,11 @@ const pressTo = (q, level) => { do stepQuality(q); while (q.level !== level); };
 
 test('the four levels are the ones in the design, and nothing can change them', () => {
   assert.deepEqual(QUALITY.order, ['low', 'medium', 'high', 'ultra']);
-  assert.deepEqual(QUALITY.low, { label: 'Low', pixelRatio: 0.75, shadow: 1024, soft: false, textures: 0.5, floor: 1024, crowd: 0.15, aa: 'none', ao: false, bloom: false, mirror: 0 });
-  assert.deepEqual(QUALITY.medium, { label: 'Medium', pixelRatio: 1, shadow: 1024, soft: true, textures: 0.5, floor: 1024, crowd: 0.5, aa: 'fxaa', ao: false, bloom: false, mirror: 0 });
-  assert.deepEqual(QUALITY.high, { label: 'High', pixelRatio: 2, shadow: 2048, soft: true, textures: 1, floor: 2048, crowd: 1, aa: 'smaa', ao: true, bloom: true, mirror: 0.5 });
-  assert.deepEqual(QUALITY.ultra, { label: 'Ultra', pixelRatio: 2, shadow: 4096, soft: true, textures: 1, floor: 2048, crowd: 1, aa: 'smaa', ao: true, bloom: true, mirror: 1 });
-  assert.deepEqual([QUALITY.autoAfter, QUALITY.autoBelow, QUALITY.longest], [3, 40, 100]);
+  assert.deepEqual(QUALITY.low, { label: 'Low', pixelRatio: 0.75, pixels: 600000, shadow: 1024, soft: false, textures: 0.5, floor: 1024, crowd: 0.15, aa: 'none', ao: false, bloom: false, mirror: 0 });
+  assert.deepEqual(QUALITY.medium, { label: 'Medium', pixelRatio: 1, pixels: 1100000, shadow: 1024, soft: true, textures: 0.5, floor: 1024, crowd: 0.5, aa: 'fxaa', ao: false, bloom: false, mirror: 0 });
+  assert.deepEqual(QUALITY.high, { label: 'High', pixelRatio: 2, pixels: 2100000, shadow: 2048, soft: true, textures: 1, floor: 2048, crowd: 1, aa: 'smaa', ao: true, bloom: true, mirror: 0.5 });
+  assert.deepEqual(QUALITY.ultra, { label: 'Ultra', pixelRatio: 2, pixels: 3700000, shadow: 4096, soft: true, textures: 1, floor: 2048, crowd: 1, aa: 'smaa', ao: true, bloom: true, mirror: 1 });
+  assert.deepEqual([QUALITY.autoAfter, QUALITY.autoBelow, QUALITY.longest], [3, 50, 100]);
   assert.ok([QUALITY, QUALITY.order, ...QUALITY.order.map(level => QUALITY[level])].every(Object.isFrozen));
 });
 
@@ -22,7 +22,7 @@ test('the game starts on High with nothing measured', () => {
   assert.notEqual(createQuality(), createQuality());
 });
 
-test('under 40 frames a second over the first three seconds of play steps down to Medium and measures again', () => {
+test('under 50 frames a second over the first three seconds of play steps down to Medium and measures again', () => {
   const q = createQuality();
   assert.equal(play(q, 33, 3.1), 1);
   assert.deepEqual([q.level, q.settled, q.frames < 5], ['medium', false, true]);
@@ -46,16 +46,16 @@ test('one slow measurement then a fast one settles on Medium', () => {
   assert.equal(play(q, 40, 10), 0);                        // settled: a slow spell later changes nothing
 });
 
-test('40 or more keeps High for good', () => {
+test('50 or more keeps High for good', () => {
   const q = createQuality();
-  assert.equal(play(q, 20, 3.1) + play(q, 100, 10), 0);
+  assert.equal(play(q, 16, 3.1) + play(q, 100, 10), 0);
   assert.equal(q.level, 'high');
 });
 
-test('the line is at 40 frames a second: 41 keeps High and 39 does not', () => {
+test('the line is at 50 frames a second: 51 keeps High and 49 does not', () => {
   const fast = createQuality(), slow = createQuality();
-  assert.deepEqual([play(fast, 1000 / 41, 3.1), fast.level, fast.settled], [0, 'high', true]);
-  assert.deepEqual([play(slow, 1000 / 39, 3.1), slow.level, slow.settled], [1, 'medium', false]);
+  assert.deepEqual([play(fast, 1000 / 51, 3.1), fast.level, fast.settled], [0, 'high', true]);
+  assert.deepEqual([play(slow, 1000 / 49, 3.1), slow.level, slow.settled], [1, 'medium', false]);
 });
 
 test('time on the start screen or paused does not count toward the three seconds', () => {
@@ -126,4 +126,21 @@ test('G pressed again and again, paused or playing, is the only thing that moves
     assert.equal(q.level, level);
   }
   assert.equal(changed, 0);
+});
+
+test('a level never draws more pixels than its budget, whatever the screen, and never more than the screen has', () => {
+  const drawn = (level, w, h, dpr) => { const r = pixelRatioFor(level, w, h, dpr); return [r, Math.round(w * h * r * r)]; };
+  assert.deepEqual(drawn('low', 1366, 768, 1), [0.75, 590112]);                 // the Chromebook: as it always was
+  assert.deepEqual(drawn('medium', 1366, 768, 1), [1, 1049088]);
+  assert.deepEqual(drawn('high', 1366, 768, 1), [1, 1049088]);
+  assert.equal(pixelRatioFor('high', 1920, 1080, 1), 1);                        // a full HD screen fits High's budget
+  for (const [w, h, dpr] of [[2560, 1440, 1], [3840, 2160, 1], [1440, 900, 2], [1920, 1080, 2]]) {
+    for (const level of QUALITY.order) {
+      const [ratio, pixels] = drawn(level, w, h, dpr);
+      assert.ok(pixels <= QUALITY[level].pixels * 1.001, `${level} at ${w}x${h}@${dpr}: ${pixels} pixels`);
+      assert.ok(ratio <= dpr && ratio <= QUALITY[level].pixelRatio);
+    }
+    assert.ok(pixelRatioFor('ultra', w, h, dpr) >= pixelRatioFor('high', w, h, dpr));
+  }
+  assert.ok(Number.isFinite(pixelRatioFor('high', 0, 0, 1)));                   // a window with no size yet
 });

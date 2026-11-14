@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { COURT, RIM, BOARD, THREE_PT } from '../sim/tuning.js';
-import { QUALITY } from './quality.js';
+import { COURT, RIM, BOARD } from '../sim/tuning.js';
+import { pixelRatioFor } from './quality.js';
 import { createLight } from './light.js';
 import { createFloor } from './floor.js';
 import { createArena } from './arena.js';
@@ -142,8 +142,10 @@ export async function createScene(canvas) {
   // The render resolution and the shadow map of a quality level (one of QUALITY.order). Nothing else is needed: the
   // renderer resizes its drawing buffer when the pixel ratio changes, and resizes the shadow map to mapSize, throwing
   // the old one away, before it next draws the shadow.
+  let drawnAt = 'high';   // the level being drawn
   const setQuality = level => {
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY[level].pixelRatio));
+    drawnAt = level;
+    renderer.setPixelRatio(pixelRatioFor(level, window.innerWidth, window.innerHeight, window.devicePixelRatio));
     light.setQuality(level);
     arena.setQuality(level);
     post.setQuality(level);
@@ -160,6 +162,7 @@ export async function createScene(canvas) {
     camera.lookAt(followX, 0, CAMERA.lookZ);
   };
   const resize = () => {
+    renderer.setPixelRatio(pixelRatioFor(drawnAt, window.innerWidth, window.innerHeight, window.devicePixelRatio));   // a bigger window draws coarser
     renderer.setSize(window.innerWidth, window.innerHeight, false);
     camera.aspect = window.innerWidth / window.innerHeight;
     // On a narrow window, widen the view so enough of the court's length stays on screen.

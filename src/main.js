@@ -88,12 +88,15 @@ if (view) {
   document.addEventListener('visibilitychange', () => { if (document.hidden && !game.paused) pause(true); });
 
   let last = performance.now(), owed = 0, frameMs = 1000 / game.fps;
+  let slowest = 0, since = last;   // the longest frame since `since`, for the corner label: a stutter the average hides
   const frame = now => {
     const { state } = game;
     // A stall (a hidden tab) counts as one long frame at most, as it does for the match below.
     if (now > last) game.fps = 1000 / (frameMs = easeFrame(frameMs, Math.min(now - last, MAX_FRAME * 1000)));
     // Real time since the last frame. Never negative: the first frame's time can be earlier than `last`.
     const ms = Math.max(now - last, 0), elapsed = Math.min(ms / 1000, MAX_FRAME);
+    slowest = Math.max(slowest, ms);
+    if (now - since >= 1000) { game.worst = slowest; slowest = 0; since = now; }
     if (autoQuality(quality, ms, inPlay(state) && !game.paused)) showQuality();
     owed = game.paused ? 0 : owed + elapsed;
     last = now;
