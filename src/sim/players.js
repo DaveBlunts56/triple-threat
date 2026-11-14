@@ -109,6 +109,14 @@ const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 const inArc = (p, target, degrees) =>
   Math.cos(p.facing) * (target.x - p.x) + Math.sin(p.facing) * (target.z - p.z) >= Math.cos(rad(degrees)) * dist(p, target);
 
+// Where `player` stands for a shot at the hoop he attacks: 'inside' within SHOT.insideDist of it, 'three' behind the
+// line, 'mid' between. It says which of his ratings a shot from there is taken on.
+export function zoneOf(player) {
+  const sign = attackSign(player.team);
+  if (isThree(player.x, player.z, sign)) return 'three';
+  return dist(player, rimCentre(sign)) < SHOT.insideDist ? 'inside' : 'mid';
+}
+
 export function isThree(x, z, sign) {
   return Math.abs(z) > THREE_PT.cornerZ || Math.hypot(x - sign * RIM.x, z) > THREE_PT.radius;
 }

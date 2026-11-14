@@ -31,6 +31,7 @@ export const SHOT = f({
   // does not count). Few aims do, fewer from far out, so some of those asked swish after all.
   rattle: 0.35, rattleMin: 0.07, rattleMax: 0.17, rattleSteps: 6, rattleTries: 40,
   minRelease: 0.6,    // a shot is never released closer to the rim centre than this
+  insideDist: 3,      // a shot from nearer the hoop than this is taken on his inside rating
   greenFull: 4, greenNone: 12,   // metres from the hoop: the green window is full width up to the first and gone at the second
   // How closely the shooter is guarded, highest first: the level is the first whose `above` his defender factor reaches,
   // and `steps` is how many steps either side of the best moment a release is green.
@@ -186,4 +187,19 @@ export const ROSTER = f({
   names: f([f(['Jalen Cross', 'Theo Marsh', 'Darius Stone', 'Sam Okoro', 'Andre Volkov', 'Marcus Bell', 'Noah Vance', 'Idris Kane']),
     f(['Kai Mercer', 'Luca Reyes', 'Viktor Lund', 'Devon Hale', 'Emeka Bright', 'Rafael Ortiz', 'Jamal Whitaker', 'Bogdan Ilic'])]),
   positions: f(['PG', 'SF', 'C', 'SG', 'PF', 'PG', 'SF', 'C']),   // by roster row, the same for both teams
+  // What each player is for, and his ratings in the order inside, mid, three, handle, speed, defence, rebound,
+  // stamina (see ratings.js). The two teams total the same overall for three a side, five a side and the bench.
+  roles: f([f(['Playmaker', 'Slasher', 'Rim protector', 'Sharpshooter', 'Stretch big', 'Shot creator', 'Lockdown wing', 'Rebounder']),
+    f(['Shot creator', 'Two-way wing', 'Post scorer', 'Sharpshooter', 'Glass cleaner', 'Lockdown guard', 'Slasher', 'Rim protector'])]),
+  ratings: f([f([f([78, 88, 84, 94, 90, 72, 48, 84]), f([90, 70, 58, 80, 88, 74, 64, 78]), f([86, 74, 42, 50, 62, 92, 90, 78]), f([60, 88, 94, 78, 75, 58, 62, 80]),
+    f([80, 78, 84, 58, 56, 74, 84, 70]), f([68, 86, 76, 84, 76, 52, 58, 66]), f([63, 55, 70, 60, 76, 90, 60, 86]), f([82, 62, 40, 54, 50, 76, 92, 68])]),
+  f([f([83, 94, 90, 92, 86, 58, 62, 78]), f([78, 72, 84, 60, 80, 88, 66, 80]), f([94, 80, 45, 55, 52, 78, 88, 75]), f([62, 84, 92, 73, 76, 62, 44, 90]),
+    f([80, 60, 44, 52, 70, 84, 92, 74]), f([62, 64, 52, 76, 86, 90, 58, 74]), f([86, 62, 50, 74, 84, 69, 62, 72]), f([76, 62, 50, 44, 48, 88, 86, 68])])]),
 });
+
+// What 10 points of a rating are worth, as a share of the thing it changes: a shot's chance, the green window's
+// width, running speed, a steal's chance, what a contest takes off a shot, how fast he tires, his pull on a rebound.
+export const RATE = f({ shot: 0.07, window: 0.1, speed: 0.02, steal: 0.1, contest: 0.08, tire: 0.08, rebound: 0.1 });
+// Streaks. after: the makes (or misses) in a row that make a player hot (or cold). hot, hotWindow: what a hot
+// player's chance and green window are multiplied by. cold: the same for a cold player's chance.
+export const HEAT = f({ after: 3, hot: 1.1, hotWindow: 1.2, cold: 0.92 });

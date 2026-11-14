@@ -1,5 +1,7 @@
 import { BALL, CLOCK, FOUL, LINEUP, MATCH, ROSTER, TIMEOUT, TIP } from './tuning.js';
 
+const RATING_KEYS = ['inside', 'mid', 'three', 'handle', 'speed', 'defence', 'rebound', 'stamina'];   // ratings.js's KEYS: it imports this file, so they are named here too
+
 // The last word of a person's name.
 export const surname = person => person.name.split(' ').pop();
 
@@ -89,7 +91,9 @@ export function createMatch(seed = 1, size = 3) {
     possession: 0, lastTouch: null, controlled: 0, lastControlled: 0,
     inboundSpot: { x: 0, z: 0 },
     // manual: you brought him on yourself, so the automatic substitutions leave him alone until he comes off
-    rosters: ROSTER.numbers.map((team, t) => team.map((number, row) => ({ number, name: ROSTER.names[t][row], position: ROSTER.positions[row], energy: 1, fouls: 0, manual: false }))),
+    // ratings: what he is good at (see ratings.js). streak: his makes in a row from the floor, or his misses if negative.
+    rosters: ROSTER.numbers.map((team, t) => team.map((number, row) => ({ number, name: ROSTER.names[t][row], position: ROSTER.positions[row], role: ROSTER.roles[t][row],
+      ratings: Object.fromEntries(RATING_KEYS.map((key, i) => [key, ROSTER.ratings[t][row][i]])), streak: 0, energy: 1, fouls: 0, manual: false }))),
     subQueue: [], autoSubs: [true, true], teamFouls: [0, 0],
     call: null, freeThrow: null, pendingFoul: null, tipWinner: null,
     timeouts: [TIMEOUT.each, TIMEOUT.each], lastTimeout: -Infinity,   // each team's timeouts left; when the last was called
