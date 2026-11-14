@@ -14,6 +14,7 @@ function live(holderId = 0) {
   startMatch(s);
   s.phase = 'live';
   s.playWait = [Infinity, Infinity];   // no coach: these tests are of the players' own decisions, without a play on
+  s.tempo = { clock: Infinity, wait: 0 };   // and with no waiting early in the shot clock
   s.players.forEach(p => { p.inbounder = false; p.x = p.team === 0 ? -12 : -13; p.z = -6 + p.slot; });
   giveBall(s, s.players[holderId]);
   return s;

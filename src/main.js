@@ -130,7 +130,7 @@ if (view) {
     const passed = inPlay(state) ? state.time - before : elapsed;
     actors.sync(state, passed);
     const real = game.paused ? 0 : elapsed;   // the crowd and the referees stand still with a paused game
-    view.live(state, stepLife(life, state, real), game.paused ? 0 : inPlay(state) ? state.time - before : 0, real);
+    view.live(state, stepLife(life, state, real), real);
     view.follow(state.ball, attackSign(state.possession));
     view.watch(state);
     view.render();

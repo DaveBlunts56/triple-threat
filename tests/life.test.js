@@ -100,3 +100,62 @@ test('the boards show invented advertisements, Sugar-Soda among them, each board
     assert.equal(adAt(board, 1), adAt(board, AD.every - 1));
   }
 });
+
+// ---------- how a referee moves ----------
+
+test('a referee gathers speed, never runs faster than he can, eases into his spot and stands there', async () => {
+  const { createRef, stepRef } = await import('../src/render/life.js');
+  const ref = createRef(0, 8), spot = { x: 12, z: 8 }, ball = { x: 6, z: 0 };
+  let last = 0, top = 0;
+  for (let i = 0; i < 60 * 6; i++) {
+    stepRef(ref, spot, ball, DT);
+    const speed = Math.hypot(ref.vx, ref.vz);
+    assert.ok(Math.abs(speed - last) <= REFS.accel * DT + 1e-9, `his speed jumped from ${last} to ${speed}`);
+    assert.ok(ref.x <= spot.x + 0.05, `he ran past his spot to ${ref.x}`);
+    top = Math.max(top, speed); last = speed;
+  }
+  assert.ok(top > 4 && top <= REFS.run + 1e-9, `his top speed was ${top}`);
+  assert.ok(Math.hypot(ref.x - spot.x, ref.z - spot.z) <= REFS.near + 0.05 && last < 0.05, `he ended at ${ref.x}, ${ref.z} moving at ${last}`);
+});
+
+test('he moves the same however often the picture is drawn, and a frame in which no time passes changes nothing', async () => {
+  const { createRef, stepRef, refGait } = await import('../src/render/life.js');
+  const run = hz => { const ref = createRef(0, 8); for (let i = 0; i < hz * 1.5; i++) stepRef(ref, { x: 12, z: 8 }, { x: 6, z: 0 }, 1 / hz); return ref; };
+  const slow = run(60), fast = run(180);
+  assert.ok(Math.abs(slow.x - fast.x) < 0.15 && Math.abs(slow.stride - fast.stride) < 0.5, `${slow.x} at 60 a second, ${fast.x} at 180`);
+  const before = JSON.stringify([slow, refGait(slow)]);
+  stepRef(slow, { x: 12, z: 8 }, { x: 6, z: 0 }, 0);
+  assert.equal(JSON.stringify([slow, refGait(slow)]), before, 'his legs moved in a frame with no time in it');
+});
+
+test('his stride goes with the ground he covers; running he faces the way he goes, standing he watches the ball; he turns no faster than a man can', async () => {
+  const { createRef, stepRef, refGait } = await import('../src/render/life.js');
+  const ref = createRef(0, 8), spot = { x: 12, z: 8 }, ball = { x: 0, z: 0 };
+  assert.deepEqual([refGait(ref).legR.swing, refGait(ref).dip], [0, 0]);
+  let turned = 0, strides = 0, biggest = 0;
+  for (let i = 0; i < 60 * 1.5; i++) {
+    const [facing, stride] = [ref.facing, ref.stride];
+    stepRef(ref, spot, ball, DT);
+    turned = Math.max(turned, Math.abs(ref.facing - facing)); strides += ref.stride - stride;
+    biggest = Math.max(biggest, Math.abs(refGait(ref).legR.swing));
+  }
+  assert.ok(turned <= REFS.turn * DT + 1e-9);
+  assert.ok(Math.abs(ref.facing - Math.PI / 2) < 0.1, `running toward +x he faces ${ref.facing}`);
+  const steps = strides / Math.PI;
+  assert.ok(ref.x / steps >= REFS.step[0] - 0.01 && ref.x / steps <= REFS.step[1] + 0.01, `${steps} steps in ${ref.x} m`);
+  assert.ok(biggest > 0.5, 'his legs hardly swung');
+  assert.ok(Math.abs(refGait(ref).legR.swing + refGait(ref).legL.swing) < 1e-9, 'his legs do not swing against each other');
+  const stood = createRef(0, 8);
+  for (let i = 0; i < 60; i++) stepRef(stood, { x: 0, z: 8 }, { x: 0, z: 0 }, DT);
+  assert.ok(Math.abs(Math.abs(stood.facing) - Math.PI) < 0.05, `standing on the near side he faces ${stood.facing}, not the ball`);
+  const still = createRef(0, 8);
+  for (let i = 0; i < 60; i++) stepRef(still, spot, ball, DT, true);
+  assert.equal(still.x, 0, 'he walked off while making a sign');
+});
+
+test('the lead referee changes sides of the hoop only when the ball has gone well past the middle', async () => {
+  const { leadSideOf } = await import('../src/render/life.js');
+  assert.deepEqual([leadSideOf(1, { z: 0.5 }), leadSideOf(1, { z: -1 }), leadSideOf(1, { z: -2 }), leadSideOf(-1, { z: 1 }), leadSideOf(-1, { z: 2 })], [1, 1, -1, -1, 1]);
+  const s = live(1, 5); Object.assign(s.ball, { x: 6, z: -1 });
+  assert.ok(refSpots(s, 1)[0].z > 0 && refSpots(s, -1)[0].z < 0);
+});

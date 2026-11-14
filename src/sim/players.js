@@ -143,7 +143,7 @@ export function makeChance(state, player) {
   const hoop = rimCentre(attackSign(player.team));
   const byDistance = Math.max(SHOT.minChance, SHOT.nearChance + (SHOT.farChance - SHOT.nearChance) * (dist(player, hoop) / SHOT.farDist));
   const timing = shotTiming(player.shotT, player.team === 0 ? levelOf(state).timing : SHOT.worstTiming);   // a bad release costs you what the level says
-  return byDistance * timing * contest(state, player) * shotFactor(personOf(state, player).energy);
+  return byDistance * timing * contest(state, player) * shotFactor(personOf(state, player).energy) * (player.team === 0 ? levelOf(state).make : 1);
 }
 
 // Behind the backboard of the hoop he attacks, with the board between him and the rim.

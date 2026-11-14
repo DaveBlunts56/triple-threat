@@ -5,9 +5,6 @@ import { ballSpot, blendFrom, carrying } from './hands.js';
 import { matchupMark, MARK } from './mark.js';
 
 const HEIGHT = 1.95, HEAD = 0.13;
-// above: metres between the top of a capsule and the middle of its number.
-// height: how high above the floor the number floats over a generated player.
-const LABEL = Object.freeze({ above: 0.35, height: 2.3 });
 
 // Placeholder player: a capsule body, a head, and a nose showing which way they face.
 function buildPlayer(team) {
@@ -26,24 +23,6 @@ function buildPlayer(team) {
   group.add(body, head, nose);
   body.castShadow = head.castShadow = true;
   return group;
-}
-
-// A jersey number, white on a dark rounded patch. Drawn once per number.
-const numberTextures = new Map();
-function numberTexture(number) {
-  if (!numberTextures.has(number)) {
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 64;
-    const c = canvas.getContext('2d');
-    c.fillStyle = 'rgba(10, 12, 18, 0.85)';
-    c.beginPath(); c.roundRect(2, 10, 60, 44, 10); c.fill();
-    c.fillStyle = '#fff'; c.font = 'bold 34px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(String(number), 32, 33);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    numberTextures.set(number, texture);
-  }
-  return numberTextures.get(number);
 }
 
 // The ball's leather: its colour with the black seams, and the pebbles as bumps. Both are painted once, here.
@@ -94,14 +73,6 @@ function buildArrow(material) {
 // `people` are the generated, animated players (see people.js); without them the capsules stand in.
 export function createActors(scene, people = null) {
   const players = people ? people.models : Array.from({ length: 10 }, () => buildPlayer(0));
-  // The number floats above each head and always faces the camera, so you can see who is on the floor.
-  const labels = players.map(group => {
-    const label = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true }));
-    label.position.y = people ? LABEL.height : HEIGHT + LABEL.above;
-    label.scale.set(0.6, 0.6, 1);
-    group.add(label);
-    return label;
-  });
   const ball = new THREE.Mesh(new THREE.SphereGeometry(BALL.radius, 32, 24), new THREE.MeshStandardMaterial({ ...paintBall(), roughness: 0.78 }));
   ball.castShadow = true;
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.52, 32), new THREE.MeshBasicMaterial({ color: 0xffe14d }));
@@ -126,12 +97,6 @@ export function createActors(scene, people = null) {
           players[i].userData.kit.color.setHex(TEAM_COLOURS[p.team]);   // a place holds either team's player, by the match's size
           players[i].position.set(p.x, p.y, p.z);
           players[i].rotation.y = -p.facing;   // facing is measured from +x toward +z; three.js turns the other way
-        }
-        const { number } = state.rosters[p.team][p.person];
-        if (labels[i].userData.number !== number) {   // a substitution: a different player now wears this capsule
-          labels[i].userData.number = number;
-          labels[i].material.map = numberTexture(number);
-          labels[i].material.needsUpdate = true;
         }
       });
       if (people) {

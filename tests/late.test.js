@@ -19,6 +19,7 @@ const target = p => ({ x: p.ai.targetX, z: p.ai.targetZ });
 function scene({ holder = 0, quarter = CLOCK.quarters, left = 120, score = [0, 0] } = {}) {
   const s = createMatch(1, 5);
   s.phase = 'live'; s.playWait = [Infinity, Infinity];
+  s.tempo = { clock: Infinity, wait: 0 };   // no waiting early in the shot clock: that has its own tests
   Object.assign(s, { quarter, gameClock: left, score: [...score] });
   const spots = [[5.2, 0.5], [7.5, -5.5], [10.9, 3.2], [7.5, 5.5], [11.6, -6.3]];
   for (const p of s.players) {
@@ -36,7 +37,8 @@ const their = options => { const s = scene(options); for (const p of s.players) 
 
 test('the levels run from Rookie to Legend, and All-Star is the game as it was', () => {
   assert.deepEqual(DIFFICULTY.order.map(k => DIFFICULTY.label[k]), ['Rookie', 'Starter', 'All-Star', 'Superstar', 'Legend']);
-  assert.deepEqual(DIFFICULTY.levels.allstar, { green: 1, sweep: 1, timing: 0.6, jitter: AI.releaseJitter, interval: AI.interval, steal: 1, adapt: 0.6 });
+  assert.deepEqual(DIFFICULTY.levels.allstar, { green: 1, make: 1, sweep: 1, timing: 0.6, jitter: AI.releaseJitter, interval: AI.interval, steal: 1, adapt: 0.6 });
+  assert.ok(DIFFICULTY.levels.legend.make < DIFFICULTY.levels.superstar.make && DIFFICULTY.levels.superstar.make < 1 && DIFFICULTY.levels.rookie.make === 1);
   const keys = ['green', 'timing', 'jitter', 'interval'], down = DIFFICULTY.order.map(k => DIFFICULTY.levels[k]);
   for (const key of keys) for (let i = 1; i < down.length; i++) assert.ok(down[i][key] < down[i - 1][key], `${key} does not fall from level ${i - 1} to ${i}`);
   for (const key of ['sweep', 'steal', 'adapt']) for (let i = 1; i < down.length; i++) assert.ok(down[i][key] > down[i - 1][key], `${key} does not rise`);
@@ -46,7 +48,7 @@ test('the levels run from Rookie to Legend, and All-Star is the game as it was',
 test('your green window is wider on the easy levels and narrower on the hard ones; the computer\'s is the same on all', () => {
   const half = (level, id) => { const s = scene(); s.difficulty = level; at(s, id, id < 5 ? 8 : -8, 0); return shotWindow(s, s.players[id]).half; };
   const mine = DIFFICULTY.order.map(level => half(level, 0));
-  assert.ok(Math.abs(mine[0] / mine[2] - 2) < 1e-9 && Math.abs(mine[4] / mine[2] - 0.5) < 1e-9, `${mine}`);
+  DIFFICULTY.order.forEach((level, i) => assert.ok(Math.abs(mine[i] / mine[2] - DIFFICULTY.levels[level].green) < 1e-9, `${level}: ${mine}`));
   for (let i = 1; i < mine.length; i++) assert.ok(mine[i] < mine[i - 1]);
   assert.equal(new Set(DIFFICULTY.order.map(level => half(level, 5))).size, 1);
 });
@@ -221,4 +223,26 @@ test('the computer\'s defence adapts to what you score with, by as much as the l
   assert.ok(gap('legend', [6, 0], 6) > usual + 0.3, 'not looser on a team scoring inside');
   assert.ok(Math.abs(gap('rookie', [1, 5], 6) - usual) < 1e-9, 'Rookie adapts');
   assert.ok(Math.abs(gap('legend', [1, 1], 6) - usual) < 1e-9, 'it adapts on too few baskets');
+});
+
+test('how many steps a shot of yours is green on: an open one seven at All-Star and three at Superstar and Legend; a guarded one five, three and one', async () => {
+  const { greenAt } = await import('../src/sim/players.js');
+  const steps = (level, guarded) => {
+    const s = scene(); s.difficulty = level;
+    at(s, 0, 8.5, 0); at(s, 5, guarded ? 9.8 : 0, guarded ? 0 : 7);   // his defender 1.3 m off, or nowhere near
+    const window = shotWindow(s, s.players[0]);
+    assert.equal(window.level, guarded ? 'Guarded' : 'Open');
+    let green = 0;
+    for (let k = -8; k <= 8; k++) if (greenAt(window, SHOT_BEST + k * DT)) green++;
+    return green;
+  };
+  assert.deepEqual(['allstar', 'superstar', 'legend'].map(level => steps(level, false)), [7, 3, 3]);
+  assert.deepEqual(['allstar', 'superstar', 'legend'].map(level => steps(level, true)), [5, 3, 1]);
+});
+
+test('a shot of yours that is not green goes in less often at Superstar and less again at Legend, however well it is timed; the computer\'s is not changed', () => {
+  const chance = (level, id) => { const s = scene(); s.difficulty = level; s.players[id].shotT = SHOT_BEST; at(s, id, id < 5 ? 8 : -8, 0); return makeChance(s, s.players[id]); };
+  assert.ok(Math.abs(chance('superstar', 0) / chance('allstar', 0) - 0.85) < 1e-9 && Math.abs(chance('legend', 0) / chance('allstar', 0) - 0.7) < 1e-9);
+  assert.equal(chance('rookie', 0), chance('allstar', 0));
+  assert.equal(chance('legend', 5), chance('rookie', 5));
 });

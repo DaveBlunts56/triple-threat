@@ -200,11 +200,11 @@ export async function createScene(canvas) {
     scene, camera, backend, setQuality,
     // The match, for the arena's scoreboard.
     watch: state => arena.show(state),
-    // The people round the court, moved on: the referees by `dt` seconds of match time, the crowd, the boards, the
-    // cameras and the flashes by `real` seconds, as the crowd's mood (`life`, see life.js) has them.
-    live(state, life, dt, real) {
+    // The people round the court, moved on by `real` seconds: the referees, the crowd, the boards, the cameras and
+    // the flashes, as the crowd's mood (`life`, see life.js) has them. Nothing moves while the game is paused.
+    live(state, life, real) {
       clock += real; shake = life.shake;
-      refs.live(state, dt);
+      refs.live(state, real);   // by real time, so that they move as smoothly as the picture is drawn
       arena.live(life, clock);
       sideline.live(state.ball, life, clock);
     },

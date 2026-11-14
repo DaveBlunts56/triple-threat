@@ -87,6 +87,7 @@ export function createMatch(seed = 1, size = 3) {
     timeouts: [TIMEOUT.each, TIMEOUT.each], lastTimeout: -Infinity,   // each team's timeouts left; when the last was called
     run: [0, 0],              // each team's points since the other last scored
     made: [[0, 0], [0, 0]],   // each team's baskets from the floor: [twos, threes]
+    tempo: { clock: 0, wait: 0 },   // how patient this possession is, and the shot clock when that was last looked at (see ai.js)
     plays: [null, null],      // the play each team is running (see plays.js), or null
     playCall: [null, null],   // the play asked for and not yet started, by its key
     playWait: [0, 0],         // seconds until each team's coach may call another

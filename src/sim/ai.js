@@ -1,4 +1,4 @@
-import { AI, BALL, COURT, DT, FT, LATE, PASS, PLAY, PLAYER, SHOT, STEAL, TIP, levelOf } from './tuning.js';
+import { AI, BALL, CLOCK, COURT, DT, FT, LATE, PASS, PLAY, PLAYER, SHOT, STEAL, TIP, levelOf } from './tuning.js';
 import { SHOT_BEST, SHOT_LANDS } from './players.js';
 import { ftChance } from './freethrow.js';
 import { attackSign, emptyIntent, isJumper, onFloor, rand } from './state.js';
@@ -53,6 +53,16 @@ const passTo = (ai, p, mate) => {
   ai.action = 'pass'; ai.passX = (mate.x - p.x) / d; ai.passZ = (mate.z - p.z) / d;
 };
 
+// How many seconds into the shot clock the team with the ball waits before it will shoot from outside or drive at a
+// set defence: a patient possession or a quick one, drawn afresh each time the shot clock starts again. (A lay-up or
+// a fast break is taken whenever it comes.)
+function patience(state) {
+  const { tempo } = state;
+  if (state.shotClock > tempo.clock + 0.5) tempo.wait = AI.patience[0] + rand(state) * (AI.patience[1] - AI.patience[0]);
+  tempo.clock = state.shotClock;
+  return tempo.wait;
+}
+
 function planWithBall(state, p) {
   const { ai } = p, sign = attackSign(p.team), hoop = rimCentre(sign);
   goTo(ai, p);
@@ -84,12 +94,17 @@ function planWithBall(state, p) {
   }
   const settled = ai.heldT >= AI.holdTime;   // just caught it: gather before shooting or passing
   if (settled && toHoop < AI.layupDist) return shoot();
-  // Nobody between him and the hoop: take it all the way in, don't pull up for a jump shot.
-  if (laneClear(state, p)) return goTo(ai, { x: sign * AI.driveX, z: 0 }, true);
+  // Early in the shot clock he does not settle for a shot from outside or take on a set defence: the offence is run
+  // first. A team behind late in the game has no time for that.
+  const early = !sit.hurry && CLOCK.shot - state.shotClock < patience(state);
+  // Nobody between him and the hoop: take it all the way in, don't pull up for a jump shot. Early on that is only
+  // for a fast break, with every defender well behind him: otherwise he walks the ball up.
+  const ahead = opponents(state, p).every(o => dist(o, hoop) > toHoop + AI.breakLead);
+  if (laneClear(state, p) && (!early || ahead)) return goTo(ai, { x: sign * AI.driveX, z: 0 }, true);
   // His play has not formed yet: he keeps the ball rather than shoot from outside or pass. So does a team ahead late
   // in the game, until the shot clock is nearly out. A team behind late waits for nothing.
   const waits = !sit.hurry && (playHolds(state, p) || (sit.milk && state.shotClock > LATE.milkClock));
-  if (settled && !waits && isOpen(state, p) && toHoop <= AI.shootRange) return shoot();
+  if (settled && !waits && !early && isOpen(state, p) && toHoop <= AI.shootRange) return shoot();
 
   // Running out of time to cross half court: stop looking for a pass and bring it up.
   if (state.backcourtT > AI.hurryAt && !state.frontcourt) return goTo(ai, { x: sign * AI.topX, z: 0 }, true);
@@ -98,8 +113,10 @@ function planWithBall(state, p) {
   const untouchable = PLAYER.carryDist + PASS.speed * PASS.clearTime - PLAYER.pickupRadius;
   // With nobody on him he only passes to move the ball nearer the hoop; otherwise he brings it up himself.
   const pressured = !isOpen(state, p);
+  // Early in the shot clock the ball is moved round the outside, not thrown in to a man near the hoop (unless the
+  // play is for him): that pass is made once the offence has been run.
   const open = mates(state, p).filter(m => isOpen(state, m) && dist(m, p) <= AI.passRange
-    && (pressured || dist(m, hoop) < toHoop) && laneClear(state, p, m, untouchable));
+    && (pressured || dist(m, hoop) < toHoop) && !(early && dist(m, hoop) < AI.insideDist) && laneClear(state, p, m, untouchable));
   // The man the play is for gets the ball if it can reach him, open or not: a post man is fed with his defender on him.
   const wanted = playTarget(state, p);
   if (settled && !waits && wanted && dist(wanted, p) <= AI.passRange && laneClear(state, p, wanted, untouchable, PLAY.feedWidth)) passTo(ai, p, wanted);

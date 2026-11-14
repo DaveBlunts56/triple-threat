@@ -51,17 +51,59 @@ export function stepLife(life, state, dt) {
 
 // off: metres outside the lines the referees stand. deep: how far behind the ball the trail referee keeps, and ahead
 // the one opposite. long: seconds a signal lasts. raise: seconds of it spent with the arm up before the call's own sign.
-export const REFS = Object.freeze({ off: 0.55, deep: 4.5, long: 2.4, raise: 0.8, speed: 4.2 });
+// run: a referee's top speed, in metres a second. gain: the speed he wants for each metre he is from his spot, so that
+// he eases into it. accel: how fast his speed changes. near: within this of his spot he stands. jog: above this speed
+// he faces the way he runs; below it he watches the ball. turn: the most he turns, in radians a second. step: the
+// length of his stride at a walk and flat out, in metres. sideHold: how far past the middle of the court the ball
+// must go before the lead referee changes sides of the hoop.
+export const REFS = Object.freeze({ off: 0.55, deep: 4.5, long: 2.4, raise: 0.8, run: 6, gain: 2.2, accel: 9, near: 0.2, jog: 1.6, turn: 7,
+  step: Object.freeze([0.65, 1.25]), sideHold: 1.5 });
 
 // Where the three referees stand: [lead, trail, centre]. The lead is on the baseline the play goes toward, on the
-// ball's side of the hoop; the trail on the near sideline behind the ball; the centre on the far sideline. At the tip
-// the first of them is at the centre spot to throw the ball up. All but he stand outside the lines.
-export function refSpots(state) {
+// ball's side of the hoop (`leadSide`, +1 or -1: see leadSideOf); the trail on the near sideline behind the ball; the
+// centre on the far sideline. At the tip the first of them is at the centre spot to throw the ball up. All but he
+// stand outside the lines.
+export function refSpots(state, leadSide = state.ball.z >= 0 ? 1 : -1) {
   const sign = attackSign(state.possession), { x, z } = state.ball;
   const along = v => clamp(v, -COURT.halfLength + 1, COURT.halfLength - 1), side = COURT.halfWidth + REFS.off;
   const lead = state.phase === 'jumpBall' ? { x: 0, z: -1.4 }
-    : { x: sign * (COURT.halfLength + REFS.off), z: (z >= 0 ? 1 : -1) * clamp(Math.abs(z) * 0.7, 3, 6.5) };
+    : { x: sign * (COURT.halfLength + REFS.off), z: leadSide * clamp(Math.abs(z) * 0.7, 3, 6.5) };
   return [lead, { x: along(x - sign * REFS.deep), z: side }, { x: along(x + sign * 1.5), z: -side }];
+}
+
+// The side of the hoop the lead referee stands on: he crosses only when the ball has gone well past the middle, so
+// that he does not run to and fro under the hoop with every pass.
+export const leadSideOf = (side, ball) => (ball.z * side < -REFS.sideHold ? -side : side);
+
+// A referee: where he is, how fast he moves, the way he faces (0 looks toward +z, a quarter turn toward +x) and how
+// far through his stride he is.
+export const createRef = (x, z) => ({ x, z, vx: 0, vz: 0, facing: 0, stride: 0 });
+
+// Moves a referee on by dt seconds toward `spot`: he gathers speed, eases to a stop, turns no faster than a man can,
+// runs facing the way he goes and watches `ball` when he walks or stands. `still`: he stands to make a sign.
+export function stepRef(ref, spot, ball, dt, still = false) {
+  const dx = spot.x - ref.x, dz = spot.z - ref.z, far = Math.hypot(dx, dz);
+  const want = still || far < REFS.near ? 0 : Math.min(REFS.run, far * REFS.gain);
+  const ax = (far ? (dx / far) * want : 0) - ref.vx, az = (far ? (dz / far) * want : 0) - ref.vz, change = Math.hypot(ax, az), most = REFS.accel * dt;
+  const k = change <= most ? 1 : most / change;
+  ref.vx += ax * k; ref.vz += az * k;
+  const speed = Math.hypot(ref.vx, ref.vz), moved = speed * dt;
+  ref.x += ref.vx * dt; ref.z += ref.vz * dt;
+  // One stride is two steps; the steps lengthen as he runs faster.
+  ref.stride += (moved / (REFS.step[0] + (REFS.step[1] - REFS.step[0]) * Math.min(1, speed / REFS.run))) * Math.PI;
+  const to = speed > REFS.jog ? Math.atan2(ref.vx, ref.vz) : Math.atan2(ball.x - ref.x, ball.z - ref.z);
+  const round = Math.atan2(Math.sin(to - ref.facing), Math.cos(to - ref.facing));   // the short way round
+  ref.facing += clamp(round, -REFS.turn * dt, REFS.turn * dt);
+  return ref;
+}
+
+// How a moving referee holds himself: his legs ({ swing, knee } each), the swing of his arms, how far he leans and
+// how much he dips with each step. It fades to standing as he slows, so he never snaps from a stride to a stand.
+export function refGait(ref) {
+  const speed = Math.hypot(ref.vx, ref.vz), fast = Math.min(1, speed / REFS.run), on = Math.min(1, speed / 0.8);
+  const reach = on * (0.32 + 0.5 * fast), leg = phase => ({ swing: Math.sin(phase) * reach, knee: on * Math.max(0, Math.sin(phase - 1.9)) * (0.5 + 1.1 * fast) });
+  return { legR: leg(ref.stride), legL: leg(ref.stride + Math.PI), arm: Math.sin(ref.stride) * reach * 0.9, bend: 0.25 + on * (0.3 + 0.9 * fast),
+    lean: on * (0.04 + 0.18 * fast), dip: on * Math.abs(Math.cos(ref.stride)) * (0.02 + 0.03 * fast) };
 }
 
 // The sign for a call, by its kind; null for one that has none.

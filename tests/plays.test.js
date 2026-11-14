@@ -16,6 +16,7 @@ const apart = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 function scene(size = 5) {
   const s = createMatch(1, size);
   s.phase = 'live'; s.playWait = [Infinity, Infinity];
+  s.tempo = { clock: Infinity, wait: 0 };   // no waiting early in the shot clock: that has its own tests
   const spots = size === 5 ? [[5.2, 0.5], [7.5, -5.5], [10.9, 3.2], [7.5, 5.5], [11.6, -6.3]] : [[5.2, 0.5], [6.9, -4.5], [10.9, 3.2]];
   for (const p of s.players) {
     const [x, z] = spots[p.slot], far = Math.hypot(RIM.x - x, z), near = p.team === 0 ? 0 : 1.35;

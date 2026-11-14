@@ -66,6 +66,9 @@ export const AI = f({
   holdTime: 0.5,          // seconds a player keeps the ball after getting it before shooting or passing
   pickupX: 4,             // defenders wait this far inside their own half for an opponent still up the court
   hurryAt: 5,             // seconds in the back court after which the handler stops looking for a pass and brings the ball up
+  patience: f([10, 18]),   // seconds into the shot clock before a team will shoot from outside: between these, afresh each possession
+  insideDist: 5,          // a team-mate nearer the hoop than this is inside: early in the shot clock he is not passed to
+  breakLead: 2.5,         // a handler this many metres nearer the hoop than every defender is on a fast break
   helpFrom: 8,            // a handler with a clear lane this near the hoop draws a helper
   helpAt: 1.6,            // metres in front of the rim the helper stands
   helpFor: 1,             // seconds he stays once he has come
@@ -90,7 +93,8 @@ export const AI = f({
 export const PLAY = f({ wait: 1.5, minClock: 9, startX: 1.5, screenGap: 0.66, setDist: 0.9, useBy: 1.6, cut: 4.5, ripeBy: 4, roll: 1.7, feedWidth: 0.65 });
 
 // The difficulty levels, easiest first, what the menus call them, and what each changes. For you (team 0): green: how
-// wide the green window of your shots is, against All-Star's; sweep: how fast the free-throw meter moves; timing:
+// wide the green window of your shots is, against All-Star's; make: the share of its chance a shot of yours that is
+// not green keeps; sweep: how fast the free-throw meter moves; timing:
 // the share of a shot's chance a badly timed release keeps (SHOT.worstTiming at All-Star). For the computer's team
 // (team 1): jitter: seconds either side of the best moment its shots are let go; interval: seconds between its
 // players' decisions; steal: how often it reaches for the ball, against All-Star; adapt: how far it changes its
@@ -99,11 +103,13 @@ export const DIFFICULTY = f({
   order: f(['rookie', 'starter', 'allstar', 'superstar', 'legend']),
   label: f({ rookie: 'Rookie', starter: 'Starter', allstar: 'All-Star', superstar: 'Superstar', legend: 'Legend' }),
   levels: f({
-    rookie: f({ green: 2, sweep: 0.6, timing: 0.8, jitter: 0.3, interval: 0.45, steal: 0.5, adapt: 0 }),
-    starter: f({ green: 1.5, sweep: 0.8, timing: 0.7, jitter: 0.22, interval: 0.36, steal: 0.75, adapt: 0.3 }),
-    allstar: f({ green: 1, sweep: 1, timing: 0.6, jitter: 0.16, interval: 0.3, steal: 1, adapt: 0.6 }),
-    superstar: f({ green: 0.75, sweep: 1.25, timing: 0.5, jitter: 0.11, interval: 0.25, steal: 1.25, adapt: 0.85 }),
-    legend: f({ green: 0.5, sweep: 1.5, timing: 0.4, jitter: 0.07, interval: 0.2, steal: 1.5, adapt: 1 }),
+    rookie: f({ green: 2, make: 1, sweep: 0.6, timing: 0.8, jitter: 0.3, interval: 0.45, steal: 0.5, adapt: 0 }),
+    starter: f({ green: 1.5, make: 1, sweep: 0.8, timing: 0.7, jitter: 0.22, interval: 0.36, steal: 0.75, adapt: 0.3 }),
+    allstar: f({ green: 1, make: 1, sweep: 1, timing: 0.6, jitter: 0.16, interval: 0.3, steal: 1, adapt: 0.6 }),
+    // An open shot is green on seven steps at All-Star, on three at Superstar and at Legend; a guarded one on five,
+    // three and one. A shot that is not green goes in less often on these two.
+    superstar: f({ green: 0.34, make: 0.85, sweep: 1.25, timing: 0.45, jitter: 0.11, interval: 0.25, steal: 1.25, adapt: 0.85 }),
+    legend: f({ green: 0.2, make: 0.7, sweep: 1.5, timing: 0.3, jitter: 0.07, interval: 0.2, steal: 1.5, adapt: 1 }),
   }),
 });
 // What the match's level changes: see DIFFICULTY.levels.
