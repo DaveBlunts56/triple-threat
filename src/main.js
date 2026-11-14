@@ -190,7 +190,8 @@ if (view) {
     // passes, so it advances by real time and the players stand breathing.
     const passed = inPlay(state) ? state.time - before : elapsed;
     const air = broadcast.frame(state, seconds, commentary());
-    game.show = { banner: air.banner, lower: air.lower, caption: air.caption, panel: game.paused ? null : panel };
+    // Under the pause screen none of it shows.
+    game.show = game.paused ? {} : { banner: air.banner, lower: air.lower, caption: air.caption, panel };
     actors.sync(state, passed, air);
     const real = game.paused ? 0 : elapsed;   // the crowd and the referees stand still with a paused game
     view.live(state, stepLife(life, state, real, air.heard), real);

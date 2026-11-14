@@ -159,3 +159,19 @@ test('the lead referee changes sides of the hoop only when the ball has gone wel
   const s = live(1, 5); Object.assign(s.ball, { x: 6, z: -1 });
   assert.ok(refSpots(s, 1)[0].z > 0 && refSpots(s, -1)[0].z < 0);
 });
+
+// ---------- big moments ----------
+
+test('a big moment for the home team brings the home crowd to its feet as a three does; one for the visitors makes it groan', () => {
+  const life = createLife(), s = createMatch();
+  s.phase = 'live';
+  stepLife(life, s, 0.016, [{ kind: 'block', moment: true, team: 0 }]);
+  assert.ok(life.cheer[0] >= LIFE.cheerThree - 0.02 && life.groan === 0);
+  const other = createLife();
+  stepLife(other, s, 0.016, [{ kind: 'deep', moment: true, team: 1 }]);
+  assert.deepEqual([other.groan, other.cheer[0]], [LIFE.groan, 0]);
+  stepLife(other, s, 1, []);
+  assert.ok(Math.abs(other.groan - (LIFE.groan - 1)) < 1e-9);
+  stepLife(other, s, 1, [{ kind: 'made', moment: false, team: 1 }]);   // a plain basket is no moment
+  assert.equal(other.groan, 0);
+});

@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { periodLabel, clockText, createHud, callText, rosterLine, subNote, easeFrame, menuText, keysText, controlsLines, hintLine } from '../src/render/hud.js';
+import { periodLabel, clockText, createHud, callText, rosterLine, subNote, easeFrame, menuText, keysText, controlsLines, hintLine,
+  BOX_HEAD, boxRow, boxTotal, lineupRow, periodLines, halfLines, potgLine } from '../src/render/hud.js';
+import { DEFAULT_PREFS } from '../src/prefs.js';
 import { DEFAULT_KEYS, KEY_ROWS, bind, createKeys } from '../src/keys.js';
 import { createMatch } from '../src/sim/state.js';
 import { createPauseMenu, pauseKey } from '../src/pause.js';
@@ -498,4 +500,101 @@ test('the page shows the Keys panel over the menu that opened it, and the change
   assert.deepEqual([e.keyRow0.textContent, e.keyRow0.className, e.ctlK0.textContent, e.pctlK0.textContent, e.ctlW0.textContent], ['Move up: ↑', '', '↑ A S D', '↑ A S D', 'move']);
   menuKey(menu, 'Escape', keys); show();
   assert.deepEqual([e.keyRows.hidden, e.menuList.hidden, e[`menuRow${MENU.settings.indexOf('keys')}`].textContent], [true, false, 'Keys']);
+});
+
+// ---------- the broadcast on the page ----------
+
+test('a row of the box score is the player\'s line, and the last row his team\'s', () => {
+  const s = createMatch();
+  Object.assign(s.rosters[0][0].stats, { pts: 14, fgm: 5, fga: 9, tpm: 2, tpa: 4, ftm: 2, fta: 3, reb: 4, ast: 6, stl: 2, blk: 1, tov: 3 });
+  s.rosters[0][0].fouls = 2; s.rosters[0][1].stats.pts = 6; s.rosters[0][1].fouls = 1; s.teamStats[0].tov = 1;
+  assert.deepEqual(boxRow(s, 0, 0), ['Cross', '14', '5/9', '2/4', '2/3', '4', '6', '2', '1', '3', '2']);
+  assert.deepEqual(boxTotal(s, 0), ['TEAM', '20', '5/9', '2/4', '2/3', '4', '6', '2', '1', '4', '3']);
+  assert.equal(BOX_HEAD.length, boxRow(s, 0, 0).length);
+});
+
+test('a line-up row gives position, name, role and overall, with the team\'s star marked', () => {
+  const s = createMatch(1, 5);
+  assert.equal(lineupRow(s, 0, 0), 'PG · Jalen Cross ★ · Playmaker · 88');
+  assert.equal(lineupRow(s, 1, 2), 'C · Viktor Lund · Post scorer · 83');
+  assert.equal(lineupRow(createMatch(1, 3), 0, 4), '');               // three a side has no fifth starter
+});
+
+test('between periods: each team by period with its total, and each team\'s leading scorer', () => {
+  const s = createMatch();
+  s.byQuarter = [[12, 15], [10, 14]]; s.score = [27, 24];
+  s.rosters[0][3].stats.pts = 11; s.rosters[1][0].stats.pts = 9;
+  assert.deepEqual(periodLines(s), ['WAV  12 · 15  —  27', 'SCO  10 · 14  —  24', 'Okoro 11 PTS', 'Mercer 9 PTS']);
+});
+
+test('at half-time the teams are side by side, and nothing tried is 0%', () => {
+  const s = createMatch();
+  Object.assign(s.rosters[0][0].stats, { fgm: 12, fga: 27, tpm: 0, tpa: 0, reb: 14, tov: 3 });
+  Object.assign(s.rosters[1][0].stats, { fgm: 10, fga: 25, tpm: 3, tpa: 9, reb: 12, tov: 5 });
+  assert.deepEqual(halfLines(s), [['Field goals', '12/27 (44%)', '10/25 (40%)'], ['Threes', '0/0 (0%)', '3/9 (33%)'], ['Rebounds', '14', '12'], ['Turnovers', '3', '5']]);
+});
+
+test('the player of the game is named with his line', () => {
+  const s = createMatch();
+  Object.assign(s.rosters[1][0].stats, { pts: 24, fgm: 9, fga: 15, reb: 6, ast: 5 });
+  assert.equal(potgLine(s), 'PLAYER OF THE GAME · Kai Mercer · 24 PTS · 6 REB · 5 AST');
+});
+
+test('the page shows the banner, the card, the caption and the panels it is told to, and hides them otherwise', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(1, 5), e = doc.els;
+  s.phase = 'live';
+  const draw = show => hud.update(s, 'webgl2', { paused: false, pick: null, show });
+  draw({});
+  assert.deepEqual([e.banner.hidden, e.lower.hidden, e.caption.hidden, e.lineups.hidden, e.between.hidden, e.boxScore.hidden], [true, true, true, true, true, true]);
+  draw({ banner: { words: 'AND ONE', name: 'Mercer', team: 1 }, lower: { title: 'Cross', lines: ['Free throws 3/4'] }, caption: 'Mercer scores, and the foul!' });
+  assert.deepEqual([e.banner.hidden, e.bannerWords.textContent, e.bannerName.textContent, e.banner.className], [false, 'AND ONE', 'Mercer', 'away']);
+  assert.deepEqual([e.lower.hidden, e.lowerTitle.textContent, e.lowerLine.textContent], [false, 'Cross', 'Free throws 3/4']);
+  assert.deepEqual([e.caption.hidden, e.caption.textContent], [false, 'Mercer scores, and the foul!']);
+  draw({ panel: 'lineups' });
+  assert.deepEqual([e.lineups.hidden, e.banner.hidden, e.lineupTeam0.textContent, e.lineup00.textContent, e.lineup14.hidden], [false, true, 'Harbor City Waves', 'PG · Jalen Cross ★ · Playmaker · 88', false]);
+  s.byQuarter = [[12, 15], [10, 14]]; s.score = [27, 24]; s.quarter = 2;
+  draw({ panel: 'half' });
+  assert.deepEqual([e.lineups.hidden, e.between.hidden, e.betweenTitle.textContent, e.betweenLine0.textContent, e.betweenLine4.textContent, e.betweenLine7.hidden],
+    [true, false, 'HALF-TIME', 'WAV  12 · 15  —  27', '0/0 (0%)  ·  Field goals  ·  0/0 (0%)', false]);
+  s.quarter = 1;
+  draw({ panel: 'period' });
+  assert.deepEqual([e.betweenTitle.textContent, e.betweenLine3.hidden, e.betweenLine4.hidden], ['END OF 1ST', false, true]);
+});
+
+test('three a side shows three starters a team on the line-ups', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(1, 3), e = doc.els;
+  s.phase = 'jumpBall';
+  hud.update(s, 'webgl2', { paused: false, pick: null, show: { panel: 'lineups' } });
+  assert.deepEqual([e.lineup02.hidden, e.lineup03.hidden, e.lineup13.hidden], [false, true, true]);
+});
+
+test('the box score shows in the pause menu\'s panel and on the final screen, with the player of the game', () => {
+  const { e, s, show, choose } = pausedHud();
+  s.rosters[0][0].stats.pts = 7;
+  show();
+  assert.equal(e.boxScore.hidden, true);
+  choose('ArrowDown', 'ArrowDown', 'Enter'); show();
+  assert.deepEqual([e.boxScore.hidden, e.pauseList.hidden, e.boxTeam0.textContent, e.box0r0c0.textContent, e.box0r0c1.textContent, e.box0r8c0.textContent, e.box0r8c1.textContent],
+    [false, true, 'Harbor City Waves', 'Cross', '7', 'TEAM', '7']);
+  const doc = fakeDoc(), hud = createHud(doc), over = createMatch();
+  over.phase = 'final'; over.score = [50, 61]; over.rosters[1][0].stats.pts = 30;
+  hud.update(over, 'webgl2', { paused: false, pick: null });
+  assert.deepEqual([doc.els.boxScore.hidden, doc.els.finalPotg.textContent, doc.els.box1r0c1.textContent], [false, 'PLAYER OF THE GAME · Kai Mercer · 30 PTS · 0 REB · 0 AST', '30']);
+});
+
+test('the Commentary row says what is chosen, and where there is no voice that it is captions only', () => {
+  const menu = createMenu(); menu.panel = 'settings';
+  const row = MENU.settings.indexOf('commentary'), words = (commentary, hasVoice) => menuText(menu, row, 'high', '2k', { ...DEFAULT_PREFS, commentary }, hasVoice);
+  assert.deepEqual([words('voice', true), words('captions', true), words('off', true)], ['Commentary: Voice and captions', 'Commentary: Captions only', 'Commentary: Off']);
+  assert.deepEqual([words('voice', false), words('captions', false), words('off', false)],
+    ['Commentary: Captions only (no voice in this browser)', 'Commentary: Captions only (no voice in this browser)', 'Commentary: Off']);
+});
+
+test('the page has every element the broadcast writes to', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const ids = ['banner', 'bannerWords', 'bannerName', 'lower', 'lowerTitle', 'lowerLine', 'caption', 'lineups', 'lineupTeam0', 'lineupTeam1', 'between', 'betweenTitle',
+    'boxScore', 'boxTeam0', 'boxTeam1', 'finalPotg', ...[0, 1].flatMap(t => [0, 1, 2, 3, 4].map(i => `lineup${t}${i}`)), ...[0, 1, 2, 3, 4, 5, 6, 7].map(i => `betweenLine${i}`),
+    ...[0, 1].flatMap(t => [0, 1, 2, 3, 4, 5, 6, 7, 8].flatMap(r => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(c => `box${t}r${r}c${c}`)))];
+  for (const id of ids) assert.match(html, new RegExp(`id="${id}"`), id);
+  assert.equal((html.match(/<[^>]*aria-live[^>]*>/g) ?? []).length, 1);   // still one live region: the caption is not read out twice
 });

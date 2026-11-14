@@ -212,6 +212,10 @@
   section.screen[hidden] { display: none; }
   section.screen h1 { font-size: 56px; margin: 0 0 12px; }
   section.screen p { font-size: 20px; margin: 6px 0; }
+  /* The final screen: the result at the top, the box score under it. */
+  #screenFinal { justify-content: flex-start; padding-top: 5vh; }
+  #screenFinal h1 { font-size: min(56px, 7vh); margin: 0 0 1vh; }
+  #screenFinal p { font-size: min(20px, 2.6vh); margin: .5vh 0; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   /* The start menu, as in the approved mockup: a glossy disc on an icy-blue sky. It covers the court entirely.
      --d is the disc's width and height; everything inside is sized by it. */

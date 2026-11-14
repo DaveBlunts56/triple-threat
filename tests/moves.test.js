@@ -478,3 +478,20 @@ test('a defender put on the floor by a move staggers low; with a stumble in the 
   const withClip = { ...facts, clips: { ...facts.clips, stumble: { duration: 1, from: 'clip' } } };
   assert.deepEqual(armMotion(s.players[3], s, marks, withClip), { clip: 'stumble', at: 0.5 });
 });
+
+// ---------- after a big basket ----------
+
+test('the scorer the broadcast has celebrating raises an arm, or plays the celebration if the file has one; the beaten man drops his head only with that motion', () => {
+  const [s, marks] = watched();
+  at(s, 1, 0, 3); at(s, 4, 0, -3);                                    // away from everyone, so nothing else moves their arms
+  marks.show = { celebrate: 1, dejected: 4 };
+  assert.deepEqual(arms(s, marks, 1), { clip: 'handUp', rate: 1 });
+  assert.notEqual(arms(s, marks, 4)?.clip, 'dejected');
+  const more = { ...facts, clips: { ...facts.clips, celebrate: { duration: 2, from: 'clip' }, dejected: { duration: 2, from: 'clip' } } };
+  assert.deepEqual(armMotion(s.players[1], s, marks, more), { clip: 'celebrate', rate: 1 });
+  assert.deepEqual(armMotion(s.players[4], s, marks, more), { clip: 'dejected', rate: 1 });
+  marks.show = { celebrate: 0, dejected: null };                      // the man with the ball gets on with it
+  assert.notEqual(armMotion(s.players[0], s, marks, more).clip, 'celebrate');
+  marks.show = null;
+  assert.notEqual(arms(s, marks, 1)?.clip, 'handUp');
+});
