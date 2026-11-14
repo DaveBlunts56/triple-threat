@@ -92,6 +92,9 @@ if (view) {
     actors.sync(state, passed);
     view.follow(state.ball.x);
     view.render();
+    // Where the feet of the player you control are on the page, for his name; nothing before and after a match.
+    const me = state.players[state.controlled];
+    game.feet = inPlay(state) ? view.toScreen(me.x, 0, me.z) : null;
     const m = shotMeter(state);
     game.meter = m && { ...m, head: view.toScreen(m.x, SHOT_METER.high, m.z) };
     hud.update(state, view.backend, game);

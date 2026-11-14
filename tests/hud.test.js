@@ -127,7 +127,7 @@ test('a label names the player you control: surname, position, number', () => {
 
 test('the page has every element the scoreboard writes to', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  for (const id of ['fouls0', 'fouls1', 'energy', 'who', 'call', 'ftBox', 'ftText', 'ftBar', 'ftMarker', 'subNote',
+  for (const id of ['fouls0', 'fouls1', 'energy', 'who', 'nameTag', 'call', 'ftBox', 'ftText', 'ftBar', 'ftMarker', 'subNote',
     ...[0, 1, 2, 3, 4].flatMap(i => [`roster${i}`, `rosterEnergy${i}`])]) assert.match(html, new RegExp(`id="${id}"`), id);
   assert.match(html, /F hold ball/);
 });
@@ -263,4 +263,16 @@ test('the page has the menu: four rows, both panels, ten players, every key in t
   assert.match(html, /prefers-reduced-motion/);
   assert.doesNotMatch(html, /Press Enter to play</);
   assert.equal((html.match(/<[^>]*aria-live[^>]*>/g) ?? []).length, 1);                // still one live region
+});
+
+test('the surname of the player you control is drawn under him, where the page is told his feet are', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els;
+  s.phase = 'live';
+  hud.update(s, 'webgl2', { paused: false, pick: null, feet: { x: 400.4, y: 300.6 } });
+  assert.deepEqual([e.nameTag.hidden, e.nameTag.textContent, e.nameTag.style.left, e.nameTag.style.top], [false, 'Cross', '400px', '301px']);
+  s.controlled = 2;
+  hud.update(s, 'webgl2', { paused: false, pick: null, feet: { x: 10, y: 20 } });
+  assert.deepEqual([e.nameTag.textContent, e.nameTag.style.left, e.nameTag.style.top], ['Stone', '10px', '20px']);
+  hud.update(s, 'webgl2');                                                // no place given: nothing to draw it under
+  assert.equal(e.nameTag.hidden, true);
 });

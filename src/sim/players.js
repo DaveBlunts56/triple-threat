@@ -1,7 +1,7 @@
 import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FOUL, PASS, PLAYER, RIM, SHOT, STAMINA, STEAL, THREE_PT } from './tuning.js';
 import { attackSign, onFloor as grounded, personOf, rand } from './state.js';
 import { shotFactor, speedFactor, spend } from './stamina.js';
-import { rimCentre, solveShot } from './ball.js';
+import { rimCentre, solveShot, stepBall } from './ball.js';
 
 // Seconds after the press of a shot: the best moment to let go, and the moment he is back on the floor.
 export const SHOT_BEST = SHOT.gather + SHOT.bestAt * PLAYER.shotJumpV / BALL.gravity;
@@ -200,20 +200,41 @@ export function releaseShot(state, player) {
     return { shooter: player.id, defender, blocked: true };
   }
 
-  // A green release always goes in, and draws no random number to find out.
-  launchShot(state, player, green || rand(state) < makeChance(state, player), isThree(player.x, player.z, sign) ? 3 : 2);
+  // A green release always goes in, clean, and draws no random number to find out. Other makes sometimes rattle in.
+  const made = green || rand(state) < makeChance(state, player);
+  launchShot(state, player, made, isThree(player.x, player.z, sign) ? 3 : 2, made && !green && rand(state) < SHOT.rattle);
   return { shooter: player.id, defender, blocked: false };
 }
 
-// Throws the ball from where it is at the hoop `player` attacks: on target if `made`, otherwise nudged off it.
-export function launchShot(state, player, made, value) {
+// A launch from where the ball is that bounces on the rim of the hoop at `sign` and then goes in, or null if none of
+// the aims tried does. Each aim's flight is played ahead with the ball's own physics.
+function rimIn(state, ball, sign) {
+  for (let i = 0; i < SHOT.rattleTries; i++) {
+    const target = rimCentre(sign);
+    const off = SHOT.rattleMin + rand(state) * (SHOT.rattleMax - SHOT.rattleMin), angle = rand(state) * 2 * Math.PI;
+    target.x += off * Math.cos(angle); target.z += off * Math.sin(angle);
+    const launch = solveShot(ball, target), flight = { x: ball.x, y: ball.y, z: ball.z, ...launch };
+    for (let step = 0, touched = -1; step < 300 && flight.y > RIM.height - 1; step++) {
+      const events = stepBall(flight, DT);
+      if (events.hitRim && touched < 0) touched = step;
+      if (!events.scored) continue;
+      if (events.scored === sign && touched >= 0 && step - touched >= SHOT.rattleSteps) return launch;
+      break;
+    }
+  }
+  return null;
+}
+
+// Throws the ball from where it is at the hoop `player` attacks: on target if `made`, otherwise nudged off it. A made
+// shot asked to `rattle` comes off the rim on its way in, if such a shot can be found from there.
+export function launchShot(state, player, made, value, rattle = false) {
   const { ball } = state;
   const target = rimCentre(attackSign(player.team));
   if (!made) {
     const off = SHOT.missMin + rand(state) * (SHOT.missMax - SHOT.missMin), angle = rand(state) * 2 * Math.PI;
     target.x += off * Math.cos(angle); target.z += off * Math.sin(angle);
   }
-  Object.assign(ball, solveShot(ball, target, made ? RIM.radius : 0));
+  Object.assign(ball, (made && rattle && rimIn(state, ball, attackSign(player.team))) || solveShot(ball, target, made ? RIM.radius : 0));
   ball.shooter = player.id;
   ball.shotValue = value;
   letGo(state, player, 'shot');

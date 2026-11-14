@@ -1,6 +1,7 @@
 import { CLOCK, COURT, PASS, PLAYER, STAMINA, TIP, VIOLATION } from './tuning.js';
 import { attackSign, lineUp, onFloor, personOf, rand } from './state.js';
 import { jump } from './players.js';
+import { inNet } from './ball.js';
 import { spend } from './stamina.js';
 import { applySubs } from './roster.js';
 import { findViolation, trackCounters } from './violations.js';
@@ -56,8 +57,9 @@ function callFoul(state, foul, shots) {
 }
 
 // A dead ball drops where it is instead of bouncing off into the distance, and a whistle ends any shot still in the hand.
+// A ball in the net is left to the net: a make carries on through it.
 function deadBall(state) {
-  if (state.ball.holder === null) state.ball.vx = state.ball.vz = 0;
+  if (state.ball.holder === null && !inNet(state.ball)) state.ball.vx = state.ball.vz = 0;
   state.ball.target = null;
   for (const p of state.players) p.shooting = false;
 }

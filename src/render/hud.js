@@ -103,6 +103,13 @@ export function createHud(doc) {
       set('fouls0', `Fouls ${state.teamFouls[0]}`);
       set('fouls1', `Fouls ${state.teamFouls[1]}`);
       set('who', whoText(state));
+      // His surname under the player you control, at the place on the page the game says his feet are.
+      hide('nameTag', !ui.feet);
+      if (ui.feet) {
+        set('nameTag', surname(personOf(state, state.players[state.controlled])));
+        style('nameTag', 'left', pixels(ui.feet.x));
+        style('nameTag', 'top', pixels(ui.feet.y));
+      }
       bar('energy', personOf(state, state.players[state.controlled]).energy);
       set('quarter', periodLabel(state.quarter));
       set('gameClock', clockText(state.gameClock));

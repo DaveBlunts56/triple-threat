@@ -1,8 +1,12 @@
-import { BALL, RIM, BOARD, SHOT } from './tuning.js';
+import { BALL, RIM, BOARD, SHOT, HOOP_NET } from './tuning.js';
 
 const rad = deg => (deg * Math.PI) / 180;
 
 export const rimCentre = sign => ({ x: sign * RIM.x, y: RIM.height, z: 0 });
+
+// Is the ball inside the net of the hoop at its end of the court: under the rim's plane, within the rim, above the net's bottom?
+export const inNet = ball => ball.y < RIM.height && ball.y > RIM.height - HOOP_NET.depth
+  && Math.hypot(Math.abs(ball.x) - RIM.x, ball.z) < RIM.radius;
 
 // Launch velocity that carries the ball centre from `from` through `target`.
 // The angle is steep enough that the ball drops into the target at SHOT.minEntry or more.
@@ -79,6 +83,13 @@ function substep(ball, dt, events) {
       if (ny > Math.cos(rad(5))) ball.vx -= sign * 0.3;
       events.hitRim = true;
     }
+  }
+
+  // The net: it takes away a ball's sideways speed and slows its fall, so a make drops out under the hoop.
+  if (inNet(ball)) {
+    const keep = Math.exp(-dt / HOOP_NET.slow);
+    ball.vx *= keep; ball.vz *= keep;
+    if (ball.vy < -HOOP_NET.exit) ball.vy = -HOOP_NET.exit + (ball.vy + HOOP_NET.exit) * keep;
   }
 
   // Basket: the centre drops through the rim plane inside the rim.

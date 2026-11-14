@@ -10,6 +10,10 @@ export const THREE_PT = f({ radius: 6.75, cornerZ: 6.6 });
 
 export const BALL = f({ radius: 0.12, gravity: 9.81, floorBounce: 0.75, rimBounce: 0.55, boardBounce: 0.6, restSpeed: 0.5, floorGrip: 0.9, rollDecel: 2, substeps: 4 });
 
+// The net under each rim, as the ball feels it. depth: metres it hangs below the rim. slow: seconds in which it takes away
+// most of a ball's sideways speed. exit: the fastest a ball drops out of its bottom, in metres a second.
+export const HOOP_NET = f({ depth: 0.45, slow: 0.015, exit: 3.5 });
+
 export const PLAYER = f({ radius: 0.3, run: 5, sprint: 7, accel: 30, jumpV: 4, shotJumpV: 2.2, releaseHeight: 2.3, reach: 2.4, pickupRadius: 0.7, handHeight: 1, carryDist: 0.4, dribbleRate: 2, jumpCarry: 0.2, dribbleSpeed: 0.85, gatherDist: 1.5 });   // shotJumpV: the smaller jump of a shot; jumpCarry: share of running speed kept when jumping; dribbleSpeed: share of top speed with the ball; gatherDist: metres a player may move after picking up his dribble
 
 export const SHOT = f({
@@ -21,6 +25,11 @@ export const SHOT = f({
   missMin: 0.18, missMax: 0.32,
   minAngle: 50, minEntry: 45, maxAngle: 88,   // degrees: lowest launch angle, shallowest drop into the rim, steepest launch
   rimClear: 0.02,     // extra room a made shot leaves between ball and front rim
+  // rattle: share of makes that are not green which are asked to bounce on the rim before they drop. Such a shot is
+  // aimed between rattleMin and rattleMax metres off the rim's centre, trying up to rattleTries aims for one that
+  // goes in at least rattleSteps steps after it first touches the rim (a ball that only clips the rim on its way down
+  // does not count). Few aims do, fewer from far out, so some of those asked swish after all.
+  rattle: 0.35, rattleMin: 0.07, rattleMax: 0.17, rattleSteps: 6, rattleTries: 40,
   minRelease: 0.6,    // a shot is never released closer to the rim centre than this
   greenFull: 4, greenNone: 12,   // metres from the hoop: the green window is full width up to the first and gone at the second
   // How closely the shooter is guarded, highest first: the level is the first whose `above` his defender factor reaches,
