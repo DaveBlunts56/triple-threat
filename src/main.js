@@ -116,6 +116,7 @@ if (view) {
     game.feet = inPlay(state) ? view.toScreen(me.x, 0, me.z) : null;
     const m = shotMeter(state);
     game.meter = m && { ...m, head: view.toScreen(m.x, SHOT_METER.high, m.z) };
+    game.missing = view.missing;
     hud.update(state, view.backend, game);
     hud.show(state.phase === 'start' ? 'start' : state.phase === 'final' ? 'final' : game.paused ? 'pause' : null);
     requestAnimationFrame(frame);

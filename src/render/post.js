@@ -1,0 +1,73 @@
+import * as THREE from 'three';
+import { pass, mrt, normalView, screenUV, builtinAOContext, renderOutput, smoothstep, float } from 'three/tsl';
+import { ao } from 'three/addons/tsl/display/GTAONode.js';
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
+import { smaa } from 'three/addons/tsl/display/SMAANode.js';
+import { QUALITY } from './quality.js';
+
+// aoSize: the ambient occlusion is worked out at this share of the picture's size. bloom: how strong the glow is, how
+// far it spreads, and how bright a pixel must be before it glows at all (1 is white, so only lights, lit boards and
+// the hottest highlights do). vignette: the picture darkens toward its corners, from `from` to `to` of the way out
+// from the middle, by `dark` at most.
+const POST = Object.freeze({
+  aoSize: 0.5,
+  bloom: Object.freeze({ strength: 0.3, radius: 0.5, threshold: 1 }),
+  vignette: Object.freeze({ from: 0.45, to: 0.95, dark: 0.28 }),
+});
+
+// What is done to the picture after the scene is drawn, by quality level. Returns { render(), setQuality(level),
+// missing }: `missing` lists, in words, the effects of the current level that this browser could not run.
+export function createPost(renderer, scene, camera) {
+  const missing = [];
+  let pipeline = null;   // null: the scene is drawn straight to the screen
+
+  // The chain for a level, or null if the level asks for nothing. An effect that cannot be built is left out.
+  function chain(level) {
+    const q = QUALITY[level];
+    if (q.aa === 'none' && !q.ao && !q.bloom) return null;
+    const made = new THREE.RenderPipeline(renderer);
+    const scenePass = pass(scene, camera);
+    const attempt = (words, add) => { try { add(); } catch (error) { console.warn(`No ${words} here.`, error); missing.push(words); } };
+    let picture = scenePass;
+    if (q.ao) attempt('ambient occlusion', () => {
+      // A first pass draws only how far away and which way each surface faces; the occlusion worked out from it
+      // darkens the scene's own ambient light as the scene is drawn.
+      const before = pass(scene, camera);
+      before.setMRT(mrt({ output: normalView }));
+      const occlusion = ao(before.getTextureNode('depth'), before.getTextureNode(), camera);
+      occlusion.resolutionScale = POST.aoSize;
+      scenePass.contextNode = builtinAOContext(occlusion.getTextureNode().sample(screenUV).r);
+    });
+    if (q.bloom) attempt('bloom', () => {
+      const glow = bloom(scenePass, POST.bloom.strength, POST.bloom.radius, POST.bloom.threshold);
+      const edge = smoothstep(POST.vignette.from, POST.vignette.to, screenUV.sub(0.5).length().mul(1.4));
+      picture = scenePass.add(glow).mul(float(1).sub(edge.mul(POST.vignette.dark)));
+    });
+    // Edges are smoothed last, on the picture as the screen will show it: tone-mapped and in the screen's colours.
+    made.outputColorTransform = false;
+    const shown = renderOutput(picture);
+    made.outputNode = shown;
+    if (q.aa !== 'none') attempt('anti-aliasing', () => { made.outputNode = q.aa === 'smaa' ? smaa(shown) : fxaa(shown); });
+    return made;
+  }
+
+  return {
+    missing,
+    setQuality(level) {
+      pipeline?.dispose();
+      missing.length = 0;
+      pipeline = chain(level);
+    },
+    // Draws one frame. If the chain fails as it is first used, the game goes on drawing straight to the screen.
+    render() {
+      if (!pipeline) return renderer.render(scene, camera);
+      try { pipeline.render(); } catch (error) {
+        console.warn('Post-processing failed; drawing without it.', error);
+        missing.push('post-processing');
+        pipeline.dispose(); pipeline = null;
+        renderer.render(scene, camera);
+      }
+    },
+  };
+}

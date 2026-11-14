@@ -356,3 +356,11 @@ test('the page has the pause menu: five buttons, three panels, the scoreboard, t
   for (const word of ['WASD', 'Shift', 'Space', 'E', 'Q', 'F', 'Esc', 'G']) assert.match(controls, new RegExp(`\\b${word}\\b`), word);
   assert.equal((html.match(/<[^>]*aria-live[^>]*>/g) ?? []).length, 1);
 });
+
+test('the corner label says which effects this browser could not run', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch();
+  hud.update(s, 'webgl2', { paused: false, pick: null, fps: 58.2, quality: 'high', missing: ['ambient occlusion', 'bloom'] });
+  assert.equal(doc.els.backend.textContent, 'WebGL 2 (WebGPU not available) · High · no ambient occlusion · no bloom · 58 fps');
+  hud.update(s, 'webgl2', { paused: false, pick: null, fps: 58.2, quality: 'high', missing: [] });
+  assert.equal(doc.els.backend.textContent, 'WebGL 2 (WebGPU not available) · High · 58 fps');
+});

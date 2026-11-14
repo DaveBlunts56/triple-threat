@@ -134,7 +134,8 @@ export function createHud(doc) {
       set('gameClock', clockText(state.gameClock));
       set('shotClock', String(Math.ceil(state.shotClock)));
       const level = ui.quality ? ` · ${QUALITY[ui.quality].label}` : '';
-      set('backend', BACKEND_NAMES[backend] + level + (typeof ui.fps === 'number' ? ` · ${Math.round(ui.fps)} fps` : ''));
+      const without = (ui.missing ?? []).map(words => ` · no ${words}`).join('');   // effects this browser could not run
+      set('backend', BACKEND_NAMES[backend] + level + without + (typeof ui.fps === 'number' ? ` · ${Math.round(ui.fps)} fps` : ''));
 
       // The start menu (`ui.menu`), before the match: the rows of the panel shown with the bar on one, or a panel with
       // no rows (Teams, Controls), and the hint line. Screen readers hear the selected row, or the panel's name.

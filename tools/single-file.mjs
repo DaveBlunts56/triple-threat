@@ -7,7 +7,10 @@ import { ASSETS } from '../src/render/assets.js';
 
 const OUT = 'dist/triple-threat.html';
 // The bare names the game imports, as in index.html's import map.
-const BARE = { three: 'node_modules/three/build/three.webgpu.js' };
+const BARE = {
+  three: 'node_modules/three/build/three.webgpu.js', 'three/webgpu': 'node_modules/three/build/three.webgpu.js',
+  'three/tsl': 'node_modules/three/build/three.tsl.js',
+};
 const PREFIX = { 'three/addons/': 'node_modules/three/examples/jsm/' };
 // An import or re-export statement that starts a line, up to its module name. Comments and strings never start a line this way.
 const IMPORT = /^((?:import|export)\b[\w\s{},*$]*?\bfrom\s*|import\s*)(['"])([^'"\n]+)\2/gm;

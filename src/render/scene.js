@@ -4,6 +4,7 @@ import { QUALITY } from './quality.js';
 import { createLight } from './light.js';
 import { createFloor } from './floor.js';
 import { createArena } from './arena.js';
+import { createPost } from './post.js';
 import { ARENA } from './layout.js';
 import { NET, createNet, stepNet } from './net.js';
 
@@ -146,10 +147,12 @@ export async function createScene(canvas) {
     light.setQuality(level);
     floor.setQuality(level);
     arena.setQuality(level);
+    post.setQuality(level);
   };
-  setQuality('high');
 
   const camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, 0.1, 100);
+  const post = createPost(renderer, scene, camera);
+  setQuality('high');
   let followX = 0;
   const aim = () => {
     camera.position.set(followX, CAMERA.height, CAMERA.back);
@@ -171,7 +174,8 @@ export async function createScene(canvas) {
     scene, camera, backend, setQuality,
     // The match, for the arena's scoreboard.
     watch: state => arena.show(state),
-    render: () => renderer.render(scene, camera),
+    render: () => post.render(),
+    missing: post.missing,   // the effects of the current level that this browser could not run, in words
     // Eases the camera along the sideline toward court position x.
     follow(x) {
       followX += (Math.min(Math.max(x, -CAMERA.maxX), CAMERA.maxX) - followX) * CAMERA.ease;
