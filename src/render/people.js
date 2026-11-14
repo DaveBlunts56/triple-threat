@@ -116,6 +116,9 @@ export async function loadPeople() {
       if (!part.isMesh) return;
       const material = part.material;
       part.castShadow = SHADOWED.test(material.name);
+      // Eyes, brows and lashes are smaller than a pixel from the game's camera, and each is one more thing to draw for
+      // every player in every pass: they are left out until a camera comes close enough to show them.
+      part.visible = part.castShadow;
       part.frustumCulled = false;   // its bounds are those of the rest pose, not of where the motion puts it
       if (material.name === 'jersey') part.material = painted(material, team, number);
       if (material.name === 'shorts') part.material = shorts[team] ??= painted(material, team);

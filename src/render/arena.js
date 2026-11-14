@@ -86,12 +86,15 @@ export function createArena(scene) {
     new THREE.MeshStandardMaterial({ color: 0x0c0e13, roughness: 1, side: THREE.BackSide }));
   shell.position.y = LOOK.hall.y / 2 - 0.02;
   const lit = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.97, 0.92).multiplyScalar(LOOK.glow) });
+  // The roof's lights are one mesh: twelve separate ones would each be drawn again in the floor's mirror.
+  const panels = [];
   for (const x of LOOK.panels.xs) for (const z of LOOK.panels.zs) {
-    const panel = new THREE.Mesh(new THREE.PlaneGeometry(LOOK.panels.wide, LOOK.panels.deep), lit);
-    panel.rotation.x = Math.PI / 2;
-    panel.position.set(x, LOOK.panels.y, z);
-    hall.add(panel);
+    const panel = new THREE.PlaneGeometry(LOOK.panels.wide, LOOK.panels.deep);
+    panel.rotateX(Math.PI / 2);
+    panel.translate(x, LOOK.panels.y, z);
+    panels.push(panel);
   }
+  hall.add(new THREE.Mesh(mergeGeometries(panels), lit));
   const people = crowd();
   hall.add(shell, steps(), people.bodies, people.heads);
 
