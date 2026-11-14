@@ -62,7 +62,7 @@ test('a key tapped on the pause screen does not act when play resumes', () => {
 test('pausing shows the list with the highlight on Resume: Resume, Substitutions, Controls, Settings, Quit to main menu', () => {
   const { game } = paused();
   assert.deepEqual([at(game), pauseRows(game.pauseMenu)], [['main', 0], ['resume', 'subs', 'box', 'controls', 'settings', 'quit']]);
-  assert.deepEqual([PAUSE.settings, PAUSE.quit], [['quality', 'autoSubs', 'camera', 'difficulty', 'commentary', 'replays', 'keys'], ['stay', 'leave']]);
+  assert.deepEqual([PAUSE.settings, PAUSE.quit], [['quality', 'autoSubs', 'camera', 'difficulty', 'commentary', 'replays', 'sound', 'keys'], ['stay', 'leave']]);
 });
 
 test('the highlight moves by arrows or W and S and wraps; Enter or Space on Resume, or Esc, asks to resume', () => {

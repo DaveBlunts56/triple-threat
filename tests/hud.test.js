@@ -329,8 +329,8 @@ test('Substitutions and Controls open in place of the buttons, and opening one i
 test('Settings shows each setting with its value, and Quit asks before leaving', () => {
   const { e, s, game, show, choose } = pausedHud();
   choose('ArrowUp', 'ArrowUp', 'Enter'); show();                           // up from Resume wraps to Quit, then Settings
-  assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent, e.pauseRow2.textContent, e.pauseRow3.textContent, e.pauseRow4.textContent, e.pauseRow5.textContent, e.pauseRow6.textContent, e.pauseRow7.hidden, e.pauseHint.textContent],
-    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', 'Commentary: Voice and captions', 'Replays: On', 'Keys', true, '↑ ↓ choose · Enter change · Esc back']);
+  assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent, e.pauseRow2.textContent, e.pauseRow3.textContent, e.pauseRow4.textContent, e.pauseRow5.textContent, e.pauseRow6.textContent, e.pauseRow7.textContent, e.pauseRow8.hidden, e.pauseHint.textContent],
+    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', 'Commentary: Voice and captions', 'Replays: On', 'Sound: Full', 'Keys', true, '↑ ↓ choose · Enter change · Esc back']);
   s.autoSubs[0] = false; game.quality = 'low'; show();
   assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent], ['Quality: Low', 'Automatic substitutions: Off']);
   choose('Escape', 'ArrowDown', 'Enter'); show();
@@ -614,4 +614,10 @@ test('the Replays row says On or Off', () => {
   const row = MENU.settings.indexOf('replays');
   assert.equal(menuText(menu, row, 'high', '2k', { ...DEFAULT_PREFS, replays: true }), 'Replays: On');
   assert.equal(menuText(menu, row, 'high', '2k', { ...DEFAULT_PREFS, replays: false }), 'Replays: Off');
+});
+
+test('the Sound row says Full, Quiet or Off', () => {
+  const menu = createMenu(); menu.panel = 'settings';
+  const row = MENU.settings.indexOf('sound');
+  assert.deepEqual(['full', 'quiet', 'off'].map(sound => menuText(menu, row, 'high', '2k', { ...DEFAULT_PREFS, sound })), ['Sound: Full', 'Sound: Quiet', 'Sound: Off']);
 });

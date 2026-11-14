@@ -19,6 +19,9 @@ import { readPrefs, storageOf, writePrefs } from './prefs.js';
 import { createBroadcast } from './broadcast/broadcast.js';
 import { nextCommentary } from './broadcast/commentary.js';
 import { slowFor } from './broadcast/moments.js';
+import { createEars, frameCues, listen } from './audio/cues.js';
+import { createPlayer, nextSound } from './audio/player.js';
+import { SOUNDS, assetUrl, soundPath } from './render/assets.js';
 import { clear as clearReplays, createRecorder, due, frameAt, mark, record, settle, skip as skipReplay, start as startReplay } from './replay.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
@@ -51,6 +54,14 @@ if (view) {
   // The commentary as it can be here: where the browser has no voice, voice and captions is captions only.
   const commentary = () => (prefs.commentary === 'voice' && !broadcast.voice.available ? 'captions' : prefs.commentary);
   const stepCommentary = () => { prefs.commentary = nextCommentary(commentary(), broadcast.voice.available); if (prefs.commentary !== 'voice') broadcast.hush(); };
+  // Sound: the ball, the rim, shoes, whistles and the crowd. It is fetched now and starts with the first key press
+  // or click, as browsers require.
+  const audio = createPlayer(), ears = createEars();
+  audio.load(name => assetUrl(soundPath(name)), SOUNDS);
+  audio.level(prefs.sound);
+  game.audio = audio;   // for looking at from the browser console, like the game itself
+  const stepSound = () => { prefs.sound = nextSound(prefs.sound); audio.level(prefs.sound); };
+  window.addEventListener('pointerdown', () => audio.wake());
   // Replays of the biggest moments. `side`: the side of the court the replay's camera is on.
   const replays = createRecorder();
   let replaySide = 1;
@@ -91,6 +102,7 @@ if (view) {
     else if (asked === 'camera') switchCamera();
     else if (asked === 'commentary') stepCommentary();
     else if (asked === 'replays') stepReplays();
+    else if (asked === 'sound') stepSound();
     remember();
     keyboard.drop();   // a key pressed on a menu, one just given to an action too, does nothing in the match until let go
   };
@@ -104,6 +116,7 @@ if (view) {
     else if (asked === 'camera') switchCamera();
     else if (asked === 'commentary') stepCommentary();
     else if (asked === 'replays') stepReplays();
+    else if (asked === 'sound') stepSound();
     else if (asked === 'quit') quitToMenu(game, keyboard, newMatch);
     remember();
     if (listened || asked === 'keys') keyboard.drop();   // the key just given to an action does nothing until let go
@@ -112,6 +125,7 @@ if (view) {
   const held = new Set();   // keys pressed to take a panel down, ignored until they are let go
   window.addEventListener('keyup', e => held.delete(e.code));
   window.addEventListener('keydown', e => {
+    audio.wake();
     // The starting line-ups: any key takes them down, and that key does nothing else, now or while it is held.
     if (game.show.panel === 'lineups') { e.preventDefault(); broadcast.skip(); keyboard.drop(); held.add(e.code); return; }
     // A replay: any key ends it, and does nothing else.
@@ -202,7 +216,9 @@ if (view) {
       const keys = keyboard.intent();
       if (!keys.moveX && !keys.moveZ) heading = view.heading();
       intents[state.controlled] = steer(keys, heading);
-      broadcast.hear(state, step(state, intents, DT));
+      const events = step(state, intents, DT);
+      broadcast.hear(state, events);
+      listen(ears, state, events);
       if (prefs.replays) { record(replays, state); settle(replays, state); }
       view.swayNets(state.ball, DT);   // at every step, so a ball moved far in one step is never swept through a net
     }
@@ -219,7 +235,13 @@ if (view) {
     if (shown) view.swayNets(shown.ball, elapsed * 0.5);
     actors.sync(drawn, shown ? elapsed * 0.5 : passed, shown ? null : air);
     const real = game.paused ? 0 : elapsed;   // the crowd and the referees stand still with a paused game
-    view.live(state, stepLife(life, state, real, air.heard), real);
+    const mood = stepLife(life, state, real, air.heard);
+    view.live(state, mood, real);
+    // What is heard this frame: each sound at most once, and none over a replay or a pause; the crowd's two loops.
+    const cues = frameCues(ears, state, air.heard, mood), played = new Set();
+    audio.hush(game.paused);
+    if (!game.paused && !shown) for (const c of cues.shots) if (!played.has(c.name)) { played.add(c.name); audio.play(c.name, c.gain, c.rate); }
+    audio.loop('murmur', cues.bed); audio.loop('distract', cues.distract);
     // From beside the hoop it happened at: the one the moment's team attacks, or for a block the one it defends.
     if (shown) view.replay(shown.ball, attackSign(replays.playing ? (replays.playing.kind === 'block' ? 1 - replays.playing.team : replays.playing.team) : shown.possession), replaySide);
     else view.follow(state.ball, attackSign(state.possession));

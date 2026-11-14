@@ -4,7 +4,7 @@ import { setLength } from './sim/state.js';
 import { DEFAULT_KEYS, KEY_ROWS, keysPanelKey } from './keys.js';
 import { DEFAULT_PREFS } from './prefs.js';
 
-export const MENU = Object.freeze({ main: ['play', 'mode', 'teams', 'controls', 'settings'], settings: ['quality', 'autoSubs', 'camera', 'difficulty', 'quarter', 'commentary', 'replays', 'keys'], keys: KEY_ROWS });
+export const MENU = Object.freeze({ main: ['play', 'mode', 'teams', 'controls', 'settings'], settings: ['quality', 'autoSubs', 'camera', 'difficulty', 'quarter', 'commentary', 'replays', 'sound', 'keys'], keys: KEY_ROWS });
 
 // size: the mode chosen: 3 for 3 on 3, 5 for 5 on 5. difficulty: the level chosen, one of DIFFICULTY.order.
 // minutes: the length of a quarter chosen, one of MATCH.minutes. listening: on the Keys panel, the next key pressed
