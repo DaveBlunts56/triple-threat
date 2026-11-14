@@ -154,11 +154,21 @@ function planFreeBall(state, p) {
     return planDefence(state, p);
   }
 
+  // Boxing out: while a shot is in the air each defender gets between his man and the hoop and holds him off, before
+  // anybody goes for the ball.
+  if (ball.mode === 'shot' && ball.shooter !== null && state.players[ball.shooter].team !== p.team && state.shot && state.time - state.shot.at < AI.boxFor) {
+    const man = manOf(state, p), own = rimCentre(-sign), far = dist(man, own) || 1;
+    return goTo(ai, { x: man.x + ((own.x - man.x) / far) * AI.boxGap, z: man.z + ((own.z - man.z) / far) * AI.boxGap }, true);
+  }
+
   // A shot is rebounded by those nearest the rim it is heading for; a loose ball by those nearest it.
   const focus = ball.mode === 'shot' ? rimCentre(ball.x >= 0 ? 1 : -1) : ball;
   // To a shot go the team's two best rebounders on the floor; to any other loose ball the two nearest it.
-  const order = ball.mode === 'shot' ? (a, b) => rated(state, b, 'rebound') - rated(state, a, 'rebound') || dist(a, focus) - dist(b, focus) : (a, b) => dist(a, focus) - dist(b, focus);
-  const chasers = [...team].sort(order).slice(0, 2);
+  // The team that shot sends its two best rebounders; the defence, which has boxed out and stands inside, sends
+  // those of its players nearest the rim.
+  const shot = ball.mode === 'shot' && ball.shooter !== null, ours = shot && state.players[ball.shooter].team === p.team;
+  const order = ours ? (a, b) => rated(state, b, 'rebound') - rated(state, a, 'rebound') || dist(a, focus) - dist(b, focus) : (a, b) => dist(a, focus) - dist(b, focus);
+  const chasers = [...team].sort(order).slice(0, shot && !ours ? AI.boards : 2);
   if (!chasers.includes(p)) {
     const back = state.players.filter(m => m.team === p.team && !chasers.includes(m)).sort((a, b) => a.z - b.z);
     return goTo(ai, { x: -sign * AI.safetyX, z: (back.indexOf(p) - (back.length - 1) / 2) * AI.safetyGap }, true);
@@ -219,8 +229,18 @@ function helps(state, p, man, hoop) {
 
 function planDefence(state, p) {
   const { ai } = p, sit = situation(state, p.team);
-  const man = manOf(state, p);
   const hoop = rimCentre(-attackSign(p.team));   // the hoop this player defends
+  const holder = state.players[state.ball.holder], theirs = holder && holder.team !== p.team && state.phase === 'live';
+  let man = manOf(state, p);
+  // Getting back: while the ball is still in the other team's half, the defender nearest his own hoop guards the rim
+  // and the next nearest the ball picks up whoever has it; the rest find their own men.
+  if (theirs && attackSign(holder.team) * holder.x < 0 && !sit.press && !holder.inbounder) {
+    const mine = state.players.filter(m => m.team === p.team), first = nearestTo(mine, hoop);
+    // Only a defender who is between the ball and the hoop can stop it; one chasing from behind keeps to his man.
+    const ahead = mine.filter(m => m !== first && dist(m, hoop) < dist(holder, hoop)), second = ahead.length ? nearestTo(ahead, holder) : null;
+    if (p === first) return goTo(ai, { x: hoop.x - Math.sign(hoop.x) * AI.helpAt, z: 0 }, dist(p, hoop) > AI.farAway);
+    if (p === second) man = holder;
+  }
   const hasBall = state.ball.holder === man.id;
   // How far off his man he stands: closer to a good shooter and further from a poor one, and on the ball a step more
   // for a quick man.
@@ -237,15 +257,29 @@ function planDefence(state, p) {
     const u = (line - man.x) / (hoop.x - man.x);
     guard = { x: line, z: man.z + (hoop.z - man.z) * u };
   }
+  // Two passes from the ball he sags toward the lane, where he can help; one pass away he stays close.
+  const away = theirs && !hasBall && dist(man, holder) > AI.onePass && dist(man, hoop) < AI.sagWithin;
+  if (away) {
+    const lane = { x: hoop.x - Math.sign(hoop.x) * AI.sagTo, z: 0 };
+    guard = { x: guard.x + (lane.x - guard.x) * AI.sag, z: guard.z + (lane.z - guard.z) * AI.sag };
+    // Help the helper: of those sagging, the nearest to the man a helper has left stands between him and his own.
+    const helper = state.players.find(m => m.team === p.team && m !== p && state.time < (m.ai.helpUntil ?? 0));
+    const left = helper && manOf(state, helper);
+    if (left && left !== holder) {
+      const sagging = state.players.filter(m => m.team === p.team && m !== helper && manOf(state, m) !== holder && dist(manOf(state, m), holder) > AI.onePass);
+      if (sagging.length && nearestTo(sagging, left) === p) guard = { x: (man.x + left.x) / 2, z: (man.z + left.z) / 2 };
+    }
+  }
   // Help: he steps in front of the rim, on the handler's way to it.
-  const holder = state.players[state.ball.holder];
   if (helps(state, p, man, hoop)) {
     const far = dist(holder, hoop) || 1;
     guard = { x: hoop.x + ((holder.x - hoop.x) / far) * AI.helpAt, z: hoop.z + ((holder.z - hoop.z) / far) * AI.helpAt };
   }
   // To foul on purpose he goes straight at the ball.
   if (sit.foul && hasBall && !man.inbounder) guard = { x: man.x, z: man.z };
-  goTo(ai, guard, sit.hustle || sit.press || dist(p, guard) > AI.farAway);
+  // Closing out: his man has just caught the ball, and he sprints at him with a hand up.
+  p.closing = theirs && hasBall && !man.inbounder && (man.ai.heldT ?? Infinity) < AI.closeFor && dist(p, guard) > AI.arrive;
+  goTo(ai, guard, p.closing || sit.hustle || sit.press || dist(p, guard) > AI.farAway);
 
   // A gather does not draw him off the floor: he goes up when his man does.
   if (shotJump(man) && dist(p, man) < AI.contestDist) ai.action = 'jump';

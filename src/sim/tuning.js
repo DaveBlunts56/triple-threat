@@ -79,6 +79,11 @@ export const AI = f({
   patience: f([12, 19]),   // seconds into the shot clock before a team will shoot from outside: between these, afresh each possession
   insideDist: 5,          // a team-mate nearer the hoop than this is inside: early in the shot clock he is not passed to
   breakLead: 2.5,         // a handler this many metres nearer the hoop than every defender is on a fast break
+  onePass: 6.5,           // a man within this of the ball is one pass away; further, two
+  sag: 0.4, sagTo: 3, sagWithin: 11,   // two passes away a defender stands this share of the way toward a spot this far in front of the rim, when his man is this near the hoop
+  closeFor: 0.7,          // seconds after his man catches the ball that he closes out at a sprint
+  boards: 2,              // how many of the defence go for a rebound once they have boxed out: those nearest the rim
+  boxFor: 0.9, boxGap: 0.7,   // seconds a defender boxes out when a shot goes up, and how far from his man he stands, toward the hoop
   helpFrom: 8,            // a handler with a clear lane this near the hoop draws a helper
   helpAt: 1.6,            // metres in front of the rim the helper stands
   helpFor: 1,             // seconds he stays once he has come

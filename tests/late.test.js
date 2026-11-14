@@ -206,14 +206,14 @@ test('help: when the handler has a clear lane near the hoop, the defender off th
   const hoop = { x: RIM.x, z: 0 };
   const helper = s.players.filter(p => p.team === 1 && p.id !== 5).reduce((a, b) => (apart(b, hoop) < apart(a, hoop) ? b : a));
   assert.ok(apart(target(helper), hoop) <= AI.helpAt + 0.01 && target(helper).x < RIM.x, `the helper is sent to ${JSON.stringify(target(helper))}`);
-  for (const p of s.players.filter(m => m.team === 1 && m !== helper && m.id !== 5))
-    assert.ok(apart(target(p), s.players[p.man]) < 2.2, `player ${p.id} left his man`);
+  // He goes alone: at most one other is near the rim, the team-mate who covers the man he left.
+  assert.ok(s.players.filter(p => p.team === 1 && p !== helper && p.id !== 5 && apart(target(p), hoop) <= AI.helpAt + 0.5).length <= 1);
   // He stays a moment once he has come, though he now stands in the lane himself.
   at(s, helper.id, target(helper).x, target(helper).z); helper.ai.timer = 0; ai(s);
   assert.ok(apart(target(helper), hoop) <= AI.helpAt + 0.01, 'he went straight back');
   // With the handler covered nobody helps.
   const covered = scene(); ai(covered);
-  for (const p of covered.players.filter(m => m.team === 1)) assert.ok(apart(target(p), covered.players[p.man]) < 2.2, `player ${p.id}`);
+  assert.ok(covered.players.every(p => !((p.ai.helpUntil ?? 0) > covered.time)), 'somebody helped a handler who is covered');
 });
 
 test('the computer\'s defence adapts to what you score with, by as much as the level says: tight on a team making threes, loose off the ball on one scoring inside', () => {

@@ -179,3 +179,81 @@ test('the player you control is given no place and no cut, and his team-mates cl
   at(s, 1, 9.5, 0.6);
   assert.equal(offBallSpot(s, s.players[1]).why, 'clear');
 });
+
+// ---------- off the ball: the defence ----------
+
+// Team 1 defends the hoop at +x. Each test places the men and reads where the defenders are sent.
+const plan = s => { for (const p of s.players) p.ai.timer = 0; return aiIntents(s, DT); };
+const hoop = { x: RIM.x, z: 0 };
+
+test('a defender one pass from the ball stays close; two passes away he sags toward the lane', () => {
+  const s = settled();
+  at(s, 0, 7.4, 5.4); s.ball.z = 5.4;                 // the ball on the wing
+  at(s, 1, 9.5, 2.5);                                 // one man a pass away
+  at(s, 3, 11.6, -6.9);                               // one in the far corner, two passes away
+  guard(s); plan(s);
+  const near = apart(target(s.players[6]), s.players[1]), far = apart(target(s.players[8]), s.players[3]);
+  assert.ok(near < 2.2, `one pass away he stands ${near} m off`);
+  assert.ok(far > 2.6, `two passes away he stands only ${far} m off`);
+  assert.ok(Math.abs(target(s.players[8]).z) < 6.2 && apart(target(s.players[8]), hoop) < apart(s.players[3], hoop), 'he did not sag toward the lane');
+});
+
+test('he closes out at a sprint with a hand up when his man catches the ball; once he is there, or once his man has had it a while, he does not', () => {
+  const s = settled();
+  at(s, 6, 9.5, 0);                                   // Marsh's defender has sagged off him
+  giveBall(s, s.players[1]); s.players[1].ai.heldT = 0; s.players[1].ai.had = true;
+  plan(s);
+  assert.deepEqual([s.players[6].closing, s.players[6].ai.sprint], [true, true]);
+  assert.ok(apart(target(s.players[6]), s.players[1]) < 2, 'he did not go to his man');
+  s.players[1].ai.heldT = AI.closeFor + 0.5; plan(s);
+  assert.equal(s.players[6].closing, false, 'he is still closing out on a man who has had the ball a while');
+  s.players[1].ai.heldT = 0; at(s, 6, target(s.players[6]).x, target(s.players[6]).z); plan(s);
+  assert.equal(s.players[6].closing, false, 'he has a hand up though he is on his man');
+});
+
+test('on a shot every defender puts himself between his man and the hoop before anyone goes for the ball; then the two nearest the rim go', () => {
+  const s = settled();
+  s.shot = { shooter: 0, at: s.time };
+  Object.assign(s.ball, { holder: null, mode: 'shot', shooter: 0, x: 9, y: 4, z: 0, vx: 2, vy: 1, vz: 0 });
+  plan(s);
+  for (const p of s.players.filter(m => m.team === 1)) {
+    const man = s.players[p.man], spot = target(p);
+    assert.ok(Math.abs(apart(spot, man) - AI.boxGap) < 0.01 && apart(spot, hoop) < apart(man, hoop), `player ${p.id} is sent to ${JSON.stringify(spot)}`);
+    assert.equal(p.ai.chase, false, `player ${p.id} went for the ball at once`);
+  }
+  s.time += AI.boxFor + 0.01; plan(s);
+  const chasing = s.players.filter(m => m.team === 1 && m.ai.chase).map(m => m.id).sort();
+  assert.equal(chasing.length, AI.boards, 'the defenders nearest the rim did not go for it');
+  // The team that shot does not box out: its rebounders go straight to the boards.
+  assert.ok(s.players.filter(m => m.team === 0 && m.ai.chase).length === 2);
+});
+
+test('the man a helper leaves is covered by a sagging team-mate, who goes back when the helper does', () => {
+  const s = settled();
+  at(s, 0, 7, 0); at(s, 5, 6, 2.5);                   // the handler has beaten his man down the middle
+  at(s, 3, 11.6, 6.9); at(s, 1, 7.4, -5.6); at(s, 2, 11, -3.2); at(s, 4, 11, 3.2);
+  for (const id of [6, 7, 8, 9]) { const man = s.players[s.players[id].man], far = apart(man, hoop); at(s, id, man.x + 1.4 * (hoop.x - man.x) / far, man.z - 1.4 * man.z / far); }
+  plan(s); plan(s);                                    // once for the helper to come, once for the rest to see him
+  const helper = s.players.find(p => p.team === 1 && (p.ai.helpUntil ?? 0) > s.time);
+  assert.ok(helper, 'nobody helped');
+  const left = s.players[helper.man];
+  const cover = s.players.filter(p => p.team === 1 && p !== helper && p.id !== 5)
+    .find(p => apart(target(p), { x: (s.players[p.man].x + left.x) / 2, z: (s.players[p.man].z + left.z) / 2 }) < 0.01);
+  assert.ok(cover, 'nobody covers the man the helper left');
+  s.time += AI.helpFor + 0.1; at(s, 5, 8.2, 0);       // the handler is covered again and the helper's moment is over
+  plan(s);
+  assert.ok(apart(target(cover), s.players[cover.man]) < apart(target(cover), left), 'the cover did not go back to his own man');
+});
+
+test('getting back: with the ball still in the other half, the defender nearest his hoop guards the rim and the next picks up the ball', () => {
+  const s = scene(5);
+  at(s, 0, -6, 1);                                     // the handler in his own half
+  [[6, 2], [7, 9], [8, -1], [9, 3]].forEach(([id, x], i) => at(s, id, x, -4 + i * 2.5));
+  at(s, 5, -9, 0);                                     // his own defender is behind the play
+  plan(s);
+  assert.ok(apart(target(s.players[7]), hoop) <= AI.helpAt + 0.01, `the first man back is sent to ${JSON.stringify(target(s.players[7]))}`);
+  const stopper = s.players[8];                        // the nearest of the rest to the ball
+  assert.ok(Math.abs(target(stopper).z - 1) < 2 && target(stopper).x > -6, `the second is sent to ${JSON.stringify(target(stopper))}, not at the ball`);
+  at(s, 0, 3, 1); plan(s);                             // once the ball is over half way everyone has his own man
+  assert.ok(apart(target(s.players[7]), hoop) > AI.helpAt + 0.5 || s.players[7].man === 0);
+});

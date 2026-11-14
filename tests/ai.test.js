@@ -91,7 +91,7 @@ test('a handler with a clear lane drives to the hoop', () => {
 
 test('a defender moves to stand between their opponent and the hoop', () => {
   const s = live(4);           // team 1 has the ball; player 0 guards player 3 (same slot), who is off the ball
-  put(s, 3, -5, 2); put(s, 4, -8, -5); put(s, 0, 0, 0);
+  put(s, 3, -5, 2); put(s, 4, -8, -2); put(s, 0, 0, 0);   // his man is one pass from the ball: he stays close
   run(s, 3, [0]);
   const man = s.players[3], d = Math.hypot(-RIM.x - man.x, -man.z);
   const gx = man.x + ((-RIM.x - man.x) / d) * AI.offBallGap, gz = man.z + (-man.z / d) * AI.offBallGap;
