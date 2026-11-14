@@ -67,9 +67,12 @@ export const AI = f({
   pickupX: 4,             // defenders wait this far inside their own half for an opponent still up the court
   hurryAt: 5,             // seconds in the back court after which the handler stops looking for a pass and brings the ball up
   lowSpotZ: 3.2,          // the low spacing spot sits this far from the middle, clear of the key
-  // Where five stand without the ball: [metres from centre court toward the hoop they attack, z]: the top of the key,
-  // the two wings, a corner and the low post.
-  spots5: f([f([5.2, 0]), f([7.5, -5.5]), f([7.5, 5.5]), f([11.6, -6.3]), f([10.9, 3.2])]),
+  // Where five stand: [metres from centre court toward the hoop they attack, z], in order round the arc: a corner,
+  // a wing, the top of the key, the other wing and the low post. swapEvery5: seconds between turns in five a side:
+  // at each all five move one place round, so nobody crosses the court but the one who cuts along the baseline.
+  spots5: f([f([11.6, -6.3]), f([7.5, -5.5]), f([5.2, 0]), f([7.5, 5.5]), f([10.9, 3.2])]),
+  swapEvery5: 8,
+  safetyGap: 4,           // metres between those who get back together when a ball is loose
 });
 
 export const VIOLATION = f({ backcourt: 8, key: 3, inbound: 5, keyHalfWidth: 2.45, keyDepth: 5.8 });

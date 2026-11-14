@@ -5,7 +5,8 @@ import { startMatch } from '../src/sim/rules.js';
 import { spots, aiIntents } from '../src/sim/ai.js';
 import { setupFreeThrow } from '../src/sim/freethrow.js';
 import { step } from '../src/sim/step.js';
-import { COURT, DT, FOUL, PLAYER, RIM, VIOLATION } from '../src/sim/tuning.js';
+import { AI, COURT, DT, FOUL, PLAYER, RIM, VIOLATION } from '../src/sim/tuning.js';
+import { giveBall } from '../src/sim/players.js';
 import { applySubs } from '../src/sim/roster.js';
 
 const apart = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -99,4 +100,63 @@ test('in five a side a fouled-out player is replaced from the bench, and with th
   assert.equal(t.players[2].person, 2);
   for (let i = 0; i < 120; i++) step(t, aiIntents(t, DT), DT);              // and the match carries on
   assert.equal(t.players.length, 10);
+});
+
+// Five a side in live play, team 0 attacking the hoop at +x, with `holderId` holding the ball. Team 0 stand on their
+// spots; each of team 1 stands a metre from his man, on the line to the hoop, so nobody is open and no lane is clear.
+function set(holderId = 0, time = 0) {
+  const s = createMatch(1, 5); startMatch(s);
+  s.phase = 'live'; s.time = time;
+  const places = spots(1, 5);
+  for (const p of s.players) {
+    const spot = places[p.slot], d = Math.hypot(RIM.x - spot.x, spot.z), near = p.team === 0 ? 0 : 1;
+    Object.assign(p, { inbounder: false, x: spot.x + near * (RIM.x - spot.x) / d, z: spot.z - near * spot.z / d });
+  }
+  giveBall(s, s.players[holderId]);
+  return s;
+}
+const target = p => ({ x: p.ai.targetX, z: p.ai.targetZ });
+const allApart = (points, least, what) => points.forEach((a, i) => points.slice(i + 1).forEach(b =>
+  assert.ok(apart(a, b) >= least, `${what}: ${JSON.stringify(a)} and ${JSON.stringify(b)}`)));
+
+test('five a side: whoever holds the ball and whenever, the five of a team are sent to five places apart from each other', () => {
+  for (const holder of [0, 1, 2, 3, 4]) for (const time of [0, 1, 2, 3, 4].map(turn => turn * AI.swapEvery5)) {
+    const s = set(holder, time);
+    aiIntents(s, DT);
+    allApart(s.players.filter(p => p.team === 0).map(target), 3, `holder ${holder} at ${time} s`);
+  }
+});
+
+test('five a side: a pass sends nobody across the court: every team-mate off the ball keeps the place he had', () => {
+  const before = set(0), after = set(3);
+  aiIntents(before, DT); aiIntents(after, DT);
+  for (const id of [1, 2, 4]) assert.deepEqual(target(after.players[id]), target(before.players[id]), `player ${id}`);
+});
+
+test('five a side: the first of a team starts at the top; at each turn all move one place round the arc, and only one crosses the court, along the baseline', () => {
+  const now = set(0), later = set(0, AI.swapEvery5);
+  aiIntents(now, DT); aiIntents(later, DT);
+  assert.deepEqual(target(now.players[0]), { x: AI.topX, z: 0 });
+  let crossed = 0;
+  for (const id of [0, 1, 2, 3, 4]) {
+    const a = target(now.players[id]), b = target(later.players[id]);
+    if (a.z * b.z < 0) { crossed++; assert.ok(a.x >= 10 && b.x >= 10, `player ${id} crosses at ${a.x} to ${b.x}`); }
+    else assert.ok(apart(a, b) > 1 && apart(a, b) <= 6.5, `player ${id}: ${JSON.stringify(a)} to ${JSON.stringify(b)}`);
+  }
+  assert.equal(crossed, 1);
+});
+
+test('a ball nobody holds: two of a team go for it and the rest get back apart from each other, in five a side and in three', () => {
+  for (const size of [3, 5]) {
+    const s = createMatch(1, size); startMatch(s);
+    s.phase = 'live';
+    s.players.forEach(p => Object.assign(p, { inbounder: false, x: 8 + p.slot * 0.8, z: p.team === 0 ? -2 : 2 }));
+    Object.assign(s.ball, { holder: null, mode: 'loose', x: 12, y: 2, z: 0, vx: 0, vy: 0, vz: 0 });
+    aiIntents(s, DT);
+    for (const team of [0, 1]) {
+      const back = s.players.filter(p => p.team === team && !p.ai.chase);
+      assert.equal(back.length, size - 2, `${size} a side, team ${team}`);
+      allApart(back.map(target), 3, `${size} a side, team ${team}`);
+    }
+  }
 });

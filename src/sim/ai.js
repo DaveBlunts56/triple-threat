@@ -11,6 +11,14 @@ const nearestTo = (list, point) => list.reduce((a, b) => (dist(b, point) < dist(
 export const spots = (sign, size = 3) => (size === 5 ? AI.spots5.map(([x, z]) => ({ x: sign * x, z }))
   : [{ x: sign * 6.9, z: -4.5 }, { x: sign * 6.9, z: 4.5 }, { x: sign * 10.9, z: AI.lowSpotZ }]);
 
+// The spot of player `p` now. At every turn all of a team move on one place. In five a side the places run round the
+// arc, and the first in the team's order starts at the top of the key.
+function spotOf(state, p) {
+  const all = spots(attackSign(p.team), state.size);
+  if (state.size !== 5) return all[(p.slot + Math.floor(state.time / AI.swapEvery)) % 3];
+  return all[(p.slot + 2 + Math.floor(state.time / AI.swapEvery5)) % 5];
+}
+
 const opponents = (state, p) => state.players.filter(o => o.team !== p.team);
 const mates = (state, p) => state.players.filter(m => m.team === p.team && m !== p);
 const space = (state, p) => Math.min(...opponents(state, p).map(o => dist(o, p)));
@@ -80,10 +88,11 @@ function planWithBall(state, p) {
   const open = mates(state, p).filter(m => isOpen(state, m) && dist(m, p) <= AI.passRange
     && (pressured || dist(m, hoop) < toHoop) && laneClear(state, p, m, untouchable));
   if (settled && open.length) passTo(ai, p, nearestTo(open, hoop));
-  else goTo(ai, { x: sign * AI.topX, z: 0 });
+  // Nothing on: in three a side he takes the ball to the top; in five a side that is a team-mate's place, so he keeps his own.
+  else goTo(ai, state.size === 5 ? spotOf(state, p) : { x: sign * AI.topX, z: 0 });
 }
 
-// Chasing a ball nobody holds. Two per team go for it, the third gets back on defence.
+// Chasing a ball nobody holds. Two per team go for it, the rest get back on defence, side by side.
 function planFreeBall(state, p) {
   const { ai } = p, { ball } = state, sign = attackSign(p.team);
   const team = state.players.filter(m => m.team === p.team && !m.inbounder);
@@ -105,7 +114,10 @@ function planFreeBall(state, p) {
   // A shot is rebounded by those nearest the rim it is heading for; a loose ball by those nearest it.
   const focus = ball.mode === 'shot' ? rimCentre(ball.x >= 0 ? 1 : -1) : ball;
   const chasers = [...team].sort((a, b) => dist(a, focus) - dist(b, focus)).slice(0, 2);
-  if (!chasers.includes(p)) return goTo(ai, { x: -sign * AI.safetyX, z: 0 }, true);
+  if (!chasers.includes(p)) {
+    const back = state.players.filter(m => m.team === p.team && !chasers.includes(m)).sort((a, b) => a.z - b.z);
+    return goTo(ai, { x: -sign * AI.safetyX, z: (back.indexOf(p) - (back.length - 1) / 2) * AI.safetyGap }, true);
+  }
 
   goTo(ai, ball, true); ai.chase = true;
   if (dist(p, ball) < AI.reboundDist && ball.y < AI.reboundHeight && ball.y > PLAYER.reach && ball.vy < 0) ai.action = 'jump';
@@ -125,7 +137,7 @@ function planOffBall(state, p) {
   } else if (holder?.inbounder && nearestTo(mates(state, holder), holder) === p) {
     return goTo(ai, help, true);
   }
-  const spot = spots(sign, state.size)[(p.slot + Math.floor(state.time / AI.swapEvery)) % state.size];
+  const spot = spotOf(state, p);
   goTo(ai, spot, dist(p, spot) > AI.farAway);
 }
 
