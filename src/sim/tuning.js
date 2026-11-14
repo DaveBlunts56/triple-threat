@@ -67,6 +67,13 @@ export const AI = f({
   holdTime: 0.5,          // seconds a player keeps the ball after getting it before shooting or passing
   pickupX: 4,             // defenders wait this far inside their own half for an opponent still up the court
   hurryAt: 5,             // seconds in the back court after which the handler stops looking for a pass and brings the ball up
+  shootAt: 60,            // he takes an open shot only if his rating for it is at least this (unless the clock is short)
+  earlyThree: 88, roomFor: 3,   // early in the shot clock a three is taken only by a shooter this good with this much room
+  roomGap: 0.2,          // per 10 points of his rating for the shot: how much less room he needs to take it
+  goTo: 0.5,              // how often, once the offence has been run, a handler without a shot gives the ball to the star
+  lean: 1.5, shy: 0.6,    // how much a pass leans to the star and to a hot hand, and away from a cold one
+  shooterGap: 0.06, quickGap: 0.04, offShooterGap: 0.08,   // per 10 points: closer on a shooter, further off a quick man, on the ball and off it
+  gapRange: f([0.9, 1.9]),   // the nearest and furthest an on-ball defender stands, in metres
   patience: f([10, 18]),   // seconds into the shot clock before a team will shoot from outside: between these, afresh each possession
   insideDist: 5,          // a team-mate nearer the hoop than this is inside: early in the shot clock he is not passed to
   breakLead: 2.5,         // a handler this many metres nearer the hoop than every defender is on a fast break
@@ -122,8 +129,9 @@ export const levelOf = state => DIFFICULTY.levels[state.difficulty] ?? DIFFICULT
 // and no longer with less than the second. hurryClock: the shot clock at which a team in a hurry shoots. milkClock:
 // the shot clock a team ahead waits for. heave: with less than this left a player far from the hoop throws it up
 // rather than run nearer. pressGap: metres an on-ball defender stands off when pressing. run: unanswered points that
-// make a coach call a timeout. tired: his five's mean energy below which he calls one.
-export const LATE = f({ closing: 60, hurry: 45, close: 8, foulUnder: 24, foulOver: 1.5, hurryClock: 12, milkClock: 6, heave: 1.3, pressGap: 1, run: 8, tired: 0.4 });
+// make a coach call a timeout. tired: his five's mean energy below which he calls one. clutch, clutchLead: with
+// this many seconds left in the game and the lead this small either way, the ball goes to the star.
+export const LATE = f({ closing: 60, hurry: 45, close: 8, foulUnder: 24, foulOver: 1.5, hurryClock: 12, milkClock: 6, heave: 1.3, pressGap: 1, run: 8, tired: 0.4, clutch: 12, clutchLead: 3 });
 
 // How long a match is. minutes: the quarter lengths you can choose. For each, fouls: the personal fouls a player
 // fouls out on, and bonus: the team foul in a quarter from which every foul is shot. The shortest is the game's

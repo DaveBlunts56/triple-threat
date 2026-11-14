@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { createMatch } from '../src/sim/state.js';
 import { giveBall } from '../src/sim/players.js';
 import { AI, CLOCK, RIM } from '../src/sim/tuning.js';
-import { at, ai } from './helpers.js';
+import { at, ai, plain } from './helpers.js';
 
 // Five a side, live, no coach. Team 0's handler (player 0) has had the ball a second; everyone else is parked far
 // away in the back court unless a test places him. The shot clock is full.
 function scene() {
-  const s = createMatch(1, 5);
+  const s = plain(createMatch(1, 5));   // plain players: what the ratings add has its own tests
   s.phase = 'live'; s.playWait = [Infinity, Infinity];
   s.players.forEach((p, i) => at(s, p.id, -12 + (i % 5) * 0.8, p.team === 0 ? -6 : 6));
   giveBall(s, s.players[0]);

@@ -213,3 +213,45 @@ test('post up: once the play is ripe the big is fed on the block, though his def
   giveBall(s, big);
   assert.equal(playTarget(s, big), null, 'the big with the ball is not told to pass to himself');
 });
+
+// ---------- the plays follow the ratings ----------
+
+test('the parts go to the players the ratings pick: the best inside is the big, the best three-point shooter the shooter', async () => {
+  const { substitute } = await import('../src/sim/roster.js');
+  const s = scene(5);
+  // By hand: the small forward (player 1) is made the best inside man, and the power forward (player 4) the best shooter.
+  Object.assign(s.rosters[0][1].ratings, { inside: 99, rebound: 99 });
+  Object.assign(s.rosters[0][4].ratings, { three: 99, inside: 40, rebound: 40 });
+  const ids = run(s, 'pickRoll').ids;
+  assert.deepEqual([ids.big, ids.shooter, ids.handler], [1, 4, 0]);
+  const three = scene(3);
+  Object.assign(three.rosters[0][1].ratings, { inside: 99, rebound: 99 });
+  assert.deepEqual(run(three, 'pickRoll').ids, { handler: 0, big: 1, wing: 2 });
+  // A substitute: the next play is cast for who is now on the floor.
+  const sub = scene(5);
+  assert.equal(run(sub, 'floppy').ids.shooter, 3);                 // Sam Okoro, the sharpshooter
+  substitute(sub, 3, 7);                                            // Idris Kane, a centre, comes on for him
+  sub.plays[0] = null;
+  assert.deepEqual([run(sub, 'floppy').ids.shooter, sub.plays[0].ids.big2], [4, 3]);   // Kane is a big now, and Volkov, the stretch big, the shooter
+});
+
+test('the coach calls what suits the floor: a post-up for a post scorer, Floppy for a sharpshooter, a clear-out for the star or a hot hand', async () => {
+  const { suits } = await import('../src/sim/plays.js');
+  const calls = (change, key) => {
+    let n = 0;
+    for (let seed = 1; seed <= 400; seed++) {
+      const s = scene(5); s.seed = seed * 31; s.playWait = [0, 0];
+      change(s); stepPlays(s, DT);
+      if (s.plays[0].key === key) n++;
+    }
+    return n;
+  };
+  const big = inside => s => { for (const row of [1, 3, 4]) s.rosters[0][row].ratings.inside = 55; s.rosters[0][2].ratings.inside = inside; };   // the centre is the big either way
+  assert.ok(calls(big(94), 'postUp') >= 3 * calls(big(60), 'postUp'), 'a post-up is called no more for a post scorer');
+  const shooter = three => s => { s.rosters[0][3].ratings.three = three; s.rosters[0][1].ratings.three = 40; s.rosters[0][4].ratings.three = 40; };
+  assert.ok(calls(shooter(95), 'floppy') >= 3 * calls(shooter(60), 'floppy'), 'Floppy is called no more for a sharpshooter');
+  const star = scene(5), other = scene(5), hot = scene(5);
+  giveBall(other, other.players[1]); giveBall(hot, hot.players[1]); hot.rosters[0][1].streak = 3;
+  assert.deepEqual([suits(star, 0, 'iso'), suits(other, 0, 'iso'), suits(hot, 0, 'iso')], [3, 1, 3]);
+  assert.equal(suits(star, 1, 'iso'), 1, 'the team without the ball');
+});

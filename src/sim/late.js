@@ -6,7 +6,7 @@ import { attackSign, onFloor, personOf } from './state.js';
 // by the shot clock or the period's, whichever is less. hustle: the last minute of a close game: everyone sprints.
 // hurry: behind late: shoot early, and wait for no play. milk: ahead late: use the clock. press: behind late and
 // within reach: pick up all over the court, and tight. foul: behind, within reach, and the other team could run the
-// clock out: foul the ball to stop it.
+// clock out: foul the ball to stop it. clutch: the game is on the line: the ball goes to the star.
 export function situation(state, team) {
   const lead = state.score[team] - state.score[1 - team], left = state.gameClock;
   const last = state.quarter >= CLOCK.quarters, near = Math.abs(lead) <= LATE.close;
@@ -18,6 +18,7 @@ export function situation(state, team) {
     milk: late && lead > 0,
     press: late && lead < 0 && near,
     foul: last && lead < 0 && near && left <= LATE.foulUnder && left > LATE.foulOver,
+    clutch: last && left <= LATE.clutch && Math.abs(lead) <= LATE.clutchLead,
   };
 }
 

@@ -231,3 +231,79 @@ test('free throws count for neither, and a player taken off loses his streak', (
   assert.equal(substitute(off, 0, 6), true);
   assert.deepEqual([off.rosters[0][0].streak, off.rosters[0][6].streak], [0, -2], 'the player who went off keeps his streak');
 });
+
+// ---------- the computer plays to its players ----------
+
+import { aiIntents } from '../src/sim/ai.js';
+import { situation } from '../src/sim/late.js';
+import { AI, CLOCK } from '../src/sim/tuning.js';
+
+// Five a side, live, plain players unless a test rates one; no coach, and no waiting early in the shot clock unless
+// `early`. Team 0's handler (player 0) has had the ball a second; the rest stand far off unless placed.
+function floor({ early = false } = {}) {
+  const s = live(1, 5);
+  s.playWait = [Infinity, Infinity];
+  if (!early) s.tempo = { clock: Infinity, wait: 0 };
+  s.players.forEach((p, i) => at(s, p.id, -12 + (i % 5) * 0.8, p.team === 0 ? -6 : 6));
+  giveBall(s, s.players[0]);
+  s.players[0].ai.heldT = 1; s.players[0].ai.had = true;
+  return s;
+}
+const plan = s => { s.players.forEach(p => { p.ai.timer = 0; }); return aiIntents(s, DT); };
+
+test('a poor three-point shooter passes up an open three that a sharpshooter takes; with the shot clock short he takes it', () => {
+  const open = three => { const s = set(floor(), 0, { three }); at(s, 0, RIM.x - 7.2, 0); at(s, 5, RIM.x - 3, 0.2); return s; };   // open behind the line, his lane not clear
+  const poor = open(50), good = open(90);
+  plan(poor); plan(good);
+  assert.deepEqual([poor.players[0].ai.action, good.players[0].ai.action], [null, 'shoot']);
+  poor.shotClock = AI.panicClock - 0.5; plan(poor);
+  assert.equal(poor.players[0].ai.action, 'shoot');
+});
+
+test('early in the shot clock only a great shooter with room takes the three', () => {
+  const open = (three, gap) => { const s = set(floor({ early: true }), 0, { three }); at(s, 0, RIM.x - 7.2, 0); at(s, 5, RIM.x - 7.2 + gap, 0.3); plan(s); return s.players[0].ai.action; };
+  assert.deepEqual([open(92, 4), open(80, 4), open(92, 2.2)], ['shoot', null, null]);
+});
+
+test('the pass leans to the star and to a hot player, and away from a cold one', () => {
+  // The handler (player 1) is covered; two team-mates are open, one a little nearer the hoop than the other.
+  const pass = change => {
+    const s = floor(); giveBall(s, s.players[1]); s.players[1].ai.heldT = 1; s.players[1].ai.had = true; s.seed = 99;
+    at(s, 1, 6.5, 0); at(s, 6, 7.9, -0.6);
+    at(s, 2, 7.6, 5); at(s, 0, 7.0, -5);          // player 2 is 0.5 m nearer the hoop than player 0
+    change(s);
+    for (let i = 0; i < 40; i++) { const thrown = plan(s)[1]; if (thrown.pass) return thrown.moveZ > 0 ? 2 : 0; s.players[1].prev.pass = false; }
+    return null;
+  };
+  assert.equal(pass(() => {}), 0, 'the star (player 0, Jalen Cross) is not leaned to');
+  assert.equal(pass(s => { s.rosters[0][0].streak = -3; }), 2, 'a cold star is still leaned to');
+  const noStar = s => { s.rosters[0][7].ratings = Object.fromEntries(KEYS.map(k => [k, 99])); };   // the star is on the bench
+  assert.equal(pass(noStar), 2, 'with no star on the floor the nearer man is not chosen');
+  assert.equal(pass(s => { noStar(s); s.rosters[0][0].streak = 3; }), 0, 'a hot player is not leaned to');
+});
+
+test('with the game on the line the ball goes to the star', () => {
+  const s = floor(); giveBall(s, s.players[1]); s.players[1].ai.heldT = 1; s.players[1].ai.had = true;
+  Object.assign(s, { quarter: CLOCK.quarters, gameClock: 10, score: [20, 21] });
+  at(s, 1, 6.5, 0); at(s, 6, 7.9, -0.6);
+  at(s, 0, 6, 5); at(s, 5, 7, 4.2);               // the star, with his defender on him
+  at(s, 2, 10.5, 3);                              // a team-mate open near the hoop
+  assert.equal(situation(s, 0).clutch, true);
+  const thrown = plan(s)[1];
+  assert.ok(thrown.pass && thrown.moveZ > 0.9, 'he did not pass to the star');
+  s.gameClock = 100;
+  assert.equal(situation(s, 0).clutch, false);
+});
+
+test('a sharpshooter is guarded closer than a poor shooter, on the ball and off it; a quick man is given more room', () => {
+  const gap = (ratings, ball) => {
+    const s = set(floor(), 0, ratings);
+    if (!ball) giveBall(s, s.players[1]);
+    at(s, 0, 6, 3); at(s, 1, 6, -4); at(s, 5, 9, 2); at(s, 6, 9, -3);
+    plan(s);
+    return Math.hypot(s.players[5].ai.targetX - 6, s.players[5].ai.targetZ - 3);
+  };
+  for (const ball of [true, false]) assert.ok(gap({ three: 95 }, ball) < gap({}, ball) - 0.1 && gap({ three: 45 }, ball) > gap({}, ball) + 0.1, ball ? 'on the ball' : 'off the ball');
+  assert.ok(gap({ speed: 95 }, true) > gap({}, true) + 0.05, 'a quick handler');
+  assert.ok(gap({ three: 99, speed: 40 }, true) >= AI.gapRange[0] && gap({ three: 40, speed: 99 }, true) <= AI.gapRange[1] + 1e-9);
+});

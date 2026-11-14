@@ -80,7 +80,7 @@ test('the computer\'s team decides faster on the hard levels; your team-mates do
 
 test('the situation: hustle in the last minute of a close game; hurry, press and fouling for the team behind; the clock for the team ahead', () => {
   const sit = (left, score, team = 0, quarter = CLOCK.quarters) => situation(scene({ left, score, quarter }), team);
-  assert.deepEqual(sit(120, [10, 12]), { lead: -2, clock: CLOCK.shot, hustle: false, hurry: false, milk: false, press: false, foul: false });
+  assert.deepEqual(sit(120, [10, 12]), { lead: -2, clock: CLOCK.shot, hustle: false, hurry: false, milk: false, press: false, foul: false, clutch: false });
   assert.equal(sit(50, [10, 12]).hustle, true);
   assert.equal(sit(50, [10, 30]).hustle, false, 'not in a blowout');
   assert.equal(sit(50, [10, 12], 0, 1).hustle, false, 'not in the first period');

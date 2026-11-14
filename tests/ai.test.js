@@ -7,10 +7,11 @@ import { step } from '../src/sim/step.js';
 import { aiIntents, isOpen, laneClear, spots } from '../src/sim/ai.js';
 import { keyContains } from '../src/sim/violations.js';
 import { DT, RIM, AI, VIOLATION, SHOT, PASS, BALL } from '../src/sim/tuning.js';
+import { plain } from './helpers.js';
 
 // Live play with everyone parked out of the way; tests then place the players they care about.
 function live(holderId = 0) {
-  const s = createMatch();
+  const s = plain(createMatch());   // plain players: these are the players' own decisions, not what the ratings add
   startMatch(s);
   s.phase = 'live';
   s.playWait = [Infinity, Infinity];   // no coach: these tests are of the players' own decisions, without a play on

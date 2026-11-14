@@ -4,9 +4,12 @@
 import { AI, FOUL, PLAY, RIM } from './tuning.js';
 import { attackSign, onFloor, personOf, rand } from './state.js';
 import { guardOf } from './matchups.js';
+import { rated, starOf, heatOf } from './ratings.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
-const BIG = ['C', 'PF', 'SF', 'SG', 'PG'];   // the order in which players are taken for the big men's parts
+// The ratings from which a play suits a player: a post scorer's inside, a sharpshooter's three, a handler's handle,
+// and the three of a big who can pop.
+const SUIT = Object.freeze({ post: 80, shooter: 85, handle: 80, pop: 75 });
 
 // Each play: its name, a line for the player on what to do, the sizes of match it suits, how long it runs at most,
 // `ripe` (when the handler may shoot from outside or pass: the seconds into the play, or 'used' for once the screen
@@ -21,7 +24,7 @@ export const PLAYS = Object.freeze({
     name: 'Pick & Roll', hint: 'Use the screen, then hit the roller or score', sizes: [3, 5], long: 8, ripe: 'used', screener: 'big',
     spots: c => ({
       big: !c.used ? c.screen() : c.sinceUsed < PLAY.roll ? c.at(11, 0.5, true) : c.at(11.3, -3.2),
-      big2: c.at(7.5, -5.5), wing: c.five ? c.at(11.6, -6.3) : c.at(7.5, -5.5), shooter: c.at(11.6, 6.3),
+      big2: c.at(7.5, -5.5), wing: c.five ? c.at(11.6, -6.95) : c.at(7.5, -5.5), shooter: c.at(11.6, 6.95),
       ball: c.used ? c.at(10.8, 1) : c.set ? c.past() : c.at(5.4, -0.6),
     }),
   },
@@ -29,15 +32,15 @@ export const PLAYS = Object.freeze({
     name: 'Pick & Pop', hint: 'Use the screen, then find the big at the arc', sizes: [3, 5], long: 8, ripe: 'used', screener: 'big',
     spots: c => ({
       big: !c.used ? c.screen() : c.at(6, -2.2),
-      big2: c.at(11.3, -3.2), wing: c.five ? c.at(11.6, -6.3) : c.at(7.5, -5.5), shooter: c.at(11.6, 6.3),
+      big2: c.at(11.3, -3.2), wing: c.five ? c.at(11.6, -6.95) : c.at(7.5, -5.5), shooter: c.at(11.6, 6.95),
       ball: c.used ? c.at(10.8, 1) : c.set ? c.past() : c.at(5.4, -0.6),
     }),
   },
   iso: {
     name: 'Clear Out', hint: 'Everyone clears: take your man one on one', sizes: [3, 5], long: 7, ripe: 1,
     spots: c => ({
-      big: c.five ? c.at(11.3, -3.2) : c.at(11.6, -6.3), big2: c.at(7.5, -5.5), wing: c.five ? c.at(11.6, -6.3) : c.at(7.5, -5.5),
-      shooter: c.at(11.6, 6.3),
+      big: c.five ? c.at(11.3, -3.2) : c.at(11.6, -6.95), big2: c.at(7.5, -5.5), wing: c.five ? c.at(11.6, -6.95) : c.at(7.5, -5.5),
+      shooter: c.at(11.6, 6.95),
       ball: c.t < 1 ? c.at(6.5, 2) : c.at(10.8, 1.2),
     }),
   },
@@ -46,7 +49,7 @@ export const PLAYS = Object.freeze({
     spots: c => ({
       big: c.t < 1.6 ? c.at(8, 2.6) : !c.used ? c.screen() : c.sinceUsed < PLAY.roll ? c.at(11, 0.5, true) : c.at(11.3, 3.2),
       big2: c.used ? c.at(5.6, -1.5) : c.at(8, -2.6),
-      wing: c.at(11.6, -6.3), shooter: c.at(11.6, 6.3),
+      wing: c.at(11.6, -6.95), shooter: c.at(11.6, 6.95),
       ball: c.used ? c.at(10.8, 1) : c.set ? c.past() : c.at(5.2, 0),
     }),
   },
@@ -59,8 +62,8 @@ export const PLAYS = Object.freeze({
       const side = (pair, mine, done) => {
         const [wing, corner] = done % 2 === 0 ? pair : [pair[1], pair[0]], s = mine ? 1 : -1, live = near === mine;
         return {
-          [wing]: !live || into < 0.8 ? c.at(7.2, 5.8 * s) : into < 2.3 ? c.at(11, 0.6 * s, true) : c.at(11.6, 6.3 * s),
-          [corner]: !live || into < 0.8 ? c.at(11.6, 6.3 * s) : c.at(7.2, 5.8 * s),
+          [wing]: !live || into < 0.8 ? c.at(7.2, 5.8 * s) : into < 2.3 ? c.at(11, 0.6 * s, true) : c.at(11.6, 6.95 * s),
+          [corner]: !live || into < 0.8 ? c.at(11.6, 6.95 * s) : c.at(7.2, 5.8 * s),
         };
       };
       return { ...side(['shooter', 'big'], true, Math.ceil(turn / 2)), ...side(['wing', 'big2'], false, Math.floor(turn / 2)), ball: c.at(5.2, 0) };
@@ -89,7 +92,7 @@ export const PLAYS = Object.freeze({
     spots: c => ({
       big: !c.used ? c.screen() : c.sinceUsed < PLAY.roll ? c.at(11, 0.5, true) : c.at(11.3, -3.2),
       shooter: !c.used ? c.at(7.6, -0.4) : c.sinceUsed < 1.2 ? c.backScreen('big') : c.at(5.6, -1.2),
-      big2: c.at(11.6, -6.3), wing: c.at(11.6, 6.3),
+      big2: c.at(11.6, -6.95), wing: c.at(11.6, 6.95),
       ball: c.used ? c.at(10.8, 1) : c.set ? c.past() : c.at(5.4, -0.6),
     }),
   },
@@ -98,8 +101,8 @@ export const PLAYS = Object.freeze({
     target: c => (!c.passed ? (c.five ? 'shooter' : 'wing') : c.sincePass > 0.5 && c.sincePass < 2 ? 'handler' : null),
     spots: c => ({
       [c.five ? 'shooter' : 'wing']: c.at(7.2, 4.8),
-      big: c.five ? c.at(11.3, -3.2) : c.at(11.6, -6.3), big2: c.at(7.5, -5.5), ...(c.five ? { wing: c.at(11.6, -6.3) } : {}),
-      handler: c.passed && c.sincePass < 2 ? c.at(11, 0.6, true) : c.at(11.6, 6.3),
+      big: c.five ? c.at(11.3, -3.2) : c.at(11.6, -6.95), big2: c.at(7.5, -5.5), ...(c.five ? { wing: c.at(11.6, -6.95) } : {}),
+      handler: c.passed && c.sincePass < 2 ? c.at(11, 0.6, true) : c.at(11.6, 6.95),
       ball: c.at(5.6, 1.2),
     }),
   },
@@ -149,15 +152,34 @@ function context(state, play) {
   return c;
 }
 
-// Gives the play's parts to the team's players on the court: the handler has the ball; the others are taken in order
-// of size for big and big2, and the smallest is the shooter. Three a side has a big and a wing.
+// Gives the play's parts to the team's players on the court, by what each is good at: the handler has the ball; of
+// the rest the best inside (inside and rebound together) is the big and the next is big2; of those left the better
+// three-point shooter is the shooter and the other the wing. Three a side has a big and a wing.
 function cast(state, holder) {
-  const rank = p => BIG.indexOf(personOf(state, p).position);
-  const rest = state.players.filter(p => p.team === holder.team && p !== holder).sort((a, b) => rank(a) - rank(b) || a.slot - b.slot);
+  const r = (p, key) => rated(state, p, key), inside = p => r(p, 'inside') + r(p, 'rebound');
+  const rest = state.players.filter(p => p.team === holder.team && p !== holder).sort((a, b) => inside(b) - inside(a) || a.slot - b.slot);
   const ids = { handler: holder.id, big: rest[0].id };
-  if (rest.length === 2) ids.wing = rest[1].id;
-  else [ids.big2, ids.wing, ids.shooter] = [rest[1].id, rest[2].id, rest[3].id];
-  return ids;
+  if (rest.length === 2) { ids.wing = rest[1].id; return ids; }
+  const [shooter, wing] = rest.slice(2).sort((a, b) => r(b, 'three') - r(a, 'three') || a.slot - b.slot);
+  return { ...ids, big2: rest[1].id, wing: wing.id, shooter: shooter.id };
+}
+
+// How well a play suits who is on the floor for `team`, as a weight for the coach's pick: a post-up wants a post
+// scorer, Floppy a sharpshooter, a clear-out the star or a hot hand, the pick and rolls a handler, a pick and pop a
+// big who can shoot. 1 is a play like any other.
+export function suits(state, team, key) {
+  const holder = state.players[state.ball.holder];
+  if (!holder || holder.team !== team) return 1;
+  const ids = cast(state, holder), r = (id, k) => rated(state, state.players[id], k);
+  const pick = r(holder.id, 'handle') >= SUIT.handle ? 2 : 1;
+  switch (key) {
+    case 'postUp': return r(ids.big, 'inside') >= SUIT.post ? 3 : 0.5;
+    case 'floppy': return r(ids.shooter, 'three') >= SUIT.shooter ? 3 : 0.5;
+    case 'iso': return starOf(state, team) === holder.person || heatOf(personOf(state, holder)) === 'hot' ? 3 : 1;
+    case 'pickPop': return pick * (r(ids.big, 'three') >= SUIT.pop ? 2 : 0.3);
+    case 'pickRoll': case 'spain': case 'horns': return pick;
+    default: return 1;
+  }
 }
 
 // Whether `team` can start a play now: it has the ball in live play in its front court, with time to run one.
@@ -206,7 +228,13 @@ export function stepPlays(state, dt) {
     state.playWait[team] = Math.max(0, state.playWait[team] - dt);
     if (!ready(state, team)) continue;
     const list = playsFor(state.size);
-    const key = state.playCall[team] ?? (state.playWait[team] <= 0 ? list[Math.floor(rand(state) * list.length)] : null);
+    let key = state.playCall[team];
+    if (!key && state.playWait[team] <= 0) {
+      // The coach's pick: any play the match has, the likelier the better it suits who is on the floor.
+      const weights = list.map(play => suits(state, team, play));
+      let at = rand(state) * weights.reduce((sum, w) => sum + w, 0);
+      key = list.find((_, i) => (at -= weights[i]) < 0) ?? list[list.length - 1];
+    }
     if (key) { start(state, team, key); state.playCall[team] = null; }
   }
 }
