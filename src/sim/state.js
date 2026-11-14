@@ -53,6 +53,10 @@ function createPlayer(id, size) {
     shotT: 0, letGo: false, takeoff: 0,   // seconds since he pressed shoot; the key came up during the gather; the speed he last left the floor at
     held: false, steps: 0, keyT: 0, setT: 0, foulCooldown: 0,
     calling: false, closing: false,   // he has a hand up for the ball; he is closing out on a shooter (see ai.js)
+    // move: the move he is in, { kind, t, dx, dz, cx, cz, push }, or null (see moves.js). moveWait: seconds until he may
+    // start another. moved: when his last ended. lateT: seconds he cannot steer, beaten by a move. stumbleT: seconds
+    // left of a stumble. fading: his shot is a fade. shotKey: the key his shot is held on, 'shoot' or 'fade'.
+    move: null, moveWait: 0, moved: -Infinity, lateT: 0, stumbleT: 0, fading: false, shotKey: 'shoot',
     man: (id + size) % (2 * size), switchWait: 0,   // the id of the opponent he guards (see matchups.js); seconds until he may be switched again
     prev: emptyIntent(),
     ai: { timer: 0, targetX: 0, targetZ: 0, sprint: false, action: null },
@@ -68,6 +72,7 @@ export function lineUp(state) {
       facing: s === 1 ? 0 : Math.PI,
       shooting: false, shotT: 0, letGo: false, jumpT: 0, inbounder: false,
       held: false, steps: 0, keyT: 0, setT: 0,
+      move: null, moveWait: 0, lateT: 0, stumbleT: 0, fading: false, shotKey: 'shoot',
     });
   }
 }
@@ -103,6 +108,8 @@ export function createMatch(seed = 1, size = 3) {
     run: [0, 0],              // each team's points since the other last scored
     made: [[0, 0], [0, 0]],   // each team's baskets from the floor: [twos, threes]
     passer: null,             // the player who threw the last pass
+    // What last happened, for whoever watches the match (the rules never read it). stumble: { by, on, at }.
+    last: { stumble: null, score: null, block: null, steal: null },
     tempo: { clock: 0, wait: 0, fed: false },   // how patient this possession is, and the shot clock when that was last looked at (see ai.js)
     side: [1, 1],             // the side of the court each team's offence is set to (see offball.js)
     cut: [null, null],        // each team's player cutting to the hoop, { id, until }, or null

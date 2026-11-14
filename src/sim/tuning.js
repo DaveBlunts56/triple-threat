@@ -52,6 +52,27 @@ export const SHOT = f({
 
 export const PASS = f({ speed: 14, noPickup: 0.3, height: 1.3, clearTime: 0.1, interceptRadius: 0.4 });   // clearTime: no opponent can touch a pass this soon after it is thrown; interceptRadius: how close to a pass a defender must be to pick it off
 export const STEAL = f({ reach: 1.2, frontChance: 0.25, backChance: 0.08, cooldown: 1, frontArc: 120, heldFactor: 0.4 });   // heldFactor: steal chance multiplier against a picked-up ball
+// The ball handler's moves (see moves.js). time: seconds a move lasts. push: metres it carries him. keep: the share of
+// his speed he keeps through it. steal: what a reach's chance is multiplied by while it lasts. hidden: a reach from the
+// front cannot win the ball.
+export const MOVES = f({
+  cross: f({ time: 0.30, push: 1.5, keep: 0.5, steal: 1.5, hidden: false }),
+  legs: f({ time: 0.40, push: 1.1, keep: 0.5, steal: 0.5, hidden: false }),
+  back: f({ time: 0.50, push: 1.2, keep: 1, steal: 1, hidden: true }),
+  stepBack: f({ time: 0.35, push: 1.3 }),
+  gap: 0.3,            // seconds after a move before another may start
+  cost: 0.02,          // energy a move takes
+  tired: 0.6,          // the share of its push a move keeps at no energy (all of it at full, in a straight line between)
+  near: 1.6,           // metres: a defender this close can be beaten
+  late: 0.25, latePer10: 0.1, lateMax: 0.6,   // seconds he is late at equal ratings; more per 10 points of Handle over Defence
+  leaning: 0.5,        // m/s: a defender already moving the move's way this fast is not late
+  ankle: f({ edge: 15, wrong: 1, chance: 0.25, time: 1 }),   // Handle less Defence at least; m/s he moves the wrong way; how often; seconds down
+  side: 0.3,           // how far across the move keys must point for them to choose the side
+  // The post fade. within: metres from the hoop it can be taken from. drift: metres he floats back in the air. contest:
+  // the share of what a defender would take off a plain shot. make: what the shot's chance is multiplied by. block:
+  // what a blocker's reach is multiplied by.
+  fade: f({ within: 5.5, drift: 0.8, contest: 0.6, make: 0.92, block: 0.6 }),
+});
 export const BLOCK = f({ reach: 1.2, minHeight: 0.3, chance: 0.36, cone: 45, deflect: 4 });
 
 export const CLOCK = f({ quarters: 4, quarter: 180, overtime: 60, shot: 24, shotAfterFoul: 14, dead: 1.5, quarterBreak: 2, timeout: 3 });
