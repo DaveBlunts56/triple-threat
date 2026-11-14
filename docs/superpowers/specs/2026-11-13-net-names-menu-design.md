@@ -1,6 +1,6 @@
 # Net, names and positions, start menu: design
 
-Date: 2026-11-13. Status: approved in conversation by the owner; awaiting their read of this file.
+Date: 2026-11-13. Status: approved by the owner on 2026-11-13, then changed in three places while building, after the first net was seen in the game to move only about 2 pixels on a make: the ball now grips the net and drags it down; the strings stretch to one and a half times their length and spring back (they were firm, 10% at most); the ties give to three and a half times (they were to double). "Hangs still" means within 1 cm of the shape it was made in. The menu's rows follow the mouse when it moves (not when a row appears under it), and a key held when Play is chosen stays unseen until it is let go.
 
 This is piece 1 of the eight additions the owner asked for after play-testing milestone 3. The agreed order of the pieces:
 
