@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dribbleHeight, switchSpot, ballSpot, ballHands, BALL_IN_HAND, carrying, blendFrom, crossFrom, dribbleSpot } from '../src/render/hands.js';
+import { dribbleHeight, switchSpot, ballSpot, ballHands, BALL_IN_HAND, carrying, blendFrom, crossFrom, dribbleSpot, moveSpot, MOVE_BALL } from '../src/render/hands.js';
 import { checkHands } from '../src/render/checks.js';
 
 const near = (a, b, by = 1e-9) => Math.abs(a - b) < by;
@@ -103,4 +103,40 @@ test('a player whose model lacks a hand bone cannot be drawn: the game falls bac
   assert.doesNotThrow(() => checkHands('player-0-4', { left: {}, right: {} }));
   assert.throws(() => checkHands('player-0-4', { left: {}, right: undefined }), /player-0-4 has no mixamorigRightHand/);
   assert.throws(() => checkHands('player-1-7', { left: undefined, right: {} }), /player-1-7 has no mixamorigLeftHand/);
+});
+
+// ---- the dribble moves: the ball goes across on its own, by the floor ----
+
+test('in a dribble move the ball leaves one hand, bounces once on the floor and comes up into the other', () => {
+  const from = { x: -0.4, y: 0.6, z: 0.1 }, to = { x: 0.4, y: 0.7, z: 0.1 }, body = { x: 0, z: 0, heading: Math.PI / 2 };   // he faces +z
+  const spot = share => moveSpot('cross', share, from, to, body, 0.12);
+  for (const share of [0, MOVE_BALL.leave]) assert.deepEqual(spot(share), from);          // still in the hand it starts in
+  for (const share of [MOVE_BALL.arrive, 1]) assert.deepEqual(spot(share), to);           // in the other well before the move ends
+  const floor = spot(0.5);
+  assert.ok(near(floor.y, 0.12) && near(floor.x, 0) && near(floor.z, MOVE_BALL.ahead.cross), JSON.stringify(floor));
+  const heights = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8].map(share => spot(share).y);
+  assert.ok(heights[0] > heights[1] && heights[1] > heights[2] && heights[2] > heights[3], 'it goes down to the floor');
+  assert.ok(heights[3] < heights[4] && heights[4] < heights[5] && heights[5] < heights[6], 'and comes up from it');
+  assert.ok(heights.every(y => y >= 0.12 - 1e-9), 'never under the floor');
+});
+
+test('a crossover bounces in front of him, between the legs under him, behind the back behind him, whichever way he faces', () => {
+  const from = { x: 0, y: 0.6, z: 0 }, to = { x: 0, y: 0.6, z: 0 };
+  for (const heading of [0, 1, -2.5]) {
+    const body = { x: 3, z: -2, heading }, ahead = kind => {
+      const floor = moveSpot(kind, 0.5, from, to, body, 0.12);
+      return (floor.x - body.x) * Math.cos(heading) + (floor.z - body.z) * Math.sin(heading);
+    };
+    assert.ok(ahead('cross') > 0.3, `a crossover ${ahead('cross')} m ahead`);
+    assert.ok(ahead('legs') > 0 && ahead('legs') < 0.25, `between the legs ${ahead('legs')} m ahead`);
+    assert.ok(ahead('back') < -0.2, `behind the back ${ahead('back')} m ahead`);
+  }
+});
+
+test('a dribble move carries the ball its own way, so the ball is drawn across to it and back from it', () => {
+  assert.deepEqual(['crossover', 'crossoverLeft', 'betweenLegs', 'betweenLegsLeft', 'behindBack', 'behindBackLeft', 'stepBack'].map(ballHands),
+    ['move', 'move', 'move', 'move', 'move', 'move', 'both']);
+  assert.equal(carrying(2, 'move'), '2 move');
+  assert.notEqual(carrying(2, 'move'), carrying(2, 'right'));
+  assert.notEqual(carrying(2, 'move'), carrying(2, 'both'));
 });

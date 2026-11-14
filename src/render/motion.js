@@ -33,7 +33,9 @@ export const MOTION = Object.freeze({
   idleBelow: 0.3, walkBelow: 2.2, runBelow: 5.6, stick: 0.2, minRate: 0.6, maxRate: 1.5, fade: 0.15,
   guardDist: 4, guardSpeed: 2.2, guardStick: 0.4, sideways: 50,
   land: 0.12, followHold: 0.6, reachBefore: 0.2, catchReach: 0.6, pullIn: 0.15, handUpDist: 2, handSide: 0.3,
-  fadeIn: 0.07, fadeOut: 0.22, quick: Object.freeze(['pass', 'reach', 'follow', 'freeThrow', 'handUp']),
+  fadeIn: 0.07, fadeOut: 0.22,
+  quick: Object.freeze(['pass', 'reach', 'follow', 'freeThrow', 'handUp',
+    'crossover', 'crossoverLeft', 'betweenLegs', 'betweenLegsLeft', 'behindBack', 'behindBackLeft']),
   apart: 0.618, drift: 0.08,
   handStick: 0.4, guardFar: 0.4, sideStick: 10, minRateStep: 0.35,
   dribbleHold: 0.55, handSwitch: 0.2, freeThrowSet: 0.45,
@@ -56,9 +58,9 @@ export const OPTIONAL_CLIPS = Object.freeze(['celebrate', 'dejected', 'stumble']
 const MOVE_CLIP = Object.freeze({ cross: 'crossover', legs: 'betweenLegs', back: 'behindBack', stepBack: 'stepBack' });
 const TWINNED = ['cross', 'legs', 'back'];
 
-// Is motion `name` a downloaded clip of the whole body, which the legs play as well as the arms? `clips` is the
-// `clips` of assets/motion.json. A motion made by hand moves the arms only.
-export const wholeBody = (clips, name) => clips?.[name]?.from === 'clip';
+// Is motion `name` one of the whole body, which the legs play as well as the arms? `clips` is the `clips` of
+// assets/motion.json. A downloaded clip is; a motion made by hand moves the arms only unless it says `whole`.
+export const wholeBody = (clips, name) => clips?.[name]?.from === 'clip' || clips?.[name]?.whole === true;
 
 export const GAITS = ['idle', 'walk', 'run', 'sprint'];
 
@@ -139,7 +141,8 @@ export function noteChanges(marks, state, dt) {
       if (ball.holder === id && was.holder !== id) marks.catch[id] = 0;
       if (p.stealCooldown > before.stealCooldown) marks.reach[id] = 0;
       if (before.inAir && onFloor(p)) marks.land[id] = 0;
-      if (hand !== marks.hand[id]) marks.switched[id] = 0;
+      // A move took the ball across itself: it is not drawn crossing again.
+      if (hand !== marks.hand[id]) marks.switched[id] = crossed ? MOTION.handSwitch : 0;
     }
     marks.hand[id] = hand;
     now.players[id] = { shooting: p.shooting, inAir: !onFloor(p), stealCooldown: p.stealCooldown, move: p.move?.kind ?? null };

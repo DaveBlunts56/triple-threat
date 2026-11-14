@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { legMotion, armMotion, newMarks, noteChanges, drawnFacing, legLook, defending, dribbleHand, passArrival, airTime, MOTION } from '../src/render/motion.js';
+import { legMotion, armMotion, newMarks, noteChanges, drawnFacing, legLook, defending, dribbleHand, passArrival, airTime, wholeBody, MOTION } from '../src/render/motion.js';
 import { manOf } from '../src/sim/matchups.js';
 import { emptyIntent } from '../src/sim/state.js';
 import { giveBall, passBall, trySteal } from '../src/sim/players.js';
@@ -448,9 +448,15 @@ test('as a dribble move ends the ball is in the other hand, and stays there for 
   assert.equal(marks.hand[0], before);                                 // not during the move
   s.players[0].move = null; noteChanges(marks, s, DT);
   assert.notEqual(marks.hand[0], before);
-  assert.equal(marks.switched[0], 0);
+  // The move took the ball across: it does not cross again, as it does when he only changes hands.
+  assert.equal(marks.switched[0], MOTION.handSwitch);
   noteChanges(marks, s, DT);
   assert.notEqual(marks.hand[0], before);
+});
+
+test('a motion of the whole body is a downloaded clip, or one made by hand that says so', () => {
+  const clips = { a: { from: 'clip' }, b: { from: 'hand', whole: true }, c: { from: 'hand' }, d: {} };
+  assert.deepEqual(['a', 'b', 'c', 'd', 'e'].map(name => wholeBody(clips, name)), [true, true, false, false, false]);
 });
 
 test('a step-back does not change the hand', () => {

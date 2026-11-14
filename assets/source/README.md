@@ -48,12 +48,12 @@ Eight more clips are optional. If its file is in `assets/source/mixamo/`, the bu
 
 | Save as | What it is | Without it |
 |---|---|---|
-| `crossover.fbx`, `betweenLegs.fbx`, `behindBack.fbx` | The three dribble moves, the ball going from the right hand to the left | A motion of the arms made by hand in `poses.py` |
+| `crossover.fbx`, `betweenLegs.fbx`, `behindBack.fbx` | The three dribble moves, the ball going from the right hand to the left | A motion of the whole body made by hand in `poses.py`: low on bent legs, the trunk and the arms taking the ball hand across |
 | `stepBack.fbx` | One hop backwards | The same |
 | `fade.fbx` | A jump shot leaning back | The same |
 | `celebrate.fbx`, `dejected.fbx`, `stumble.fbx` | After a big basket, and a defender beaten by a move | A raised arm; nothing; a low stagger |
 
-They are downloaded with the same settings as the others. A downloaded clip is played by the whole body; a hand-made one moves the arms and the upper trunk and leaves the legs to the step he is taking. The build makes the left-handed twin of each dribble move in a mirror. A clip whose rest pose is not the player's is refused with a line `MOTION refused <name>.fbx: ...` and treated as absent. `assets/motion.json` says for each of these where it came from: `"from": "clip"` or `"from": "hand"`.
+They are downloaded with the same settings as the others. A downloaded clip is played by the whole body, and so are the three hand-made dribble moves (`"whole": true` in `assets/motion.json`); the hand-made step-back and fade move the arms and the upper trunk and leave the legs to the step he is taking. In a dribble move the game draws the ball itself: out of the hand it starts in, off the floor (in front of him, between his legs or behind him) and up into the other, so a clip only has to put the two hands in the right places. The build makes the left-handed twin of each dribble move in a mirror. A clip whose rest pose is not the player's is refused with a line `MOTION refused <name>.fbx: ...` and treated as absent. `assets/motion.json` says for each of these where it came from: `"from": "clip"` or `"from": "hand"`.
 
 `--strips crossover,fade` with `--shots` draws only those motions' film strips.
 

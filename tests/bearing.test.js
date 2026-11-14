@@ -94,6 +94,9 @@ test('the chest bends to a dribble on upright legs and comes up under a hand-mad
   }
   assert.ok(near(tip(5, { dribble: 0.5, walk: 0.5 }), rad(dribble - 5) / 2));                 // half shown: half the bend
   assert.ok(near(tip(made + 8, { dribble: 0.25, catch: 0.75 }), 0.25 * rad(dribble - made - 8) - 0.75 * rad(8)));
+  // A motion of the whole body brought its own legs: it is left as it was made, however far over.
+  assert.equal(chestTip(rad(made + 25), { ...none, crossover: 1 }, ['crossover']), 0);
+  assert.ok(near(chestTip(rad(made + 25), { ...none, crossover: 0.5, catch: 0.5 }, ['crossover']), rad(-25) / 2));
 });
 
 // ---- rulings after the first review of Task 11 ----

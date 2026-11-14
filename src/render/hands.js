@@ -11,8 +11,19 @@ const between = (a, b, share) => ({
   x: a.x * (1 - share) + b.x * share, y: a.y * (1 - share) + b.y * share, z: a.z * (1 - share) + b.z * share,
 });
 
-// The hands a ball is carried in for the arm motion `clip`: one for a dribble, both for everything else.
-export const ballHands = clip => (clip === 'dribble' ? 'right' : clip === 'dribbleLeft' ? 'left' : 'both');
+// The ball in a dribble move (see moveSpot). leave, arrive: the shares of the move at which it leaves the hand it is
+// in and reaches the other. ahead: metres in front of his feet at which it meets the floor on the way, for each move:
+// a crossover in front of him; between the legs under him, between the knee of the leg behind and the shin of the leg
+// in front; behind the back behind his heels, clear of him.
+export const MOVE_BALL = Object.freeze({ leave: 0.15, arrive: 0.85, ahead: Object.freeze({ cross: 0.45, legs: 0.15, back: -0.45 }) });
+const MOVE_CLIPS = ['crossover', 'betweenLegs', 'behindBack'];
+
+// The hands a ball is carried in for the arm motion `clip`: one for a dribble, both for everything else; in a dribble
+// move, 'move': it goes from one to the other on its own.
+export function ballHands(clip) {
+  if (MOVE_CLIPS.includes(clip.replace(/Left$/, ''))) return 'move';
+  return clip === 'dribble' ? 'right' : clip === 'dribbleLeft' ? 'left' : 'both';
+}
 
 // How high a dribbled ball's centre is. `phase` is the dribble's place in its cycle (0 to 1), `dribble` its facts
 // (`push`, `bounces`), `handY` the height of the hand on this frame and `radius` the ball's. From the push the ball
@@ -28,6 +39,20 @@ export function dribbleHeight(phase, dribble, handY, radius) {
 export function switchSpot(from, to, share, radius) {
   const spot = between(from, to, share);
   spot.y = radius + (spot.y - radius) * Math.abs(Math.cos(Math.PI * share));
+  return spot;
+}
+
+// Where the ball is `share` of the way through the dribble move `kind` (see sim/moves.js): in the hand whose palm is at
+// `from` until it leaves, then down to the floor at the move's own place by his feet, and up into the hand whose palm
+// is at `to`. `body` is where he stands and the way he is drawn facing, { x, z, heading }.
+export function moveSpot(kind, share, from, to, body, radius) {
+  const way = (share - MOVE_BALL.leave) / (MOVE_BALL.arrive - MOVE_BALL.leave);
+  if (way <= 0) return from;
+  if (way >= 1) return to;
+  const ahead = MOVE_BALL.ahead[kind];
+  const floor = { x: body.x + Math.cos(body.heading) * ahead, y: radius, z: body.z + Math.sin(body.heading) * ahead };
+  const spot = way < 0.5 ? between(from, floor, way * 2) : between(floor, to, way * 2 - 1);
+  spot.y = radius + ((way < 0.5 ? from : to).y - radius) * Math.abs(Math.cos(Math.PI * way));
   return spot;
 }
 
@@ -50,9 +75,10 @@ export function ballSpot(last, now, since) {
 // Who carries the ball and how, as one value that changes exactly when the drawn ball is to be drawn across to its new
 // place: null when nobody holds it. `hands` is what ballHands gave for the holder's arms, or null when the ball is not
 // drawn in them. A change from one dribbling hand to the other is no change: the ball crosses instead (switchSpot).
+// A dribble move is a way of its own.
 export function carrying(holder, hands) {
   if (holder === null) return null;
-  return `${holder} ${hands === 'both' ? 'both' : hands ? 'one' : 'none'}`;
+  return `${holder} ${hands === 'both' || hands === 'move' ? hands : hands ? 'one' : 'none'}`;
 }
 
 // Where a dribbled ball crossing to the hand `side` of player `id` set off from: the place it was drawn on the frame

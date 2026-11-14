@@ -4,10 +4,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MOVE_BALL } from '../src/render/hands.js';
 
 const data = readFileSync('assets/motion.glb');
 const gltf = await new Promise((ok, bad) => new GLTFLoader().parse(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength), '', ok, bad));
-const BONES = ['Hips', 'Spine2', 'Head', 'LeftArm', 'RightArm', 'LeftHand', 'RightHand', 'LeftLeg', 'RightLeg', 'LeftFoot', 'RightFoot'];
+const BONES = ['Hips', 'Spine2', 'Head', 'LeftArm', 'RightArm', 'LeftHand', 'RightHand', 'LeftLeg', 'RightLeg', 'LeftFoot', 'RightFoot', 'LeftToeBase', 'RightToeBase'];
 
 // Where those bones are, in metres, with motion `name` held at `share` of its length. `mid` is the point between the wrists.
 // The player stands on the floor at the origin and faces +z; his left is +x. LeftArm and RightArm are the shoulder joints,
@@ -20,6 +21,7 @@ function posed(name, share) {
   mixer.update(0);
   gltf.scene.updateMatrixWorld(true);
   const at = Object.fromEntries(BONES.map(bone => [bone, gltf.scene.getObjectByName(`mixamorig${bone}`).getWorldPosition(new THREE.Vector3())]));
+  at.LeftToe = at.LeftToeBase; at.RightToe = at.RightToeBase;
   at.mid = at.LeftHand.clone().add(at.RightHand).multiplyScalar(0.5);
   at.apart = at.LeftHand.distanceTo(at.RightHand);
   return at;
@@ -135,33 +137,67 @@ test('the motions that were downloaded are as they were', () => {
   for (const [name, seconds] of Object.entries(lengths)) assert.equal(motionFacts.clips[name].duration, seconds, name);
 });
 
-test('a hand-made move moves the arms and the upper trunk only: the legs and hips stay as they rest', () => {
-  for (const name of ['crossover', 'betweenLegs', 'behindBack', 'stepBack', 'fade'].filter(byHand)) for (const share of [0, 0.5, 1]) {
+test('a step-back and a fade made by hand move the arms and the upper trunk only: the legs and hips stay as they rest', () => {
+  for (const name of ['stepBack', 'fade'].filter(byHand)) for (const share of [0, 0.5, 1]) {
     const p = posed(name, share);
     for (const bone of ['Hips', 'LeftLeg', 'RightLeg', 'LeftFoot', 'RightFoot']) assert.ok(p[bone].distanceTo(still[bone]) < 0.002, `${name} at ${share}: ${bone}`);
   }
 });
 
-test('each dribble move takes the hands from his right side to his left, and its twin from left to right', () => {
-  for (const name of ['crossover', 'betweenLegs', 'behindBack'].filter(byHand)) {
-    const start = posed(name, 0), end = posed(name, 1);
-    assert.ok(start.mid.x < -0.08 && end.mid.x > 0.08, `${name}: ${start.mid.x} to ${end.mid.x}`);   // his left is +x
-    const twinStart = posed(`${name}Left`, 0), twinEnd = posed(`${name}Left`, 1);
-    assert.ok(twinStart.mid.x > 0.08 && twinEnd.mid.x < -0.08, `${name}Left`);
+const DRIBBLES = ['crossover', 'betweenLegs', 'behindBack'].filter(byHand);
+
+test('a dribble move made by hand is of the whole body: low on bent legs throughout, a toe of each foot on the floor', () => {
+  const floor = posed('stance', 0);
+  for (const name of DRIBBLES) {
+    assert.equal(motionFacts.clips[name].whole, true, `${name} says it is of the whole body`);
+    assert.equal(motionFacts.clips[`${name}Left`].whole, true, `${name}Left`);
+    for (const share of [0, 0.25, 0.5, 0.75, 1]) {
+      const p = posed(name, share), lower = stood.Hips.y - p.Hips.y;
+      assert.ok(lower > 0.15 && lower < 0.35, `${name} at ${share}: hips ${lower} m lower`);
+      for (const side of ['Left', 'Right']) assert.ok(Math.abs(p[`${side}Toe`].y - floor[`${side}Toe`].y) < 0.03, `${name} at ${share}: ${side} toe ${p[`${side}Toe`].y} m up`);
+    }
   }
 });
 
-test('a crossover passes in front, between the legs lower still, and behind the back behind him', () => {
-  if (byHand('crossover')) {
-    const mid = posed('crossover', 0.5);
-    assert.ok(Math.abs(mid.mid.x) < 0.1 && mid.mid.z > mid.Hips.z + 0.05, 'in front, in the middle');
-    assert.ok(mid.Head.z > still.Head.z + 0.1, 'bent over it');
+test('each dribble move takes the ball hand from low and wide on his right to low and wide on his left, and its twin the other way', () => {
+  for (const name of DRIBBLES) {
+    const start = posed(name, 0), end = posed(name, 1);
+    assert.ok(start.RightHand.x < -0.4 && start.RightHand.y < start.Hips.y + 0.05, `${name} starts with the right hand at ${start.RightHand.x}, ${start.RightHand.y}`);   // his left is +x
+    assert.ok(end.LeftHand.x > 0.4 && end.LeftHand.y < end.Hips.y + 0.05, `${name} ends with the left hand at ${end.LeftHand.x}, ${end.LeftHand.y}`);
+    const twinStart = posed(`${name}Left`, 0), twinEnd = posed(`${name}Left`, 1);
+    assert.ok(Math.abs(twinStart.LeftHand.x + start.RightHand.x) < 0.03 && Math.abs(twinStart.LeftHand.y - start.RightHand.y) < 0.03, `${name}Left starts in a mirror`);
+    assert.ok(Math.abs(twinEnd.RightHand.x + end.LeftHand.x) < 0.03 && Math.abs(twinEnd.RightHand.y - end.LeftHand.y) < 0.03, `${name}Left ends in a mirror`);
   }
-  if (byHand('betweenLegs') && byHand('crossover')) assert.ok(posed('betweenLegs', 0.5).mid.y < posed('crossover', 0.5).mid.y - 0.005);
-  if (byHand('behindBack')) {
-    const mid = posed('behindBack', 0.5);
-    assert.ok(mid.RightHand.z < mid.Hips.z, `the right hand is ${mid.RightHand.z - mid.Hips.z} m in front of the hips`);
+});
+
+test('a crossover swings the trunk over a wide stance, from over the ball on one side to over it on the other', () => {
+  if (!byHand('crossover')) return;
+  const start = posed('crossover', 0), mid = posed('crossover', 0.5), end = posed('crossover', 1);
+  for (const p of [start, mid, end]) assert.ok(p.LeftFoot.x - p.RightFoot.x > 0.7, `feet ${p.LeftFoot.x - p.RightFoot.x} m apart`);
+  assert.ok(start.Head.x < -0.06 && Math.abs(mid.Head.x) < 0.02 && end.Head.x > 0.06, `the head goes ${start.Head.x}, ${mid.Head.x}, ${end.Head.x} across`);
+  assert.ok(mid.Head.y < start.Head.y - 0.03 && mid.Head.z > still.Head.z + 0.25, 'lowest and furthest over in the middle');
+});
+
+test('between the legs he is in a stride, with room under him for the ball to go between the leg behind and the leg in front', () => {
+  if (!byHand('betweenLegs')) return;
+  for (const share of [0, 0.5, 1]) {
+    const p = posed('betweenLegs', share);
+    assert.ok(p.LeftFoot.z - p.RightFoot.z > 0.6, `the left foot is ${p.LeftFoot.z - p.RightFoot.z} m in front of the right`);
+    assert.ok(p.LeftFoot.x - p.RightFoot.x > 0.4, `feet ${p.LeftFoot.x - p.RightFoot.x} m apart across`);
+    // Where the ball meets the floor (hands.js: MOVE_BALL.ahead.legs in front of his feet's middle, which the hips are over).
+    const gap = p.Hips.z + MOVE_BALL.ahead.legs;
+    assert.ok(p.RightLeg.z < gap - 0.15 && p.LeftFoot.z > gap + 0.15 && p.LeftLeg.z > gap + 0.15, `the ball lands ${gap} m forward: knee behind ${p.RightLeg.z}, shin in front ${p.LeftFoot.z}`);
   }
+  const twin = posed('betweenLegsLeft', 0.5);
+  assert.ok(twin.RightFoot.z - twin.LeftFoot.z > 0.6, 'the twin leads with the other foot');
+});
+
+test('behind the back the right hand goes back round the hip, then the left takes the ball there and brings it out', () => {
+  if (!byHand('behindBack')) return;
+  const wrap = posed('behindBack', 0.35), take = posed('behindBack', 0.7), end = posed('behindBack', 1);
+  assert.ok(wrap.RightHand.z < wrap.Hips.z - 0.1, `the right hand is ${wrap.Hips.z - wrap.RightHand.z} m behind the hips`);
+  assert.ok(take.LeftHand.z < take.Hips.z - 0.1, `the left hand is ${take.Hips.z - take.LeftHand.z} m behind the hips`);
+  assert.ok(end.LeftHand.z > end.Hips.z + 0.1, 'and comes out in front again');
 });
 
 test('a fade ends at the set point with the trunk leaning back', () => {

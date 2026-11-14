@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createAnimator } from '../src/render/animator.js';
-import { LEG_CLIPS, ARM_CLIPS, MOTION, crossFade, layerOf, outOfStep, stridePhase } from '../src/render/motion.js';
+import { LEG_CLIPS, ARM_CLIPS, MOTION, crossFade, layerOf, outOfStep, stridePhase, wholeBody } from '../src/render/motion.js';
 import { checkMotions } from '../src/render/checks.js';
 
 const data = readFileSync('assets/motion.glb');
@@ -32,7 +32,10 @@ test('both layers stay one whole pose through a start, a dribble, a pass, a catc
 
 test('every motion the two tables name has its place on a layer', () => {
   const a = fresh();
-  assert.deepEqual(Object.keys(a.weights.legs).sort(), [...LEG_CLIPS].sort());
+  // The legs play their own motions and those of the whole body: the dribble moves, made by hand or downloaded.
+  const whole = ARM_CLIPS.filter(name => wholeBody(facts.clips, name));
+  assert.deepEqual(whole.filter(name => facts.clips[name].from === 'hand').sort(), ['behindBack', 'behindBackLeft', 'betweenLegs', 'betweenLegsLeft', 'crossover', 'crossoverLeft']);
+  assert.deepEqual(Object.keys(a.weights.legs).sort(), [...LEG_CLIPS, ...whole].sort());
   assert.deepEqual(Object.keys(a.weights.arms).sort(), [...LEG_CLIPS, ...ARM_CLIPS].sort());
 });
 
@@ -169,6 +172,28 @@ test('one-off moves fade in over 0.07 s and out over 0.22 s; everything else kee
   crossFade(w, 'run', 0.2);
   assert.deepEqual(w, { idle: 0, dribble: 0, pass: 0, run: 1 });
   assert.deepEqual(crossFade({ idle: 0.4, run: 0.6 }, 'run', 0), { idle: 0.4, run: 0.6 });   // paused: nothing moves
+});
+
+test('a dribble move is shown at once: it comes in over 0.07 s, on the legs as on the arms', () => {
+  for (const name of ['crossover', 'crossoverLeft', 'betweenLegs', 'betweenLegsLeft', 'behindBack', 'behindBackLeft']) {
+    const w = crossFade({ run: 1, [name]: 0 }, name, 0.035);
+    assert.ok(near(w[name], 0.5) && near(w.run, 0.5), name);
+  }
+});
+
+test('a dribble move made by hand is played by the legs too: he drops low for it, and comes back up to run', () => {
+  const a = fresh(), hips = () => { gltf.scene.updateMatrixWorld(true); return bone('mixamorigHips').getWorldPosition(new THREE.Vector3()).y; };
+  frames(a, 30, idle, null);
+  const stood = hips();
+  for (const name of ['crossover', 'betweenLegsLeft', 'behindBack']) {
+    assert.equal(facts.clips[name].whole, true, name);
+    const move = { clip: name, at: 0.5 };
+    frames(a, 6, move, move);                                             // 0.1 s: fully in
+    assert.ok(near(a.weights.legs[name], 1) && near(a.weights.arms[name], 1), name);
+    assert.ok(hips() < stood - 0.12, `${name}: hips ${stood - hips()} m lower`);
+    frames(a, 30, idle, null);
+    assert.ok(Math.abs(hips() - stood) < 0.03, `${name}: back up`);
+  }
 });
 
 test('the head turns toward what it is given: right for a positive yaw, up for a positive pitch, and the middle of the spine stays out of it', () => {

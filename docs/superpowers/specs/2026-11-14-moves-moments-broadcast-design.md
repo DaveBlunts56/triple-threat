@@ -247,7 +247,7 @@ One plan, four stages, a build sent after each so the owner can play as it goes:
 Where the build differs from the text above. Each was my call; the plan's ledger has the reasons.
 
 - **The computer's dribble moves** may come from 6 seconds into the shot clock, and a handler who has just beaten his man drives at once. With a defender within reach of the ball the computer goes between the legs or behind the back, and crosses over only with room.
-- **The hand-made crossover and between-the-legs** cross at waist height, not at the knees. During any move the ball is drawn between the two hands.
+- **The three hand-made dribble moves** were first made for the arms only, with the ball carried in both hands at the waist; play-testing showed that read as nothing but a change of direction. They are now of the whole body: a low wide stance for the crossover and behind the back, a stride for between the legs. The ball is drawn on its own: out of one hand, off the floor (in front of him, between his legs, behind his heels) and up into the other. The feet do not step during a move, so at a run they slide for its 0.3 to 0.5 s.
 - **Replays** keep the last 16 seconds, not 8, so that a game-winner can be shown from its basket. The camera is in the corner, 2.6 m up, not low beside the hoop.
 - **The period and half-time panels** hold the match for 5 and 9 seconds, or until a key, as the line-ups do. A replay comes before a panel.
 - **Sound:** fifteen recordings are used, not sixteen: the crowd gasp could not be told for one without hearing it, and a groan stands in. Twenty-two sounds, 0.65 MB. The long whistle is the short one stretched.

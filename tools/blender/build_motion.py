@@ -19,7 +19,7 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from build_players import build_person, finish, people  # noqa: E402
 from common import bounds, clear_scene, project, snapshot  # noqa: E402
-from poses import POSES, pose_frames  # noqa: E402
+from poses import POSES, pose_frames, whole_body  # noqa: E402
 
 FPS = 30
 # Name (and file name) of each Mixamo clip: its kind. A 'loop' repeats; in a 'held' one the game sets how far through it is.
@@ -340,7 +340,8 @@ def main():
         if name in found:
             continue
         for made, frames in with_mirrors(name, pose_frames(rig, pose, FPS)):
-            add(made, pose['kind'], frames, framed=MADE_BOX, **({'from': 'hand'} if name in OPTIONAL else {}))
+            more = {'from': 'hand', **({'whole': True} if whole_body(pose) else {})} if name in OPTIONAL else {}
+            add(made, pose['kind'], frames, framed=MADE_BOX, **more)
         if name in OPTIONAL:
             found[name] = 'hand'
     print('MOTION optional:', ', '.join(f'{name} {found.get(name, "absent")}' for name in OPTIONAL))

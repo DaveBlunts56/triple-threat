@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { BALL, ROSTER } from '../sim/tuning.js';
+import { BALL, MOVES, ROSTER } from '../sim/tuning.js';
 import { onFloor } from '../sim/state.js';
 import { assetUrl } from './assets.js';
 import { MOTION, legMotion, armMotion, legLook, newMarks, noteChanges, drawnFacing, wholeBody } from './motion.js';
-import { BALL_IN_HAND, ballHands, crossFrom, dribbleSpot } from './hands.js';
+import { BALL_IN_HAND, ballHands, crossFrom, dribbleSpot, moveSpot } from './hands.js';
 import { checkGaits, checkMotions, checkFacts, personName, courtPeople, sized, missingPeople, checkHands } from './checks.js';
 import { easeFacing, leanOf, lookTarget, headTurn, easeHead } from './bearing.js';
 import { createAnimator } from './animator.js';
@@ -244,8 +244,14 @@ export async function loadPeople() {
       const crossing = side === 'left' || side === 'right' ? marks.switched[id] / MOTION.handSwitch : Infinity;
       cross = crossing < 1 ? crossFrom(cross, id, side, crossing, drawn) : null;
       if (!side) return null;
-      const { hands, arms, animator } = shown[id];
-      if (side === 'both') {
+      const { hands, arms, animator } = shown[id], move = state.players[id].move;
+      // In a dribble move it goes from the hand the move began in to the other, by the floor.
+      if (side === 'move' && move) {
+        const began = marks.hand[id] === 'left' ? 'left' : 'right', other = began === 'left' ? 'right' : 'left';
+        const body = { x: state.players[id].x, z: state.players[id].z, heading: bearings[id].heading };
+        return moveSpot(move.kind, Math.min(1, move.t / MOVES[move.kind].time), palmOf(hands[began]), palmOf(hands[other]), body, BALL.radius);
+      }
+      if (side === 'both' || side === 'move') {
         const left = palmOf(hands.left), right = palmOf(hands.right);
         return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2, z: (left.z + right.z) / 2 };
       }

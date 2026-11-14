@@ -94,19 +94,46 @@ TIP = {'Spine1': (0, 3, 0), 'Spine2': (0, 3, 0), 'Neck': (-10, 0, 0), 'Head': (-
        'RightShoulder': (0, 22, 0), 'RightArm': (-138, 32, -51), 'RightForeArm': (26, 3, -21), 'RightHand': (5, 5, -9),
        'LeftArm': (31, 7, -7), 'LeftForeArm': (-16, 13, -1), 'LeftHand': (-6, 11, 13)}
 
-# The moves. Each of the three dribbles starts with the ball low on the right and ends with it low on the left.
-# Low on the right: the ball on the hip, with the trunk bent over it.
+# The moves. A step-back starts with the ball low on the right: on the hip, with the trunk bent over it.
 LOW = {**ON_HIP, 'Spine1': (16, 0, -8), 'Spine2': (12, 0, -7), 'Neck': (-12, 0, 7), 'Head': (-12, 0, 8)}
-# A crossover's middle: both hands in front of the waist, the trunk well over. (Straighter elbows swing the hands
-# behind him, not lower: without a clip the ball crosses at waist height.)
-CROSSING = {**DIP, 'Spine1': (19, 0, 0), 'Spine2': (15, 0, 0), 'Neck': (-14, 0, 0), 'Head': (-14, 0, 0)}
-# Between the legs: bent right over, both hands down between the thighs.
-THROUGH = {**DIP, 'Spine1': (27, 0, 0), 'Spine2': (21, 0, 0), 'Neck': (-18, 0, 0), 'Head': (-18, 0, 0)}
-# Behind the back: the trunk upright and turned to the right, the right arm wrapped back round the hip, the left
-# hand reaching back on its own side to take the ball.
-WRAPPED = {'Spine1': (4, 0, -16), 'Spine2': (3, 0, -12), 'Neck': (-3, 0, 12), 'Head': (-3, 0, 12),
-           'RightArm': (62, 0, -6), 'RightForeArm': (-42, -10, 58), 'RightHand': (-30, -15, -14),
-           'LeftArm': (52, 0, 10), 'LeftForeArm': (-30, 8, -40), 'LeftHand': (-20, 10, 10)}
+
+# The three dribble moves are of the whole body: low on bent legs, the ball hand taken from low and wide on his right
+# to low and wide on his left. The ball itself is drawn by the game: out of one hand, off the floor, up into the other.
+# An arm low and wide with the open hand to the front (the guard's), and an arm low in front of the body (the dip's).
+WIDE = {'RightArm': (-20, 13, 24), 'RightForeArm': (9, -19, -47), 'RightHand': (-12, -29, -21)}
+IN = {'RightArm': (23, -18, 45), 'RightForeArm': (-53, -28, 31), 'RightHand': (-53, -10, -42)}
+# An arm swung back round the hip, the hand behind him.
+BEHIND = {'RightArm': (62, 0, -6), 'RightForeArm': (-42, -10, 58), 'RightHand': (-30, -15, -14)}
+
+
+def left(arm):
+    """An arm pose of the right arm, for the left."""
+    return flip(arm)
+
+
+def over(bend, lean=0, turn=0):
+    """The upper trunk bent `bend` degrees forward, tipped `lean` and turned `turn` to his left; the head kept up and to the front."""
+    return {'Spine1': (bend * 0.6, lean * 0.6, turn * 0.6), 'Spine2': (bend * 0.4, lean * 0.4, turn * 0.4),
+            'Neck': (-bend * 0.35, -lean * 0.3, -turn * 0.5), 'Head': (-bend * 0.35, -lean * 0.3, -turn * 0.5)}
+
+
+# A crossover: the stance, the trunk swung from over his right knee, down through the middle, to over his left.
+CROSS_FROM = {**CROUCH, **over(30, -14, -18), **WIDE, **left(IN)}
+CROSS_MID = {**CROUCH_LOW, **over(40), **IN, **left(IN)}
+# Between the legs: the left foot a stride in front of the right, both knees bent, the feet far enough apart for the
+# ball to go through; bent right over it.
+SPLIT = {'Hips': (8, 0, 0), 'Spine': (10, 0, 0),
+         'LeftUpLeg': (-62, -7, 0), 'LeftLeg': (62, 0, 0), 'LeftFoot': (-8, 0, 0),
+         'RightUpLeg': (2, 7, 0), 'RightLeg': (58, 0, 0), 'RightFoot': (-30, 0, 0)}
+LEGS_FROM = {**SPLIT, **over(36, -8, -14), **WIDE, **left(IN)}
+LEGS_MID = {**SPLIT, **over(46), **IN, **left(IN)}
+LEGS_TO = {**SPLIT, **over(36, 8, 14), **IN, **left(WIDE)}
+# Behind the back: the stance with the trunk up, turned to the right as the right arm wraps back round the hip, then
+# to the left as the left hand takes the ball behind him and brings it out wide.
+BACK_FROM = {**CROUCH, **over(6, 0, -8), **WIDE, **left(WIDE)}
+BACK_WRAP = {**CROUCH, **over(4, 0, -26), **BEHIND, **left(WIDE)}
+BACK_TAKE = {**CROUCH, **over(4, 0, 26), **WIDE, **left(BEHIND)}
+BACK_TO = {**CROUCH, **over(6, 0, 8), **WIDE, **left(WIDE)}
 # A step-back's gather: the ball brought in to the belly with both hands, the trunk over it.
 TUCKED = {**DIP, 'Spine1': (14, 0, 0), 'Spine2': (10, 0, 0), 'Neck': (-10, 0, 0), 'Head': (-10, 0, 0)}
 # A fade's set point: the set point with the trunk leaning back 12 degrees more at each of the two joints.
@@ -132,12 +159,17 @@ POSES = {
     'contest': {'kind': 'held', 'seconds': 0.47, 'keys': [(0, GUARD), (0.3, ARMS_UP), (1, ARMS_UP)]},
     'tip': {'kind': 'held', 'seconds': 0.47, 'keys': [(0, SIDES), (0.4, TIP), (1, TIP)]},
     # The five moves. The game places each by hand (how far through the move he is), whatever its kind says.
-    'crossover': {'kind': 'once', 'seconds': 0.3, 'keys': [(0, LOW), (0.5, CROSSING), (1, flip(LOW))]},
-    'betweenLegs': {'kind': 'once', 'seconds': 0.4, 'keys': [(0, LOW), (0.5, THROUGH), (1, flip(LOW))]},
-    'behindBack': {'kind': 'once', 'seconds': 0.5, 'keys': [(0, LOW), (0.5, WRAPPED), (1, flip(LOW))]},
+    'crossover': {'kind': 'once', 'seconds': 0.3, 'keys': [(0, CROSS_FROM), (0.5, CROSS_MID), (1, flip(CROSS_FROM))]},
+    'betweenLegs': {'kind': 'once', 'seconds': 0.4, 'keys': [(0, LEGS_FROM), (0.5, LEGS_MID), (1, LEGS_TO)]},
+    'behindBack': {'kind': 'once', 'seconds': 0.5, 'keys': [(0, BACK_FROM), (0.35, BACK_WRAP), (0.7, BACK_TAKE), (1, BACK_TO)]},
     'stepBack': {'kind': 'once', 'seconds': 0.35, 'keys': [(0, LOW), (0.5, TUCKED), (1, LIFT)]},
     'fade': {'kind': 'held', 'seconds': 0.3, 'keys': [(0, ON_HIP), (0.55, DIP), (0.78, {**LIFT, 'Spine1': (-6, 0, 0), 'Spine2': (-6, 0, 0)}), (1, SET_BACK)]},
 }
+
+
+def whole_body(pose):
+    """Does the motion turn a leg bone? Then it is of the whole body, and the legs play it as well as the arms."""
+    return any(bone in LEG_BONES for _, turns in pose['keys'] for bone in turns)
 
 
 def ease(t):
@@ -185,7 +217,7 @@ def pose_frames(rig, pose, fps):
             turns[bone] = a.slerp(b if a.dot(b) >= 0 else -b, t)
         frames.append(stand(rig, turns))
 
-    if any(bone in LEG_BONES for _, turns in pose['keys'] for bone in turns):
+    if whole_body(pose):
         rest = min(rig.data.bones[toe].head_local.z for toe in TOES)
         for frame in frames:
             above = min(frame[toe].translation.z for toe in TOES) - rest

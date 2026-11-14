@@ -79,7 +79,8 @@ export function createAnimator(model, clips, facts, scale, index = 0) {
   // The arms' motions, with those the file may or may not have; and among them the downloaded clips of the whole
   // body, which the legs play too.
   const armOnly = [...ARM_CLIPS, ...OPTIONAL_CLIPS.filter(name => name in clips)];
-  const legNames = [...LEG_CLIPS, ...armOnly.filter(name => wholeBody(facts.clips, name))];
+  const wholeNames = armOnly.filter(name => wholeBody(facts.clips, name));
+  const legNames = [...LEG_CLIPS, ...wholeNames];
   const actions = {
     legs: Object.fromEntries(legNames.map(name => [name, held(name, track => layerOf(track) === 'legs')])),
     arms: Object.fromEntries([...LEG_CLIPS, ...armOnly].map(name => [name, held(name, track => layerOf(track) === 'arms' && !(name in OFF_ARM && armOf(track) === OFF_ARM[name]))])),
@@ -102,7 +103,7 @@ export function createAnimator(model, clips, facts, scale, index = 0) {
 
   // The chest, after the motions: each arms-layer motion asks for it to lean as it was made to (see chestTip).
   function tipChest() {
-    const tip = chestTip(pitchOf(model, chest, neck), weights.arms);
+    const tip = chestTip(pitchOf(model, chest, neck), weights.arms, wholeNames);
     if (tip) turnBone(model, chest, about.setFromAxisAngle(SIDE, tip));
   }
 
