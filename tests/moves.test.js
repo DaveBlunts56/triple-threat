@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { legMotion, armMotion, newMarks, noteChanges, drawnFacing, legLook, manOf, defending, dribbleHand, passArrival, airTime, MOTION } from '../src/render/motion.js';
+import { legMotion, armMotion, newMarks, noteChanges, drawnFacing, legLook, defending, dribbleHand, passArrival, airTime, MOTION } from '../src/render/motion.js';
+import { manOf } from '../src/sim/matchups.js';
 import { emptyIntent } from '../src/sim/state.js';
 import { giveBall, passBall, trySteal } from '../src/sim/players.js';
 import { newFreeThrow, setupFreeThrow } from '../src/sim/freethrow.js';

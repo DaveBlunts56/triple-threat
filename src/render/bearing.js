@@ -2,7 +2,8 @@
 import { PLAYER } from '../sim/tuning.js';
 import { attackSign } from '../sim/state.js';
 import { rimCentre } from '../sim/ball.js';
-import { MOTION, ARM_CLIPS, dist, nearestOpponent, manOf, defending } from './motion.js';
+import { MOTION, ARM_CLIPS, dist, nearestOpponent, defending } from './motion.js';
+import { manOf } from '../sim/matchups.js';
 
 const rad = degrees => (degrees * Math.PI) / 180;
 

@@ -70,8 +70,6 @@ export const airTime = player => (2 * (player.takeoff || PLAYER.jumpV)) / BALL.g
 // How far through his jump he is: 0 at take-off, 1 at the landing.
 export const jumpShare = player => Math.min(1, player.jumpT / airTime(player));
 
-export { manOf };   // the opponent he guards, as the match has it
-
 // Whether the ball is in play and the other team's.
 export const defending = (state, player) => (state.phase === 'live' || state.phase === 'inbound') && state.possession !== player.team;
 
