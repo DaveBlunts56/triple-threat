@@ -69,3 +69,39 @@ The court's wood is the texture **Wood Floor** by Dimitrios Savva, from Poly Hav
 | `assets/floor/wood_floor_diff_2k.jpg` | The wood's colour |
 | `assets/floor/wood_floor_nor_gl_2k.jpg` | The planks' bumps |
 | `assets/floor/wood_floor_rough_2k.jpg` | Where the finish is glossy and where it is dull |
+
+## Sounds (all CC0)
+
+Every sound in `assets/sounds/` is cut from one of these fifteen recordings by `tools/sound/build.mjs`, as `tools/sound/cuts.json` says. Each recording's own page states CC0. The downloaded recordings are kept in `assets/source/sounds/`, which is not committed; fetched 2026-11-14.
+
+From **BigSoundBank** (Joseph Sardin), CC0, <https://bigsoundbank.com/licenses.html>. The file taken is the page's OGG.
+
+| Saved as | Recording | Page | Used for |
+|---|---|---|---|
+| `squeak.ogg` | Gnashing basketball (ThibaudVaerman) | <https://bigsoundbank.com/gnashing-basketball-s0938.html> | `squeak1` to `squeak3` |
+| `horn.ogg` | Horn #5 | <https://bigsoundbank.com/horn-5-s2524.html> | `horn` |
+| `buzzer.ogg` | Low frequency continuous buzzer | <https://bigsoundbank.com/low-frequency-continuous-buzzer-s0593.html> | `buzzer` |
+| `murmur.ogg` | Crowd of 50-60 people #1 | <https://bigsoundbank.com/crowd-of-50-60-people-1-s3515.html> | `murmur` |
+| `applause.ogg` | Applause 600 people | <https://bigsoundbank.com/applause-600-people-s0021.html> | `cheerBig` |
+| `yeah.ogg` | Shouts and applauses of teens #1 | <https://bigsoundbank.com/shouts-and-applauses-of-teens-1-s0236.html> | `cheer`, `cheerBig` |
+
+From **Wikimedia Commons**, CC0. The file taken is the original.
+
+| Saved as | Recording | Page | Used for |
+|---|---|---|---|
+| `whistle.wav` | Referee whistle blow, gymnasium (SpliceSound) | <https://commons.wikimedia.org/wiki/File:218318_splicesound_referee-whistle-blow-gymnasium.wav> | `whistle`, `whistleLong` |
+
+From **Freesound**, each CC0. Freesound gives its original files only to signed-in users: the file taken is the preview its page plays to everyone (an MP3 of the same recording).
+
+| Saved as | Recording | Page | Used for |
+|---|---|---|---|
+| `bounce.mp3` | Basketball bounce (cribbler) | <https://freesound.org/people/cribbler/sounds/396309/> | `bounce1`, `bounce2`, `catch` |
+| `drop.mp3` | ball basketball drop (shakaharu) | <https://freesound.org/people/shakaharu/sounds/88498/> | `bounce3` |
+| `net.mp3` | Basketball Net Swish Sound (Hann90) | <https://freesound.org/people/Hann90/sounds/518048/> | `swish` |
+| `hoop.mp3` | basketball through hoop (21100495) | <https://freesound.org/people/21100495/sounds/655323/> | `net` |
+| `rim.mp3` | basketball (reedhos) | <https://freesound.org/people/reedhos/sounds/244348/> | `rim1`, `rim2` |
+| `board.mp3` | Basketball backboard (PerMagnusLindborg) | <https://freesound.org/people/PerMagnusLindborg/sounds/324247/> | `board` |
+| `boo.mp3` | Crowd Sport 01 - Booing (Julien_Matthey) | <https://freesound.org/people/Julien_Matthey/sounds/557189/> | `boo`, `distract` |
+| `groan.mp3` | crowd oh, disappointed (mrrap4food) | <https://freesound.org/people/mrrap4food/sounds/619007/> | `groan` |
+
+A sixteenth recording was fetched and is not used: "small crowd gasp shock surprise" (HowardV, <https://freesound.org/people/HowardV/sounds/264376/>), which measured loud from end to end and could not be told for a gasp without hearing it.

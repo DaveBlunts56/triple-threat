@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { pack } from '../tools/single-file.mjs';
-import { ASSETS } from '../src/render/assets.js';
+import { ASSETS, SOUNDS } from '../src/render/assets.js';
 
 const INDEX = `<!doctype html><html><head>
 <script type="importmap">
@@ -54,7 +54,7 @@ test('pack embeds every asset, byte for byte', () => {
   const root = project({ ...assets(), 'assets/players.glb': bytes, 'assets/floor/wood_floor_diff_2k.jpg': bytes });
   const packed = assetsIn(pack(root));
   assert.deepEqual(Object.keys(packed), [...ASSETS]);
-  assert.equal(Object.keys(packed).length, 6);
+  assert.equal(Object.keys(packed).length, 6 + SOUNDS.length);   // the models, the motion, the floor and every sound
   assert.deepEqual(Buffer.from(packed['assets/players.glb'], 'base64'), bytes);
   assert.deepEqual(Buffer.from(packed['assets/floor/wood_floor_diff_2k.jpg'], 'base64'), bytes);
 });
