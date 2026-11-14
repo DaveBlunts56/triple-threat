@@ -67,7 +67,7 @@ const MENU_SLOTS = 4;   // menuRow0 to menuRow3 on the page
 const TEAM_LINES = ROSTER.teams.map((_, team) => ROSTER.positions.map((position, row) =>
   `${position} · ${ROSTER.numbers[team][row]} · ${ROSTER.names[team][row]}`));
 
-// The words of row `row` of the panel shown; the settings say their value. quality: 'high' or 'low'.
+// The words of row `row` of the panel shown; the settings say their value. quality: one of QUALITY.order.
 export function menuText(menu, row, quality) {
   const choice = menuRows(menu)[row];
   if (choice === 'quality') return `Quality: ${QUALITY[quality].label}`;
@@ -114,7 +114,7 @@ export function createHud(doc) {
 
   return {
     // `ui` is what the page itself knows: whether the game is paused, which roster row is selected, and for the
-    // corner label the frame rate and the quality level ('high' or 'low'), and the shot meter with the page position
+    // corner label the frame rate and the quality level (one of QUALITY.order), and the shot meter with the page position
     // of its top (`head`), or null for none.
     update(state, backend, ui = { paused: false, pick: null }) {
       set('score0', String(state.score[0]));

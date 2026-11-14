@@ -53,7 +53,14 @@ function shrunk(picture, scale, pending) {
 }
 
 // What `make` returns for the size of the players' pictures at each quality level: 1 is full size.
-const atEachLevel = make => ({ high: make(QUALITY.high.textures), low: make(QUALITY.low.textures) });
+function atEachLevel(make) {
+  const made = new Map();   // one picture for each size, shared by the levels that use it
+  return Object.fromEntries(QUALITY.order.map(level => {
+    const scale = QUALITY[level].textures;
+    if (!made.has(scale)) made.set(scale, make(scale));
+    return [level, made.get(scale)];
+  }));
+}
 
 // Loads the generated players and their motions. Resolves to six groups, one per court player, an `update` that
 // places each from the match, puts the model of whoever plays there in it and plays the motions his state calls for,
@@ -74,7 +81,7 @@ export async function loadPeople() {
   checkFacts(facts);
   const hipHeight = hipsOf(motion.scene).position.y;   // of the player the motions were made on, standing at rest
 
-  // Every picture the players wear, as it is at each quality level: { high, low }, found by the picture a material
+  // Every picture the players wear, as it is at each quality level ({ low, medium, high, ultra }), found by the picture a material
   // was given. All are made here, while the game loads, so that changing level later only swaps them.
   const pictures = new Map();
   const pending = [];   // the smaller images still being made
@@ -158,7 +165,7 @@ export async function loadPeople() {
 
   return {
     models,
-    // level: 'high' or 'low'. The bench changes too, so a substitute comes on in the right pictures.
+    // level: one of QUALITY.order. The bench changes too, so a substitute comes on in the right pictures.
     setQuality(level) {
       for (const [material, slot, sizes] of worn) material[slot] = sizes[level];
     },

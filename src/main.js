@@ -7,7 +7,7 @@ import { createActors } from './render/actors.js';
 import { shotMeter, SHOT_METER } from './render/motion.js';
 import { loadPeople } from './render/people.js';
 import { createHud, easeFrame } from './render/hud.js';
-import { createQuality, autoQuality, toggleQuality } from './render/quality.js';
+import { createQuality, autoQuality, stepQuality } from './render/quality.js';
 import { createKeyboard } from './input.js';
 import { createPauseMenu, inPlay, pauseKey, pauseHasRow, pausePoint, quitToMenu, setPaused } from './pause.js';
 import { createMenu, menuKey, menuPoint, menuHasRow, startFromMenu } from './menu.js';
@@ -25,7 +25,7 @@ if (view) {
   const hud = createHud(document);
   const keyboard = createKeyboard(window);
   const quality = createQuality();
-  // pick: the roster row chosen first on the pause screen. quality: the level the game is drawn at, 'high' or 'low'.
+  // pick: the roster row chosen first on the pause screen. quality: the level the game is drawn at, one of QUALITY.order.
   // meter: the shot meter and where its top is on the page, or null. menu: the start menu. pauseMenu: the pause menu.
   const game = { state: newMatch(), paused: false, pick: null, fps: 60, quality: quality.level, meter: null, menu: createMenu(),
     pauseMenu: createPauseMenu() };
@@ -47,19 +47,19 @@ if (view) {
   const onMenu = code => {
     const asked = menuKey(game.menu, code);
     if (asked === 'play') play();
-    else if (asked === 'quality') { toggleQuality(quality); showQuality(); }
+    else if (asked === 'quality') { stepQuality(quality); showQuality(); }
   };
 
   // A key on the pause menu, or a click on one of its buttons (as Enter).
   const onPause = code => {
     const asked = pauseKey(game, code);
     if (asked === 'resume') pause(false);
-    else if (asked === 'quality') { toggleQuality(quality); showQuality(); }
+    else if (asked === 'quality') { stepQuality(quality); showQuality(); }
     else if (asked === 'quit') quitToMenu(game, keyboard, newMatch);
   };
 
   window.addEventListener('keydown', e => {
-    if (e.code === 'KeyG' && !e.repeat) { toggleQuality(quality); showQuality(); }   // on any screen; a held key counts once
+    if (e.code === 'KeyG' && !e.repeat) { stepQuality(quality); showQuality(); }   // on any screen; a held key counts once
     if (game.state.phase === 'start') {
       if (MENU_KEYS.has(e.code)) e.preventDefault();
       if (!(e.repeat && MENU_ONCE.has(e.code))) onMenu(e.code);

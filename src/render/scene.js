@@ -160,7 +160,7 @@ export async function createScene(canvas) {
   Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 12, bottom: -12, near: 1, far: 40 });
   scene.add(sun);
 
-  // The render resolution and the shadow map of a quality level ('high' or 'low'). Nothing else is needed: the
+  // The render resolution and the shadow map of a quality level (one of QUALITY.order). Nothing else is needed: the
   // renderer resizes its drawing buffer when the pixel ratio changes, and resizes the shadow map to mapSize, throwing
   // the old one away, before it next draws the shadow.
   const setQuality = level => {
