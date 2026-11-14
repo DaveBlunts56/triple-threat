@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BALL, PLAYER } from '../sim/tuning.js';
 import { TEAM_COLOURS } from './kit.js';
 import { ballSpot, blendFrom, carrying } from './hands.js';
+import { matchupMark, MARK } from './mark.js';
 
 const HEIGHT = 1.95, HEAD = 0.13;
 // above: metres between the top of a capsule and the middle of its number.
@@ -66,7 +67,30 @@ function paintBall() {
   return { map, bumpMap, bumpScale: 0.6 };
 }
 
-// The players (up to ten: as many are shown as the match has), the ball and the ring under the player you control.
+// The arrow that points your player at his man: a shaft one metre long, stretched to the length wanted, and a head,
+// both lying flat and pointing along +x from the group's own place. Returns { group, aim(arrow) }.
+function buildArrow(material) {
+  const flat = new THREE.PlaneGeometry(1, MARK.wide);
+  flat.rotateX(-Math.PI / 2); flat.translate(0.5, 0, 0);
+  const shaft = new THREE.Mesh(flat, material);
+  const tip = new THREE.BufferGeometry();
+  tip.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, MARK.head / 2, MARK.head, 0, 0, 0, 0, -MARK.head / 2], 3));
+  const head = new THREE.Mesh(tip, material);
+  const group = new THREE.Group();
+  group.add(shaft, head);
+  return {
+    group,
+    aim({ x, z, angle, length }) {
+      group.position.set(x, 0.022, z);
+      group.rotation.y = -angle;   // as a player's facing: measured from +x toward +z, and three.js turns the other way
+      shaft.scale.x = Math.max(length - MARK.head, 0.01);
+      head.position.x = Math.max(length - MARK.head, 0);
+    },
+  };
+}
+
+// The players (up to ten: as many are shown as the match has), the ball, the ring under the player you control, and
+// the ring and arrow that show him his man.
 // `people` are the generated, animated players (see people.js); without them the capsules stand in.
 export function createActors(scene, people = null) {
   const players = people ? people.models : Array.from({ length: 10 }, () => buildPlayer(0));
@@ -82,7 +106,11 @@ export function createActors(scene, people = null) {
   ball.castShadow = true;
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.52, 32), new THREE.MeshBasicMaterial({ color: 0xffe14d }));
   ring.rotation.x = -Math.PI / 2;
-  scene.add(...players, ball, ring);
+  const red = new THREE.MeshBasicMaterial({ color: MARK.colour, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
+  const manRing = new THREE.Mesh(ring.geometry, red);
+  manRing.rotation.x = -Math.PI / 2;
+  const arrow = buildArrow(red);
+  scene.add(...players, ball, ring, manRing, arrow.group);
   // For drawing the ball across when its holder changes, or the way he carries it: who carried it and how on the last
   // frame (undefined before the first; see carrying), its holder and the phase then, where it was drawn when the way
   // it is carried last changed, and the seconds since.
@@ -121,6 +149,11 @@ export function createActors(scene, people = null) {
       } else ball.position.set(state.ball.x, state.ball.y, state.ball.z);
       const me = state.players[state.controlled];
       ring.position.set(me.x, 0.02, me.z);
+      const mark = matchupMark(state);
+      manRing.visible = mark !== null;
+      arrow.group.visible = !!mark?.arrow;
+      if (mark) manRing.position.set(mark.ring.x, 0.021, mark.ring.z);
+      if (mark?.arrow) arrow.aim(mark.arrow);
     },
   };
 }
