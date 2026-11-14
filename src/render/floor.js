@@ -112,12 +112,12 @@ export async function createFloor(scene) {
   const paint = new THREE.MeshStandardMaterial({ map: paintCourt(false), transparent: true, depthWrite: false, roughness: FLOOR.paintGloss });
   const boards = sheet(planks);
   scene.add(boards, sheet(paint, FLOOR.lift));
-  let mirror = null;   // the floor's reflection of the game, on the levels that have one
+  let mirror = null, smear = null;   // the floor's reflection of the game, on the levels that have one, and its blur
   return {
     // The wood's pictures and the mirror of a level. Returns the words for what could not be done here, or null.
     setQuality(level) {
       [planks.map, planks.normalMap, planks.roughnessMap] = sizes.get(QUALITY[level].floor);
-      if (mirror) { boards.remove(mirror.target); mirror.dispose(); mirror = null; planks.emissiveNode = null; }
+      if (mirror) { boards.remove(mirror.target); mirror.dispose(); smear?.dispose(); mirror = smear = null; planks.emissiveNode = null; }
       let failed = null;
       const size = QUALITY[level].mirror;
       if (size > 0) {
@@ -125,11 +125,12 @@ export async function createFloor(scene) {
           // The scene is drawn again as the floor would mirror it, and that picture is added to the wood's own light.
           mirror = reflector({ resolutionScale: size });
           boards.add(mirror.target);
-          planks.emissiveNode = (size < 1 ? gaussianBlur(mirror, null, FLOOR.blur) : mirror).rgb.mul(FLOOR.mirror);
+          smear = size < 1 ? gaussianBlur(mirror, null, FLOOR.blur) : null;
+          planks.emissiveNode = (smear ?? mirror).rgb.mul(FLOOR.mirror);
         } catch (error) {
           console.warn('No floor reflections here.', error);
           if (mirror) boards.remove(mirror.target);
-          mirror = null; planks.emissiveNode = null; failed = 'floor reflections';
+          mirror = smear = null; planks.emissiveNode = null; failed = 'floor reflections';
         }
       }
       planks.needsUpdate = true;

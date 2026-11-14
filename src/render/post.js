@@ -21,6 +21,7 @@ const POST = Object.freeze({
 export function createPost(renderer, scene, camera) {
   const missing = [];
   let pipeline = null;   // null: the scene is drawn straight to the screen
+  let parts = [];        // the passes and effects of the current chain, each holding pictures on the graphics card
 
   // The chain for a level, or null if the level asks for nothing. An effect that cannot be built is left out.
   function chain(level) {
@@ -28,6 +29,7 @@ export function createPost(renderer, scene, camera) {
     if (q.aa === 'none' && !q.ao && !q.bloom) return null;
     const made = new THREE.RenderPipeline(renderer);
     const scenePass = pass(scene, camera);
+    parts.push(scenePass);
     const attempt = (words, add) => { try { add(); } catch (error) { console.warn(`No ${words} here.`, error); missing.push(words); } };
     let picture = scenePass;
     if (q.ao) attempt('ambient occlusion', () => {
@@ -37,10 +39,12 @@ export function createPost(renderer, scene, camera) {
       before.setMRT(mrt({ output: normalView }));
       const occlusion = ao(before.getTextureNode('depth'), before.getTextureNode(), camera);
       occlusion.resolutionScale = POST.aoSize;
+      parts.push(before, occlusion);
       scenePass.contextNode = builtinAOContext(occlusion.getTextureNode().sample(screenUV).r);
     });
     if (q.bloom) attempt('bloom', () => {
       const glow = bloom(scenePass, POST.bloom.strength, POST.bloom.radius, POST.bloom.threshold);
+      parts.push(glow);
       const edge = smoothstep(POST.vignette.from, POST.vignette.to, screenUV.sub(0.5).length().mul(1.4));
       picture = scenePass.add(glow).mul(float(1).sub(edge.mul(POST.vignette.dark)));
     });
@@ -48,14 +52,23 @@ export function createPost(renderer, scene, camera) {
     made.outputColorTransform = false;
     const shown = renderOutput(picture);
     made.outputNode = shown;
-    if (q.aa !== 'none') attempt('anti-aliasing', () => { made.outputNode = q.aa === 'smaa' ? smaa(shown) : fxaa(shown); });
+    if (q.aa !== 'none') attempt('anti-aliasing', () => { made.outputNode = q.aa === 'smaa' ? smaa(shown) : fxaa(shown); parts.push(made.outputNode); });
     return made;
+  }
+
+  // Lets go of the current chain and of every picture its passes and effects hold: the pipeline's own dispose frees
+  // only its last step.
+  function drop() {
+    for (const part of parts) part.dispose?.();
+    parts = [];
+    pipeline?.dispose();
+    pipeline = null;
   }
 
   return {
     missing,
     setQuality(level) {
-      pipeline?.dispose();
+      drop();
       missing.length = 0;
       pipeline = chain(level);
     },
@@ -65,7 +78,7 @@ export function createPost(renderer, scene, camera) {
       try { pipeline.render(); } catch (error) {
         console.warn('Post-processing failed; drawing without it.', error);
         missing.push('post-processing');
-        pipeline.dispose(); pipeline = null;
+        drop();
         renderer.render(scene, camera);
       }
     },
