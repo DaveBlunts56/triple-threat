@@ -1,10 +1,12 @@
 import { startMatch } from './sim/rules.js';
-import { nextDifficulty } from './sim/tuning.js';
+import { nextDifficulty, nextMinutes } from './sim/tuning.js';
+import { setLength } from './sim/state.js';
 
-export const MENU = Object.freeze({ main: ['play', 'mode', 'teams', 'controls', 'settings'], settings: ['quality', 'autoSubs', 'camera', 'difficulty'] });
+export const MENU = Object.freeze({ main: ['play', 'mode', 'teams', 'controls', 'settings'], settings: ['quality', 'autoSubs', 'camera', 'difficulty', 'quarter'] });
 
 // size: the mode chosen: 3 for 3 on 3, 5 for 5 on 5. difficulty: the level chosen, one of DIFFICULTY.order.
-export const createMenu = () => ({ panel: 'main', row: 0, autoSubs: true, size: 3, difficulty: 'allstar', from: 0 });
+// minutes: the length of a quarter chosen, one of MATCH.minutes.
+export const createMenu = () => ({ panel: 'main', row: 0, autoSubs: true, size: 3, difficulty: 'allstar', minutes: 3, from: 0 });
 
 export const menuRows = menu => MENU[menu.panel] ?? [];
 
@@ -22,6 +24,7 @@ export function menuKey(menu, code) {
     } else if (choice === 'quality' || choice === 'camera') return choice;
     else if (choice === 'autoSubs') menu.autoSubs = !menu.autoSubs;
     else if (choice === 'difficulty') menu.difficulty = nextDifficulty(menu.difficulty);
+    else if (choice === 'quarter') menu.minutes = nextMinutes(menu.minutes);
   } else if ((code === 'Escape' || code === 'Backspace') && menu.panel !== 'main') {
     menu.panel = 'main'; menu.row = menu.from;
   }
@@ -40,6 +43,7 @@ export const menuHasRow = (game, row) => game.state.phase === 'start' && row < m
 export function startFromMenu(game, keyboard, newMatch) {
   // A new match when the last one is over, or when the one waiting is not of the size the menu now shows.
   if (game.state.phase === 'final' || game.state.size !== game.menu.size) game.state = newMatch(game.menu.size);
+  setLength(game.state, game.menu.minutes);
   startMatch(game.state);
   game.state.autoSubs[0] = game.menu.autoSubs;
   game.state.difficulty = game.menu.difficulty;

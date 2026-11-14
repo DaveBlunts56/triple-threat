@@ -1,4 +1,4 @@
-import { CLOCK, DIFFICULTY, FOUL, ROSTER, TIMEOUT } from '../sim/tuning.js';
+import { CLOCK, DIFFICULTY, ROSTER, TIMEOUT } from '../sim/tuning.js';
 import { personOf, surname } from '../sim/state.js';
 import { onCourt } from '../sim/roster.js';
 import { menuRows } from '../menu.js';
@@ -42,7 +42,7 @@ export function callText(call) {
 export function rosterLine(state, row, picked) {
   const person = state.rosters[0][row];
   const fouls = `${person.fouls} foul${person.fouls === 1 ? '' : 's'}`;
-  const where = onCourt(state, 0).includes(row) ? `on court · ${fouls}` : person.fouls >= FOUL.limit ? 'fouled out' : `bench · ${fouls}`;
+  const where = onCourt(state, 0).includes(row) ? `on court · ${fouls}` : person.fouls >= state.foulLimit ? 'fouled out' : `bench · ${fouls}`;
   return `${row + 1} · ${person.position} · ${person.name} · No. ${person.number} · ${where}${picked ? ' · selected' : ''}`;
 }
 
@@ -80,6 +80,7 @@ export function menuText(menu, row, quality, camera = '2k') {
   const choice = menuRows(menu)[row];
   if (choice === 'camera') return CAMERA_WORDS[camera];
   if (choice === 'difficulty') return `Difficulty: ${DIFFICULTY.label[menu.difficulty]}`;
+  if (choice === 'quarter') return `Quarter length: ${menu.minutes} minutes`;
   if (choice === 'quality') return `Quality: ${QUALITY[quality].label}`;
   if (choice === 'autoSubs') return `Automatic substitutions: ${menu.autoSubs ? 'On' : 'Off'}`;
   if (choice === 'mode') return MODE_WORDS[menu.size];
@@ -143,7 +144,7 @@ export function createHud(doc) {
         classed(`score${team}`, `score ${side}${bug.pops[team] ? (bug.pops[team] % 2 ? ' popA' : ' popB') : ''}`);
         set(`abbr${team}`, ROSTER.abbr[team]);
         set(`fouls${team}`, `Fouls ${state.teamFouls[team]}`);
-        classed(`fouls${team}`, state.teamFouls[team] >= FOUL.bonus ? 'fouls bonus' : 'fouls');
+        classed(`fouls${team}`, state.teamFouls[team] >= state.bonus ? 'fouls bonus' : 'fouls');
         set(`timeouts${team}`, '●'.repeat(state.timeouts[team]) + '○'.repeat(Math.max(0, TIMEOUT.each - state.timeouts[team])));
         classed(`bugTeam${team}`, `bugTeam ${side}${live && state.possession === team ? ' has' : ''}`);
       }

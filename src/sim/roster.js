@@ -1,7 +1,7 @@
-import { FOUL, STAMINA } from './tuning.js';
+import { STAMINA } from './tuning.js';
 
 const courtPlayers = (state, team) => state.players.filter(p => p.team === team);
-const fouledOut = person => person.fouls >= FOUL.limit;
+const fouledOut = (state, person) => person.fouls >= state.foulLimit;
 
 // Person indexes on court, in slot order.
 export const onCourt = (state, team) => courtPlayers(state, team).map(p => p.person);
@@ -9,7 +9,7 @@ export const onCourt = (state, team) => courtPlayers(state, team).map(p => p.per
 // Person indexes off court who have not fouled out.
 export function benchOf(state, team) {
   const on = onCourt(state, team);
-  return state.rosters[team].map((_, i) => i).filter(i => !on.includes(i) && !fouledOut(state.rosters[team][i]));
+  return state.rosters[team].map((_, i) => i).filter(i => !on.includes(i) && !fouledOut(state, state.rosters[team][i]));
 }
 
 // The court player becomes `person`. He keeps his place on the floor, his slot and whoever controls him.
@@ -44,7 +44,7 @@ export function applySubs(state) {
 
     // Forced: a fouled-out player comes off whenever anyone can replace him.
     for (const p of players) {
-      if (fouledOut(roster[p.person]) && freshest() !== undefined) substitute(state, p.id, freshest());
+      if (fouledOut(state, roster[p.person]) && freshest() !== undefined) substitute(state, p.id, freshest());
     }
 
     // Queued: a swap that involves the free-throw shooter waits for him; the rest are made or dropped.
@@ -60,7 +60,7 @@ export function applySubs(state) {
     for (const p of players) {
       const person = roster[p.person];
       if (person.manual) continue;   // your own choice stands until you take him off or he fouls out
-      const tired = person.energy < STAMINA.subOut, inTrouble = person.fouls === FOUL.limit - 1;
+      const tired = person.energy < STAMINA.subOut, inTrouble = person.fouls === state.foulLimit - 1;
       if (!tired && !inTrouble) continue;
       const sub = freshest(b => b.energy > STAMINA.subIn && (tired || b.fouls < person.fouls));
       if (sub !== undefined) substitute(state, p.id, sub);

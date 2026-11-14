@@ -95,7 +95,7 @@ function setupInbound(state) {
 }
 
 function beginPeriod(state) {
-  state.gameClock = state.quarter <= CLOCK.quarters ? CLOCK.quarter : CLOCK.overtime;
+  state.gameClock = state.quarter <= CLOCK.quarters ? state.quarterLength : CLOCK.overtime;
   state.shotClock = CLOCK.shot;
   if (state.quarter <= CLOCK.quarters) state.teamFouls = [0, 0];   // overtime carries on the 4th quarter's count
   lineUp(state);

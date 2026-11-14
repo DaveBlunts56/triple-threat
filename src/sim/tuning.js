@@ -124,6 +124,13 @@ export const levelOf = state => DIFFICULTY.levels[state.difficulty] ?? DIFFICULT
 // make a coach call a timeout. tired: his five's mean energy below which he calls one.
 export const LATE = f({ closing: 60, hurry: 45, close: 8, foulUnder: 24, foulOver: 1.5, hurryClock: 12, milkClock: 6, heave: 1.3, pressGap: 1, run: 8, tired: 0.4 });
 
+// How long a match is. minutes: the quarter lengths you can choose. For each, fouls: the personal fouls a player
+// fouls out on, and bonus: the team foul in a quarter from which every foul is shot. The shortest is the game's
+// own (CLOCK.quarter, FOUL.limit, FOUL.bonus); a longer match allows more, up to a full game's six and five.
+export const MATCH = f({ minutes: f([3, 5, 8, 12]), fouls: f({ 3: 3, 5: 4, 8: 5, 12: 6 }), bonus: f({ 3: 3, 5: 4, 8: 5, 12: 5 }) });
+// The length after `minutes`, going round from the longest to the shortest.
+export const nextMinutes = minutes => MATCH.minutes[(MATCH.minutes.indexOf(minutes) + 1) % MATCH.minutes.length];
+
 // Timeouts. each: how many a team has in a match. rest: the energy everyone gets back. apart: seconds a coach
 // leaves between two of his own. (How long one lasts is CLOCK.timeout.)
 export const TIMEOUT = f({ each: 3, rest: 0.3, apart: 20 });

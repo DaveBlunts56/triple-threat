@@ -13,7 +13,7 @@ const key = (type, code) => Object.assign(new Event(type, { cancelable: true }),
 test('the main list is Play, Mode, Teams, Controls, Settings, with the bar on Play and the mode on 3 on 3', () => {
   const m = createMenu();
   assert.deepEqual([m.panel, m.row, m.autoSubs, m.size, menuRows(m)], ['main', 0, true, 3, ['play', 'mode', 'teams', 'controls', 'settings']]);
-  assert.deepEqual(MENU.settings, ['quality', 'autoSubs', 'camera', 'difficulty']);
+  assert.deepEqual(MENU.settings, ['quality', 'autoSubs', 'camera', 'difficulty', 'quarter']);
 });
 
 test('the bar moves down and up by arrows or W and S, and wraps at both ends', () => {
@@ -35,7 +35,7 @@ test('Enter or Space on Play asks for the match to start and changes nothing', (
 });
 
 test('Teams, Controls and Settings open inside the menu, and Esc or Backspace go back to the entry that opened them', () => {
-  for (const [row, panel, rows] of [[2, 'teams', []], [3, 'controls', []], [4, 'settings', ['quality', 'autoSubs', 'camera', 'difficulty']]]) {
+  for (const [row, panel, rows] of [[2, 'teams', []], [3, 'controls', []], [4, 'settings', ['quality', 'autoSubs', 'camera', 'difficulty', 'quarter']]]) {
     for (const back of ['Escape', 'Backspace']) {
       const m = createMenu(); m.row = row;
       assert.equal(menuKey(m, 'Enter'), null);
@@ -67,7 +67,10 @@ test('in Settings, Enter on Quality asks for the quality switch and Enter on Aut
   keys(m, 'ArrowDown'); assert.equal(m.difficulty, 'allstar');
   assert.equal(menuKey(m, 'Enter'), null); assert.equal(m.difficulty, 'superstar');     // Difficulty steps up a level
   keys(m, 'Enter', 'Enter'); assert.equal(m.difficulty, 'rookie');                      // and round from the hardest to the easiest
-  keys(m, 'ArrowDown'); assert.equal(m.row, 0);                                         // four rows: it wraps
+  keys(m, 'ArrowDown'); assert.equal(m.minutes, 3);
+  keys(m, 'Enter'); assert.equal(m.minutes, 5);                                         // Quarter length steps through 3, 5, 8, 12
+  keys(m, 'Enter', 'Enter', 'Enter'); assert.equal(m.minutes, 3);                       // and round again
+  keys(m, 'ArrowDown'); assert.equal(m.row, 0);                                         // five rows: it wraps
 });
 
 test('pointing with the mouse selects a row the panel has, and no other', () => {
@@ -80,8 +83,8 @@ test('pointing with the mouse selects a row the panel has, and no other', () => 
 test('the mouse acts on a row only before the match, and only on a row the panel shown has', () => {
   const game = { state: createMatch(7), menu: createMenu() };
   assert.deepEqual([0, 1, 2, 3, 4, 5].map(row => menuHasRow(game, row)), [true, true, true, true, true, false]);
-  game.menu.row = 4; menuKey(game.menu, 'Enter');                                       // Settings: four rows
-  assert.deepEqual([0, 1, 2, 3, 4].map(row => menuHasRow(game, row)), [true, true, true, true, false]);
+  game.menu.row = 4; menuKey(game.menu, 'Enter');                                       // Settings: five rows
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map(row => menuHasRow(game, row)), [true, true, true, true, true, false]);
   menuKey(game.menu, 'Escape'); game.menu.row = 2; menuKey(game.menu, 'Enter');         // Teams: none
   assert.equal(menuHasRow(game, 0), false);
   menuKey(game.menu, 'Escape');

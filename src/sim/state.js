@@ -1,4 +1,4 @@
-import { BALL, CLOCK, LINEUP, ROSTER, TIMEOUT, TIP } from './tuning.js';
+import { BALL, CLOCK, FOUL, LINEUP, MATCH, ROSTER, TIMEOUT, TIP } from './tuning.js';
 
 // The last word of a person's name.
 export const surname = person => person.name.split(' ').pop();
@@ -67,12 +67,20 @@ export function lineUp(state) {
   }
 }
 
+// Makes a match not yet started one of `minutes`-minute quarters, with the foul limits that go with that length.
+// A length the game does not have leaves it as it is.
+export function setLength(state, minutes) {
+  if (!MATCH.minutes.includes(minutes)) return;
+  Object.assign(state, { quarterLength: minutes * 60, gameClock: minutes * 60, foulLimit: MATCH.fouls[minutes], bonus: MATCH.bonus[minutes] });
+}
+
 // A match of `size` a side: 3 or 5. Any other size is 3.
 export function createMatch(seed = 1, size = 3) {
   if (size !== 5) size = 3;
   const state = {
     size,
     difficulty: 'allstar',   // one of DIFFICULTY.order
+    quarterLength: CLOCK.quarter, foulLimit: FOUL.limit, bonus: FOUL.bonus,   // seconds in a quarter, and the fouls that go with a match of that length (see setLength)
     seed, time: 0,
     phase: 'start', phaseT: 0,
     quarter: 1, gameClock: CLOCK.quarter, shotClock: CLOCK.shot,

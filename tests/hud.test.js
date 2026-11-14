@@ -240,8 +240,8 @@ test('the Settings panel shows each setting with its value, and a change is anno
   const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
   const show = quality => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality });
   menu.row = 4; menuKey(menu, 'Enter'); show('high');
-  assert.deepEqual([e.menuRow0.textContent, e.menuRow1.textContent, e.menuRow2.textContent, e.menuRow3.textContent, e.menuRow4.hidden, e.menuHint.textContent],
-    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', true, '↑ ↓ choose · Enter change · Esc back']);
+  assert.deepEqual([e.menuRow0.textContent, e.menuRow1.textContent, e.menuRow2.textContent, e.menuRow3.textContent, e.menuRow4.textContent, e.menuHint.textContent],
+    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', 'Quarter length: 3 minutes', '↑ ↓ choose · Enter change · Esc back']);
   hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high', camera: 'broadcast' });
   assert.equal(e.menuRow2.textContent, 'Camera: Broadcast');
   show('low');

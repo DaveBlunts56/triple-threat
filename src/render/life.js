@@ -40,7 +40,7 @@ export function stepLife(life, state, dt) {
   // more again when it is the home team that is beaten. Nobody comes back.
   const lead = Math.abs(state.score[0] - state.score[1]);
   if (state.phase !== 'start' && state.quarter >= CLOCK.quarters && lead >= LIFE.blowout) {
-    const want = clamp((lead - LIFE.blowout) / 20 + 0.3 * (1 - state.gameClock / CLOCK.quarter), 0, 1) * LIFE.leaveMost * (state.score[0] < state.score[1] ? 1 : 0.7);
+    const want = clamp((lead - LIFE.blowout) / 20 + 0.3 * (1 - state.gameClock / state.quarterLength), 0, 1) * LIFE.leaveMost * (state.score[0] < state.score[1] ? 1 : 0.7);
     life.left = Math.min(Math.max(life.left, want), life.left + LIFE.leaveRate * dt);
   }
   if (state.phase === 'start') life.left = 0;   // a new match: the house is full again

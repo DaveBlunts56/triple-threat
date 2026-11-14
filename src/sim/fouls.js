@@ -41,5 +41,5 @@ export function recordFoul(state, foul) {
   personOf(state, fouler).fouls++;
   const teamFouls = ++state.teamFouls[fouler.team];
   const defensive = foul.kind === 'reach' || foul.kind === 'block';
-  return { shots: defensive && teamFouls >= FOUL.bonus ? 2 : 0, ball: state.players[foul.on].team };
+  return { shots: defensive && teamFouls >= state.bonus ? 2 : 0, ball: state.players[foul.on].team };
 }
