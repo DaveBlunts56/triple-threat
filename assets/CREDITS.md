@@ -58,3 +58,14 @@ Mixamo allows its motion to be used in a game but not passed on as raw clips, so
 | `dribble` | Dribble | Dribbling Basketball With Right Arm |
 
 Three motions are not clips of their own: `land` is the frames of `jump`'s clip that follow the landing, and `strafeRight` and `dribbleLeft` are `strafeLeft` and `dribble` in a mirror.
+
+## The floor (CC0)
+
+The court's wood is the texture **Wood Floor** by Dimitrios Savva, from Poly Haven, licence CC0:
+<https://polyhaven.com/a/wood_floor>
+
+| File | Used for |
+|---|---|
+| `assets/floor/wood_floor_diff_2k.jpg` | The wood's colour |
+| `assets/floor/wood_floor_nor_gl_2k.jpg` | The planks' bumps |
+| `assets/floor/wood_floor_rough_2k.jpg` | Where the finish is glossy and where it is dull |

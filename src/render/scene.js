@@ -2,49 +2,11 @@ import * as THREE from 'three';
 import { COURT, RIM, BOARD, THREE_PT } from '../sim/tuning.js';
 import { QUALITY } from './quality.js';
 import { createLight } from './light.js';
+import { createFloor } from './floor.js';
 import { NET, createNet, stepNet } from './net.js';
 
-const FLOOR = { length: 32, width: 19 };   // court plus run-off
-const PX = 64;                             // texture pixels per metre
 const MESH = 64;                           // texture pixels on a side of one cell of the net's picture
 const CAMERA = { height: 11, back: 18, lookZ: 1, maxX: 9, ease: 0.08, fov: 40, minAcross: 60 };   // degrees; minAcross: narrowest horizontal view allowed
-
-// The floor texture: wood, with every court line painted on.
-function paintCourt() {
-  const c = document.createElement('canvas');
-  c.width = FLOOR.length * PX; c.height = FLOOR.width * PX;
-  const g = c.getContext('2d');
-  const X = x => (x + FLOOR.length / 2) * PX, Z = z => (z + FLOOR.width / 2) * PX;
-
-  g.fillStyle = '#5b4632'; g.fillRect(0, 0, c.width, c.height);            // run-off
-  g.fillStyle = '#c99a5b';                                                 // playing surface
-  g.fillRect(X(-COURT.halfLength), Z(-COURT.halfWidth), 2 * COURT.halfLength * PX, 2 * COURT.halfWidth * PX);
-
-  g.strokeStyle = '#ffffff'; g.lineWidth = 0.06 * PX;
-  const line = (x1, z1, x2, z2) => { g.beginPath(); g.moveTo(X(x1), Z(z1)); g.lineTo(X(x2), Z(z2)); g.stroke(); };
-  const arc = (x, z, r, from, to) => { g.beginPath(); g.arc(X(x), Z(z), r * PX, from, to); g.stroke(); };
-
-  g.strokeRect(X(-COURT.halfLength), Z(-COURT.halfWidth), 2 * COURT.halfLength * PX, 2 * COURT.halfWidth * PX);
-  line(0, -COURT.halfWidth, 0, COURT.halfWidth);
-  arc(0, 0, 1.8, 0, 2 * Math.PI);
-
-  for (const s of [1, -1]) {
-    // Three-point line: an arc around the rim, straight in the corners.
-    const reach = Math.asin(THREE_PT.cornerZ / THREE_PT.radius);
-    const mid = s === 1 ? Math.PI : 0;                 // the arc bulges toward centre court
-    arc(s * RIM.x, 0, THREE_PT.radius, mid - reach, mid + reach);
-    const cornerX = s * (RIM.x - Math.sqrt(THREE_PT.radius ** 2 - THREE_PT.cornerZ ** 2));
-    for (const z of [-THREE_PT.cornerZ, THREE_PT.cornerZ]) line(s * COURT.halfLength, z, cornerX, z);
-    // Key and free-throw circle.
-    const keyX = s * (COURT.halfLength - 5.8);
-    g.strokeRect(Math.min(X(keyX), X(s * COURT.halfLength)), Z(-2.45), 5.8 * PX, 4.9 * PX);
-    arc(keyX, 0, 1.8, 0, 2 * Math.PI);
-  }
-  const texture = new THREE.CanvasTexture(c);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
-  return texture;
-}
 
 // The net's picture: a faint white wash, and in each of its NET.strings by NET.knots cells both diagonals, so the
 // cells read as a net's diamonds. The diagonals of the cells either side of it are drawn too and cut off at the edge,
@@ -164,16 +126,11 @@ export async function createScene(canvas) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0b0d12);
 
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(FLOOR.length, FLOOR.width),
-    new THREE.MeshStandardMaterial({ map: paintCourt(), roughness: 0.55 }),
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.receiveShadow = true;
+  const floor = await createFloor(scene);
   // The nets' picture as its colour and its see-through, unlit, both sides drawn, and not written to the depth buffer.
   const netLook = new THREE.MeshBasicMaterial({ map: paintNet(), transparent: true, side: THREE.DoubleSide, depthWrite: false });
   const hoops = [buildHoop(1, netLook), buildHoop(-1, netLook)];
-  scene.add(floor, ...hoops.map(h => h.hoop));
+  scene.add(...hoops.map(h => h.hoop));
   let ball = null;   // the ball as it was on the last call of swayNets: x, y, z, vx, vy, vz
 
   const light = createLight(renderer, scene);
@@ -184,6 +141,7 @@ export async function createScene(canvas) {
   const setQuality = level => {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY[level].pixelRatio));
     light.setQuality(level);
+    floor.setQuality(level);
   };
   setQuality('high');
 

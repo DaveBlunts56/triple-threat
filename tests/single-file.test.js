@@ -51,10 +51,12 @@ test('pack follows relative, three and three/addons imports', () => {
 
 test('pack embeds every asset, byte for byte', () => {
   const bytes = Buffer.from([0, 1, 2, 250, 251, 60, 47]);          // includes "<" and "/"
-  const root = project({ ...assets(), 'assets/players.glb': bytes });
+  const root = project({ ...assets(), 'assets/players.glb': bytes, 'assets/floor/wood_floor_diff_2k.jpg': bytes });
   const packed = assetsIn(pack(root));
-  assert.deepEqual(Object.keys(packed), ['assets/players.glb', 'assets/motion.glb', 'assets/motion.json']);
+  assert.deepEqual(Object.keys(packed), [...ASSETS]);
+  assert.equal(Object.keys(packed).length, 6);
   assert.deepEqual(Buffer.from(packed['assets/players.glb'], 'base64'), bytes);
+  assert.deepEqual(Buffer.from(packed['assets/floor/wood_floor_diff_2k.jpg'], 'base64'), bytes);
 });
 
 test('pack refuses to build without a model file, and names it', () => {

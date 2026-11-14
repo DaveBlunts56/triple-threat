@@ -151,9 +151,11 @@ test('the jump leaves the lifting to the game: its hips never climb above where 
   assert.ok(Math.max(...heights) - heights[0] < 0.05, `the hips climb ${Math.max(...heights) - heights[0]} m`);
 });
 
-test('the single file stays under 25 MB', () => {
+// The owner moves the file by Google Drive, so nothing caps its size but how long a Chromebook takes to open it, which
+// nobody has measured. This only catches a file that has grown by accident.
+test('the single file stays under 80 MB', () => {
   const size = Buffer.byteLength(pack('.'));
-  assert.ok(size < 25e6, `${(size / 1e6).toFixed(1)} MB`);
+  assert.ok(size < 80e6, `${(size / 1e6).toFixed(1)} MB`);
 });
 
 test('each motion starts at time zero and lasts as long as its facts say', () => {
