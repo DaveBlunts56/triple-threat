@@ -329,8 +329,8 @@ test('Substitutions and Controls open in place of the buttons, and opening one i
 test('Settings shows each setting with its value, and Quit asks before leaving', () => {
   const { e, s, game, show, choose } = pausedHud();
   choose('ArrowUp', 'ArrowUp', 'Enter'); show();                           // up from Resume wraps to Quit, then Settings
-  assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent, e.pauseRow2.textContent, e.pauseRow3.textContent, e.pauseRow4.textContent, e.pauseRow5.textContent, e.pauseRow6.hidden, e.pauseHint.textContent],
-    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', 'Commentary: Voice and captions', 'Keys', true, '↑ ↓ choose · Enter change · Esc back']);
+  assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent, e.pauseRow2.textContent, e.pauseRow3.textContent, e.pauseRow4.textContent, e.pauseRow5.textContent, e.pauseRow6.textContent, e.pauseRow7.hidden, e.pauseHint.textContent],
+    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', 'Commentary: Voice and captions', 'Replays: On', 'Keys', true, '↑ ↓ choose · Enter change · Esc back']);
   s.autoSubs[0] = false; game.quality = 'low'; show();
   assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent], ['Quality: Low', 'Automatic substitutions: Off']);
   choose('Escape', 'ArrowDown', 'Enter'); show();
@@ -597,4 +597,21 @@ test('the page has every element the broadcast writes to', () => {
     ...[0, 1].flatMap(t => [0, 1, 2, 3, 4, 5, 6, 7, 8].flatMap(r => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(c => `box${t}r${r}c${c}`)))];
   for (const id of ids) assert.match(html, new RegExp(`id="${id}"`), id);
   assert.equal((html.match(/<[^>]*aria-live[^>]*>/g) ?? []).length, 1);   // still one live region: the caption is not read out twice
+});
+
+test('during a replay the page says REPLAY, and a last replay keeps the box score back until it is over', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els;
+  s.phase = 'final';
+  hud.update(s, 'webgl2', { paused: false, pick: null, show: { replay: true } });
+  assert.deepEqual([e.replayMark.hidden, e.boxScore.hidden], [false, true]);
+  hud.update(s, 'webgl2', { paused: false, pick: null, show: {} });
+  assert.deepEqual([e.replayMark.hidden, e.boxScore.hidden], [true, false]);
+  assert.match(readFileSync(new URL('../index.html', import.meta.url), 'utf8'), /id="replayMark"/);
+});
+
+test('the Replays row says On or Off', () => {
+  const menu = createMenu(); menu.panel = 'settings';
+  const row = MENU.settings.indexOf('replays');
+  assert.equal(menuText(menu, row, 'high', '2k', { ...DEFAULT_PREFS, replays: true }), 'Replays: On');
+  assert.equal(menuText(menu, row, 'high', '2k', { ...DEFAULT_PREFS, replays: false }), 'Replays: Off');
 });

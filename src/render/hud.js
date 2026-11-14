@@ -358,6 +358,7 @@ export function createHud(doc) {
       }
       hide('lower', !show.lower);
       if (show.lower) { set('lowerTitle', show.lower.title); set('lowerLine', show.lower.lines.join(' · ')); }
+      hide('replayMark', !show.replay);
       hide('caption', !show.caption);
       if (show.caption) set('caption', show.caption);
       hide('lineups', show.panel !== 'lineups');
@@ -373,7 +374,7 @@ export function createHud(doc) {
         for (let i = 0; i < BETWEEN_SLOTS; i++) { hide(`betweenLine${i}`, i >= lines.length); if (i < lines.length) set(`betweenLine${i}`, lines[i]); }
       }
       // The box score: in the pause menu, and when the match is over.
-      const box = state.phase === 'final' || pause?.panel === 'box';
+      const box = (state.phase === 'final' && !show.replay) || pause?.panel === 'box';   // a last replay plays before the final screen
       hide('boxScore', !box);
       if (box) for (const team of [0, 1]) {
         set(`boxTeam${team}`, ROSTER.teams[team]);
@@ -395,7 +396,7 @@ export function createHud(doc) {
       }
 
       // The whistle: a banner during the stoppage. Screen readers hear a new call, or else a change of score.
-      const banner = state.phase === 'dead' && state.call !== null;
+      const banner = state.phase === 'dead' && state.call !== null && !show.replay;   // not over a replay
       if (banner) set('call', callText(state.call));
       hide('call', !banner);
       const score = `You ${state.score[0]}, opponent ${state.score[1]}`;

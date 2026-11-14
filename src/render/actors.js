@@ -88,6 +88,9 @@ export function createActors(scene, people = null) {
   let carried, seen, last = null, since = 0;
 
   return {
+    // Forgets what the last frame looked like: the next is drawn as a first one, so that a jump in time (into a
+    // replay, or back out of one) is not read as catches, releases and landings, and the ball is not drawn across.
+    cut() { carried = undefined; seen = undefined; last = null; since = 0; people?.cut(); },
     // dt: the match time that passed this frame, which drives the players' motion. show: who the broadcast has
     // celebrating and dejected (see people.update).
     sync(state, dt = 0, show = null) {

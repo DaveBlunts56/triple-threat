@@ -15,7 +15,7 @@ const key = (type, code) => Object.assign(new Event(type, { cancelable: true }),
 test('the main list is Play, Mode, Teams, Controls, Settings, with the bar on Play and the mode on 3 on 3', () => {
   const m = createMenu();
   assert.deepEqual([m.panel, m.row, m.autoSubs, m.size, menuRows(m)], ['main', 0, true, 3, ['play', 'mode', 'teams', 'controls', 'settings']]);
-  assert.deepEqual(MENU.settings, ['quality', 'autoSubs', 'camera', 'difficulty', 'quarter', 'commentary', 'keys']);
+  assert.deepEqual(MENU.settings, ['quality', 'autoSubs', 'camera', 'difficulty', 'quarter', 'commentary', 'replays', 'keys']);
 });
 
 test('the bar moves down and up by arrows or W and S, and wraps at both ends', () => {
@@ -73,6 +73,7 @@ test('in Settings, Enter on Quality asks for the quality switch and Enter on Aut
   keys(m, 'Enter'); assert.equal(m.minutes, 5);                                         // Quarter length steps through 3, 5, 8, 12
   keys(m, 'Enter', 'Enter', 'Enter'); assert.equal(m.minutes, 3);                       // and round again
   keys(m, 'ArrowDown'); assert.equal(menuKey(m, 'Enter'), 'commentary');                // the page changes the commentary
+  keys(m, 'ArrowDown'); assert.equal(menuKey(m, 'Enter'), 'replays');                   // and turns replays on and off
   keys(m, 'ArrowDown'); assert.equal(MENU.settings[m.row], 'keys');                     // the last row
   keys(m, 'ArrowDown'); assert.equal(m.row, 0);                                         // and it wraps
 });

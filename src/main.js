@@ -19,6 +19,7 @@ import { readPrefs, storageOf, writePrefs } from './prefs.js';
 import { createBroadcast } from './broadcast/broadcast.js';
 import { nextCommentary } from './broadcast/commentary.js';
 import { slowFor } from './broadcast/moments.js';
+import { clear as clearReplays, createRecorder, due, frameAt, mark, record, settle, skip as skipReplay, start as startReplay } from './replay.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
 const newMatch = size => createMatch(Date.now() % 1e6, size);   // size: 3 or 5 a side; three when not said
@@ -50,7 +51,11 @@ if (view) {
   // The commentary as it can be here: where the browser has no voice, voice and captions is captions only.
   const commentary = () => (prefs.commentary === 'voice' && !broadcast.voice.available ? 'captions' : prefs.commentary);
   const stepCommentary = () => { prefs.commentary = nextCommentary(commentary(), broadcast.voice.available); if (prefs.commentary !== 'voice') broadcast.hush(); };
-  const pause = on => { game.playList.open = false; if (on) broadcast.hush(); setPaused(game, keyboard, on); };   // the play list never stays up under the pause screen
+  // Replays of the biggest moments. `side`: the side of the court the replay's camera is on.
+  const replays = createRecorder();
+  let replaySide = 1;
+  const endReplay = () => { if (!replays.playing) return; skipReplay(replays); actors.cut(); view.setCamera(game.camera); };
+  const pause = on => { game.playList.open = false; if (on) { broadcast.hush(); endReplay(); } setPaused(game, keyboard, on); };   // the play list never stays up under the pause screen
   // Draws the game at the level `quality` is now on: called whenever that changes.
   const showQuality = () => {
     game.quality = quality.level;
@@ -68,6 +73,7 @@ if (view) {
     writePrefs(storage, prefs);
   };
   const stepQualityByHand = () => { stepQuality(quality); showQuality(); remember(true); };
+  const stepReplays = () => { prefs.replays = !prefs.replays; if (!prefs.replays) clearReplays(replays); };
   const switchCamera = () => { game.camera = game.camera === '2k' ? 'broadcast' : '2k'; view.setCamera(game.camera); remember(); };
   view.setCamera(game.camera);
   const life = createLife();   // the crowd's mood
@@ -84,6 +90,7 @@ if (view) {
     else if (asked === 'quality') stepQualityByHand();
     else if (asked === 'camera') switchCamera();
     else if (asked === 'commentary') stepCommentary();
+    else if (asked === 'replays') stepReplays();
     remember();
     keyboard.drop();   // a key pressed on a menu, one just given to an action too, does nothing in the match until let go
   };
@@ -96,6 +103,7 @@ if (view) {
     else if (asked === 'quality') stepQualityByHand();
     else if (asked === 'camera') switchCamera();
     else if (asked === 'commentary') stepCommentary();
+    else if (asked === 'replays') stepReplays();
     else if (asked === 'quit') quitToMenu(game, keyboard, newMatch);
     remember();
     if (listened || asked === 'keys') keyboard.drop();   // the key just given to an action does nothing until let go
@@ -106,6 +114,8 @@ if (view) {
   window.addEventListener('keydown', e => {
     // The starting line-ups: any key takes them down, and that key does nothing else, now or while it is held.
     if (game.show.panel === 'lineups') { e.preventDefault(); broadcast.skip(); keyboard.drop(); held.add(e.code); return; }
+    // A replay: any key ends it, and does nothing else.
+    if (replays.playing) { e.preventDefault(); endReplay(); keyboard.drop(); held.add(e.code); return; }
     if (held.has(e.code)) { e.preventDefault(); keyboard.drop([e.code]); return; }
     const action = actionOf(keys, e.code);
     const onAMenu = game.state.phase === 'start' || game.paused;
@@ -160,7 +170,7 @@ if (view) {
   window.addEventListener('blur', () => { held.clear(); if (!game.paused) pause(true); });
   document.addEventListener('visibilitychange', () => { if (document.hidden && !game.paused) pause(true); });
 
-  let last = performance.now(), owed = 0, frameMs = 1000 / game.fps;
+  let last = performance.now(), owed = 0, frameMs = 1000 / game.fps, wasReplaying = false;
   let slowest = 0, since = last;   // the longest frame since `since`, for the corner label: a stutter the average hides
   const frame = now => {
     const { state } = game;
@@ -173,7 +183,16 @@ if (view) {
     if (autoQuality(quality, ms, inPlay(state) && !game.paused)) showQuality();
     // The match waits while the line-ups are up, and runs slow for the last of a buzzer-beater's flight.
     const seconds = now / 1000, panel = broadcast.panel(state, seconds);
-    owed = game.paused || panel === 'lineups' ? 0 : owed + elapsed * slowFor(state);
+    // A replay that is set aside begins once play has stopped; the match waits while it plays.
+    if (prefs.replays && !game.paused && panel !== 'lineups' && due(replays, state)) {
+      startReplay(replays, state);
+      replaySide = replays.playing.frames[replays.playing.frames.length - 1].ball.z >= 0 ? 1 : -1;
+      actors.cut();
+    }
+    const shown = replays.playing && !game.paused ? frameAt(replays, elapsed) : null;   // the frame of the replay to draw, if one is on
+    if (replays.playing === null && wasReplaying) { actors.cut(); view.setCamera(game.camera); }   // it has just ended
+    wasReplaying = replays.playing !== null;
+    owed = game.paused || panel === 'lineups' || shown ? 0 : owed + elapsed * slowFor(state);
     last = now;
     const before = state.time;
     for (; owed >= DT; owed -= DT) {
@@ -184,30 +203,38 @@ if (view) {
       if (!keys.moveX && !keys.moveZ) heading = view.heading();
       intents[state.controlled] = steer(keys, heading);
       broadcast.hear(state, step(state, intents, DT));
+      if (prefs.replays) { record(replays, state); settle(replays, state); }
       view.swayNets(state.ball, DT);   // at every step, so a ball moved far in one step is never swept through a net
     }
     // Motion advances by the match time that passed: none while paused. Before and after a match no match time
     // passes, so it advances by real time and the players stand breathing.
     const passed = inPlay(state) ? state.time - before : elapsed;
     const air = broadcast.frame(state, seconds, commentary());
+    // A star moment is set aside for a replay: a game-winner from its basket, which came before the call.
+    if (prefs.replays) for (const h of air.heard) if (h.star) mark(replays, h, h.kind === 'winner' ? state.last.score?.at ?? h.at : h.at);
     // Under the pause screen none of it shows.
-    game.show = game.paused ? {} : { banner: air.banner, lower: air.lower, caption: air.caption, panel };
-    actors.sync(state, passed, air);
+    game.show = game.paused ? {} : shown ? { replay: true, caption: air.caption } : { banner: air.banner, lower: air.lower, caption: air.caption, panel };
+    // In a replay the players and the ball are drawn as that frame has them, and the nets move with that ball.
+    const drawn = shown ?? state;
+    if (shown) view.swayNets(shown.ball, elapsed * 0.5);
+    actors.sync(drawn, shown ? elapsed * 0.5 : passed, shown ? null : air);
     const real = game.paused ? 0 : elapsed;   // the crowd and the referees stand still with a paused game
     view.live(state, stepLife(life, state, real, air.heard), real);
-    view.follow(state.ball, attackSign(state.possession));
+    // From beside the hoop it happened at: the one the moment's team attacks, or for a block the one it defends.
+    if (shown) view.replay(shown.ball, attackSign(replays.playing ? (replays.playing.kind === 'block' ? 1 - replays.playing.team : replays.playing.team) : shown.possession), replaySide);
+    else view.follow(state.ball, attackSign(state.possession));
     view.watch(state);
     view.render();
     // Where the feet of the player you control are on the page, for his name; nothing before and after a match.
-    const me = state.players[state.controlled];
-    game.feet = inPlay(state) ? view.toScreen(me.x, 0, me.z) : null;
+    const me = drawn.players[drawn.controlled];
+    game.feet = inPlay(state) && !shown ? view.toScreen(me.x, 0, me.z) : null;
     // And where everyone's feet are, for the star, the flame and the ice cube under those who have one.
-    game.spots = inPlay(state) ? state.players.map(p => view.toScreen(p.x, 0, p.z)) : null;
-    const m = shotMeter(state);
+    game.spots = inPlay(state) && !shown ? state.players.map(p => view.toScreen(p.x, 0, p.z)) : null;
+    const m = shown ? null : shotMeter(state);
     game.meter = m && { ...m, head: view.toScreen(m.x, SHOT_METER.high, m.z) };
     game.missing = view.missing;
     hud.update(state, view.backend, game);
-    hud.show(state.phase === 'start' ? 'start' : state.phase === 'final' ? 'final' : game.paused ? 'pause' : null);
+    hud.show(shown ? null : state.phase === 'start' ? 'start' : state.phase === 'final' ? 'final' : game.paused ? 'pause' : null);   // the final screen waits for a last replay
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

@@ -15,6 +15,9 @@ const MESH = 64;                           // texture pixels on a side of one ce
 // ahead: how far beyond that point it looks. side: the share of the ball's distance from the middle it moves across
 // with. swing: the share of a turn to the other hoop it makes each frame. maxX: it never goes further along the court
 // than this, so it stays out of the stands behind the baselines.
+// The replay's camera: metres from the centre line toward the hoop, up, and out from the middle of the court; and the
+// lowest height it looks at.
+const REPLAY_CAMERA = { x: 13.3, height: 2.6, z: 6.8, lookUp: 1.2 };   // in the corner, above the players' heads, so nobody near it fills the picture
 const BEHIND = { height: 6, back: 12.5, ahead: 5, side: 0.5, fov: 42, swing: 0.1, maxX: 16 };
 const CAMERA = { ...ARENA.camera, lookZ: 1, ease: 0.08, fov: 40, minAcross: 60 };   // degrees; minAcross: narrowest horizontal view allowed
 
@@ -224,6 +227,12 @@ export async function createScene(canvas) {
     },
     // Changes the camera: 'broadcast' or '2k'.
     setCamera(to) { mode = to; followZ = 0; resize(); aim(); },
+    // The replay's camera: low, just inside the baseline of the hoop at `sign`, on the `side` of the court given
+    // (+1 or -1 along z), looking at the ball.
+    replay(ball, sign, side) {
+      camera.position.set(sign * REPLAY_CAMERA.x, REPLAY_CAMERA.height, side * REPLAY_CAMERA.z);
+      camera.lookAt(ball.x, Math.max(ball.y, REPLAY_CAMERA.lookUp), ball.z);
+    },
     // The way the camera will look once it has settled, as a unit vector on the floor: what "up the screen" means.
     heading: () => (mode === 'broadcast' ? { x: 0, z: -1 } : { x: Math.cos(turnTo), z: -Math.sin(turnTo) }),
     // Moves both nets on by dt seconds while the ball went from where it was on the last call to where `now` is.

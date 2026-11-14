@@ -231,6 +231,8 @@ export async function loadPeople() {
         he.animator.update(whole ?? legs, he.arms, dt, standing ? null : bearing.head);
       });
     },
+    // Forgets what is remembered from frame to frame (see actors.cut).
+    cut() { marks = newMarks(); cross = null; },
     // The hands the holder carries the ball in on this frame (see handsOf). To be asked after `update`.
     hands: handsOf,
     // Where the ball is in its holder's hands on this frame, { x, y, z }, or null when nobody holds it and on the

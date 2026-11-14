@@ -8,7 +8,7 @@ const ROWS = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit
 // The rows of each panel of the pause menu that has rows. Substitutions, the box score and Controls have none.
 export const PAUSE = Object.freeze({
   main: Object.freeze(['resume', 'subs', 'box', 'controls', 'settings', 'quit']),
-  settings: Object.freeze(['quality', 'autoSubs', 'camera', 'difficulty', 'commentary', 'keys']),
+  settings: Object.freeze(['quality', 'autoSubs', 'camera', 'difficulty', 'commentary', 'replays', 'keys']),
   keys: KEY_ROWS,
   quit: Object.freeze(['stay', 'leave']),
 });
