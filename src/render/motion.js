@@ -2,6 +2,7 @@
 import { BALL, PLAYER, SHOT } from '../sim/tuning.js';
 import { isJumper, onFloor } from '../sim/state.js';
 import { gathering } from '../sim/players.js';
+import { manOf } from '../sim/matchups.js';
 
 // Speeds in metres per second. stick: how far past an edge he must go before the gait changes.
 // minRate, maxRate: limits on how slow or fast a clip is played. fade: seconds to blend from one motion to the next.
@@ -69,8 +70,7 @@ export const airTime = player => (2 * (player.takeoff || PLAYER.jumpV)) / BALL.g
 // How far through his jump he is: 0 at take-off, 1 at the landing.
 export const jumpShare = player => Math.min(1, player.jumpT / airTime(player));
 
-// The opponent he guards, or is guarded by: the one in the same slot.
-export const manOf = (state, player) => state.players.find(o => o.team !== player.team && o.slot === player.slot);
+export { manOf };   // the opponent he guards, as the match has it
 
 // Whether the ball is in play and the other team's.
 export const defending = (state, player) => (state.phase === 'live' || state.phase === 'inbound') && state.possession !== player.team;

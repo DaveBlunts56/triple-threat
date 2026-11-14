@@ -45,6 +45,7 @@ function createPlayer(id, size) {
     shooting: false, jumpT: 0, inbounder: false, stealCooldown: 0,
     shotT: 0, letGo: false, takeoff: 0,   // seconds since he pressed shoot; the key came up during the gather; the speed he last left the floor at
     held: false, steps: 0, keyT: 0, setT: 0, foulCooldown: 0,
+    man: (id + size) % (2 * size), switchWait: 0,   // the id of the opponent he guards (see matchups.js); seconds until he may be switched again
     prev: emptyIntent(),
     ai: { timer: 0, targetX: 0, targetZ: 0, sprint: false, action: null },
   };

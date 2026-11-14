@@ -7,6 +7,7 @@ import { applySubs } from './roster.js';
 import { findViolation, trackCounters } from './violations.js';
 import { newFreeThrow, setupFreeThrow, stepFreeThrow } from './freethrow.js';
 import { judgeContacts, recordFoul } from './fouls.js';
+import { ownMen } from './matchups.js';
 
 const OUTSIDE = 0.5;        // how far behind the line an inbounder stands
 const BOARD_CLEAR = 1.5;    // baseline inbounds keep this far from the middle, clear of the backboard
@@ -56,12 +57,14 @@ function callFoul(state, foul, shots) {
   state.pendingFoul = null;
 }
 
-// A dead ball drops where it is instead of bouncing off into the distance, and a whistle ends any shot still in the hand.
+// A dead ball drops where it is instead of bouncing off into the distance, a whistle ends any shot still in the hand,
+// and every defender goes back to his own man.
 // A ball in the net is left to the net: a make carries on through it.
 function deadBall(state) {
   if (state.ball.holder === null && !inNet(state.ball)) state.ball.vx = state.ball.vz = 0;
   state.ball.target = null;
   for (const p of state.players) p.shooting = false;
+  ownMen(state);   // a switch lasts until the whistle
 }
 
 function endPeriod(state) {

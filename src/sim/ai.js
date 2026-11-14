@@ -3,6 +3,7 @@ import { SHOT_BEST, SHOT_LANDS } from './players.js';
 import { ftChance } from './freethrow.js';
 import { attackSign, emptyIntent, isJumper, onFloor, rand } from './state.js';
 import { rimCentre } from './ball.js';
+import { manOf } from './matchups.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const nearestTo = (list, point) => list.reduce((a, b) => (dist(b, point) < dist(a, point) ? b : a));
@@ -25,7 +26,6 @@ const space = (state, p) => Math.min(...opponents(state, p).map(o => dist(o, p))
 
 export const isOpen = (state, player) => space(state, player) > AI.openDist;
 
-const manOf = (state, p) => state.players.find(o => o.team !== p.team && o.slot === p.slot);
 // In the air for a shot he has not let go yet. Once the ball has left his hand a jump can no longer trouble it.
 const shotJump = man => !onFloor(man) && man.shooting;
 
