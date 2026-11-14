@@ -1,9 +1,9 @@
-import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FOUL, PASS, PLAYER, RIM, SHOT, STAMINA, STEAL, THREE_PT, RATE, levelOf } from './tuning.js';
+import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FOUL, PASS, PLAYER, RIM, SHOT, STAMINA, STEAL, THREE_PT, RATE, HEAT, levelOf } from './tuning.js';
 import { attackSign, onFloor as grounded, personOf, rand } from './state.js';
 import { shotFactor, speedFactor, spend } from './stamina.js';
 import { rimCentre, solveShot, stepBall } from './ball.js';
 import { rematch } from './matchups.js';
-import { lift, drop, rated } from './ratings.js';
+import { lift, drop, rated, heatOf } from './ratings.js';
 
 // Seconds after the press of a shot: the best moment to let go, and the moment he is back on the floor.
 export const SHOT_BEST = SHOT.gather + SHOT.bestAt * PLAYER.shotJumpV / BALL.gravity;
@@ -157,7 +157,8 @@ export function makeChance(state, player) {
   const byDistance = Math.max(SHOT.minChance, SHOT.nearChance + (SHOT.farChance - SHOT.nearChance) * (dist(player, hoop) / SHOT.farDist));
   const timing = shotTiming(player.shotT, player.team === 0 ? levelOf(state).timing : SHOT.worstTiming);   // a bad release costs you what the level says
   // His rating for a shot from where he stands counts for or against him.
-  const skill = lift(rated(state, player, zoneOf(player)), RATE.shot);
+  const heat = heatOf(personOf(state, player));
+  const skill = lift(rated(state, player, zoneOf(player)), RATE.shot) * (heat === 'hot' ? HEAT.hot : heat === 'cold' ? HEAT.cold : 1);
   return clamp(byDistance * timing * contest(state, player) * shotFactor(personOf(state, player).energy) * (player.team === 0 ? levelOf(state).make : 1) * skill, 0, 1);
 }
 
@@ -180,7 +181,7 @@ export function shotWindow(state, player) {
     best: SHOT_BEST,
     // Your window is the level's; anybody's is wider the better he shoots from there.
     half: steps * DT * range * shotFactor(personOf(state, player).energy) * (player.team === 0 ? levelOf(state).green : 1)
-      * Math.max(0, lift(rated(state, player, zoneOf(player)), RATE.window)),
+      * Math.max(0, lift(rated(state, player, zoneOf(player)), RATE.window)) * (heatOf(personOf(state, player)) === 'hot' ? HEAT.hotWindow : 1),
     level: name,
     inRange: range > 0 && !boardInWay(player),
   };
@@ -188,6 +189,12 @@ export function shotWindow(state, player) {
 
 // Half a step of slack: a release can only come on a step, so the step nearest the best moment is always green.
 export const greenAt = (window, t) => window.inRange && Math.abs(t - window.best) <= window.half + DT / 2;
+
+// Counts a shot from the floor toward his streak: his makes in a row, or his misses in a row as a negative number.
+function streak(state, player, made) {
+  const person = personOf(state, player);
+  person.streak = made ? Math.max(person.streak, 0) + 1 : Math.min(person.streak, 0) - 1;
+}
 
 export function releaseShot(state, player) {
   const { ball } = state;
@@ -218,11 +225,13 @@ export function releaseShot(state, player) {
     ball.vx = -sign * BLOCK.deflect; ball.vy = 0; ball.vz = 0;
     ball.shooter = null; ball.shotValue = 0;
     state.shot.blocked = true;
+    streak(state, player, false);
     return { shooter: player.id, defender, blocked: true };
   }
 
   // A green release always goes in, clean, and draws no random number to find out. Other makes sometimes rattle in.
   const made = green || rand(state) < makeChance(state, player);
+  streak(state, player, made);
   launchShot(state, player, made, isThree(player.x, player.z, sign) ? 3 : 2, made && !green && rand(state) < SHOT.rattle);
   return { shooter: player.id, defender, blocked: false };
 }

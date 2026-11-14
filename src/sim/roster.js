@@ -16,7 +16,9 @@ export function benchOf(state, team) {
 export function substitute(state, playerId, person) {
   const player = state.players[playerId];
   if (!benchOf(state, player.team).includes(person)) return false;
-  state.rosters[player.team][player.person].manual = false;   // whoever comes off is the computer's to pick again
+  const off = state.rosters[player.team][player.person];
+  off.manual = false;   // whoever comes off is the computer's to pick again
+  off.streak = 0;       // and his streak is over
   player.person = person;
   return true;
 }

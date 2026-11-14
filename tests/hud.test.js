@@ -432,3 +432,9 @@ test('the page has the scorebug: a logo, a crest, a name, fouls, timeouts and a 
   assert.match(html, /class="bugLogo"/);
   assert.equal((html.match(/<svg viewBox="0 0 40 40"/g) ?? []).length, 2, 'a crest for each team');
 });
+
+test('the name under your player says HOT or COLD beside it', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch();
+  const tag = streak => { s.rosters[0][0].streak = streak; hud.update(s, 'webgl2', { paused: false, pick: null, feet: { x: 10, y: 20 } }); return doc.els.nameTag.textContent; };
+  assert.deepEqual([tag(0), tag(3), tag(-3), tag(2)], ['Cross', 'Cross · HOT', 'Cross · COLD', 'Cross']);
+});

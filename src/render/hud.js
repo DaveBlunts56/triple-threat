@@ -1,6 +1,7 @@
 import { CLOCK, DIFFICULTY, ROSTER, TIMEOUT } from '../sim/tuning.js';
 import { personOf, surname } from '../sim/state.js';
 import { onCourt } from '../sim/roster.js';
+import { heatOf, overall, starOf } from '../sim/ratings.js';
 import { menuRows } from '../menu.js';
 import { pauseRows } from '../pause.js';
 import { playListRows } from '../playlist.js';
@@ -154,7 +155,8 @@ export function createHud(doc) {
       // His surname under the player you control, at the place on the page the game says his feet are.
       hide('nameTag', !ui.feet);
       if (ui.feet) {
-        set('nameTag', surname(personOf(state, state.players[state.controlled])));
+        const me = personOf(state, state.players[state.controlled]), heat = heatOf(me);
+        set('nameTag', surname(me) + (heat ? ` · ${heat.toUpperCase()}` : ''));   // HOT or COLD beside his name
         style('nameTag', 'left', pixels(ui.feet.x));
         style('nameTag', 'top', pixels(ui.feet.y));
       }

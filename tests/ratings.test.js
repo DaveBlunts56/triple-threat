@@ -170,3 +170,64 @@ test('at the ends of the scale nothing breaks: chances stay between 0 and 1, win
     if (greenAt(window, SHOT_BEST)) { s.players[0].shooting = true; releaseShot(s, s.players[0]); assert.equal(s.shot.green, true); }
   }
 });
+
+// ---------- hot and cold ----------
+
+import { substitute } from '../src/sim/roster.js';
+import { newFreeThrow, setupFreeThrow, stepFreeThrow } from '../src/sim/freethrow.js';
+import { HEAT } from '../src/sim/tuning.js';
+
+// Player 0 shoots once: a make (let go at the best moment, open and near: always green) or a miss (let go as he
+// presses from far out, with a seed that misses). Returns the match for the next shot.
+function shot(s, makes) {
+  const p = s.players[0];
+  for (let seed = 1; seed < 400; seed++) {
+    const before = s.rosters[0][0].streak;
+    at(s, 0, makes ? RIM.x - 4 : RIM.x - 11.5, 0); at(s, 5, -10, 6);
+    giveBall(s, p);
+    Object.assign(p, { shooting: true, shotT: makes ? SHOT_BEST : 0.02 });
+    s.seed = seed * 7919;
+    releaseShot(s, p);
+    const made = s.rosters[0][0].streak > Math.max(before, 0) || (before <= 0 && s.rosters[0][0].streak === 1);
+    if (made === makes) return s;
+    s.rosters[0][0].streak = before;   // the dice went the other way: take the shot again
+  }
+  throw new Error('no seed gave the shot wanted');
+}
+
+test('three makes in a row and he is hot, until his next miss; three misses and he is cold, until his next make', () => {
+  const s = live(1, 5), me = s.rosters[0][0], heat = () => heatOf(me);
+  shot(s, true); shot(s, true);
+  assert.deepEqual([me.streak, heat()], [2, null]);
+  shot(s, true);
+  assert.deepEqual([me.streak, heat()], [3, 'hot']);
+  shot(s, true);
+  assert.equal(heat(), 'hot');
+  shot(s, false);
+  assert.deepEqual([me.streak, heat()], [-1, null]);
+  shot(s, false); shot(s, false);
+  assert.deepEqual([me.streak, heat()], [-3, 'cold']);
+  shot(s, true);
+  assert.deepEqual([me.streak, heat()], [1, null]);
+});
+
+test('hot, his shots go in more often and his window is wider; cold, they go in less often', () => {
+  const at3 = streak => { const s = shooting(5, 9); s.rosters[0][0].streak = streak; return [makeChance(s, s.players[0]), shotWindow(s, s.players[0]).half]; };
+  const [usual, window] = at3(0), [hot, hotWindow] = at3(HEAT.after), [cold, coldWindow] = at3(-HEAT.after);
+  near(hot / usual, HEAT.hot, 'hot'); near(hotWindow / window, HEAT.hotWindow, 'the hot window');
+  near(cold / usual, HEAT.cold, 'cold'); near(coldWindow, window, 'the cold window');
+  near(at3(2)[0], usual, 'two makes is not hot');
+});
+
+test('free throws count for neither, and a player taken off loses his streak', () => {
+  const s = live(1, 5);
+  s.rosters[0][0].streak = 2;
+  s.freeThrow = newFreeThrow(0, 2); setupFreeThrow(s);
+  const press = idle(10); press[0] = { ...emptyIntent(), shoot: true };
+  for (let i = 0; i < 600 && s.freeThrow?.left === 2; i++) stepFreeThrow(s, i % 2 ? press : idle(10), { hitFloor: false, hitRim: false, scored: 0 }, DT);
+  assert.equal(s.rosters[0][0].streak, 2, 'a free throw changed his streak');
+  const off = live(1, 5);
+  off.rosters[0][0].streak = 4; off.rosters[0][6].streak = -2;
+  assert.equal(substitute(off, 0, 6), true);
+  assert.deepEqual([off.rosters[0][0].streak, off.rosters[0][6].streak], [0, -2], 'the player who went off keeps his streak');
+});
