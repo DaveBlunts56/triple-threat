@@ -9,7 +9,7 @@ import { loadPeople } from './render/people.js';
 import { createHud, easeFrame } from './render/hud.js';
 import { createQuality, autoQuality, toggleQuality } from './render/quality.js';
 import { createKeyboard } from './input.js';
-import { inPlay, pauseKey, setPaused } from './pause.js';
+import { createPauseMenu, inPlay, pauseKey, pauseHasRow, pausePoint, quitToMenu, setPaused } from './pause.js';
 import { createMenu, menuKey, menuPoint, menuHasRow, startFromMenu } from './menu.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
@@ -26,8 +26,9 @@ if (view) {
   const keyboard = createKeyboard(window);
   const quality = createQuality();
   // pick: the roster row chosen first on the pause screen. quality: the level the game is drawn at, 'high' or 'low'.
-  // meter: the shot meter and where its top is on the page, or null. menu: the start menu.
-  const game = { state: newMatch(), paused: false, pick: null, fps: 60, quality: quality.level, meter: null, menu: createMenu() };
+  // meter: the shot meter and where its top is on the page, or null. menu: the start menu. pauseMenu: the pause menu.
+  const game = { state: newMatch(), paused: false, pick: null, fps: 60, quality: quality.level, meter: null, menu: createMenu(),
+    pauseMenu: createPauseMenu() };
   globalThis.game = game;   // handle for poking at the match from the browser console
 
   const pause = on => setPaused(game, keyboard, on);
@@ -49,6 +50,14 @@ if (view) {
     else if (asked === 'quality') { toggleQuality(quality); showQuality(); }
   };
 
+  // A key on the pause menu, or a click on one of its buttons (as Enter).
+  const onPause = code => {
+    const asked = pauseKey(game, code);
+    if (asked === 'resume') pause(false);
+    else if (asked === 'quality') { toggleQuality(quality); showQuality(); }
+    else if (asked === 'quit') quitToMenu(game, keyboard, newMatch);
+  };
+
   window.addEventListener('keydown', e => {
     if (e.code === 'KeyG' && !e.repeat) { toggleQuality(quality); showQuality(); }   // on any screen; a held key counts once
     if (game.state.phase === 'start') {
@@ -56,8 +65,12 @@ if (view) {
       if (!(e.repeat && MENU_ONCE.has(e.code))) onMenu(e.code);
       return;
     }
-    if (e.code === 'Escape') pause(!game.paused);
-    else if (game.paused) pauseKey(game, e.code);
+    if (game.paused) {
+      if (MENU_KEYS.has(e.code)) e.preventDefault();
+      if (!(e.repeat && MENU_ONCE.has(e.code))) onPause(e.code);
+      return;
+    }
+    if (e.code === 'Escape' && !e.repeat) pause(true);
     if (e.code === 'Enter' && game.state.phase === 'final') play();
   });
   // The menu's rows: moving the pointer over a row moves the bar there, a click chooses. mousemove, not mouseenter,
@@ -66,8 +79,13 @@ if (view) {
     item.addEventListener('mousemove', () => { if (menuHasRow(game, row)) menuPoint(game.menu, row); });
     item.addEventListener('click', () => { if (menuHasRow(game, row)) { menuPoint(game.menu, row); onMenu('Enter'); } });
   });
-  window.addEventListener('blur', () => pause(true));
-  document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });
+  document.querySelectorAll('#pauseList li').forEach((item, row) => {
+    item.addEventListener('mousemove', () => pausePoint(game, row));
+    item.addEventListener('click', () => { if (pauseHasRow(game, row)) { pausePoint(game, row); onPause('Enter'); } });
+  });
+  // Losing the window pauses a match in play; one already paused stays as it is.
+  window.addEventListener('blur', () => { if (!game.paused) pause(true); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && !game.paused) pause(true); });
 
   let last = performance.now(), owed = 0, frameMs = 1000 / game.fps;
   const frame = now => {

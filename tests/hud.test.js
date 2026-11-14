@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { periodLabel, clockText, createHud, callText, rosterLine, subNote, easeFrame, menuText } from '../src/render/hud.js';
 import { createMatch } from '../src/sim/state.js';
+import { createPauseMenu, pauseKey } from '../src/pause.js';
 import { createMenu, menuKey } from '../src/menu.js';
 
 test('periods are Q1-Q4 then OT1, OT2', () => {
@@ -275,4 +276,83 @@ test('the surname of the player you control is drawn under him, where the page i
   assert.deepEqual([e.nameTag.textContent, e.nameTag.style.left, e.nameTag.style.top], ['Stone', '10px', '20px']);
   hud.update(s, 'webgl2');                                                // no place given: nothing to draw it under
   assert.equal(e.nameTag.hidden, true);
+});
+
+// A paused match and what draws it.
+function pausedHud() {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch();
+  s.phase = 'live';
+  const game = { state: s, paused: true, pick: null, pauseMenu: createPauseMenu(), quality: 'high' };
+  return { e: doc.els, s, game, show: () => hud.update(s, 'webgl2', game), choose: (...codes) => codes.forEach(code => pauseKey(game, code)) };
+}
+const PAUSE_ROWS = [0, 1, 2, 3, 4];
+
+test('the pause menu shows its five buttons with the highlight on one, and says which', () => {
+  const { e, show, choose } = pausedHud();
+  show();
+  assert.deepEqual(PAUSE_ROWS.map(i => e[`pauseRow${i}`].textContent), ['Resume', 'Substitutions', 'Controls', 'Settings', 'Quit to main menu']);
+  assert.deepEqual(PAUSE_ROWS.map(i => e[`pauseRow${i}`].ariaSelected), ['true', 'false', 'false', 'false', 'false']);
+  assert.deepEqual([e.pauseList.hidden, e.pauseSubs.hidden, e.pauseControls.hidden, e.pauseAsk.hidden, e.pauseHint.textContent, e.announce.textContent],
+    [false, true, true, true, '↑ ↓ choose · Enter select · Esc resume', 'Resume']);
+  choose('ArrowDown'); show();
+  assert.deepEqual([e.pauseRow0.ariaSelected, e.pauseRow1.ariaSelected, e.announce.textContent], ['false', 'true', 'Substitutions']);
+});
+
+test('Substitutions and Controls open in place of the buttons, and opening one is announced', () => {
+  const { e, show, choose } = pausedHud();
+  let writes = 0;
+  Object.defineProperty(e.announce ??= { hidden: false, style: {} }, 'textContent', { get() { return this.said; }, set(v) { this.said = v; writes++; } });
+  choose('ArrowDown'); show();
+  const before = writes;
+  choose('Enter'); show();
+  assert.deepEqual([e.pauseList.hidden, e.pauseSubs.hidden, e.pauseControls.hidden, e.pauseHint.textContent, e.announce.textContent, writes - before],
+    [true, false, true, '1 to 5 swap two players · A automatic substitutions · Esc back', 'Substitutions', 1]);
+  choose('Escape', 'ArrowDown', 'Enter'); show();
+  assert.deepEqual([e.pauseSubs.hidden, e.pauseControls.hidden, e.pauseHint.textContent, e.announce.textContent], [true, false, 'Esc back', 'Controls']);
+});
+
+test('Settings shows each setting with its value, and Quit asks before leaving', () => {
+  const { e, s, game, show, choose } = pausedHud();
+  choose('ArrowUp', 'ArrowUp', 'Enter'); show();                           // up from Resume wraps to Quit, then Settings
+  assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent, e.pauseRow2.hidden, e.pauseRow4.hidden, e.pauseHint.textContent],
+    ['Quality: High', 'Automatic substitutions: On', true, true, '↑ ↓ choose · Enter change · Esc back']);
+  s.autoSubs[0] = false; game.quality = 'low'; show();
+  assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent], ['Quality: Low', 'Automatic substitutions: Off']);
+  choose('Escape', 'ArrowDown', 'Enter'); show();
+  assert.deepEqual([e.pauseAsk.hidden, e.pauseRow0.textContent, e.pauseRow1.textContent, e.pauseRow2.hidden, e.pauseRow0.ariaSelected, e.pauseHint.textContent],
+    [false, 'No, keep playing', 'Yes, quit', true, 'true', '↑ ↓ choose · Enter select · Esc back']);
+});
+
+test('the pause scoreboard shows each team by quarter, its total and fouls, and the clocks', () => {
+  const { e, s, show } = pausedHud();
+  Object.assign(s, { quarter: 3, byQuarter: [[12, 9, 7], [8, 14]], score: [28, 22], teamFouls: [3, 4], gameClock: 101.2, shotClock: 13.2 });
+  show();
+  assert.deepEqual([e.pbAbbr0.textContent, e.pbAbbr1.textContent], ['WAV', 'SCO']);
+  assert.deepEqual([0, 1, 2, 3].map(q => e[`pbQ0${q}`].textContent), ['12', '9', '7', '–']);
+  assert.deepEqual([0, 1, 2, 3].map(q => e[`pbQ1${q}`].textContent), ['8', '14', '0', '–']);   // nothing scored yet this quarter
+  assert.deepEqual([e.pbQ02.className, e.pbQ12.className, e.pbQ00.className], ['live', 'live', '']);
+  assert.deepEqual([e.pbTotal0.textContent, e.pbTotal1.textContent, e.pbFouls0.textContent, e.pbFouls1.textContent], ['28', '22', '3', '4']);
+  assert.deepEqual([e.pbPeriod.textContent, e.pbClock.textContent, e.pbShot.textContent], ['3RD', '1:42', 'SHOT 14']);
+  assert.deepEqual([e.pbOtHead.hidden, e.pbOt0.hidden, e.pbOt1.hidden], [true, true, true]);
+  Object.assign(s, { quarter: 6, byQuarter: [[12, 9, 7, 4, 3, 2], [8, 14, 6, 4, 3]] });
+  show();
+  assert.deepEqual([e.pbOtHead.hidden, e.pbOt0.textContent, e.pbOt1.textContent, e.pbPeriod.textContent, e.pbQ03.className], [false, '5', '3', 'OT2', '']);
+});
+
+test('in play the pause menu writes nothing', () => {
+  const { e, game, show } = pausedHud();
+  game.paused = false; show();
+  assert.deepEqual([e.pauseRow0, e.pbTotal0], [undefined, undefined]);
+});
+
+test('the page has the pause menu: five buttons, three panels, the scoreboard, the PAUSED bar and the game\'s mark', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  for (const id of ['pauseList', ...PAUSE_ROWS.map(i => `pauseRow${i}`), 'pauseSubs', 'pauseControls', 'pauseAsk', 'pauseHint', 'pbOtHead', 'pbPeriod', 'pbClock', 'pbShot',
+    ...[0, 1].flatMap(t => [`pbAbbr${t}`, `pbTotal${t}`, `pbFouls${t}`, `pbOt${t}`, ...[0, 1, 2, 3].map(q => `pbQ${t}${q}`)])]) assert.match(html, new RegExp(`id="${id}"`), id);
+  const pause = html.match(/<section class="screen" id="screenPause"[\s\S]*?<\/section>/)[0];
+  assert.match(pause, />PAUSED</);
+  for (const id of ['roster0', 'roster4', 'rosterEnergy0', 'subNote']) assert.match(pause, new RegExp(`id="${id}"`), id);   // Substitutions keeps the swap list
+  const controls = pause.match(/id="pauseControls"[\s\S]*?<\/(?:ul|dl|div)>/)[0];
+  for (const word of ['WASD', 'Shift', 'Space', 'E', 'Q', 'F', 'Esc', 'G']) assert.match(controls, new RegExp(`\\b${word}\\b`), word);
+  assert.equal((html.match(/<[^>]*aria-live[^>]*>/g) ?? []).length, 1);
 });

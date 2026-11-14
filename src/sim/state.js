@@ -14,6 +14,14 @@ export const emptyIntent = () => ({ moveX: 0, moveZ: 0, sprint: false, shoot: fa
 export const emptyEvents = () => ({ hitFloor: false, hitRim: false, hitBoard: false, scored: 0,
   travel: null, doubleDribble: null, stealMisses: [], release: null, contacts: [] });
 
+// `points` for `team`: on the total and on the period being played.
+export function addPoints(state, team, points) {
+  const periods = state.byQuarter[team];
+  while (periods.length < state.quarter) periods.push(0);
+  periods[state.quarter - 1] += points;
+  state.score[team] += points;
+}
+
 // The roster entry a court player currently is.
 export const personOf = (state, player) => state.rosters[player.team][player.person];
 
@@ -56,6 +64,7 @@ export function createMatch(seed = 1) {
     phase: 'start', phaseT: 0,
     quarter: 1, gameClock: CLOCK.quarter, shotClock: CLOCK.shot,
     score: [0, 0],
+    byQuarter: [[], []],   // each team's points in each period played so far; overtime periods follow the fourth
     possession: 0, lastTouch: null, controlled: 0, lastControlled: 0,
     inboundSpot: { x: 0, z: 0 },
     // manual: you brought him on yourself, so the automatic substitutions leave him alone until he comes off

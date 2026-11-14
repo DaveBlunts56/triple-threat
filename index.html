@@ -58,9 +58,60 @@
              text-shadow: 0 1px 2px #000, 0 0 4px #000; }
   /* Wider than the bar and centred under it. */
   #shotMark, #shotLabel { margin: 2px -4em 0; white-space: nowrap; }
-  #roster { list-style: none; padding: 0; margin: 14px 0 6px; text-align: left; font-size: 18px; font-variant-numeric: tabular-nums; }
-  #roster li { display: flex; gap: 14px; justify-content: space-between; align-items: center; margin: 4px 0; }
-  section.screen p.help { font-size: 15px; }
+  /* The pause menu, over the frozen, dimmed game. --u is its unit: everything in it is sized from the window. */
+  #screenPause { --u: min(1vw, 1.78vh); display: block; background: rgba(0, 0, 0, .62); text-align: left;
+                 font-family: "Arial Narrow", "Helvetica Neue", Arial, system-ui, sans-serif; font-size: calc(var(--u) * 1.5); }
+  #screenPause[hidden] { display: none; }
+  /* The scoreboard: dark metal with a silver edge; totals and the clock in yellow. */
+  #screenPause .board { position: absolute; left: 6%; right: 6%; top: 6%; display: grid; grid-template-columns: 1fr auto;
+      background: linear-gradient(#2c3036, #14161a 55%, #0b0c0f); border: 1px solid #9aa3ad; border-radius: calc(var(--u) * .5);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), 0 calc(var(--u) * .6) calc(var(--u) * 2) rgba(0, 0, 0, .6); }
+  #screenPause table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  #screenPause th { padding: calc(var(--u) * .6) calc(var(--u) * 1) calc(var(--u) * .2); font-size: calc(var(--u) * 1.15); font-weight: 700;
+      letter-spacing: .14em; color: #aeb6bf; text-align: center; }
+  #screenPause td { padding: calc(var(--u) * .35) calc(var(--u) * 1); font-size: calc(var(--u) * 2.3); font-weight: 800; text-align: center;
+      border-top: 1px solid rgba(255, 255, 255, .1); }
+  #screenPause td.team { text-align: left; letter-spacing: .08em; font-style: italic; }
+  #screenPause td.team i { display: inline-block; width: calc(var(--u) * .9); height: calc(var(--u) * 2); margin-right: calc(var(--u) * .9); vertical-align: -18%; }
+  #screenPause td.total { color: #ffd257; font-size: calc(var(--u) * 2.9); }
+  #screenPause td.live { color: #ffd257; }
+  #screenPause td.small { font-size: calc(var(--u) * 1.8); color: #d6dbe0; }
+  #screenPause .clock { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 calc(var(--u) * 3);
+      border-left: 1px solid #9aa3ad; background: linear-gradient(#1b1e23, #08090b); border-radius: 0 calc(var(--u) * .5) calc(var(--u) * .5) 0; }
+  #screenPause .clock b { font-size: calc(var(--u) * 1.5); letter-spacing: .2em; color: #aeb6bf; }
+  #screenPause .clock span { font-size: calc(var(--u) * 4.6); font-weight: 800; color: #ffd257; font-variant-numeric: tabular-nums; line-height: 1.05; }
+  #screenPause .clock small { font-size: calc(var(--u) * 1.3); letter-spacing: .12em; }
+  /* The left side: the buttons, or the panel one of them opened. */
+  #screenPause .side { position: absolute; left: 6%; top: 36%; width: 30%; }
+  #pauseList { list-style: none; margin: 0; padding: 0; }
+  #pauseList li { margin: 0 0 calc(var(--u) * .8); padding: calc(var(--u) * .9) calc(var(--u) * 1.6); cursor: pointer;
+      font-size: calc(var(--u) * 1.9); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #e8ecef;
+      background: linear-gradient(rgba(18, 19, 22, .92), rgba(4, 4, 5, .92)); border: 1px solid #6f7781; }
+  #pauseList li[aria-selected="true"] { color: #fff; border-color: #dfe5ea; background: linear-gradient(rgba(118, 124, 132, .95), rgba(58, 62, 68, .95));
+      box-shadow: 0 0 calc(var(--u) * 1.6) rgba(200, 208, 216, .55), inset 0 1px 0 rgba(255, 255, 255, .35); }
+  #pauseAsk { margin: 0 0 calc(var(--u) * 1.2); font-size: calc(var(--u) * 1.7); font-weight: 700; }
+  #pauseSubs, #pauseControls { width: max-content; max-width: 88vw; padding: calc(var(--u) * 1.2) calc(var(--u) * 1.6); font-size: calc(var(--u) * 1.6);
+      background: linear-gradient(rgba(18, 19, 22, .92), rgba(4, 4, 5, .92)); border: 1px solid #6f7781; }
+  #roster { list-style: none; padding: 0; margin: 0 0 calc(var(--u) * .8); font-variant-numeric: tabular-nums; }
+  #roster li { display: flex; gap: calc(var(--u) * 1.6); justify-content: space-between; align-items: center; margin: calc(var(--u) * .5) 0; }
+  #subNote { margin: 0; color: #d6dbe0; }
+  #pauseControls { display: grid; grid-template-columns: auto auto; gap: calc(var(--u) * .5) calc(var(--u) * 1.6); margin: 0; }
+  #pauseControls dt { text-align: right; font-weight: 800; color: #ffd257; }
+  #pauseControls dd { margin: 0; }
+  /* The bar along the bottom: PAUSED in yellow, the keys, and the game's mark. */
+  #screenPause .bar { position: absolute; left: 0; right: 0; bottom: 5%; height: calc(var(--u) * 5); display: flex; align-items: center; justify-content: space-between;
+      padding: 0 6%; background: linear-gradient(rgba(34, 37, 42, .95), rgba(8, 9, 11, .95)); border-top: 1px solid #9aa3ad; border-bottom: 1px solid #3a3f46; }
+  #screenPause .bar strong { font-size: calc(var(--u) * 2.4); font-weight: 800; font-style: italic; letter-spacing: .2em; color: #ffd257; }
+  #screenPause .bar em { font-style: normal; font-size: calc(var(--u) * 1.25); letter-spacing: .12em; text-transform: uppercase; color: #aeb6bf; }
+  #screenPause .logo { width: calc(var(--u) * 7.4); height: calc(var(--u) * 7.4); margin: calc(var(--u) * -1.6) 0; border-radius: 50%; position: relative;
+      background: radial-gradient(circle at 35% 30%, #ffa24a, #d9601a 60%, #8a3608); border: calc(var(--u) * .35) solid #cfd6dc;
+      box-shadow: 0 0 0 1px #14161a, 0 calc(var(--u) * .4) calc(var(--u) * 1.2) rgba(0, 0, 0, .7); overflow: hidden;
+      display: grid; place-items: center; font-size: calc(var(--u) * 2.6); font-weight: 800; font-style: italic; text-shadow: 0 2px 2px rgba(0, 0, 0, .6); }
+  #screenPause .logo::before { content: ""; position: absolute; inset: 0; border-radius: 50%; opacity: .75;
+      background: linear-gradient(90deg, transparent 48.5%, #3a1602 48.5% 51.5%, transparent 51.5%),
+                  radial-gradient(circle at -25% 50%, transparent 58%, #3a1602 58% 61%, transparent 61%),
+                  radial-gradient(circle at 125% 50%, transparent 58%, #3a1602 58% 61%, transparent 61%); }
+  #screenPause .logo span { position: relative; }
   #controls, #backend { position: fixed; bottom: 12px; padding: 6px 12px; background: rgba(0, 0, 0, .8); border-radius: 8px; font-size: 13px; }
   #controls { left: 12px; }
   #backend { right: 12px; }
@@ -202,17 +253,45 @@
 <!-- After the start screen, so the corner label shows on the menu; before the pause and final screens, which dim it. -->
 <div id="backend"></div>
 <section class="screen" id="screenPause" hidden>
-  <h1>Paused</h1>
-  <p>Press Esc to resume</p>
-  <ol id="roster">
-    <li><span id="roster0"></span> <progress id="rosterEnergy0" max="1" value="1" aria-label="Energy"></progress></li>
-    <li><span id="roster1"></span> <progress id="rosterEnergy1" max="1" value="1" aria-label="Energy"></progress></li>
-    <li><span id="roster2"></span> <progress id="rosterEnergy2" max="1" value="1" aria-label="Energy"></progress></li>
-    <li><span id="roster3"></span> <progress id="rosterEnergy3" max="1" value="1" aria-label="Energy"></progress></li>
-    <li><span id="roster4"></span> <progress id="rosterEnergy4" max="1" value="1" aria-label="Energy"></progress></li>
-  </ol>
-  <p id="subNote"></p>
-  <p class="help">1 to 5 choose two players to swap · A automatic substitutions</p>
+  <div class="board">
+    <table>
+      <tr><th></th><th>1</th><th>2</th><th>3</th><th>4</th><th id="pbOtHead" hidden>OT</th><th>TOTAL</th><th>FOULS</th></tr>
+      <tr><td class="team"><i style="background:#2f6fe0"></i><span id="pbAbbr0"></span></td><td id="pbQ00"></td><td id="pbQ01"></td><td id="pbQ02"></td><td id="pbQ03"></td><td id="pbOt0" hidden></td><td class="total" id="pbTotal0"></td><td class="small" id="pbFouls0"></td></tr>
+      <tr><td class="team"><i style="background:#d83a3a"></i><span id="pbAbbr1"></span></td><td id="pbQ10"></td><td id="pbQ11"></td><td id="pbQ12"></td><td id="pbQ13"></td><td id="pbOt1" hidden></td><td class="total" id="pbTotal1"></td><td class="small" id="pbFouls1"></td></tr>
+    </table>
+    <div class="clock"><b id="pbPeriod"></b><span id="pbClock"></span><small id="pbShot"></small></div>
+  </div>
+  <div class="side">
+    <p id="pauseAsk" hidden>Quit this match and return to the main menu?</p>
+    <ul id="pauseList" role="listbox" aria-label="Pause menu">
+      <li id="pauseRow0" role="option"></li>
+      <li id="pauseRow1" role="option"></li>
+      <li id="pauseRow2" role="option"></li>
+      <li id="pauseRow3" role="option"></li>
+      <li id="pauseRow4" role="option"></li>
+    </ul>
+    <div id="pauseSubs" hidden>
+      <ol id="roster">
+        <li><span id="roster0"></span> <progress id="rosterEnergy0" max="1" value="1" aria-label="Energy"></progress></li>
+        <li><span id="roster1"></span> <progress id="rosterEnergy1" max="1" value="1" aria-label="Energy"></progress></li>
+        <li><span id="roster2"></span> <progress id="rosterEnergy2" max="1" value="1" aria-label="Energy"></progress></li>
+        <li><span id="roster3"></span> <progress id="rosterEnergy3" max="1" value="1" aria-label="Energy"></progress></li>
+        <li><span id="roster4"></span> <progress id="rosterEnergy4" max="1" value="1" aria-label="Energy"></progress></li>
+      </ol>
+      <p id="subNote"></p>
+    </div>
+    <dl id="pauseControls" hidden>
+      <dt>WASD</dt><dd>move</dd>
+      <dt>Shift</dt><dd>sprint</dd>
+      <dt>Space</dt><dd>shoot / jump</dd>
+      <dt>E</dt><dd>pass / switch</dd>
+      <dt>Q</dt><dd>steal</dd>
+      <dt>F</dt><dd>hold ball</dd>
+      <dt>Esc</dt><dd>pause</dd>
+      <dt>G</dt><dd>quality</dd>
+    </dl>
+  </div>
+  <div class="bar"><strong>PAUSED</strong><em id="pauseHint"></em><div class="logo" aria-hidden="true"><span>TT</span></div></div>
 </section>
 <section class="screen" id="screenFinal" hidden>
   <h1 id="finalTitle">Final</h1>

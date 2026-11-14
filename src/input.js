@@ -29,10 +29,10 @@ export function createKeyboard(target) {
       switch: on('KeyE'),
       hold: on('KeyF'),
     }),
-    // Forgets every key held now: each stays unseen, auto-repeats too, until it is let go. Keys not held are unaffected.
-    drop: () => {
-      for (const code of held) { dropped.add(code); tapped.delete(code); }
-      held.clear();
+    // Forgets every key held now, or only those of `codes` that are: each stays unseen, auto-repeats too, until it is
+    // let go. Keys not held are unaffected.
+    drop: codes => {
+      for (const code of codes ?? [...held]) if (held.delete(code)) { dropped.add(code); tapped.delete(code); }
     },
   };
 }

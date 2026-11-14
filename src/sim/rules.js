@@ -1,5 +1,5 @@
 import { CLOCK, COURT, PASS, PLAYER, STAMINA, TIP, VIOLATION } from './tuning.js';
-import { attackSign, lineUp, onFloor, personOf, rand } from './state.js';
+import { addPoints, attackSign, lineUp, onFloor, personOf, rand } from './state.js';
 import { jump } from './players.js';
 import { inNet } from './ball.js';
 import { spend } from './stamina.js';
@@ -150,6 +150,7 @@ function tipOff(state, events, dt, intents) {
 export function startMatch(state) {
   state.quarter = 1;
   state.score = [0, 0];
+  state.byQuarter = [[], []];
   beginPeriod(state);
 }
 
@@ -193,7 +194,7 @@ function livePlay(state, events, dt) {
 
   if (events.scored) {
     const team = events.scored === 1 ? 0 : 1;
-    state.score[team] += ball.shotValue || 2;
+    addPoints(state, team, ball.shotValue || 2);
     ball.shooter = null; ball.shotValue = 0; ball.mode = 'loose';
     if (fouledShot) return callFoul(state, fouledShot, 1);   // the basket counts, and one free throw
     stopPlay(state, 1 - team, underHoop(events.scored));

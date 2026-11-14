@@ -2,6 +2,7 @@ import { CLOCK, FOUL, ROSTER } from '../sim/tuning.js';
 import { personOf, surname } from '../sim/state.js';
 import { onCourt } from '../sim/roster.js';
 import { menuRows } from '../menu.js';
+import { pauseRows } from '../pause.js';
 import { QUALITY } from './quality.js';
 
 const FPS_EASE = 0.05;   // how fast the frame-rate readout follows the real rate: steady enough to read
@@ -74,6 +75,24 @@ export function menuText(menu, row, quality) {
   return MENU_WORDS[choice];
 }
 
+// The pause menu: the words of each button, and what the hint line says in each panel.
+const PAUSE_WORDS = { resume: 'Resume', subs: 'Substitutions', controls: 'Controls', settings: 'Settings', quit: 'Quit to main menu',
+  stay: 'No, keep playing', leave: 'Yes, quit' };
+const PAUSE_HINTS = { main: '↑ ↓ choose · Enter select · Esc resume', settings: '↑ ↓ choose · Enter change · Esc back',
+  subs: '1 to 5 swap two players · A automatic substitutions · Esc back', controls: 'Esc back', quit: '↑ ↓ choose · Enter select · Esc back' };
+const PAUSE_SLOTS = 5;   // pauseRow0 to pauseRow4 on the page
+
+// The words of row `row` of the pause menu's panel shown; the settings say their value.
+export function pauseText(state, menu, row, quality) {
+  const choice = pauseRows(menu)[row];
+  if (choice === 'quality') return `Quality: ${QUALITY[quality].label}`;
+  if (choice === 'autoSubs') return `Automatic substitutions: ${state.autoSubs[0] ? 'On' : 'Off'}`;
+  return PAUSE_WORDS[choice];
+}
+
+// The period as a scoreboard names it: 1ST to 4TH, then OT1, OT2.
+export const periodWord = quarter => (quarter <= CLOCK.quarters ? ['1ST', '2ND', '3RD', '4TH'][quarter - 1] : `OT${quarter - CLOCK.quarters}`);
+
 const BACKEND_NAMES = { webgpu: 'WebGPU', webgl2: 'WebGL 2 (WebGPU not available)' };
 const SCREENS = { start: 'screenStart', pause: 'screenPause', final: 'screenFinal' };
 
@@ -91,7 +110,7 @@ export function createHud(doc) {
   const hide = (id, hidden) => put(`${id}.hidden`, hidden, () => { el(id).hidden = hidden; });
   const bar = (id, energy) => put(id, Math.round(energy * 100) / 100, (e, v) => { e.value = v; });
   const style = (id, key, value) => put(`${id}.${key}`, value, () => { el(id).style[key] = value; });
-  let screen, lastCall = null, lastScore, lastPanel;
+  let screen, lastCall = null, lastScore, lastPanel, lastPause;
 
   return {
     // `ui` is what the page itself knows: whether the game is paused, which roster row is selected, and for the
@@ -140,6 +159,42 @@ export function createHud(doc) {
         });
       }
 
+      // The pause menu (`ui.pauseMenu`), while paused: its buttons with the highlight on one, or the panel one of them
+      // opened, the hint line, and the scoreboard: each team by quarter, with overtime as one more column.
+      const pause = ui.paused ? ui.pauseMenu : null;
+      if (pause) {
+        const rows = pauseRows(pause);
+        if (pause.panel !== lastPause) delete shown.announce;   // a panel opened or closed: say so, even in the same words
+        hide('pauseList', !rows.length);
+        for (let row = 0; row < PAUSE_SLOTS; row++) {
+          hide(`pauseRow${row}`, row >= rows.length);
+          if (row < rows.length) set(`pauseRow${row}`, pauseText(state, pause, row, ui.quality));
+          put(`pauseRow${row}.selected`, String(row === pause.row && row < rows.length), (_, v) => { el(`pauseRow${row}`).ariaSelected = v; });
+        }
+        hide('pauseSubs', pause.panel !== 'subs');
+        hide('pauseControls', pause.panel !== 'controls');
+        hide('pauseAsk', pause.panel !== 'quit');
+        set('pauseHint', PAUSE_HINTS[pause.panel]);
+        const extra = state.quarter > CLOCK.quarters;
+        hide('pbOtHead', !extra);
+        for (const team of [0, 1]) {
+          const periods = state.byQuarter[team];
+          set(`pbAbbr${team}`, ROSTER.abbr[team]);
+          for (let q = 0; q < CLOCK.quarters; q++) {
+            set(`pbQ${team}${q}`, q < state.quarter ? String(periods[q] ?? 0) : '–');
+            put(`pbQ${team}${q}.class`, q === state.quarter - 1 ? 'live' : '', (_, v) => { el(`pbQ${team}${q}`).className = v; });
+          }
+          hide(`pbOt${team}`, !extra);
+          if (extra) set(`pbOt${team}`, String(periods.slice(CLOCK.quarters).reduce((sum, points) => sum + points, 0)));
+          set(`pbTotal${team}`, String(state.score[team]));
+          set(`pbFouls${team}`, String(state.teamFouls[team]));
+        }
+        set('pbPeriod', periodWord(state.quarter));
+        set('pbClock', clockText(state.gameClock));
+        set('pbShot', `SHOT ${Math.ceil(state.shotClock)}`);
+      }
+      lastPause = pause?.panel;
+
       // The whistle: a banner during the stoppage. Screen readers hear a new call, or else a change of score.
       const banner = state.phase === 'dead' && state.call !== null;
       if (banner) set('call', callText(state.call));
@@ -147,6 +202,7 @@ export function createHud(doc) {
       const score = `You ${state.score[0]}, opponent ${state.score[1]}`;
       if (state.call && state.call !== lastCall) set('announce', callText(state.call));
       else if (menu) set('announce', menuRows(menu).length ? menuText(menu, menu.row, ui.quality) : MENU_WORDS[menu.panel]);
+      else if (pause) set('announce', pauseRows(pause).length ? pauseText(state, pause, pause.row, ui.quality) : PAUSE_WORDS[pause.panel]);
       else if (score !== lastScore) set('announce', score);
       lastCall = state.call; lastScore = score;
 

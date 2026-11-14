@@ -1,5 +1,5 @@
 import { CLOCK, COURT, FT, PLAYER } from './tuning.js';
-import { attackSign, personOf, rand } from './state.js';
+import { addPoints, attackSign, personOf, rand } from './state.js';
 import { rimCentre } from './ball.js';
 import { carryBall, giveBall, launchShot } from './players.js';
 import { shotFactor } from './stamina.js';
@@ -63,7 +63,7 @@ export function stepFreeThrow(state, intents, events, dt) {
   }
 
   if (ft.stage === 'flight') {
-    if (events.scored) state.score[shooter.team] += 1;
+    if (events.scored) addPoints(state, shooter.team, 1);
     if (ft.live) return events.scored ? 'scored' : ball.holder !== null ? 'live' : null;
     if (events.scored || events.hitFloor) { ft.left--; ft.stage = 'pause'; ft.t = 0; }
     return null;
