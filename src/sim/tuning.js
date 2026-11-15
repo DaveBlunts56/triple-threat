@@ -95,7 +95,7 @@ export const FINISH = f({
   layupNear: 0.5, layupFar: 4.5, drive: 2, close: 2.8, away: 1, gather: 0.5, gatherSpeed: 5,
   takeoff: f({ layup: 1.6, dunk: 2.2 }), jump: f({ layup: 3.7, dunk: 4.6 }), arrive: f({ layup: 0.9, dunk: 0.35 }),
   release: f({ up: 2.55, ahead: 0.3 }),
-  dunkMoment: 0.69, dunkAt: 78, dunkEnergy: 0.25, dunkChance: 0.97, dunkContest: 0.45, reach: 0.9, dunkDrop: 4, stealFactor: 0.5, block: 0.35,
+  dunkMoment: 0.69, dunkAt: 78, dunkEnergy: 0.25, dunkChance: 0.97, dunkContest: 0.45, reach: 0.9, dunkDrop: 4, stealFactor: 0.5, block: 0.5,
 });
 export const BLOCK = f({ reach: 1.2, minHeight: 0.3, chance: 0.36, cone: 45, deflect: 4 });
 

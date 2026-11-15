@@ -313,3 +313,27 @@ already has. What each gave:
 
 A clip that would do better for each: one player, filmed from the side at about his own height, unedited, at the
 speed it was played.
+
+## After play-testing (2026-11-14): higher jumps, and the layup as a finger roll
+
+The owner found both finishes jumped too low, and described the layup he wants: a first step with the right foot, a
+longer second with the left, up off the left foot with the right knee raised and the right arm extended toward the
+rim, the ball rolled off the fingertips underhand in a soft arc over the front of the rim, without the backboard.
+
+- **The jumps.** `FINISH.jump` is 3.7 m/s for a layup (it was 3.2) and 4.6 for a dunk (4.2): a rise of 0.70 m and
+  1.08 m, 0.75 s and 0.94 s in the air. The hand is above the rim on both.
+- **The layup's release.** The ball leaves his raised hand: `FINISH.release.up` (2.55 m) above his feet and
+  `FINISH.release.ahead` (0.3 m) out from him toward the rim, never nearer the rim than a shot may be let go. At the
+  best moment that is about 3.2 m up, above the rim.
+- **No backboard.** A layup the rules send in goes in clean over the front of the rim: it is not banked and does not
+  rattle. (A miss can still come off the glass.)
+- **The layup's flight** is now set from that description, not by eye and not from the layup clip: the measured take-off
+  of the dunk (off the left foot, right knee up), then the right arm reaching up to the rim with the palm turned up,
+  straight at the release, the left arm down, the trunk 10 degrees back, then both legs under him and the measured
+  landing. The gather's two steps were already right foot then left, as measured.
+- **`FINISH.block` is 0.5** (it was 0.35): with the higher jumps and release, scoring rose past a tenth at three a side.
+
+Measured over 30 computer matches at each size: three a side 75.7 points (69.7 before any finish) and 11.0 s a
+possession, with 1.0 dunks, 13.9 layups and 16.3 shots a match; five a side 59.3 points (55.5) and 12.6 s, with 0.2,
+9.4 and 14.6. In the game: stills of a layup with the knee up and the arm at the rim, the ball leaving the hand at rim
+height and going in, and of a dunk with the hand above the rim at 1.06 m off the floor; no error in the console.
