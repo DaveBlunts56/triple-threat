@@ -85,19 +85,21 @@ export const MOVES = f({
 // layup from a standstill too (a step in), unless he is going away from it faster than `away`. gather: seconds of the two steps. gatherSpeed: the fastest he is
 // carried through them. takeoff: metres from the rim's centre at which he leaves the floor. jump: m/s he jumps at.
 // arrive: metres in front of the rim's centre he is at the finish's moment. dunkMoment: the share of the jump at
-// which the ball goes down. dunkAt: the Inside from which he can dunk. dunkEnergy: the energy below which he cannot.
+// which the ball goes down: just past the top of it, the only part of the jump in which his hand is above the rim (the
+// reference clip's dunker, taller and higher, threw it down at 0.69). dunkAt: the Inside from which he can dunk. dunkEnergy: the energy below which he cannot.
 // dunkChance: an open dunk's chance; dunkContest: how much of it a defender can take. reach: the furthest from the
 // rim's centre he can be at the dunk's moment and still dunk. dunkDrop: m/s the ball goes down through the rim.
 // windmillAt, windmillRoom: a dunk is a windmill for a player whose Inside is at least the first, with no defender
 // within the second (metres) as he begins it. It changes how it looks, not what it is.
-// release: where a layup leaves his raised hand: metres above his feet, and out from him toward the rim.
+// release: where a layup leaves his raised hand: metres above his feet, and out from him toward the rim: where the
+// motion has the ball in his hand at that moment, so that it is not seen to jump as it leaves.
 // stealFactor: what a reach's chance is multiplied by through a finish, on the floor and in the air. block: what a
 // block's chance is multiplied by on a finish: it goes up high with his body between the ball and the defender.
 export const FINISH = f({
   layupNear: 0.5, layupFar: 4.5, drive: 2, close: 2.8, away: 1, gather: 0.5, gatherSpeed: 5,
-  takeoff: f({ layup: 1.6, dunk: 2.2 }), jump: f({ layup: 3.7, dunk: 4.6 }), arrive: f({ layup: 0.9, dunk: 0.35 }),
-  release: f({ up: 2.55, ahead: 0.3 }), windmillAt: 86, windmillRoom: 2.5,
-  dunkMoment: 0.69, dunkAt: 78, dunkEnergy: 0.25, dunkChance: 0.97, dunkContest: 0.45, reach: 0.9, dunkDrop: 4, stealFactor: 0.5, block: 0.5,
+  takeoff: f({ layup: 1.6, dunk: 2.2 }), jump: f({ layup: 3.7, dunk: 4.6 }), arrive: f({ layup: 0.9, dunk: 0.2 }),
+  release: f({ up: 2.15, ahead: 0.3 }), windmillAt: 86, windmillRoom: 2.5,
+  dunkMoment: 0.55, dunkAt: 78, dunkEnergy: 0.25, dunkChance: 0.97, dunkContest: 0.45, reach: 0.9, dunkDrop: 4, stealFactor: 0.5, block: 0.5,
 });
 export const BLOCK = f({ reach: 1.2, minHeight: 0.3, chance: 0.36, cone: 45, deflect: 4 });
 

@@ -354,3 +354,24 @@ it, and it is built from both.
   in the swinging hand throughout.
 - **Called** as a windmill by the commentator (three wordings).
 - **Not in it:** grabbing or hanging on the rim; a choice of dunk by the player.
+
+## The ball came up through the rim (2026-11-15)
+
+Play-testing: on a dunk the ball was seen to hit the rim and still count. The rules were clean (of 195 dunks sent in,
+none touched the rim); the picture was wrong. At the dunk's moment the motion had the ball in his hand 2.82 m up,
+0.23 m under the rim, and the rules then put it at 3.22 m over the rim's middle, so it was drawn jumping up through the
+iron before it dropped. The layup had the same fault: drawn 0.47 m under where the rules let it go from.
+
+- **`FINISH.dunkMoment` is 0.55** (it was the clip's 0.69). Our players' hand is above the rim only round the top of
+  the jump; the clip's dunker, taller and higher, was still above it later.
+- **`FINISH.arrive.dunk` is 0.2 m** (0.35), so his hand is over the rim's middle, not short of it.
+- **The dunk and the windmill pass through a pose with the hand over the rim** at that moment (`OVER_RIM` in
+  `poses.py`); the clip's thrown-down pose is now the follow-through. The windmill's circle is a little quicker to be
+  there in time.
+- **`FINISH.release.up` is 2.15 m** (2.55): the height of the ball in the layup's raised hand. A layup now leaves from
+  about 2.8 m, a little under the rim, and is rolled up and over it. The layup's straight-arm pose is at 0.4 of the
+  jump, the best moment, and held to past the top.
+- **Tests hold the two together:** the ball in the hand at the dunk's moment is above the rim and within 0.12 m of the
+  rim's middle, for the dunk and the windmill; the layup's hand is within 0.1 m of where the rules let the ball go.
+
+Seen in the game from the side: at the moment the ball leaves, it is in his hand above the rim, over its middle.

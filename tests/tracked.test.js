@@ -80,7 +80,7 @@ test('the gather, the dunk and the layup are in the file with their twins: of th
 test('at each measured moment the built pose lies along what was measured, limb by limb', () => {
   const dunk = Object.fromEntries(tracked('dunk-one-foot').moments.map(m => [m.name, m]));
   const keys = [['finishGather', 0, 'gather'], ['finishGather', 0.33, 'step1'], ['finishGather', 0.69, 'step2'], ['finishGather', 0.81, 'deepest'], ['finishGather', 1, 'takeoff'],
-    ['dunk', 0, 'takeoff'], ['dunk', 0.36, 'cocked'], ['dunk', 0.69, 'dunk'], ['dunk', 1, 'landing'], ['layup', 0, 'takeoff']];
+    ['dunk', 0, 'takeoff'], ['dunk', 0.3, 'cocked'], ['dunk', 0.68, 'dunk'], ['dunk', 1, 'landing'], ['layup', 0, 'takeoff']];
   for (const [motion, share, moment] of keys) {
     const at = posed(motion, share);
     for (const [limb, [from, to]] of Object.entries(JOINTS)) {
@@ -93,7 +93,7 @@ test('at each measured moment the built pose lies along what was measured, limb 
 });
 
 test('the ball hand is above the head at the dunk and at the layup\'s release, and the twin is the same in a mirror', () => {
-  for (const [motion, share] of [['dunk', 0.69], ['layup', 0.62]]) {
+  for (const [motion, share] of [['dunk', 0.55], ['layup', 0.4]]) {
     const at = posed(motion, share), twin = posed(`${motion}Left`, share);
     assert.ok(at('RightHand').y > at('Head').y, `${motion}: the right hand is ${at('RightHand').y - at('Head').y} m above the head`);
     assert.ok(at('RightHand').z > at('Hips').z, `${motion}: the hand is behind the hips`);
@@ -125,7 +125,7 @@ test('the fade\'s arms lie along what its clip measured, from the gather to the 
 });
 
 test('the layup is as described: up off the left foot with the right knee raised, the right arm straight up toward the rim at the release, then both legs under him', () => {
-  const up = posed('layup', 0.35), roll = posed('layup', 0.62), down = posed('layup', 0.9);
+  const up = posed('layup', 0.2), roll = posed('layup', 0.4), down = posed('layup', 0.9);
   assert.ok(up('RightLeg').y > up('LeftLeg').y + 0.15 && up('RightLeg').z > up('Hips').z + 0.2, 'the right knee is not raised in front as he goes up');
   assert.ok(roll('RightHand').y > roll('Head').y + 0.25 && roll('RightHand').z > roll('Hips').z + 0.15, 'the right hand is not up and out toward the rim');
   const upper = roll('RightForeArm').sub(roll('RightArm')), fore = roll('RightHand').sub(roll('RightForeArm'));
@@ -135,24 +135,53 @@ test('the layup is as described: up off the left foot with the right knee raised
   assert.ok(Math.abs(down('RightLeg').y - down('LeftLeg').y) < 0.2, 'his legs are not both under him as he comes down');
 });
 
-test('the windmill: the knee to the chest at the take-off, the ball swung down, out and back, over the top, and slammed forward at 0.69 of the jump', () => {
+test('the windmill: the knee to the chest at the take-off, the ball swung down, out and back, over the top, and the arm slammed forward after it', () => {
   for (const name of ['windmill', 'windmillLeft']) assert.deepEqual([facts.clips[name]?.from, facts.clips[name]?.whole], ['tracked', true], name);
   const off = posed('windmill', 0), plain = posed('dunk', 0);
   assert.ok(off('RightLeg').y > plain('RightLeg').y + 0.05, 'the knee is no higher than in the plain dunk');
-  const down = posed('windmill', 0.14), out = posed('windmill', 0.48), top = posed('windmill', 0.58), slam = posed('windmill', 0.69);
+  const down = posed('windmill', 0.1), out = posed('windmill', 0.37), top = posed('windmill', 0.44), slam = posed('windmill', 0.68);
   assert.ok(down('RightHand').y < down('Hips').y + 0.05, 'the ball is not swung down by the hip');
   assert.ok(out('RightHand').x < out('RightArm').x - 0.3 && out('RightHand').z < out('Hips').z + 0.1, 'the arm is not out to his side and back');
   assert.ok(top('RightHand').y > top('Head').y + 0.2 && top('RightHand').z < top('Head').z + 0.1, 'the ball does not come over the top');
-  assert.ok(slam('RightHand').y > slam('Head').y && slam('RightHand').z > slam('Hips').z + 0.3, 'the arm is not out over the rim at the slam');
+  assert.ok(slam('RightHand').z > slam('Hips').z + 0.4 && slam('RightHand').y < top('RightHand').y - 0.3, 'the arm does not come forward and down after the ball');
   // The measured part of the circle lies along what the clip measured.
   const clip = Object.fromEntries(tracked('dunk-windmill-flight').moments.map(m => [m.name, m]));
-  for (const [share, moment] of [[0.14, 'down'], [0.27, 'low'], [0.38, 'behind'], [0.48, 'rising']]) {
+  for (const [share, moment] of [[0.1, 'down'], [0.2, 'low'], [0.29, 'behind'], [0.37, 'rising']]) {
     const at = posed('windmill', share);
     for (const limb of ['rightUpperArm', 'rightForearm']) {
       const [from, to] = JOINTS[limb], offBy = degrees(at(to).sub(at(from)), new THREE.Vector3(...clip[moment].limbs[limb]));
       assert.ok(offBy < 25, `windmill at ${share} (${moment}): ${limb} is ${offBy.toFixed(0)} degrees off`);
     }
   }
-  const twin = posed('windmillLeft', 0.58);
+  const twin = posed('windmillLeft', 0.44);
   assert.ok(Math.abs(twin('LeftHand').x + top('RightHand').x) < 0.03, 'the twin is not the windmill in a mirror');
+});
+
+// ---------- the ball is where the hand is when the rules take it from him ----------
+
+const { FINISH, RIM: RIM_AT, BALL: BALL_AT, SHOT: SHOT_AT } = await import('../src/sim/tuning.js');
+// Where the ball in his right hand is with `motion` held at `share` of a jump begun at `speed` m/s: metres above the
+// floor in play, and metres in front of the middle of his hips.
+function ballInHand(motion, share, speed) {
+  const at = posed(motion, share), hand = at('RightHand'), palm = hand.clone().add(hand.clone().sub(at('RightForeArm')).normalize().multiplyScalar(0.1));
+  const sole = Math.min(at('LeftToeBase').y, at('RightToeBase').y) - 0.05, t = (share * 2 * speed) / BALL_AT.gravity;
+  return { up: palm.y - sole + speed * t - 0.5 * BALL_AT.gravity * t * t, ahead: palm.z - at('Hips').z };
+}
+
+test('at the dunk\'s moment the ball in his hand is above the rim and over it: it does not come up through the iron', () => {
+  for (const motion of ['dunk', 'windmill']) {
+    const ball = ballInHand(motion, FINISH.dunkMoment, FINISH.jump.dunk);
+    assert.ok(ball.up - BALL_AT.radius > RIM_AT.height - 0.02, `${motion}: the ball's underside is ${(RIM_AT.height - ball.up + BALL_AT.radius).toFixed(2)} m under the rim`);
+    // A little above where the rules put it is a ball brought down into the rim; below it would come up through the iron.
+    const over = ball.up - (RIM_AT.height + BALL_AT.radius + 0.05);
+    assert.ok(over > -0.08 && over < 0.2, `${motion}: the ball is ${ball.up.toFixed(2)} m up, and the rules put it at ${(RIM_AT.height + BALL_AT.radius + 0.05).toFixed(2)}`);
+    assert.ok(Math.abs(ball.ahead - FINISH.arrive.dunk) < 0.12, `${motion}: the ball is ${ball.ahead.toFixed(2)} m in front of him, and the rim's middle ${FINISH.arrive.dunk}`);
+  }
+});
+
+test('a layup leaves the hand where the hand is: as high and as far out as the rules let it go from', () => {
+  const share = SHOT_AT.bestAt / 2, ball = ballInHand('layup', share, FINISH.jump.layup);          // the best moment, as a share of the whole jump
+  const t = (share * 2 * FINISH.jump.layup) / BALL_AT.gravity, rise = FINISH.jump.layup * t - 0.5 * BALL_AT.gravity * t * t;
+  assert.ok(Math.abs(ball.up - (rise + FINISH.release.up)) < 0.1, `the ball is ${ball.up.toFixed(2)} m up in his hand and leaves from ${(rise + FINISH.release.up).toFixed(2)}`);
+  assert.ok(Math.abs(ball.ahead - FINISH.release.ahead) < 0.12, `the ball is ${ball.ahead.toFixed(2)} m in front of him and leaves from ${FINISH.release.ahead}`);
 });

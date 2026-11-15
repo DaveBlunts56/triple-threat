@@ -194,12 +194,18 @@ ARM_DOWN = {'RightArm': (17, -22, 21), 'RightForeArm': (-5, -12, -9), 'RightHand
 D, F, W = 'dunk-one-foot', 'fade-post', 'dunk-windmill-flight'
 # The windmill, as the owner described it and as far as its clip was tracked. He goes up off one foot with the other
 # knee driven toward his chest (described: the clip's take-off is from two feet); the ball swings down, out and back
-# (measured: `down`, `low`, `behind`, `rising`, where the tracker still had him); then it comes over the top and is
-# slammed forward and down through the rim (described: the tracker had lost him by then). Directions are in the body's
+# (measured: `down`, `low`, `behind`, `rising`, where the tracker still had him); then it comes over the top, is over
+# the rim as the ball goes down, and the arm is slammed forward and down after it (described: the tracker had lost
+# him by then). Directions are in the body's
 # frame: x his left, y up, z out of his chest.
 KNEE_TO_CHEST = {'limbs': {'rightThigh': (-0.1, 0.2, 0.97), 'rightShin': (0, -0.92, -0.39)}}
 OVER_THE_TOP = {'limbs': {'rightUpperArm': (-0.45, 0.85, -0.27), 'rightForearm': (-0.3, 0.93, -0.2)}, 'shoulders': (0.94, 0, 0.34)}
-SLAMMED = {'limbs': {'rightUpperArm': (-0.15, 0.7, 0.7), 'rightForearm': (-0.1, 0.55, 0.83)}, 'shoulders': (0.97, 0, -0.24), 'trunk': (0, 0.99, 0.12)}
+# Over the rim: the arm nearly straight up, a little forward, the ball above the rim's middle. This is where the hand
+# must be as the rules send the ball down (FINISH.dunkMoment, FINISH.arrive.dunk): a hand lower or further forward
+# has the ball under the rim, and it is seen to come up through the iron.
+OVER_RIM = {'limbs': {'rightUpperArm': (-0.08, 0.92, 0.38), 'rightForearm': (-0.06, 0.88, 0.47)}, 'trunk': (0, 1, 0.05)}
+OVER_RIM_TURNED = {'limbs': {'rightUpperArm': (-0.08, 0.98, 0.18), 'rightForearm': (-0.06, 0.97, 0.23)}, 'trunk': (0, 1, 0.05), 'shoulders': (0.99, 0, -0.12)}   # the windmill's: his shoulder has come round, so the arm is more upright
+SLAMMED = {'limbs': {'rightUpperArm': (-0.15, 0.3, 0.94), 'rightForearm': (-0.1, -0.1, 0.99)}, 'shoulders': (0.97, 0, -0.24), 'trunk': (0, 0.99, 0.12)}
 # What the fade keeps from the poses made by hand: the trunk (see FADE_BY_HAND) and the hands, which no clip gives.
 trunk_and_hands = lambda pose: {bone: pose[bone] for bone in ('Spine1', 'Spine2', 'Neck', 'Head', 'RightHand', 'LeftHand') if bone in pose}
 TRACKED = {
@@ -212,19 +218,25 @@ TRACKED = {
     # The two steps: the shares are the measured times over the 0.52 s from the gather to the take-off.
     'finishGather': {'kind': 'held', 'seconds': 0.5, 'through': True, 'whole': True, 'keys': [
         (0, (D, 'gather'), {}), (0.33, (D, 'step1'), {}), (0.69, (D, 'step2'), {}), (0.81, (D, 'deepest'), {}), (1, (D, 'takeoff'), {})]},
-    # The dunk's jump: cocked at 0.36 of it and thrown down at 0.69, as measured.
+    # The dunk's jump: the measured moments, a little earlier than in the clip. The ball goes down at 0.55 of it with
+    # the hand over the rim (OVER_RIM: set, since the clip's dunker reaches the rim later and lower in his jump than
+    # ours can); the clip's own thrown-down pose is the follow-through.
     'dunk': {'kind': 'held', 'seconds': 0.94, 'through': True, 'whole': True, 'keys': [
-        (0, (D, 'takeoff'), {}), (0.36, (D, 'cocked'), {}), (0.69, (D, 'dunk'), {}), (0.82, (D, 'dunk'), ARM_DOWN), (1, (D, 'landing'), {})]},
+        (0, (D, 'takeoff'), {}), (0.3, (D, 'cocked'), {}), (0.55, (D, 'cocked', OVER_RIM), {}), (0.68, (D, 'dunk'), {}),
+        (0.82, (D, 'dunk'), ARM_DOWN), (1, (D, 'landing'), {})]},
     # The windmill's jump (see KNEE_TO_CHEST): the arm's circle takes the first six tenths of it, and the ball goes
     # down at 0.69, as any dunk's does.
     'windmill': {'kind': 'held', 'seconds': 0.94, 'through': True, 'whole': True, 'keys': [
-        (0, (D, 'takeoff', KNEE_TO_CHEST), {}), (0.14, (W, 'down'), {}), (0.27, (W, 'low'), {}), (0.38, (W, 'behind'), {}), (0.48, (W, 'rising'), {}),
-        (0.58, (W, 'rising', OVER_THE_TOP), {}), (0.69, (W, 'rising', SLAMMED), {}), (0.82, (W, 'rising', SLAMMED), ARM_DOWN), (1, (D, 'landing'), {})]},
+        (0, (D, 'takeoff', KNEE_TO_CHEST), {}), (0.1, (W, 'down'), {}), (0.2, (W, 'low'), {}), (0.29, (W, 'behind'), {}), (0.37, (W, 'rising'), {}),
+        (0.44, (W, 'rising', OVER_THE_TOP), {}), (0.52, (W, 'rising', OVER_RIM_TURNED), {}), (0.58, (W, 'rising', OVER_RIM_TURNED), {}),
+        (0.68, (W, 'rising', SLAMMED), {}),
+        (0.82, (W, 'rising', SLAMMED), ARM_DOWN), (1, (D, 'landing'), {})]},
     # The layup's jump: the take-off and the landing are the dunk's (measured); between them it is as described (see
-    # REACHING): right knee up, right arm up to the rim, the ball rolled off the fingers at 0.62 of it.
+    # REACHING): right knee up, right arm up to the rim. The arm is straight by 0.4 of the jump, the best moment to let
+    # the ball go, and stays so to past the top, the last moment it can be held to.
     'layup': {'kind': 'held', 'seconds': 0.75, 'through': True, 'whole': True, 'keys': [
-        (0, (D, 'takeoff'), {}), (0.35, (D, 'takeoff', REACHING), {}), (0.62, (D, 'takeoff', ROLLED), {}),
-        (0.82, (D, 'takeoff', DESCENDING), {}), (1, (D, 'landing'), {})]},
+        (0, (D, 'takeoff'), {}), (0.2, (D, 'takeoff', REACHING), {}), (0.4, (D, 'takeoff', ROLLED), {}), (0.55, (D, 'takeoff', ROLLED), {}),
+        (0.78, (D, 'takeoff', DESCENDING), {}), (1, (D, 'landing'), {})]},
 }
 
 

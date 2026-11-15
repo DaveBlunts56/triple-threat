@@ -72,7 +72,7 @@ test('the jump carries him to FINISH.arrive in front of the rim at the finish\'s
   assert.ok(near(v.vx * t, FINISH.takeoff.dunk - FINISH.arrive.dunk) && near(v.vz, 0));
   const layup = driving(FINISH.takeoff.layup, 0), up = SHOT.bestAt * FINISH.jump.layup / BALL.gravity;
   assert.ok(near(jumpVelocity(layup.players[0], 'layup').vx * up, FINISH.takeoff.layup - FINISH.arrive.layup));
-  assert.deepEqual(jumpVelocity(driving(0.3, 0).players[0], 'dunk'), { vx: 0, vz: 0 });   // nearer than he would arrive: straight up
+  assert.deepEqual(jumpVelocity(driving(FINISH.arrive.dunk / 2, 0).players[0], 'dunk'), { vx: 0, vz: 0 });   // nearer than he would arrive: straight up
 });
 
 // ---------- the press and the gather ----------
@@ -303,11 +303,10 @@ test('a layup from a standstill close to the rim: a step in, up, and it is judge
 
 // ---------- after play-testing: higher jumps, and the layup as a finger roll ----------
 
-test('a layup rises about 0.7 m and a dunk over a metre: his hand is above the rim on both', () => {
+test('a layup rises about 0.7 m and a dunk over a metre', () => {
   const rise = finish => FINISH.jump[finish] ** 2 / (2 * BALL.gravity);
   assert.ok(rise('layup') > 0.65 && rise('layup') < 0.8, `a layup rises ${rise('layup')} m`);
   assert.ok(rise('dunk') > 1 && rise('dunk') < 1.2, `a dunk rises ${rise('dunk')} m`);
-  assert.ok(PLAYER.reach + rise('layup') > RIM.height && PLAYER.reach + rise('dunk') > RIM.height + 0.3);
 });
 
 test('a layup leaves his raised hand: above his head, out toward the rim, never nearer the rim than a shot may be let go', () => {
@@ -316,8 +315,10 @@ test('a layup leaves his raised hand: above his head, out toward the rim, never 
   const at = { x: p.x, y: p.y, z: p.z };
   tick(s);                                              // the key comes up: the ball leaves his hand
   const out = Math.hypot(RIM.x - s.ball.x, s.ball.z), his = Math.hypot(RIM.x - at.x, at.z);
-  assert.ok(s.ball.y > at.y + PLAYER.reach, `the ball left ${s.ball.y - at.y} m above his feet`);
-  assert.ok(s.ball.y > RIM.height - 0.1, `the ball left ${RIM.height - s.ball.y} m under the rim`);
+  // From where the motion has the ball in his hand (FINISH.release; a test in tracked.test.js holds the two together):
+  // a little under the rim, from where it is rolled up and over.
+  assert.ok(s.ball.y > at.y + 2 && s.ball.y < at.y + PLAYER.reach, `the ball left ${s.ball.y - at.y} m above his feet`);
+  assert.ok(s.ball.y > RIM.height - 0.4, `the ball left ${RIM.height - s.ball.y} m under the rim`);
   assert.ok(out < his - 0.1 && out >= SHOT.minRelease - 0.05, `he was ${his} m out and the ball left ${out} m out`);   // one step of its flight has passed
 });
 
