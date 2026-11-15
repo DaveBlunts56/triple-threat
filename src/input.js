@@ -7,7 +7,7 @@ export const steer = (intent, heading) => ({ ...intent,
   moveZ: intent.moveX * heading.x - intent.moveZ * heading.z });
 
 // The actions the keyboard turns into an Intent; the others (plays, timeout, camera, quality) are the page's.
-const HELD = ['up', 'left', 'down', 'right', 'sprint', 'shoot', 'pass', 'steal', 'hold', 'cross', 'legs', 'back', 'stepBack', 'fade'];
+const HELD = ['up', 'left', 'down', 'right', 'sprint', 'shoot', 'pass', 'steal', 'hold', 'cross', 'legs', 'back', 'stepBack', 'fade', 'dunk'];
 
 // Tracks held keys on `target` (the window in the game) and reports them as an Intent. `keys` says which key does
 // what (see keys.js); it is read at every press, so a key changed in the Keys panel counts from then on.
@@ -47,7 +47,7 @@ export function createKeyboard(target, keys = createKeys()) {
       switch: on('pass'),
       hold: on('hold'),
       foul: false,   // only the computer fouls on purpose
-      cross: on('cross'), legs: on('legs'), back: on('back'), stepBack: on('stepBack'), fade: on('fade'),
+      cross: on('cross'), legs: on('legs'), back: on('back'), stepBack: on('stepBack'), fade: on('fade'), dunk: on('dunk'),
     }),
     // Forgets every key held now, or only those of the keyboard codes `codes` that are: each stays unseen, auto-repeats
     // too, until it is let go. Keys not held are unaffected.

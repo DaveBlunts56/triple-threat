@@ -65,7 +65,7 @@ function callFoul(state, foul, shots) {
 function deadBall(state) {
   if (state.ball.holder === null && !inNet(state.ball)) state.ball.vx = state.ball.vz = 0;
   state.ball.target = null;
-  for (const p of state.players) p.shooting = false;
+  for (const p of state.players) { p.shooting = false; p.finish = null; }
   ownMen(state);   // a switch lasts until the whistle
 }
 
@@ -80,7 +80,7 @@ function setupInbound(state) {
   const { ball, inboundSpot: spot } = state;
   const d = p => Math.hypot(p.x - spot.x, p.z - spot.z);
   const inbounder = state.players.filter(p => p.team === state.possession).reduce((a, b) => (d(b) < d(a) ? b : a));
-  for (const p of state.players) { p.inbounder = false; p.shooting = false; p.held = false; p.steps = 0; }
+  for (const p of state.players) { p.inbounder = false; p.shooting = false; p.finish = null; p.held = false; p.steps = 0; }
   Object.assign(inbounder, {
     x: spot.x, z: spot.z, y: 0, vx: 0, vy: 0, vz: 0, inbounder: true,
     facing: Math.atan2(-spot.z, spot.x * 0.7 - spot.x),   // toward the middle of the court

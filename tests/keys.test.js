@@ -7,15 +7,15 @@ const distinct = keys => new Set(ACTIONS.map(a => keys[a])).size === ACTIONS.len
 
 test('every action has a key and words, and no two share a key', () => {
   for (const action of ACTIONS) { assert.ok(DEFAULT_KEYS[action], action); assert.ok(ACTION_WORDS[action], action); }
-  assert.equal(ACTIONS.length, 18);
+  assert.equal(ACTIONS.length, 19);
   assert.ok(distinct(DEFAULT_KEYS));
   for (const action of ACTIONS) assert.ok(bindable(DEFAULT_KEYS[action]), action);
 });
 
 test('an action is put on a free key', () => {
   const keys = createKeys();
-  assert.equal(bind(keys, 'cross', 'KeyR'), true);
-  assert.equal(keys.cross, 'KeyR');
+  assert.equal(bind(keys, 'cross', 'KeyH'), true);
+  assert.equal(keys.cross, 'KeyH');
   assert.equal(actionOf(keys, 'KeyJ'), null);
 });
 
@@ -28,7 +28,7 @@ test('a key in use changes places with the one being set', () => {
 });
 
 test('after any run of changes every action still has a key of its own', () => {
-  const keys = createKeys(), pool = ['KeyW', 'KeyR', 'Space', 'Shift', 'Digit1', 'ArrowUp', 'KeyJ', 'Slash', 'Tab', 'KeyU', 'KeyQ'];
+  const keys = createKeys(), pool = ['KeyW', 'KeyH', 'Space', 'Shift', 'Digit1', 'ArrowUp', 'KeyJ', 'Slash', 'Tab', 'KeyU', 'KeyQ'];
   let n = 7;
   for (let i = 0; i < 50; i++) {
     n = (n * 31 + 11) % 997;
@@ -57,7 +57,7 @@ test('the two Shift keys are one key', () => {
 });
 
 test('saved keys that make no sense are passed over one by one', () => {
-  assert.deepEqual(createKeys({ cross: 'KeyR', fly: 'KeyX', legs: 7, back: 'Escape' }), { ...DEFAULT_KEYS, cross: 'KeyR' });
+  assert.deepEqual(createKeys({ cross: 'KeyH', fly: 'KeyX', legs: 7, back: 'Escape' }), { ...DEFAULT_KEYS, cross: 'KeyH' });
   assert.ok(distinct(createKeys({ cross: 'KeyK', legs: 'KeyK' })));
   assert.deepEqual(createKeys(null), DEFAULT_KEYS);
   assert.deepEqual(createKeys('x'), DEFAULT_KEYS);
@@ -66,7 +66,7 @@ test('saved keys that make no sense are passed over one by one', () => {
 test('only what differs from the defaults is saved, and it comes back the same', () => {
   assert.deepEqual(savedKeys(createKeys()), {});
   const keys = createKeys();
-  bind(keys, 'cross', 'KeyR'); bind(keys, 'shoot', 'KeyW'); bind(keys, 'fade', 'Slash');
+  bind(keys, 'cross', 'KeyH'); bind(keys, 'shoot', 'KeyW'); bind(keys, 'fade', 'Slash');
   assert.deepEqual(createKeys(savedKeys(keys)), keys);
 });
 
@@ -84,8 +84,8 @@ test('what each key is called', () => {
 const at = action => ({ row: KEY_ROWS.indexOf(action), listening: false });
 
 test('the panel has a row for every action and one to reset', () => {
-  assert.equal(KEY_ROWS.length, 19);
-  assert.equal(KEY_ROWS[18], 'reset');
+  assert.equal(KEY_ROWS.length, 20);
+  assert.equal(KEY_ROWS[19], 'reset');
   assert.deepEqual(createKeysPanel(), { row: 0, listening: false });
 });
 
@@ -93,8 +93,8 @@ test('Enter on an action waits for a key, and the next usable key is set', () =>
   const keys = createKeys(), panel = at('cross');
   assert.equal(keysPanelKey(panel, 'Enter', keys), null);
   assert.equal(panel.listening, true);
-  assert.equal(keysPanelKey(panel, 'KeyR', keys), 'changed');
-  assert.equal(keys.cross, 'KeyR');
+  assert.equal(keysPanelKey(panel, 'KeyH', keys), 'changed');
+  assert.equal(keys.cross, 'KeyH');
   assert.equal(panel.listening, false);
 });
 
@@ -134,13 +134,13 @@ test('a Shift key pressed while waiting is set as Shift', () => {
 test('the bar goes round the rows', () => {
   const keys = createKeys(), panel = createKeysPanel();
   keysPanelKey(panel, 'ArrowUp', keys);
-  assert.equal(panel.row, 18);
+  assert.equal(panel.row, 19);
   keysPanelKey(panel, 'KeyS', keys);
   assert.equal(panel.row, 0);
 });
 
 test('the last row puts every key back', () => {
-  const keys = createKeys({ cross: 'KeyR', shoot: 'KeyW' }), panel = at('reset');
+  const keys = createKeys({ cross: 'KeyH', shoot: 'KeyW' }), panel = at('reset');
   assert.equal(keysPanelKey(panel, 'Enter', keys), 'changed');
   assert.deepEqual(keys, DEFAULT_KEYS);
   assert.equal(panel.listening, false);
@@ -153,8 +153,22 @@ test('Escape or Backspace leaves the panel', () => {
 });
 
 test('resetKeys keeps the same object', () => {
-  const keys = createKeys({ cross: 'KeyR' }), same = keys;
+  const keys = createKeys({ cross: 'KeyH' }), same = keys;
   resetKeys(keys);
   assert.equal(keys, same);
   assert.deepEqual(keys, DEFAULT_KEYS);
+});
+
+// ---------- the dunk key ----------
+
+test('the dunk is on R, and keys saved before it existed still give every action one key of its own', () => {
+  assert.equal(createKeys().dunk, 'KeyR');
+  assert.deepEqual(createKeys({}), DEFAULT_KEYS);                       // a save with no dunk in it
+  const taken = createKeys({ steal: 'KeyR' });                          // a save that had already put something on R
+  assert.equal(taken.steal, 'KeyR');
+  assert.notEqual(taken.dunk, 'KeyR');
+  assert.ok(distinct(taken) && ACTIONS.every(action => bindable(taken[action])));
+  assert.deepEqual(savedKeys(createKeys()), {});
+  const keys = createKeys(); bind(keys, 'dunk', 'KeyH');
+  assert.deepEqual(savedKeys(keys), { dunk: 'KeyH' });
 });

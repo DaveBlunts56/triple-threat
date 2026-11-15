@@ -169,8 +169,8 @@ test('a changed key acts and the old one no longer does', () => {
 
 test('a key changed after the keyboard was made counts at once', () => {
   const { k, keys, down } = bound();
-  bind(keys, 'cross', 'KeyR');
-  down('KeyR');
+  bind(keys, 'cross', 'KeyH');
+  down('KeyH');
   assert.equal(k.intent().cross, true);
 });
 
@@ -188,4 +188,11 @@ test('dropping by keyboard code drops a Shift key as the one key it is', () => {
   assert.equal(k.intent().sprint, false);
   up('ShiftRight'); down('ShiftLeft');
   assert.equal(k.intent().sprint, true);
+});
+
+test('the dunk key is read like the others', () => {
+  const { k, down, up } = keyboard();
+  assert.equal(k.intent().dunk, false);
+  down('KeyR'); assert.equal(k.intent().dunk, true);
+  up('KeyR'); assert.equal(k.intent().dunk, false);
 });

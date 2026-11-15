@@ -52,10 +52,11 @@ const toward = (player, point, speed) => {
   return far < 1e-9 || speed <= 0 ? { vx: 0, vz: 0 } : { vx: ((point.x - player.x) / far) * speed, vz: ((point.z - player.z) / far) * speed };
 };
 
-// How the two steps carry him: at the take-off spot as the gather ends, never faster than FINISH.gatherSpeed.
-export function gatherVelocity(player, finish) {
+// How the two steps carry him, with `left` seconds of the gather to go: at the take-off spot as it ends, never faster
+// than FINISH.gatherSpeed.
+export function gatherVelocity(player, finish, left = FINISH.gather) {
   const spot = takeoffSpot(player, finish);
-  return toward(player, spot, Math.min(FINISH.gatherSpeed, dist(player, spot) / FINISH.gather));
+  return toward(player, spot, Math.min(FINISH.gatherSpeed, dist(player, spot) / left));
 }
 
 // Seconds from the take-off to the finish's moment: FINISH.dunkMoment of the jump for a dunk, SHOT.bestAt of the way

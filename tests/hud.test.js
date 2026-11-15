@@ -157,7 +157,7 @@ test('the corner label names the quality level between the renderer and the fram
 test('the controls line says which keys change the quality and the camera and open the play list', () => {
   const doc = fakeDoc(), hud = createHud(doc), s = createMatch();
   hud.update(s, 'webgl2', { paused: false, pick: null });
-  assert.equal(doc.els.controls.textContent, 'W A S D move · Shift sprint · Space shoot / jump · E pass / switch · Q steal · F hold ball · J K L I U moves · Esc pause · G quality · C camera · T plays · Z timeout');
+  assert.equal(doc.els.controls.textContent, 'W A S D move · Shift sprint · Space shoot / jump · E pass / switch · Q steal · F hold ball · J K L I U moves · R dunk · Esc pause · G quality · C camera · T plays · Z timeout');
   assert.equal(hintLine(DEFAULT_KEYS), doc.els.controls.textContent);
 });
 
@@ -472,14 +472,16 @@ test('a row of the Keys panel says what the key does and the key, or that it wai
   assert.equal(keysText(keys, row, { row, listening: false }), 'Crossover: J');
   assert.equal(keysText(keys, row, { row, listening: true }), 'Crossover: press a key…');
   assert.equal(keysText(keys, row, { row: 2, listening: true }), 'Crossover: J');   // another row is the one waiting
-  assert.equal(keysText(keys, 18, { row: 18, listening: false }), 'Reset all keys');
+  assert.equal(keysText(keys, 19, { row: 19, listening: false }), 'Reset all keys');
   assert.equal(keysText(keys, 4, { row: 0, listening: false }), 'Sprint: Shift');
 });
 
 test('the Controls lines and the line under the court show the keys as they are now', () => {
   const keys = createKeys();
   assert.deepEqual(controlsLines(keys)[0], ['W A S D', 'move']);
-  assert.equal(controlsLines(keys).length, 11);
+  assert.equal(controlsLines(keys).length, 12);
+  assert.deepEqual(controlsLines(keys)[8], ['R', 'dunk']);
+  assert.match(hintLine(keys), / · R dunk · /);
   assert.deepEqual(controlsLines(keys)[6], ['J · K · L', 'crossover · between the legs · behind the back']);
   bind(keys, 'sprint', 'KeyX'); bind(keys, 'up', 'ArrowUp');
   assert.deepEqual(controlsLines(keys).slice(0, 2), [['↑ A S D', 'move'], ['X', 'sprint']]);
@@ -492,7 +494,7 @@ test('the page shows the Keys panel over the menu that opened it, and the change
   show();
   assert.equal(e.keyRows.hidden, true);
   menu.row = 4; menuKey(menu, 'Enter', keys); menu.row = MENU.settings.indexOf('keys'); menuKey(menu, 'Enter', keys); show();
-  assert.deepEqual([e.keyRows.hidden, e.menuList.hidden, e.keyRow0.textContent, e.keyRow0.ariaSelected, e.keyRow18.textContent, e.announce.textContent],
+  assert.deepEqual([e.keyRows.hidden, e.menuList.hidden, e.keyRow0.textContent, e.keyRow0.ariaSelected, e.keyRow19.textContent, e.announce.textContent],
     [false, true, 'Move up: W', 'true', 'Reset all keys', 'Move up: W']);
   menuKey(menu, 'Enter', keys); show();
   assert.deepEqual([e.keyRow0.textContent, e.keyRow0.className, e.menuHint.textContent], ['Move up: press a key…', 'listening', 'Press the new key · Esc to leave it as it was']);

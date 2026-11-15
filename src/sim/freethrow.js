@@ -26,7 +26,7 @@ export function setupFreeThrow(state) {
   const sign = attackSign(shooter.team), hoop = rimCentre(sign);
   const place = (p, [fromBaseline, z]) => Object.assign(p, {
     x: sign * (COURT.halfLength - fromBaseline), z, y: 0, vx: 0, vy: 0, vz: 0,
-    inbounder: false, shooting: false, held: false, steps: 0,
+    inbounder: false, shooting: false, finish: null, held: false, steps: 0,
   });
   place(shooter, [FT.lineDist, 0]);
   const [offence, defence] = state.size === 5 ? [FT.offence5, FT.defence5] : [FT.offence, FT.defence];

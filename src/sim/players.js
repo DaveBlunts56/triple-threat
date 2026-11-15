@@ -1,4 +1,4 @@
-import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FOUL, MOVES, PASS, PLAYER, RIM, SHOT, STAMINA, STAT, STEAL, THREE_PT, RATE, HEAT, levelOf } from './tuning.js';
+import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FINISH, FOUL, MOVES, PASS, PLAYER, RIM, SHOT, STAMINA, STAT, STEAL, THREE_PT, RATE, HEAT, levelOf } from './tuning.js';
 import { attackSign, onFloor as grounded, personOf, rand } from './state.js';
 import { shotFactor, speedFactor, spend } from './stamina.js';
 import { rimCentre, solveShot, stepBall } from './ball.js';
@@ -6,13 +6,16 @@ import { rematch } from './matchups.js';
 import { lift, drop, rated, heatOf } from './ratings.js';
 import { DRIBBLES, KINDS, startMove, stepMove, finishMove } from './moves.js';
 import { note } from './stats.js';
+import { behindBoard, finishFor, gatherVelocity } from './finish.js';
 
 // Seconds after the press of a shot: the best moment to let go, and the moment he is back on the floor.
 export const SHOT_BEST = SHOT.gather + SHOT.bestAt * PLAYER.shotJumpV / BALL.gravity;
 export const SHOT_LANDS = SHOT.gather + 2 * PLAYER.shotJumpV / BALL.gravity;
 
 // On the floor between pressing shoot and leaving it. Half a step of slack: shotT is a sum of steps.
-export const gathering = player => player.shooting && player.shotT < SHOT.gather - DT / 2;
+// How long he is on the floor between the press and the jump: a finish's two steps take longer than a shot's gather.
+export const gatherOf = player => (player.finish ? FINISH.gather : SHOT.gather);
+export const gathering = player => player.shooting && player.shotT < gatherOf(player) - DT / 2;
 
 export function jump(player, speed = PLAYER.jumpV) {
   if (!grounded(player)) return;
@@ -30,6 +33,13 @@ function moveOne(p, intent, dt, hasBall, pace) {
     // Steer toward the wanted velocity. Diagonal input is scaled back to length 1.
     // A player gathering for a shot is deaf to the move keys, so he brakes to a stop. So does one beaten by a move.
     // In a move of his own his velocity is the move's (stepMove has set it).
+    // Gathering for a finish he takes his two steps to the take-off spot, whatever the keys say.
+    if (p.finish && gathering(p)) {
+      const steps = gatherVelocity(p, p.finish, Math.max(dt, FINISH.gather - p.shotT));
+      p.vx = steps.vx; p.vz = steps.vz;
+      p.x += p.vx * dt; p.z += p.vz * dt;
+      return;
+    }
     const [moveX, moveZ] = gathering(p) || p.lateT > 0 ? [0, 0] : [intent.moveX, intent.moveZ];
     const len = Math.hypot(moveX, moveZ);
     const scale = ((intent.sprint ? PLAYER.sprint : PLAYER.run) * (hasBall ? PLAYER.dribbleSpeed : 1) * pace) / Math.max(len, 1);
@@ -136,7 +146,7 @@ function letGo(state, player, mode) {
   ball.holder = null; ball.mode = mode; ball.target = null;
   ball.noPickupId = player.id; ball.noPickupT = PASS.noPickup;
   state.lastTouch = player.team;
-  player.shooting = false; player.fading = false;
+  player.shooting = false; player.fading = false; player.finish = null;
 }
 
 // How much of a shot's chance its timing keeps, `t` seconds after the press: all of it at the best moment,
@@ -170,12 +180,7 @@ export function makeChance(state, player) {
 }
 
 // Behind the backboard of the hoop he attacks, with the board between him and the rim.
-export function boardInWay(player) {
-  const x = attackSign(player.team) * player.x;
-  if (x <= BOARD.x) return false;
-  const crossing = player.z * (BOARD.x - RIM.x) / (x - RIM.x);   // where his straight line to the rim centre meets the board's plane
-  return Math.abs(crossing) <= BOARD.halfWidth + BALL.radius;
-}
+export const boardInWay = behindBoard;
 
 // The green window of a shot from where `player` stands: a release within `half` seconds of `best` always goes in.
 // It is as wide as his defender allows, and narrows with range and tiredness.
@@ -380,9 +385,11 @@ export function trySteal(state, player) {
   // In a dribble move the ball is easier or harder to get at, and behind his back it cannot be had from in front.
   const move = holder.move && DRIBBLES.includes(holder.move.kind) ? MOVES[holder.move.kind] : null;
   const guarded = move ? (move.hidden && front ? 0 : move.steal) : 1;
-  const won = rand(state) < clamp((front ? STEAL.frontChance : STEAL.backChance) * (holder.held ? STEAL.heldFactor : 1) * skill * guarded, 0, 1);
+  // Gathering for a finish he has it in both hands.
+  const gripped = holder.finish && gathering(holder) ? FINISH.stealFactor : 1;
+  const won = rand(state) < clamp((front ? STEAL.frontChance : STEAL.backChance) * (holder.held ? STEAL.heldFactor : 1) * skill * guarded * gripped, 0, 1);
   if (won) {
-    holder.shooting = false; holder.fading = false;
+    holder.shooting = false; holder.fading = false; holder.finish = null;
     note(state, player, 'stl'); note(state, holder, 'tov');
     state.last.steal = { by: player.id, on: holder.id, at: state.time };
     giveBall(state, player);
@@ -415,7 +422,7 @@ function continueShot(state, p, intent, dt, report) {
   const wasGathering = gathering(p);
   p.shotT += dt;
   if (!wasGathering) {
-    if (grounded(p)) { p.shooting = false; p.fading = false; report.travel = p.id; }   // came down still holding the ball
+    if (grounded(p)) { p.shooting = false; p.fading = false; p.finish = null; report.travel = p.id; }   // came down still holding the ball
     else if (!intent[p.shotKey]) report.release = releaseShot(state, p);
     return;
   }
@@ -447,20 +454,27 @@ export function applyActions(state, intents, dt) {
       else if (p.inbounder) { /* an inbounder may only pass */ }
       else if (p.shooting) continueShot(state, p, intent, dt, report);
       else if (KINDS.some(kind => pressed(kind) && startMove(state, p, kind, intent))) { /* a move has begun */ }
-      else if ((pressed('shoot') || pressed('fade')) && grounded(p)) {
+      else if ((pressed('shoot') || pressed('fade') || pressed('dunk')) && grounded(p)) {
         // The press: he turns to the hoop and gathers; the jump comes SHOT.gather later. On the fade key, close enough
-        // to the hoop, the shot is a fade; further out that key is a plain shot.
-        const hoop = rimCentre(attackSign(p.team));
-        p.facing = Math.atan2(hoop.z - p.z, hoop.x - p.x);
-        p.shooting = true; p.shotT = 0; p.letGo = false;
-        p.shotKey = pressed('shoot') ? 'shoot' : 'fade';
-        p.fading = p.shotKey === 'fade' && dist(p, hoop) <= MOVES.fade.within;
-        state.shot = null;
+        // to the hoop, the shot is a fade; further out that key is a plain shot. Driving at the rim the shot key is a
+        // layup and the dunk key a dunk, or a layup for a player who cannot dunk (see finish.js); anywhere else the
+        // dunk key is nothing.
+        const key = pressed('shoot') ? 'shoot' : pressed('fade') ? 'fade' : 'dunk';
+        const finish = key === 'fade' ? null : finishFor(state, p, key);
+        if (key !== 'dunk' || finish) {
+          const hoop = rimCentre(attackSign(p.team));
+          p.facing = Math.atan2(hoop.z - p.z, hoop.x - p.x);
+          p.shooting = true; p.shotT = 0; p.letGo = false;
+          p.shotKey = key; p.finish = finish;
+          p.fading = key === 'fade' && dist(p, hoop) <= MOVES.fade.within;
+          state.shot = null;
+        }
       } else if (pressed('hold') && grounded(p)) {
         if (p.held) report.doubleDribble = p.id;
         else p.held = true;
       }
     } else {
+      if (p.shooting) { p.shooting = false; p.fading = false; p.finish = null; }   // the ball has left him some other way: no shot is left in his hands
       if (pressed('shoot') && !p.inbounder && grounded(p)) { jump(p); spend(state, p, STAMINA.jump); }
       if (pressed('steal')) {
         const victim = ball.holder;

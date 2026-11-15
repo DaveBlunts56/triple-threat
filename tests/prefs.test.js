@@ -34,7 +34,7 @@ test('a storage that throws on writing, or none at all, is reported and nothing 
 });
 
 test('what is written is read back the same', () => {
-  const b = box(null), prefs = { ...plainDefaults, difficulty: 'rookie', quality: 'ultra', autoSubs: false, replays: false, commentary: 'off', keys: { cross: 'KeyR' } };
+  const b = box(null), prefs = { ...plainDefaults, difficulty: 'rookie', quality: 'ultra', autoSubs: false, replays: false, commentary: 'off', keys: { cross: 'KeyH' } };
   assert.equal(writePrefs(b, prefs), true);
   assert.equal(b.saved[0], PREFS_KEY);
   assert.deepEqual(readPrefs(box(b.saved[1])), prefs);
@@ -42,7 +42,7 @@ test('what is written is read back the same', () => {
 
 test('reading never hands out the defaults themselves', () => {
   const prefs = readPrefs(null);
-  prefs.keys.cross = 'KeyR'; prefs.size = 5;
+  prefs.keys.cross = 'KeyH'; prefs.size = 5;
   assert.deepEqual(readPrefs(null), plainDefaults);
 });
 

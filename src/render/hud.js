@@ -92,7 +92,7 @@ export function controlsLines(keys) {
     [['up', 'left', 'down', 'right'].map(k).join(' '), 'move'], [k('sprint'), 'sprint'], [k('shoot'), 'shoot / jump'],
     [k('pass'), 'pass / switch'], [k('steal'), 'steal'], [k('hold'), 'hold ball'],
     [`${k('cross')} · ${k('legs')} · ${k('back')}`, 'crossover · between the legs · behind the back'],
-    [`${k('stepBack')} · ${k('fade')}`, 'step-back · post fade'], ['Esc', 'pause'],
+    [`${k('stepBack')} · ${k('fade')}`, 'step-back · post fade'], [k('dunk'), 'dunk'], ['Esc', 'pause'],
     [`${k('quality')} · ${k('camera')}`, 'quality · camera'], [`${k('plays')} · ${k('timeout')}`, 'plays · timeout'],
   ];
 }
@@ -101,7 +101,7 @@ export function controlsLines(keys) {
 export function hintLine(keys) {
   const k = action => keyLabel(keys[action]);
   return [`${['up', 'left', 'down', 'right'].map(k).join(' ')} move`, `${k('sprint')} sprint`, `${k('shoot')} shoot / jump`, `${k('pass')} pass / switch`,
-    `${k('steal')} steal`, `${k('hold')} hold ball`, `${['cross', 'legs', 'back', 'stepBack', 'fade'].map(k).join(' ')} moves`, 'Esc pause',
+    `${k('steal')} steal`, `${k('hold')} hold ball`, `${['cross', 'legs', 'back', 'stepBack', 'fade'].map(k).join(' ')} moves`, `${k('dunk')} dunk`, 'Esc pause',
     `${k('quality')} quality`, `${k('camera')} camera`, `${k('plays')} plays`, `${k('timeout')} timeout`].join(' · ');
 }
 // A player's line on the Teams panel: his overall, his name (the team's star marked) and what he is for.

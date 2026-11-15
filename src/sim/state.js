@@ -14,7 +14,7 @@ export const onFloor = p => p.y === 0 && p.vy === 0;
 // foul: reach in to foul the ball handler on purpose (only the computer does).
 // cross, legs, back, stepBack, fade: the five moves (see moves.js).
 export const emptyIntent = () => ({ moveX: 0, moveZ: 0, sprint: false, shoot: false, pass: false, steal: false, switch: false, hold: false, foul: false,
-  cross: false, legs: false, back: false, stepBack: false, fade: false });
+  cross: false, legs: false, back: false, stepBack: false, fade: false, dunk: false });
 
 // What happened in one step, reported to the rules.
 export const emptyEvents = () => ({ hitFloor: false, hitRim: false, hitBoard: false, scored: 0,
@@ -58,8 +58,9 @@ function createPlayer(id, size) {
     calling: false, closing: false,   // he has a hand up for the ball; he is closing out on a shooter (see ai.js)
     // move: the move he is in, { kind, t, dx, dz, cx, cz, push }, or null (see moves.js). moveWait: seconds until he may
     // start another. moved: when his last ended. lateT: seconds he cannot steer, beaten by a move. stumbleT: seconds
-    // left of a stumble. fading: his shot is a fade. shotKey: the key his shot is held on, 'shoot' or 'fade'.
-    move: null, moveWait: 0, moved: -Infinity, lateT: 0, stumbleT: 0, fading: false, shotKey: 'shoot',
+    // left of a stumble. fading: his shot is a fade. shotKey: the key his shot is held on, 'shoot', 'fade' or 'dunk'.
+    // finish: his shot is a finish at the rim, 'layup' or 'dunk' (see finish.js), or null.
+    move: null, moveWait: 0, moved: -Infinity, lateT: 0, stumbleT: 0, fading: false, shotKey: 'shoot', finish: null,
     fed: null,   // the pass he caught last: { row, at }, the passer's roster row and when; null if the ball came some other way
     man: (id + size) % (2 * size), switchWait: 0,   // the id of the opponent he guards (see matchups.js); seconds until he may be switched again
     prev: emptyIntent(),
@@ -76,7 +77,7 @@ export function lineUp(state) {
       facing: s === 1 ? 0 : Math.PI,
       shooting: false, shotT: 0, letGo: false, jumpT: 0, inbounder: false,
       held: false, steps: 0, keyT: 0, setT: 0,
-      move: null, moveWait: 0, lateT: 0, stumbleT: 0, fading: false, shotKey: 'shoot',
+      move: null, moveWait: 0, lateT: 0, stumbleT: 0, fading: false, shotKey: 'shoot', finish: null,
     });
   }
 }

@@ -2,15 +2,15 @@
 // ('KeyW', 'Space') except that both Shift keys are the one key 'Shift'. Every action always has a key and no key has
 // two actions.
 export const ACTIONS = Object.freeze(['up', 'left', 'down', 'right', 'sprint', 'shoot', 'pass', 'steal', 'hold',
-  'cross', 'legs', 'back', 'stepBack', 'fade', 'plays', 'timeout', 'camera', 'quality']);
+  'cross', 'legs', 'back', 'stepBack', 'fade', 'dunk', 'plays', 'timeout', 'camera', 'quality']);
 
 export const DEFAULT_KEYS = Object.freeze({ up: 'KeyW', left: 'KeyA', down: 'KeyS', right: 'KeyD', sprint: 'Shift', shoot: 'Space',
   pass: 'KeyE', steal: 'KeyQ', hold: 'KeyF', cross: 'KeyJ', legs: 'KeyK', back: 'KeyL', stepBack: 'KeyI', fade: 'KeyU',
-  plays: 'KeyT', timeout: 'KeyZ', camera: 'KeyC', quality: 'KeyG' });
+  dunk: 'KeyR', plays: 'KeyT', timeout: 'KeyZ', camera: 'KeyC', quality: 'KeyG' });
 
 export const ACTION_WORDS = Object.freeze({ up: 'Move up', left: 'Move left', down: 'Move down', right: 'Move right', sprint: 'Sprint',
   shoot: 'Shoot / jump', pass: 'Pass / switch player', steal: 'Steal', hold: 'Hold the ball', cross: 'Crossover',
-  legs: 'Between the legs', back: 'Behind the back', stepBack: 'Step-back', fade: 'Post fade', plays: 'Plays',
+  legs: 'Between the legs', back: 'Behind the back', stepBack: 'Step-back', fade: 'Post fade', dunk: 'Dunk', plays: 'Plays',
   timeout: 'Timeout', camera: 'Camera', quality: 'Quality' });
 
 // The key a keyboard code stands for: the two Shift keys are one.
