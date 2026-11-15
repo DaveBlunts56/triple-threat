@@ -322,3 +322,30 @@ def make_kit(body, collider, mark, bones, tights):
         for polygon in piece.data.polygons:
             polygon.use_smooth = True
     return jersey, shorts
+
+
+def add_springs(rig, shorts, mark):
+    """A spring bone in each leg of the shorts (kitShortsLeft, kitShortsRight), hanging from the hip joint, and the
+    legs' cloth weighted toward it the nearer the hem it is: at run time the hem lags behind the leg and swings
+    (src/render/springs.js). The jersey has none: it is tucked into the shorts."""
+    activate(rig)
+    bpy.ops.object.mode_set(mode='EDIT')
+    down = rig.matrix_world.to_3x3().inverted() @ Vector((0, 0, -0.1))
+    for side in ('Left', 'Right'):
+        thigh = rig.data.edit_bones[f'{BONE}{side}UpLeg']
+        bone = rig.data.edit_bones.new(f'kitShorts{side}')
+        bone.head, bone.tail = thigh.head.copy(), thigh.head + down
+        bone.parent, bone.use_deform = thigh, True
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    crotch, hem = mark['hip'] - 0.10, mark['knee'] + SHORTS['above_knee']
+    groups = {side: shorts.vertex_groups.new(name=f'kitShorts{side}') for side in ('Left', 'Right')}
+    for v in shorts.data.vertices:
+        co = shorts.matrix_world @ v.co
+        t = min(1.0, max(0.0, (crotch - co.z) / (crotch - hem)))
+        share = 0.85 * t ** 1.5
+        if share <= 0:
+            continue
+        for g in v.groups:                               # the rest of its weight gives way
+            g.weight *= 1 - share
+        groups['Left' if co.x >= 0 else 'Right'].add([v.index], share, 'REPLACE')   # his left is +X

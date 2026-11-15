@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, statSync } from 'node:fs';
-import { readGlb, primitivesUnder, floatsOf } from './glb.js';
+import { readGlb, primitivesUnder, floatsOf, nodesUnder } from './glb.js';
 import { pack } from '../tools/single-file.mjs';
 import { ROSTER } from '../src/sim/tuning.js';
 import { LEG_CLIPS, ARM_CLIPS } from '../src/render/motion.js';
@@ -255,4 +255,17 @@ test('the hand-made motions are in the file, each with its kind and its length',
 test('the motion file holds every motion the two tables name', () => {
   const names = motion.json.animations.map(a => a.name);
   assert.deepEqual([...LEG_CLIPS, ...ARM_CLIPS].filter(name => !names.includes(name)), []);
+});
+
+test('each player has a spring bone in each leg of his shorts, among his skin\'s joints, hanging from the thigh', () => {
+  for (const person of people) {
+    const root = players.json.nodes.findIndex(n => n.name === rootName(person));
+    const skin = players.json.skins.find(s => s.joints.some(j => nodesUnder(players.json, root).includes(j)));
+    const names = skin.joints.map(j => players.json.nodes[j].name);
+    for (const side of ['Left', 'Right']) {
+      assert.ok(names.includes(`kitShorts${side}`), `${rootName(person)}: no kitShorts${side}`);
+      const parent = players.json.nodes.find(n => (n.children ?? []).some(c => players.json.nodes[c].name === `kitShorts${side}`));
+      assert.equal(parent.name, `mixamorig:${side}UpLeg`);
+    }
+  }
 });

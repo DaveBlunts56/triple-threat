@@ -4,6 +4,7 @@ import { LEG_CLIPS, ARM_CLIPS, OPTIONAL_CLIPS, STRIDES, crossFade, layerOf, outO
 import { chestTip } from './bearing.js';
 import { keepTrack } from './checks.js';
 import { createFeet } from './feet.js';
+import { createSprings } from './springs.js';
 
 // catchUp: the most of its cycle a dribble gains or loses on its own pace in a second, to fall in with the stride.
 // Less than its own pace, so it never runs backwards. look: the share of a turn of the head that each of the bones
@@ -100,6 +101,7 @@ export function createAnimator(model, clips, facts, scale, index = 0) {
   // bone whose motions give it a new turn, so each is first put back to the last: otherwise a turn added after the
   // motions would stay on a bone held still, and build up.
   const feet = createFeet(model, scale);
+  const springs = createSprings(model);
   const turned = [chest, ...looking.map(([joint]) => joint), ...feet.bones];
   const given = turned.map(joint => joint.quaternion.clone());
   const hipsAt = feet.hips.position.clone();   // and where the motions had the hips, which planting lowers
@@ -125,6 +127,7 @@ export function createAnimator(model, clips, facts, scale, index = 0) {
   function reset() {
     for (const layer of LAYERS) for (const name in actions[layer]) weights[layer][name] = name === 'idle' ? 1 : 0;
     feet.free();
+    springs.reset();
   }
   reset();
 
@@ -182,9 +185,10 @@ export function createAnimator(model, clips, facts, scale, index = 0) {
       hipsAt.copy(feet.hips.position);
       tipChest();
       if (head) aim(head);
+      springs.update(dt);
       feet.plant(plant, dt);
     },
     // Forgets where his feet were planted: he has been put somewhere else (see actors.cut).
-    unplant: () => feet.free(),
+    unplant: () => { feet.free(); springs.reset(); },
   };
 }

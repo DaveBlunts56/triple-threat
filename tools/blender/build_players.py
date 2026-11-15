@@ -20,7 +20,7 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import MPFB, bounds, clear_scene, project, service, snapshot  # noqa: E402
-from kit import SHORTS, cut_out, make_kit  # noqa: E402
+from kit import SHORTS, add_springs, cut_out, make_kit  # noqa: E402
 
 BONE = 'mixamorig:'
 # Muscle and weight for each build (MPFB macros, 0 to 1).
@@ -203,6 +203,7 @@ def build_person(row, with_doll=False):
         collider.modifiers.remove(m)
     jersey, shorts = make_kit(body, collider, mark, bones, tights)
     bpy.data.objects.remove(collider)
+    add_springs(rig, shorts, mark)
     strip_body(body, mark, bones, parts['shoes'])
 
     # The face keeps every triangle; hands, limbs, ears and the scalp under the hair give up most of theirs.
