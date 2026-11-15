@@ -171,13 +171,27 @@ FADE_BY_HAND = {'kind': 'held', 'seconds': 0.3, 'keys': [(0, ON_HIP), (0.55, DIP
 # `overrides` turned by hand instead, as the poses above are written. All are made right-handed: the ball in, or going
 # to, his right hand, the take-off from his left foot. `through`: the motion passes through its keys without stopping.
 
-# By eye: the layup clip hides his legs. Both knees tucked up under him in the air, the right (the driven knee) higher.
-TUCK = {'RightUpLeg': (-55, 0, 0), 'RightLeg': (95, 0, 0), 'RightFoot': (-15, 0, 0), 'LeftUpLeg': (-30, 0, 0), 'LeftLeg': (85, 0, 0), 'LeftFoot': (-10, 0, 0)}
-# By eye: the legs opening again as he lets it go.
-TUCK_OPEN = {'RightUpLeg': (-30, 0, 0), 'RightLeg': (55, 0, 0), 'RightFoot': (-10, 0, 0), 'LeftUpLeg': (-12, 0, 0), 'LeftLeg': (40, 0, 0), 'LeftFoot': (-5, 0, 0)}
+# The layup's flight, as the owner described it (the clip of one hides the legs and its timing): he goes up off his
+# left foot with the right knee raised, the right arm reaching up toward the rim, and rolls the ball off his fingers
+# underhand, palm up; then he comes down and lands. Each is the measured take-off of the dunk with these limbs set
+# instead: directions in the body's frame (x his left, y up, z out of his chest).
+REACHING = {'limbs': {'rightUpperArm': (-0.12, 0.6, 0.79), 'rightForearm': (-0.05, 0.82, 0.57),
+                      'leftUpperArm': (0.4, -0.75, 0.52), 'leftForearm': (0.25, -0.35, 0.9)},
+            'palms': {'right': (0, 0.8, -0.6)}}
+# The release: the arm straight, up and out to the rim; the trunk a little back (10 degrees; the layup clip measured
+# 15); the raised knee coming down, the left leg hanging.
+ROLLED = {'limbs': {'rightUpperArm': (-0.1, 0.8, 0.59), 'rightForearm': (-0.06, 0.82, 0.57),
+                    'leftUpperArm': (0.45, -0.82, 0.35), 'leftForearm': (0.3, -0.6, 0.74),
+                    'rightThigh': (-0.1, -0.6, 0.79), 'rightShin': (0, -0.98, -0.2), 'leftThigh': (0.08, -0.98, -0.18), 'leftShin': (0.04, -0.93, -0.36)},
+          'trunk': (0, 0.985, -0.17), 'palms': {'right': (0, 0.8, -0.6)}}
+# Coming down: the arm still up for a moment, both legs under him.
+DESCENDING = {'limbs': {'rightUpperArm': (-0.15, 0.75, 0.64), 'rightForearm': (-0.1, 0.6, 0.79),
+                        'leftUpperArm': (0.4, -0.88, 0.25), 'leftForearm': (0.3, -0.7, 0.65),
+                        'rightThigh': (-0.06, -0.93, 0.36), 'rightShin': (0, -0.97, -0.24), 'leftThigh': (0.06, -0.99, -0.1), 'leftShin': (0.03, -0.95, -0.3)},
+              'trunk': (0, 0.99, -0.12)}
 # The ball arm coming down after the ball has gone: as it hangs at his side.
 ARM_DOWN = {'RightArm': (17, -22, 21), 'RightForeArm': (-5, -12, -9), 'RightHand': (-5, -10, -12)}
-D, L, F = 'dunk-one-foot', 'layup-finish', 'fade-post'
+D, F = 'dunk-one-foot', 'fade-post'
 # What the fade keeps from the poses made by hand: the trunk (see FADE_BY_HAND) and the hands, which no clip gives.
 trunk_and_hands = lambda pose: {bone: pose[bone] for bone in ('Spine1', 'Spine2', 'Neck', 'Head', 'RightHand', 'LeftHand') if bone in pose}
 TRACKED = {
@@ -191,14 +205,13 @@ TRACKED = {
     'finishGather': {'kind': 'held', 'seconds': 0.5, 'through': True, 'whole': True, 'keys': [
         (0, (D, 'gather'), {}), (0.33, (D, 'step1'), {}), (0.69, (D, 'step2'), {}), (0.81, (D, 'deepest'), {}), (1, (D, 'takeoff'), {})]},
     # The dunk's jump: cocked at 0.36 of it and thrown down at 0.69, as measured.
-    'dunk': {'kind': 'held', 'seconds': 0.86, 'through': True, 'whole': True, 'keys': [
+    'dunk': {'kind': 'held', 'seconds': 0.94, 'through': True, 'whole': True, 'keys': [
         (0, (D, 'takeoff'), {}), (0.36, (D, 'cocked'), {}), (0.69, (D, 'dunk'), {}), (0.82, (D, 'dunk'), ARM_DOWN), (1, (D, 'landing'), {})]},
-    # The layup's jump: the take-off and the landing are the dunk's (measured); the arms and trunk of the finish are
-    # the layup clip's; the legs in the air are by eye (TUCK). Of that clip's six moments, `reaching` and `extended`
-    # are not used: the tracker had lost the arm there.
-    'layup': {'kind': 'held', 'seconds': 0.65, 'through': True, 'whole': True, 'keys': [
-        (0, (D, 'takeoff'), {}), (0.3, (L, 'tucked'), TUCK), (0.62, (L, 'release'), TUCK_OPEN),
-        (0.8, (L, 'release'), {**TUCK_OPEN, **ARM_DOWN}), (1, (D, 'landing'), {})]},
+    # The layup's jump: the take-off and the landing are the dunk's (measured); between them it is as described (see
+    # REACHING): right knee up, right arm up to the rim, the ball rolled off the fingers at 0.62 of it.
+    'layup': {'kind': 'held', 'seconds': 0.75, 'through': True, 'whole': True, 'keys': [
+        (0, (D, 'takeoff'), {}), (0.35, (D, 'takeoff', REACHING), {}), (0.62, (D, 'takeoff', ROLLED), {}),
+        (0.82, (D, 'takeoff', DESCENDING), {}), (1, (D, 'landing'), {})]},
 }
 
 

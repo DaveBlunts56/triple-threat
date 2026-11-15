@@ -67,7 +67,7 @@ const JOINTS = { leftThigh: ['LeftUpLeg', 'LeftLeg'], leftShin: ['LeftLeg', 'Lef
 const degrees = (a, b) => (Math.acos(Math.max(-1, Math.min(1, a.clone().normalize().dot(b.clone().normalize()))) ) * 180) / Math.PI;
 
 test('the gather, the dunk and the layup are in the file with their twins: of the whole body, made from the measured clips', () => {
-  const lengths = { finishGather: 0.5, dunk: 0.86, layup: 0.65 };
+  const lengths = { finishGather: 0.5, dunk: 0.94, layup: 0.75 };   // the two jumps last as long as the game's (FINISH.jump)
   for (const [name, seconds] of Object.entries(lengths)) for (const made of [name, `${name}Left`]) {
     const clip = facts.clips[made];
     assert.ok(clip, made);
@@ -121,4 +121,15 @@ test('the fade\'s arms lie along what its clip measured, from the gather to the 
       assert.ok(off < 20, `fade at ${share} (${moment}): ${limb} is ${off.toFixed(0)} degrees off`);
     }
   }
+});
+
+test('the layup is as described: up off the left foot with the right knee raised, the right arm straight up toward the rim at the release, then both legs under him', () => {
+  const up = posed('layup', 0.35), roll = posed('layup', 0.62), down = posed('layup', 0.9);
+  assert.ok(up('RightLeg').y > up('LeftLeg').y + 0.15 && up('RightLeg').z > up('Hips').z + 0.2, 'the right knee is not raised in front as he goes up');
+  assert.ok(roll('RightHand').y > roll('Head').y + 0.25 && roll('RightHand').z > roll('Hips').z + 0.15, 'the right hand is not up and out toward the rim');
+  const upper = roll('RightForeArm').sub(roll('RightArm')), fore = roll('RightHand').sub(roll('RightForeArm'));
+  assert.ok(degrees(upper, fore) < 15, `the arm is bent ${degrees(upper, fore).toFixed(0)} degrees at the release`);
+  assert.ok(roll('LeftHand').y < roll('Hips').y + 0.25, 'the left arm is not down');
+  assert.ok(roll('Head').z < roll('Hips').z + 0.05, 'he is not leaning a little back at the release');
+  assert.ok(Math.abs(down('RightLeg').y - down('LeftLeg').y) < 0.2, 'his legs are not both under him as he comes down');
 });

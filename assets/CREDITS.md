@@ -64,8 +64,8 @@ Three motions are not clips of their own: `land` is the frames of `jump`'s clip 
 `finishGather`, `dunk`, `layup` and their left-handed twins, and the arms of `fade`, are this project's own. They are built by
 `tools/blender/build_motion.py` from `assets/source/tracked/*.json`: which way each limb pointed at a few named moments
 of a move, measured from reference footage with `tools/video/` (MediaPipe pose tracking). The footage itself, and any
-name or picture from it, is not in the repository or the game. The layup's legs in the air were set by eye: the footage
-hid them.
+name or picture from it, is not in the repository or the game. The layup's flight (the raised knee, the arm up to the rim, the ball rolled off the fingers) is
+set from the owner's description of a layup: the footage hid his legs.
 
 ## The floor (CC0)
 

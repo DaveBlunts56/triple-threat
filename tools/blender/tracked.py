@@ -47,6 +47,14 @@ def clip(name):
     return _clips[name]
 
 
+def described(moment, changes):
+    """A measured moment with some of it set by description instead: `changes` may give `limbs` (directions for some
+    limbs), `trunk`, `shoulders`, and `palms`: { 'left' or 'right': the way that palm faces }, all in the body's frame."""
+    limbs = {**moment['limbs'], **changes.get('limbs', {})}
+    seen = {**moment['seen'], **{limb: 1 for limb in changes.get('limbs', {})}}
+    return {**moment, **{key: value for key, value in changes.items() if key != 'limbs'}, 'limbs': limbs, 'seen': seen}
+
+
 def aimed(rig, moment, overrides=None):
     """The turn of every bone from rest, { bone name without the prefix: Quaternion }, for the measured `moment`.
 
@@ -77,7 +85,18 @@ def aimed(rig, moment, overrides=None):
         elif name in LIMBS and not (name.endswith('Foot') and moment['seen'][LIMBS[name][1]] < FOOT_SEEN):
             far, limb = LIMBS[name]
             rest = (head(far) - bone.head_local).normalized()
-            turn = above.inverted() @ rest.rotation_difference(to_rig(moment['limbs'][limb]).normalized())
+            along = to_rig(moment['limbs'][limb]).normalized()
+            swing = rest.rotation_difference(along)
+            # A forearm may be told which way its palm faces: it is turned about itself until the palm, which rests
+            # facing the floor, faces as nearly that way as it can.
+            side = 'left' if name.startswith('Left') else 'right'
+            if name.endswith('ForeArm') and side in moment.get('palms', {}):
+                square = lambda v: v - along * v.dot(along)
+                down = Vector((0, 0, -1))
+                was, want = square(swing @ (down - rest * down.dot(rest))), square(to_rig(moment['palms'][side]))
+                if was.length > 1e-6 and want.length > 1e-6:
+                    swing = Quaternion(along, was.angle(want) * (1 if was.cross(want).dot(along) >= 0 else -1)) @ swing
+            turn = above.inverted() @ swing
         else:
             turn = Quaternion()
         carried[bone.name] = above @ turn

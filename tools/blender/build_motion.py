@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from build_players import build_person, finish, people  # noqa: E402
 from common import bounds, clear_scene, project, snapshot  # noqa: E402
 from poses import POSES, TRACKED, pose_frames, whole_body  # noqa: E402
-from tracked import aimed, clip  # noqa: E402
+from tracked import aimed, clip, described  # noqa: E402
 
 FPS = 30
 # Name (and file name) of each Mixamo clip: its kind. A 'loop' repeats; in a 'held' one the game sets how far through it is.
@@ -352,7 +352,9 @@ def main():
     for name, pose in TRACKED.items():
         if name in found:
             continue
-        keys = [(share, aimed(rig, clip(source)[moment], overrides)) for share, (source, moment), overrides in pose['keys']]
+        # A key's source is (clip, moment), or (clip, moment, what of it is set by description instead).
+        measured = lambda source, moment, changes=None: described(clip(source)[moment], changes) if changes else clip(source)[moment]
+        keys = [(share, aimed(rig, measured(*source), overrides)) for share, source, overrides in pose['keys']]
         if pose.get('arms'):                      # of the arms and the upper trunk only: the legs are left at rest
             keys = [(share, {bone: turn for bone, turn in turns.items() if not lower(bone)}) for share, turns in keys]
         for made, frames in with_mirrors(name, pose_frames(rig, {**pose, 'keys': keys}, FPS)):

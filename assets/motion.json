@@ -208,28 +208,28 @@
       "whole": true
     },
     "dunk": {
-      "duration": 0.8667,
+      "duration": 0.9333,
       "loop": false,
       "kind": "held",
       "from": "tracked",
       "whole": true
     },
     "dunkLeft": {
-      "duration": 0.8667,
+      "duration": 0.9333,
       "loop": false,
       "kind": "held",
       "from": "tracked",
       "whole": true
     },
     "layup": {
-      "duration": 0.6667,
+      "duration": 0.7333,
       "loop": false,
       "kind": "held",
       "from": "tracked",
       "whole": true
     },
     "layupLeft": {
-      "duration": 0.6667,
+      "duration": 0.7333,
       "loop": false,
       "kind": "held",
       "from": "tracked",
