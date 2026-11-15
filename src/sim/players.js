@@ -6,7 +6,7 @@ import { rematch } from './matchups.js';
 import { lift, drop, rated, heatOf } from './ratings.js';
 import { DRIBBLES, KINDS, startMove, stepMove, finishMove } from './moves.js';
 import { note } from './stats.js';
-import { behindBoard, finishFor, gatherVelocity, jumpVelocity } from './finish.js';
+import { behindBoard, finishFor, flairFor, gatherVelocity, jumpVelocity } from './finish.js';
 
 // Seconds after the press of a shot: the best moment to let go, and the moment he is back on the floor.
 export const SHOT_BEST = SHOT.gather + SHOT.bestAt * PLAYER.shotJumpV / BALL.gravity;
@@ -220,7 +220,7 @@ function shotInfo(state, player, green) {
   const three = isThree(player.x, player.z, sign), gap = Math.min(...state.players.filter(o => o.team !== player.team).map(o => dist(o, player)));
   note(state, player, 'fga'); if (three) note(state, player, 'tpa');
   return { id: player.id, team: player.team, row: player.person, value: three ? 3 : 2, at: state.time, clock: state.gameClock,
-    x: player.x, z: player.z, far: dist(player, hoop), gap, green, finish: player.finish,
+    x: player.x, z: player.z, far: dist(player, hoop), gap, green, finish: player.finish, flair: player.finish === 'dunk' ? player.flair : null,
     assist: player.fed && state.time - player.fed.at <= STAT.assist ? player.fed.row : null };
 }
 
@@ -527,7 +527,7 @@ export function applyActions(state, intents, dt) {
           const hoop = rimCentre(attackSign(p.team));
           p.facing = Math.atan2(hoop.z - p.z, hoop.x - p.x);
           p.shooting = true; p.shotT = 0; p.letGo = false;
-          p.shotKey = key; p.finish = finish;
+          p.shotKey = key; p.finish = finish; p.flair = flairFor(state, p, finish);
           p.fading = key === 'fade' && dist(p, hoop) <= MOVES.fade.within;
           state.shot = null;
         }

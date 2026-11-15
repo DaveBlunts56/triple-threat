@@ -59,8 +59,9 @@ function createPlayer(id, size) {
     // move: the move he is in, { kind, t, dx, dz, cx, cz, push }, or null (see moves.js). moveWait: seconds until he may
     // start another. moved: when his last ended. lateT: seconds he cannot steer, beaten by a move. stumbleT: seconds
     // left of a stumble. fading: his shot is a fade. shotKey: the key his shot is held on, 'shoot', 'fade' or 'dunk'.
-    // finish: his shot is a finish at the rim, 'layup' or 'dunk' (see finish.js), or null.
-    move: null, moveWait: 0, moved: -Infinity, lateT: 0, stumbleT: 0, fading: false, shotKey: 'shoot', finish: null,
+    // finish: his shot is a finish at the rim, 'layup' or 'dunk' (see finish.js), or null. flair: how the finish he
+    // last began is made, 'windmill' or null.
+    move: null, moveWait: 0, moved: -Infinity, lateT: 0, stumbleT: 0, fading: false, shotKey: 'shoot', finish: null, flair: null,
     fed: null,   // the pass he caught last: { row, at }, the passer's roster row and when; null if the ball came some other way
     man: (id + size) % (2 * size), switchWait: 0,   // the id of the opponent he guards (see matchups.js); seconds until he may be switched again
     prev: emptyIntent(),
@@ -77,7 +78,7 @@ export function lineUp(state) {
       facing: s === 1 ? 0 : Math.PI,
       shooting: false, shotT: 0, letGo: false, jumpT: 0, inbounder: false,
       held: false, steps: 0, keyT: 0, setT: 0,
-      move: null, moveWait: 0, lateT: 0, stumbleT: 0, fading: false, shotKey: 'shoot', finish: null,
+      move: null, moveWait: 0, lateT: 0, stumbleT: 0, fading: false, shotKey: 'shoot', finish: null, flair: null,
     });
   }
 }

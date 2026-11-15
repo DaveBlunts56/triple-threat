@@ -36,6 +36,14 @@ export function finishFor(state, player, key) {
   return key === 'dunk' && canDunk(state, player) ? 'dunk' : 'layup';
 }
 
+// How the finish is made, beyond what it is: 'windmill' for a dunk by a high flyer with nobody near him as he begins
+// it, otherwise null. It is for show: the rules treat a windmill as the dunk it is.
+export function flairFor(state, player, finish) {
+  if (finish !== 'dunk' || rated(state, player, 'inside') < FINISH.windmillAt) return null;
+  const alone = state.players.every(o => o.team === player.team || dist(o, player) >= FINISH.windmillRoom);
+  return alone ? 'windmill' : null;
+}
+
 // The hand he finishes with: the one on the side of the rim he comes from; from straight on, his right. Facing the
 // baseline his right is toward +z for the team attacking +x, and toward -z for the other.
 export const finishHand = player => (attackSign(player.team) * player.z < -0.2 ? 'left' : 'right');

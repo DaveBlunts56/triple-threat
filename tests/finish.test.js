@@ -331,3 +331,25 @@ test('a layup that goes in is rolled over the front of the rim: it never touches
   }
   assert.ok(made > 60, `${made} of 120 went in`);
 });
+
+// ---------- the windmill ----------
+
+test('a dunk is a windmill when a high flyer has room for it: nobody near, Inside 86 or more; otherwise it is the plain dunk', () => {
+  const flairOf = (inside, change = () => {}) => { const s = driving(3.2, 6); rate(s, 0, 'inside', inside); change(s); tick(s, { ...RUN, dunk: true }); return [s.players[0].finish, s.players[0].flair]; };
+  assert.deepEqual(flairOf(FINISH.windmillAt), ['dunk', 'windmill']);
+  assert.deepEqual(flairOf(FINISH.windmillAt - 1), ['dunk', null]);
+  assert.deepEqual(flairOf(95, s => at(s, 3, RIM.x - 1.5, 1)), ['dunk', null]);          // a defender within reach of the play
+  assert.deepEqual(flairOf(60), ['layup', null]);
+  const s = pressed('shoot', 3, 5, 95);
+  assert.equal(s.players[0].flair, null, 'a layup has no flair');
+});
+
+test('a windmill is a dunk in every way the rules count, and is remembered as one', () => {
+  const s = driving(3.2, 6); rate(s, 0, 'inside', 95); tick(s, { ...RUN, dunk: true });
+  const plain = driving(3.2, 6); rate(plain, 0, 'inside', 80); tick(plain, { ...RUN, dunk: true });
+  assert.equal(scored(s), 2);
+  assert.deepEqual([s.last.score.finish, s.last.score.flair], ['dunk', 'windmill']);
+  assert.equal(scored(plain), 2);
+  assert.deepEqual([plain.last.score.finish, plain.last.score.flair], ['dunk', null]);
+  assert.ok(near(s.last.score.at - s.last.score.shotAt, plain.last.score.at - plain.last.score.shotAt, 1e-9), 'it takes as long to go down');
+});
