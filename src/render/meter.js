@@ -31,11 +31,11 @@ function meterOf(player, t, window, frozen) {
 export function shotMeter(state) {
   if (state.phase === 'start' || state.phase === 'final') return null;
   const shooter = state.players.find(p => p.team === 0 && p.shooting);
-  if (shooter) return meterOf(shooter, shooter.shotT, shotWindow(state, shooter), null);
+  if (shooter) return shooter.finish === 'dunk' ? null : meterOf(shooter, shooter.shotT, shotWindow(state, shooter), null);   // a dunk has nothing to time
 
   // The record outlives the shot, until the next press: only a fresh release by team 0 is shown.
   const { shot } = state;
-  if (!shot || state.players[shot.shooter].team !== 0 || state.time - shot.at > SHOT_METER.stay) return null;
+  if (!shot || shot.finish === 'dunk' || state.players[shot.shooter].team !== 0 || state.time - shot.at > SHOT_METER.stay) return null;
   const verdict = shot.green ? 'green' : !shot.inRange ? 'range' : shot.t < shot.best ? 'early' : 'late';
   return meterOf(state.players[shot.shooter], shot.t, shot, { verdict, blocked: shot.blocked });
 }

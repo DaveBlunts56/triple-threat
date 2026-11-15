@@ -219,7 +219,7 @@ function scoreStats(state, team, points, fouled) {
   if (info.assist !== null) noteRow(state, team, info.assist, 'ast');
   const mine = state.score[team], theirs = state.score[1 - team];
   state.last.score = { team, by: info.id, row: info.row, points, at: state.time, shotAt: info.at, clock: info.clock, x: info.x, z: info.z,
-    far: info.far, gap: info.gap, green: info.green, assist: info.assist, fouled,
+    far: info.far, gap: info.gap, green: info.green, finish: info.finish ?? null, assist: info.assist, fouled,
     tied: mine + points === theirs, lead: mine <= theirs && mine + points > theirs };
   state.ball.info = null;
 }

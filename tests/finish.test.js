@@ -1,11 +1,12 @@
 // Finishes at the rim: the layup and the dunk (spec: docs/superpowers/specs/2026-11-14-dunks-layups-design.md).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FINISH, RIM, SHOT, BALL, DT } from '../src/sim/tuning.js';
+import { FINISH, RIM, SHOT, BALL, DT, PLAYER } from '../src/sim/tuning.js';
 import { finishFor, canDunk, closing, finishHand, takeoffSpot, gatherVelocity, jumpVelocity } from '../src/sim/finish.js';
 import { personOf } from '../src/sim/state.js';
 import { step } from '../src/sim/step.js';
-import { trySteal } from '../src/sim/players.js';
+import { trySteal, jumpOf, shotBest, shotLands, dunkChance, SHOT_BEST, SHOT_LANDS } from '../src/sim/players.js';
+import { shotMeter } from '../src/render/meter.js';
 import { live, at, only, firstSeed } from './helpers.js';
 
 const near = (a, b, by = 1e-9) => Math.abs(a - b) < by;
@@ -160,4 +161,129 @@ test('a reach during the gather wins about half as often as on a dribbler: the b
   const dribbling = wins(false), gathering = wins(true);
   assert.ok(dribbling > 40, `${dribbling} of 600 off the dribble`);
   assert.ok(gathering / dribbling > 0.3 && gathering / dribbling < 0.7, `${gathering} against ${dribbling}`);
+});
+
+// ---------- the jump, the layup's release, the dunk ----------
+
+const hang = finish => 2 * FINISH.jump[finish] / BALL.gravity;
+// Holds `intent` until player 0 is in the air and `shotT` has reached `t`.
+const airUntil = (s, t, intent) => until(s, p => p.y > 0 && p.shotT >= t - DT / 2, intent);
+const scored = (s, seconds = 1.6) => { for (let i = 0; i < seconds / DT; i++) tick(s); return s.score[0]; };
+
+test('a layup jumps higher than a shot and is carried to the rim: 0.9 m from it at the best moment', () => {
+  const s = pressed('shoot', 3, 5), p = s.players[0];
+  until(s, q => q.y > 0, { shoot: true });
+  assert.deepEqual([p.takeoff, jumpOf(p)], [FINISH.jump.layup, FINISH.jump.layup]);
+  assert.ok(near(shotBest(p), FINISH.gather + SHOT.bestAt * FINISH.jump.layup / BALL.gravity) && near(shotLands(p), FINISH.gather + hang('layup')));
+  airUntil(s, shotBest(p), { shoot: true });
+  assert.ok(Math.abs(farOf(p) - FINISH.arrive.layup) < 0.12, `${farOf(p)} m from the rim at the best moment`);
+  const plain = live().players[0];
+  assert.deepEqual([shotBest(plain), shotLands(plain)], [SHOT_BEST, SHOT_LANDS]);   // the jump shot's are as they were
+});
+
+test('a layup let go at the best moment is green and scores, and is remembered as a layup', () => {
+  const s = pressed('shoot', 3, 5), p = s.players[0];
+  airUntil(s, shotBest(p), { shoot: true });
+  tick(s);                                             // the key comes up
+  assert.deepEqual([s.shot.green, s.shot.blocked, p.finish, p.shooting], [true, false, null, false]);
+  assert.equal(scored(s), 2);
+  assert.equal(s.last.score.finish, 'layup');
+});
+
+test('a layup still held as he starts down is let go then: no travel', () => {
+  const s = pressed('shoot', 3, 5), p = s.players[0];
+  until(s, () => s.shot !== null, { shoot: true });
+  assert.ok(p.y > 0 && p.vy < 0 && p.vy > -0.5, `released at vy ${p.vy}`);
+  for (let i = 0; i < 60; i++) { tick(s, { shoot: true }); assert.notEqual(s.call?.kind, 'travel'); }
+});
+
+test('a tapped layup goes up at the best moment and is never green; unguarded it goes in most of the time', () => {
+  const s = pressed('shoot', 3, 5), p = s.players[0], best = FINISH.gather + SHOT.bestAt * FINISH.jump.layup / BALL.gravity;
+  until(s, () => s.shot !== null);                     // no key held
+  assert.ok(Math.abs(s.shot.t - best) <= DT, `released ${s.shot.t - best} s from the best moment`);
+  assert.equal(s.shot.green, false);
+  let made = 0;
+  for (let seed = 1; seed <= 300; seed++) { const t = driving(3, 5); t.seed = seed; tick(t, { ...RUN, shoot: true }); if (scored(t) === 2) made++; }
+  assert.ok(made > 180 && made < 285, `${made} of 300 tapped layups went in`);
+});
+
+test('a layup can be blocked like any shot', () => {
+  const blocked = firstSeed(seed => {
+    const s = driving(3, 5); s.seed = seed; tick(s, { ...RUN, shoot: true });
+    const p = s.players[0];
+    airUntil(s, shotBest(p) - DT, { shoot: true });
+    Object.assign(s.players[3], { x: p.x + 0.5, z: p.z, y: 0.6, vy: 1 });   // a defender up in front of him
+    tick(s);
+    return s;
+  }, s => s.shot?.blocked, 80);
+  assert.equal(blocked.last.block.on, 0);
+});
+
+test('a dunk: a full jump, the ball down through the rim at 0.69 of it, two points, nothing to time', () => {
+  const s = pressed('dunk', 3.2, 6, 90), p = s.players[0];
+  until(s, q => q.y > 0);
+  assert.equal(p.takeoff, FINISH.jump.dunk);
+  const steps = until(s, () => s.ball.holder === null);
+  assert.ok(Math.abs(p.jumpT - FINISH.dunkMoment * hang('dunk')) <= DT + 1e-9, `the ball left ${p.jumpT} s into a ${hang('dunk')} s jump (${steps} steps)`);
+  assert.ok(farOf(p) < FINISH.reach && Math.abs(s.ball.x - RIM.x) < 1e-9 && s.ball.y > RIM.height, 'the ball is not at the rim');
+  assert.deepEqual([s.shot.green, s.shot.finish, p.finish, p.shooting], [false, 'dunk', null, false]);
+  assert.equal(scored(s), 2);
+  assert.equal(s.last.score.finish, 'dunk');
+  const line = personOf(s, p).stats;
+  assert.deepEqual([line.fga, line.fgm, line.pts], [1, 1, 2]);
+});
+
+test('a dunk is the same whether the key is tapped or held, and the same match twice', () => {
+  const play = hold => { const s = pressed('dunk', 3.2, 6, 90); for (let i = 0; i < 120; i++) tick(s, hold ? { dunk: true } : {}); const { prev, letGo, ...rest } = s.players[0]; return JSON.stringify([rest, s.ball, s.score]); };   // all but what the key itself was doing
+  assert.equal(play(true), play(false));
+  assert.equal(play(false), play(false));
+});
+
+const dunksMade = (n, change = () => {}) => {
+  let made = 0;
+  for (let seed = 1; seed <= n; seed++) { const s = driving(3.2, 6); s.seed = seed; rate(s, 0, 'inside', 90); change(s); tick(s, { ...RUN, dunk: true }); if (scored(s) === 2) made++; }
+  return made / n;
+};
+
+test('an open dunk goes down 97 times in 100, whatever the level; with a defender on him, about three in four', () => {
+  const open = dunksMade(300), legend = dunksMade(300, s => { s.difficulty = 'legend'; });
+  assert.ok(open > 0.94 && open < 0.995, `${open} open`);
+  assert.ok(legend > 0.94, `${legend} on Legend`);
+  const guarded = dunksMade(300, s => at(s, 3, RIM.x - 0.35, 0.7));    // a defender standing beside the rim
+  assert.ok(guarded > 0.6 && guarded < 0.9, `${guarded} guarded`);
+  assert.ok(near(dunkChance(live(), live().players[0]), FINISH.dunkChance, 0.02));
+});
+
+test('a dunk can be blocked, and contact on it is reported for the rules to judge', () => {
+  const setUp = seed => {
+    const s = driving(3.2, 6); s.seed = seed; rate(s, 0, 'inside', 90); tick(s, { ...RUN, dunk: true });
+    const p = s.players[0];
+    until(s, q => q.y > 0 && q.jumpT >= FINISH.dunkMoment * hang('dunk') - 1.5 * DT);
+    Object.assign(s.players[3], { x: p.x + 0.4, z: p.z + 0.3, y: 0.6, vy: 1 });
+    return s;
+  };
+  const blocked = firstSeed(seed => { const s = setUp(seed); tick(s); return s; }, s => s.shot?.blocked, 80);
+  assert.deepEqual([blocked.last.block.on, blocked.score[0]], [0, 0]);
+  const s = setUp(1), events = tick(s);
+  assert.deepEqual([events.release?.shooter, events.release?.defender], [0, 3]);
+});
+
+test('kept from the rim by a defender in his way, he lays it up from where he is: no ball appears at the rim', () => {
+  const s = driving(3.2, 6); rate(s, 0, 'inside', 90);
+  at(s, 3, RIM.x - 1.2, 0);                             // standing on his path
+  tick(s, { ...RUN, dunk: true });
+  const p = s.players[0];
+  until(s, () => s.ball.holder === null);
+  assert.ok(farOf(p) > FINISH.reach, `he got to ${farOf(p)} m`);
+  assert.ok(near(s.ball.y, p.y + PLAYER.releaseHeight, 0.3) && Math.hypot(s.ball.x - RIM.x, s.ball.z) >= SHOT.minRelease - 1e-9, 'the ball was put at the rim');
+  assert.equal(s.ball.info?.finish, 'layup');
+});
+
+test('the shot meter shows for a layup and not for a dunk', () => {
+  const layup = pressed('shoot', 3, 5); tick(layup, { shoot: true });
+  assert.notEqual(shotMeter(layup), null);
+  const dunk = pressed('dunk', 3.2, 6, 90); tick(dunk);
+  assert.equal(shotMeter(dunk), null);
+  until(dunk, () => dunk.ball.holder === null);
+  assert.equal(shotMeter(dunk), null, 'a dunk has no verdict to show');
 });

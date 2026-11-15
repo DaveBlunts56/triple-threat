@@ -6,7 +6,7 @@ import { rematch } from './matchups.js';
 import { lift, drop, rated, heatOf } from './ratings.js';
 import { DRIBBLES, KINDS, startMove, stepMove, finishMove } from './moves.js';
 import { note } from './stats.js';
-import { behindBoard, finishFor, gatherVelocity } from './finish.js';
+import { behindBoard, finishFor, gatherVelocity, jumpVelocity } from './finish.js';
 
 // Seconds after the press of a shot: the best moment to let go, and the moment he is back on the floor.
 export const SHOT_BEST = SHOT.gather + SHOT.bestAt * PLAYER.shotJumpV / BALL.gravity;
@@ -16,6 +16,11 @@ export const SHOT_LANDS = SHOT.gather + 2 * PLAYER.shotJumpV / BALL.gravity;
 // How long he is on the floor between the press and the jump: a finish's two steps take longer than a shot's gather.
 export const gatherOf = player => (player.finish ? FINISH.gather : SHOT.gather);
 export const gathering = player => player.shooting && player.shotT < gatherOf(player) - DT / 2;
+// How hard he jumps for the shot he is in, and from that, seconds after the press, the best moment to let it go and
+// the moment he is back on the floor. For a jump shot they are SHOT_BEST and SHOT_LANDS.
+export const jumpOf = player => (player.finish ? FINISH.jump[player.finish] : PLAYER.shotJumpV);
+export const shotBest = player => gatherOf(player) + SHOT.bestAt * jumpOf(player) / BALL.gravity;
+export const shotLands = player => gatherOf(player) + 2 * jumpOf(player) / BALL.gravity;
 
 export function jump(player, speed = PLAYER.jumpV) {
   if (!grounded(player)) return;
@@ -151,8 +156,8 @@ function letGo(state, player, mode) {
 
 // How much of a shot's chance its timing keeps, `t` seconds after the press: all of it at the best moment,
 // falling in a straight line to the worst at the press and at the landing.
-export function shotTiming(t, worst = SHOT.worstTiming) {
-  const off = t < SHOT_BEST ? (SHOT_BEST - t) / SHOT_BEST : (t - SHOT_BEST) / (SHOT_LANDS - SHOT_BEST);
+export function shotTiming(t, worst = SHOT.worstTiming, best = SHOT_BEST, lands = SHOT_LANDS) {
+  const off = t < best ? (best - t) / best : (t - best) / (lands - best);
   return 1 - (1 - worst) * Math.min(1, off);
 }
 
@@ -172,7 +177,7 @@ export function contest(state, player) {
 export function makeChance(state, player) {
   const hoop = rimCentre(attackSign(player.team));
   const byDistance = Math.max(SHOT.minChance, SHOT.nearChance + (SHOT.farChance - SHOT.nearChance) * (dist(player, hoop) / SHOT.farDist));
-  const timing = shotTiming(player.shotT, player.team === 0 ? levelOf(state).timing : SHOT.worstTiming);   // a bad release costs you what the level says
+  const timing = shotTiming(player.shotT, player.team === 0 ? levelOf(state).timing : SHOT.worstTiming, shotBest(player), shotLands(player));   // a bad release costs you what the level says
   // His rating for a shot from where he stands counts for or against him.
   const heat = heatOf(personOf(state, player));
   const skill = lift(rated(state, player, zoneOf(player)), RATE.shot) * (heat === 'hot' ? HEAT.hot : heat === 'cold' ? HEAT.cold : 1);
@@ -190,7 +195,7 @@ export function shotWindow(state, player) {
   const guarded = contest(state, player);
   const { name, steps } = SHOT.levels.find(level => level.above <= guarded);
   return {
-    best: SHOT_BEST,
+    best: shotBest(player),
     // Your window is the level's, and so is the computer's team's; anybody's is wider the better he shoots from there.
     half: steps * DT * range * shotFactor(personOf(state, player).energy) * (player.team === 0 ? levelOf(state).green : levelOf(state).cpuGreen)
       * Math.max(0, lift(rated(state, player, zoneOf(player)), RATE.window)) * (heatOf(personOf(state, player)) === 'hot' ? HEAT.hotWindow : 1),
@@ -208,19 +213,48 @@ function streak(state, player, made) {
   person.streak = made ? Math.max(person.streak, 0) + 1 : Math.min(person.streak, 0) - 1;
 }
 
-export function releaseShot(state, player) {
-  const { ball } = state;
+// What a shot is, for the box score and for whoever watches it go in: noted as an attempt, and returned as the record
+// the basket will be remembered by.
+function shotInfo(state, player, green) {
   const sign = attackSign(player.team), hoop = rimCentre(sign);
-  // Judged from where he stands, before the ball is moved to where it leaves his hand.
-  const window = shotWindow(state, player), green = greenAt(window, player.shotT);
-  state.shot = { shooter: player.id, t: player.shotT, at: state.time, clock: state.gameClock, ...window, green, blocked: false };
-  // For the box score: the attempt, and what the basket will be remembered by if it goes in.
   const three = isThree(player.x, player.z, sign), gap = Math.min(...state.players.filter(o => o.team !== player.team).map(o => dist(o, player)));
   note(state, player, 'fga'); if (three) note(state, player, 'tpa');
-  const info = { id: player.id, team: player.team, row: player.person, value: three ? 3 : 2, at: state.time, clock: state.gameClock,
-    x: player.x, z: player.z, far: dist(player, hoop), gap, green, assist: player.fed && state.time - player.fed.at <= STAT.assist ? player.fed.row : null };
-  // Released from the player's position, but never from right under the rim, where no arc can get over it:
-  // a lay-up leaves the hand a little out in front of the hoop.
+  return { id: player.id, team: player.team, row: player.person, value: three ? 3 : 2, at: state.time, clock: state.gameClock,
+    x: player.x, z: player.z, far: dist(player, hoop), gap, green, finish: player.finish,
+    assist: player.fed && state.time - player.fed.at <= STAT.assist ? player.fed.row : null };
+}
+
+// The nearest opponent in the air and close enough to have made contact, for the rules to judge: his id, or null.
+function contactOf(state, player) {
+  const close = state.players.filter(o => o.team !== player.team && o.y > 0 && dist(o, player) <= FOUL.contactDist);
+  return close.length ? close.reduce((a, b) => (dist(b, player) < dist(a, player) ? b : a)).id : null;
+}
+
+// Whether the shot `player` is letting go is blocked, and by whom: a defender in the air in front of him within reach
+// gets it some of the time. A block knocks the ball loose and is recorded; returns the blocker, or null.
+function blockedBy(state, player) {
+  const { ball } = state, sign = attackSign(player.team), hoop = rimCentre(sign);
+  const blocker = state.players.find(o => o.team !== player.team && o.y > BLOCK.minHeight
+    && dist(o, player) <= BLOCK.reach * (player.fading ? MOVES.fade.block : 1) && inArc(player, o, BLOCK.cone));
+  if (!blocker || rand(state) >= BLOCK.chance) return null;
+  letGo(state, player, 'loose');
+  state.lastTouch = blocker.team;
+  ball.vx = -sign * BLOCK.deflect; ball.vy = 0; ball.vz = 0;
+  ball.shooter = null; ball.shotValue = 0;
+  state.shot.blocked = true;
+  streak(state, player, false);
+  // A chase-down: the blocker came from behind him, at a run toward that hoop.
+  const toHoop = dist(blocker, hoop) || 1, pace = (blocker.vx * (hoop.x - blocker.x) + blocker.vz * (hoop.z - blocker.z)) / toHoop;
+  note(state, blocker, 'blk');
+  state.last.block = { by: blocker.id, on: player.id, at: state.time, chase: pace > STAT.chasePace && dist(blocker, hoop) >= dist(player, hoop) - STAT.chaseBehind };
+  state.board = true; ball.info = null;
+  return blocker;
+}
+
+// Puts the ball where a shot leaves his hand: at the player's position, but never right under the rim, where no arc
+// can get over it: a lay-up leaves the hand a little out in front of the hoop.
+function toRelease(state, player) {
+  const { ball } = state, sign = attackSign(player.team), hoop = rimCentre(sign);
   let rx = player.x - hoop.x, rz = player.z - hoop.z;
   const r = Math.hypot(rx, rz);
   if (r < SHOT.minRelease) {
@@ -229,27 +263,19 @@ export function releaseShot(state, player) {
     rz *= k;
   }
   ball.x = hoop.x + rx; ball.z = hoop.z + rz; ball.y = player.y + PLAYER.releaseHeight;
+}
 
-  // The nearest opponent in the air and close enough to have made contact, for the rules to judge.
-  const close = state.players.filter(o => o.team !== player.team && o.y > 0 && dist(o, player) <= FOUL.contactDist);
-  const defender = close.length ? close.reduce((a, b) => (dist(b, player) < dist(a, player) ? b : a)).id : null;
-
-  const blocker = state.players.find(o => o.team !== player.team && o.y > BLOCK.minHeight
-    && dist(o, player) <= BLOCK.reach * (player.fading ? MOVES.fade.block : 1) && inArc(player, o, BLOCK.cone));
-  if (blocker && rand(state) < BLOCK.chance) {
-    letGo(state, player, 'loose');
-    state.lastTouch = blocker.team;
-    ball.vx = -sign * BLOCK.deflect; ball.vy = 0; ball.vz = 0;
-    ball.shooter = null; ball.shotValue = 0;
-    state.shot.blocked = true;
-    streak(state, player, false);
-    // A chase-down: the blocker came from behind him, at a run toward that hoop.
-    const toHoop = dist(blocker, hoop) || 1, pace = (blocker.vx * (hoop.x - blocker.x) + blocker.vz * (hoop.z - blocker.z)) / toHoop;
-    note(state, blocker, 'blk');
-    state.last.block = { by: blocker.id, on: player.id, at: state.time, chase: pace > STAT.chasePace && dist(blocker, hoop) >= dist(player, hoop) - STAT.chaseBehind };
-    state.board = true; ball.info = null;
-    return { shooter: player.id, defender, blocked: true };
-  }
+// `green: false`: the release cannot be green, however it is timed (a layup let go by a tap, a dunk kept from the rim).
+export function releaseShot(state, player, { green: mayBeGreen = true } = {}) {
+  const { ball } = state;
+  // Judged from where he stands, before the ball is moved to where it leaves his hand.
+  const window = shotWindow(state, player), green = mayBeGreen && greenAt(window, player.shotT);
+  state.shot = { shooter: player.id, t: player.shotT, at: state.time, clock: state.gameClock, ...window, green, blocked: false, finish: player.finish };
+  // For the box score: the attempt, and what the basket will be remembered by if it goes in.
+  const info = shotInfo(state, player, green);
+  toRelease(state, player);
+  const defender = contactOf(state, player);
+  if (blockedBy(state, player)) return { shooter: player.id, defender, blocked: true };
 
   // A green release always goes in, clean, and draws no random number to find out. Other makes go in every way a
   // shot can: clean, off the rim, rolling round it, or off the glass. Some misses sit on the rim before they fall out.
@@ -257,7 +283,30 @@ export function releaseShot(state, player) {
   streak(state, player, made);
   const dice = made && green ? 1 : rand(state);
   const how = !made ? (dice < SHOT.tease ? 'tease' : 'clean') : green ? 'clean' : ['clean', 'rattle', 'roll', 'bank'][SHOT.ways.findIndex(share => dice < share)];
-  launchShot(state, player, made, three ? 3 : 2, how);
+  launchShot(state, player, made, info.value, how);
+  ball.info = info;
+  return { shooter: player.id, defender, blocked: false };
+}
+
+// An open dunk nearly always goes down; a defender on him takes some of that, less than he takes off a shot.
+export const dunkChance = (state, player) => FINISH.dunkChance * (1 - FINISH.dunkContest * (1 - contest(state, player)));
+
+// The dunk's moment: the ball goes down through the rim, or is blocked, or comes off the back of it. Kept from the
+// rim, he lays it up from where he is instead. Returns what releaseShot returns.
+function releaseDunk(state, player) {
+  const { ball } = state, hoop = rimCentre(attackSign(player.team));
+  if (dist(player, hoop) > FINISH.reach) { player.finish = 'layup'; return releaseShot(state, player, { green: false }); }
+  state.shot = { shooter: player.id, t: player.shotT, at: state.time, clock: state.gameClock, ...shotWindow(state, player), green: false, blocked: false, finish: 'dunk' };
+  const info = shotInfo(state, player, false);
+  toRelease(state, player);                      // where a block or a miss finds the ball
+  const defender = contactOf(state, player);
+  if (blockedBy(state, player)) return { shooter: player.id, defender, blocked: true };
+  const made = rand(state) < dunkChance(state, player);
+  streak(state, player, made);
+  if (made) {
+    Object.assign(ball, { x: hoop.x, y: RIM.height + BALL.radius + 0.05, z: hoop.z, vx: 0, vy: -FINISH.dunkDrop, vz: 0, shooter: player.id, shotValue: 2, made: true });
+    letGo(state, player, 'shot');
+  } else launchShot(state, player, false, 2, 'clean');
   ball.info = info;
   return { shooter: player.id, defender, blocked: false };
 }
@@ -423,18 +472,27 @@ function continueShot(state, p, intent, dt, report) {
   p.shotT += dt;
   if (!wasGathering) {
     if (grounded(p)) { p.shooting = false; p.fading = false; p.finish = null; report.travel = p.id; }   // came down still holding the ball
-    else if (!intent[p.shotKey]) report.release = releaseShot(state, p);
+    // A dunk has nothing to time: the ball goes down at its moment of the jump.
+    else if (p.finish === 'dunk') { if (p.jumpT >= FINISH.dunkMoment * 2 * FINISH.jump.dunk / BALL.gravity - DT / 2) report.release = releaseDunk(state, p); }
+    // A layup let go by a tap goes at the best moment, and is not green; one still held as he starts down goes then.
+    else if (p.finish === 'layup' && p.letGo) { if (p.shotT >= shotBest(p) - DT / 2) report.release = releaseShot(state, p, { green: false }); }
+    else if (!intent[p.shotKey] || (p.finish === 'layup' && p.vy < 0)) report.release = releaseShot(state, p);
     return;
   }
   if (!intent[p.shotKey]) p.letGo = true;
   if (gathering(p)) return;
-  jump(p, PLAYER.shotJumpV); spend(state, p, STAMINA.jump);
+  jump(p, jumpOf(p)); spend(state, p, STAMINA.jump);
+  if (p.finish) {
+    // The jump of a finish carries him to the rim (see finish.js).
+    const carry = jumpVelocity(p, p.finish);
+    p.vx = carry.vx; p.vz = carry.vz;
+  }
   if (p.fading) {
     // He goes up leaning away from the hoop and floats back MOVES.fade.drift before he lands.
     const hoop = rimCentre(attackSign(p.team)), far = dist(p, hoop) || 1, pace = MOVES.fade.drift / ((2 * PLAYER.shotJumpV) / BALL.gravity);
     p.vx = ((p.x - hoop.x) / far) * pace; p.vz = ((p.z - hoop.z) / far) * pace;
   }
-  if (p.letGo) report.release = releaseShot(state, p);   // let go on the floor: the ball leaves as his feet do
+  if (p.letGo && !p.finish) report.release = releaseShot(state, p);   // let go on the floor: the ball leaves as his feet do
 }
 
 // Turns this step's intents into shots, passes, steals, jumps, control switches and pickups.

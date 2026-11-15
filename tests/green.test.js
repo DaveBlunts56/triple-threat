@@ -129,7 +129,7 @@ test('the release is recorded as the rules judged it, and the next press clears 
   const { best, half, level, inRange } = shotWindow(s, s.players[0]);
   step(s, idle(), DT);
   const { at: when, clock, ...rest } = s.shot;
-  assert.deepEqual(rest, { shooter: 0, t: s.players[0].shotT, best, half, level, inRange, green: true, blocked: false });
+  assert.deepEqual(rest, { shooter: 0, t: s.players[0].shotT, best, half, level, inRange, green: true, blocked: false, finish: null });   // a jump shot is no finish
   assert.ok(Math.abs(clock - s.gameClock) <= DT + 1e-9);                  // and the game clock then
   assert.ok(near(when, s.time - DT));                                     // the match time of the step he let go on
   const again = shot(3, 2.5);
