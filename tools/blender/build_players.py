@@ -30,8 +30,12 @@ BUILDS = {'slim': (0.65, 0.38), 'athletic': (0.82, 0.45), 'strong': (0.95, 0.58)
 TEXTURE = {'skin': 2048, 'hair': 512, 'recoloured': 384, 'shoes': 512, 'eyes': 256, 'brows': 256, 'lashes': 256}
 OPAQUE = ('skin', 'shoes', 'eyes')   # the generator wires transparency into every material; these do not need it
 SKIN_MARGIN = 0.05   # metres of skin kept under the edge of the kit, so no gap shows when he moves
-# Share of triangles kept when a mesh is simplified. The face keeps all of its own.
-KEEP = {'body': 0.42, 'hair': 0.65, 'shoes': 0.65}
+# Share of triangles kept when a mesh is simplified. The face, ears and hands keep all of their own, and so does the skin
+# around the shoulders and knees (within `joints` metres of the joint), which bends most in sight.
+KEEP = {'body': 0.75, 'hair': 0.65, 'shoes': 0.65, 'joints': 0.08}
+# The muscle detail the simplified skin loses, baked from the whole body (subdivided once) into a normal map this many
+# pixels a side, looked for this far either side of the skin.
+DETAIL = {'size': 1024, 'reach': 0.01}
 # A face other than the generator's own: this many shapes from these folders of MPFB's targets, each this strong.
 # Targets ending in `sideways` move the whole head, nose or mouth to one side, so they are never used.
 FACE = {'parts': ('head', 'nose', 'chin', 'cheek', 'mouth', 'eyes', 'forehead'), 'shapes': 6, 'weight': (0.3, 0.8),
@@ -182,6 +186,59 @@ def strip_body(body, mark, bones, shoes):
     bm.free()
 
 
+def protect(body, rig):
+    """The `keep` group: the points simplify() leaves as they are (see KEEP)."""
+    keep = body.vertex_groups.new(name='keep')
+    joint = lambda name: rig.matrix_world @ rig.data.bones[BONE + name].head_local
+    shoulders, knees = [joint(f'{s}Arm') for s in ('Left', 'Right')], [joint(f'{s}Leg') for s in ('Left', 'Right')]
+    head, scalp, ears = (body.vertex_groups[n].index for n in (BONE + 'Head', 'scalp', 'ears'))
+    for v, bone in zip(body.data.vertices, dominant_bones(body)):
+        groups = {g.group: g.weight for g in v.groups if g.weight > 0}
+        at = body.matrix_world @ v.co
+        if ((groups.get(head, 0) > 0.5 and scalp not in groups) or ears in groups or (bone and 'Hand' in bone)
+                or (bone in ('LeftArm', 'RightArm') and min((at - j).length for j in shoulders) < KEEP['joints'])
+                or min((at - j).length for j in knees) < KEEP['joints']):
+            keep.add([v.index], 1.0, 'REPLACE')
+
+
+def whole_copy(body):
+    """The skin before it is simplified, subdivided once, to bake its detail from."""
+    whole = body.copy()
+    whole.data = body.data.copy()
+    bpy.context.scene.collection.objects.link(whole)
+    smooth = whole.modifiers.new('detail', 'SUBSURF')
+    smooth.levels = smooth.render_levels = 1
+    return whole
+
+
+def bake_detail(whole, skin, name):
+    """Bakes what `whole` has and the simplified `skin` lacks into a tangent-space normal map on the skin's material,
+    wired to its shader as the node 'baked-normal-map' (which finish() keeps)."""
+    scene = bpy.context.scene
+    engine = scene.render.engine
+    scene.render.engine = 'CYCLES'
+    scene.cycles.samples = 1
+    image = bpy.data.images.new(name, DETAIL['size'], DETAIL['size'], alpha=False)
+    image.colorspace_settings.name = 'Non-Color'
+    tree = skin.data.materials[0].node_tree
+    texture = tree.nodes.new('ShaderNodeTexImage')
+    texture.image = image
+    tree.nodes.active = texture
+    activate(skin)
+    whole.select_set(True)
+    bpy.ops.object.bake(type='NORMAL', normal_space='TANGENT', use_selected_to_active=True, cage_extrusion=DETAIL['reach'],
+                        max_ray_distance=DETAIL['reach'] * 2, margin=4)
+    image.pack()   # a made picture is kept in the .blend only when packed
+    pixels = np.array(image.pixels[:], dtype=np.float32).reshape(-1, 4)[:, :3]
+    print(f'BUILD {name}: baked, mean {pixels.mean(axis=0).round(3)}, spread {pixels.std(axis=0).round(3)}')
+    normal = tree.nodes.new('ShaderNodeNormalMap')
+    normal.name = 'baked-normal-map'
+    tree.links.new(texture.outputs['Color'], normal.inputs['Color'])
+    shader = next(n for n in tree.nodes if n.type == 'BSDF_PRINCIPLED')
+    tree.links.new(normal.outputs['Normal'], shader.inputs['Normal'])
+    scene.render.engine = engine
+
+
 def part_names(row):
     """What each mesh of a built person is, in the order build_person returns them."""
     return ['skin', 'jersey', 'shorts', 'eyes', 'brows', 'lashes', *(['hair'] if row['hair'] else []), 'shoes']
@@ -206,14 +263,12 @@ def build_person(row, with_doll=False):
     add_springs(rig, shorts, mark)
     strip_body(body, mark, bones, parts['shoes'])
 
-    # The face keeps every triangle; hands, limbs, ears and the scalp under the hair give up most of theirs.
-    face = body.vertex_groups.new(name='face')
-    head, skip = body.vertex_groups[BONE + 'Head'].index, {body.vertex_groups[n].index for n in ('scalp', 'ears')}
-    for v in body.data.vertices:
-        groups = {g.group: g.weight for g in v.groups}
-        if groups.get(head, 0) > 0.5 and not skip & {g for g, w in groups.items() if w > 0}:
-            face.add([v.index], 1.0, 'REPLACE')
-    simplify(body, KEEP['body'], protect='face')
+    protect(body, rig)
+    rig['skinTriangles'] = sum(len(p.vertices) - 2 for p in body.data.polygons)   # before it is simplified: counts.json
+    whole = whole_copy(body)
+    simplify(body, KEEP['body'], protect='keep')
+    bake_detail(whole, body, f"detail-player-{row['team']}-{row['number']}")
+    bpy.data.objects.remove(whole)
     if 'hair' in parts:
         simplify(parts['hair'], KEEP['hair'])
     simplify(parts['shoes'], KEEP['shoes'])
@@ -290,9 +345,10 @@ def finish(row, rig, meshes, extra=()):
         material = obj.data.materials[0]
         if name not in ('jersey', 'shorts'):
             material.name = f'{name}-{rig.name}'
-            # Bump pictures cost megabytes and cannot be seen at this size on screen.
+            # The generator's bump pictures cost megabytes and cannot be seen at this size on screen; the skin's own
+            # baked detail stays.
             tree = material.node_tree
-            for node in [n for n in tree.nodes if n.type == 'NORMAL_MAP']:
+            for node in [n for n in tree.nodes if n.type == 'NORMAL_MAP' and n.name != 'baked-normal-map']:
                 tree.nodes.remove(node)
     bpy.ops.object.select_all(action='DESELECT')
     for obj in meshes:
@@ -346,10 +402,12 @@ def main():
     only = set(args[args.index('--only') + 1].split(',')) if '--only' in args else None
     clear_scene()
     players = {}   # each finished mesh, by the name of its skeleton
+    counts = {}    # the triangles of each one's skin before it was simplified, for the tests
     for row in people():
         if only and f"player-{row['team']}-{row['number']}" not in only:
             continue
         rig, meshes, _ = build_person(row)
+        counts[rig.name] = {'skin': rig['skinTriangles']}
         report(rig.name, meshes)
         body = players[rig.name] = finish(row, rig, meshes)
         lo, hi = bounds([body])
@@ -373,6 +431,8 @@ def main():
     if only:
         bpy.ops.wm.save_as_mainfile(filepath=args[args.index('--blend') + 1])
         return
+    with open(project('assets', 'source', 'counts.json'), 'w') as f:
+        json.dump(counts, f, indent=2, sort_keys=True)
     bpy.ops.wm.save_as_mainfile(filepath=project('assets', 'source', 'players.blend'))
     bpy.ops.export_scene.gltf(
         filepath=project('assets', 'players.glb'), export_format='GLB', use_selection=False,

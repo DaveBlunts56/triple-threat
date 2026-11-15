@@ -42,6 +42,19 @@ test('every player is skinned, within the near level of detail\'s 45,000 triangl
   assert.equal(players.json.animations, undefined);
 });
 
+test('the skin keeps three quarters of the generated body\'s triangles, and carries the muscle detail baked from the full body', () => {
+  const counts = JSON.parse(readFileSync('assets/source/counts.json', 'utf8'));
+  for (const person of people) {
+    const name = rootName(person), skin = primitivesUnder(players.json, name).find(p => players.json.materials[p.material].name.startsWith('skin'));
+    const share = players.json.accessors[skin.indices].count / 3 / counts[name].skin;
+    assert.ok(share >= 0.7 && share <= 0.8, `${name}: the skin keeps ${(share * 100).toFixed(0)}% of its triangles`);
+    const normal = players.json.materials[skin.material].normalTexture;
+    assert.ok(normal, `${name}: the skin has no normal map`);
+    const image = players.json.images[players.json.textures[normal.index].source], view = players.json.bufferViews[image.bufferView];
+    assert.deepEqual(imageSize(players.bin.subarray(view.byteOffset ?? 0, (view.byteOffset ?? 0) + view.byteLength), image.mimeType), [1024, 1024]);
+  }
+});
+
 // One player's kit piece: positions, normals and texture coordinates of the primitive whose material is `name`.
 function piece(person, name) {
   const p = primitivesUnder(players.json, rootName(person)).find(q => players.json.materials[q.material].name === name);

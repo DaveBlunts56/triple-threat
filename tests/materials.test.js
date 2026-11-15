@@ -46,3 +46,24 @@ test('hair is cut out where its picture is clear, on both sides; skin and shoes 
     assert.equal(shoes.alphaTest, 0);
   }
 });
+
+test('on High and Ultra the skin shows the muscle detail baked into its normal map; Low and Medium stay plain', () => {
+  const baked = blank();
+  for (const level of QUALITY.order) {
+    assert.equal(partMaterial(level, 'skin', blank(), baked).normalMap, isDetailed(level) ? baked : null, level);
+    assert.equal(partMaterial(level, 'shoes', blank()).normalMap, null, level);
+  }
+});
+
+test('the face\'s parts: brows and lashes cut out like hair, a clear glossy cornea over each eye that hides nothing behind it', () => {
+  for (const level of QUALITY.order) {
+    for (const kind of ['brows', 'lashes']) {
+      const m = partMaterial(level, kind, blank());
+      assert.deepEqual([m.alphaTest, m.side], [MATERIALS.cutout, THREE.DoubleSide], `${level} ${kind}`);
+    }
+    const cornea = partMaterial(level, 'cornea', null);
+    assert.deepEqual([cornea.transparent, cornea.depthWrite, cornea.roughness, cornea.map], [true, false, MATERIALS.cornea, null], level);
+    assert.ok(cornea.opacity < 0.5, level);
+    for (const kind of ['eyes', 'mouth']) assert.equal(partMaterial(level, kind, blank()).transparent, false, `${level} ${kind}`);
+  }
+});

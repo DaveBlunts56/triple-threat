@@ -10,10 +10,11 @@ const f = Object.freeze;
 // than before, with the physical kit's sheen most of it). kitRepeat: how many times the fabric tile is repeated across
 // a garment's picture, across and down (a tile is about 4 cm of cloth). rough: each garment's roughness, before its
 // fabric's own. sheen: how strongly cloth catches light at a grazing angle. detail: how strongly the fabric's weave
-// shows in its normals. cutout: hair is drawn where its picture is at least this opaque. hair, shoes: their roughness.
+// shows in its normals. cutout: hair, brows and lashes are drawn where their picture is at least this opaque. hair,
+// shoes, skin, cornea: their roughness.
 export const MATERIALS = f({
   detailed: f(['high', 'ultra']), physical: f(['ultra']), kitRepeat: f([32, 47]), rough: f({ jersey: 0.75, shorts: 0.85 }), sheen: 0.3, detail: 0.6,
-  cutout: 0.4, hair: 0.65, shoes: 0.4, skin: 0.55,
+  cutout: 0.4, hair: 0.65, shoes: 0.4, skin: 0.55, cornea: 0.05,
 });
 
 export const isDetailed = level => MATERIALS.detailed.includes(level);
@@ -47,9 +48,14 @@ export function kitMaterial(level, { part, map, normal, fabric }) {
   return material;
 }
 
-// The materials of the other parts, as the file gives their pictures. Hair is cut out where its picture is clear.
-export function partMaterial(level, kind, map) {
+// The materials of the other parts, as the file gives their pictures (`normalMap`: the skin's baked muscle detail, shown
+// on the detailed levels). Hair, brows and lashes are cut out where their picture is clear; the cornea is a clear,
+// glossy shell over each eye that writes no depth, so the eye behind it is never hidden.
+export function partMaterial(level, kind, map, normalMap = null) {
+  if (kind === 'cornea') return new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: MATERIALS.cornea, metalness: 0, transparent: true, opacity: 0.12, depthWrite: false });
   const roughness = { hair: MATERIALS.hair, shoes: MATERIALS.shoes, skin: MATERIALS.skin }[kind] ?? 0.6;
-  const options = { map, roughness, metalness: 0, ...(kind === 'hair' ? { alphaTest: MATERIALS.cutout, side: THREE.DoubleSide } : {}) };
+  const cutout = ['hair', 'brows', 'lashes'].includes(kind);
+  const options = { map, roughness, metalness: 0, ...(cutout ? { alphaTest: MATERIALS.cutout, side: THREE.DoubleSide } : {}) };
+  if (normalMap && isDetailed(level)) options.normalMap = normalMap;
   return new THREE.MeshStandardMaterial(options);   // the skin's own material comes with its own stage
 }
