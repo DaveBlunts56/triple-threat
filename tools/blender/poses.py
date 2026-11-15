@@ -164,6 +164,34 @@ POSES = {
 }
 
 
+# ---- The motions measured from reference clips (assets/source/tracked/; see tracked.py and tools/video/README.md). ----
+# Each key is (share of the length, (clip, moment), overrides): the moment's measured pose, with the bones named in
+# `overrides` turned by hand instead, as the poses above are written. All are made right-handed: the ball in, or going
+# to, his right hand, the take-off from his left foot. `through`: the motion passes through its keys without stopping.
+
+# By eye: the layup clip hides his legs. Both knees tucked up under him in the air, the right (the driven knee) higher.
+TUCK = {'RightUpLeg': (-55, 0, 0), 'RightLeg': (95, 0, 0), 'RightFoot': (-15, 0, 0), 'LeftUpLeg': (-30, 0, 0), 'LeftLeg': (85, 0, 0), 'LeftFoot': (-10, 0, 0)}
+# By eye: the legs opening again as he lets it go.
+TUCK_OPEN = {'RightUpLeg': (-30, 0, 0), 'RightLeg': (55, 0, 0), 'RightFoot': (-10, 0, 0), 'LeftUpLeg': (-12, 0, 0), 'LeftLeg': (40, 0, 0), 'LeftFoot': (-5, 0, 0)}
+# The ball arm coming down after the ball has gone: as it hangs at his side.
+ARM_DOWN = {'RightArm': (17, -22, 21), 'RightForeArm': (-5, -12, -9), 'RightHand': (-5, -10, -12)}
+D, L = 'dunk-one-foot', 'layup-finish'
+TRACKED = {
+    # The two steps: the shares are the measured times over the 0.52 s from the gather to the take-off.
+    'finishGather': {'kind': 'held', 'seconds': 0.5, 'through': True, 'keys': [
+        (0, (D, 'gather'), {}), (0.33, (D, 'step1'), {}), (0.69, (D, 'step2'), {}), (0.81, (D, 'deepest'), {}), (1, (D, 'takeoff'), {})]},
+    # The dunk's jump: cocked at 0.36 of it and thrown down at 0.69, as measured.
+    'dunk': {'kind': 'held', 'seconds': 0.86, 'through': True, 'keys': [
+        (0, (D, 'takeoff'), {}), (0.36, (D, 'cocked'), {}), (0.69, (D, 'dunk'), {}), (0.82, (D, 'dunk'), ARM_DOWN), (1, (D, 'landing'), {})]},
+    # The layup's jump: the take-off and the landing are the dunk's (measured); the arms and trunk of the finish are
+    # the layup clip's; the legs in the air are by eye (TUCK). Of that clip's six moments, `reaching` and `extended`
+    # are not used: the tracker had lost the arm there.
+    'layup': {'kind': 'held', 'seconds': 0.65, 'through': True, 'keys': [
+        (0, (D, 'takeoff'), {}), (0.3, (L, 'tucked'), TUCK), (0.62, (L, 'release'), TUCK_OPEN),
+        (0.8, (L, 'release'), {**TUCK_OPEN, **ARM_DOWN}), (1, (D, 'landing'), {})]},
+}
+
+
 def whole_body(pose):
     """Does the motion turn a leg bone? Then it is of the whole body, and the legs play it as well as the arms."""
     return any(bone in LEG_BONES for _, turns in pose['keys'] for bone in turns)
@@ -196,8 +224,9 @@ def pose_frames(rig, pose, fps):
     """
     unknown = {bone for _, turns in pose['keys'] for bone in turns if PREFIX + bone not in rig.data.bones}
     assert not unknown, f'the rig has no bone called {", ".join(sorted(unknown))}'
-    keys = [(share, {PREFIX + bone: Euler([radians(v) for v in degrees], 'XYZ').to_quaternion() for bone, degrees in turns.items()})
-            for share, turns in pose['keys']]
+    # A turn is (x, y, z) degrees, or a Quaternion as it is (a measured pose: see tracked.py).
+    quaternion = lambda turn: turn if isinstance(turn, Quaternion) else Euler([radians(v) for v in turn], 'XYZ').to_quaternion()
+    keys = [(share, {PREFIX + bone: quaternion(turn) for bone, turn in turns.items()}) for share, turns in pose['keys']]
     shares = [share for share, _ in keys]
     assert shares[0] == 0 and shares[-1] == 1 and shares == sorted(shares), f'keys must run from 0 to 1 in order: {shares}'
     last = round(pose['seconds'] * fps)
@@ -207,7 +236,9 @@ def pose_frames(rig, pose, fps):
         after = next(i for i, key in enumerate(shares) if key >= share)
         before = max(after - 1, 0)
         span = shares[after] - shares[before]
-        t = ease((share - shares[before]) / span) if span else 0
+        t = (share - shares[before]) / span if span else 0
+        if not pose.get('through'):                  # a motion that goes through its keys without stopping at each
+            t = ease(t)
         turns = {}
         for bone in set(keys[before][1]) | set(keys[after][1]):
             a, b = keys[before][1].get(bone, Quaternion()), keys[after][1].get(bone, Quaternion())

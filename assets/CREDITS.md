@@ -59,6 +59,14 @@ Mixamo allows its motion to be used in a game but not passed on as raw clips, so
 
 Three motions are not clips of their own: `land` is the frames of `jump`'s clip that follow the landing, and `strafeRight` and `dribbleLeft` are `strafeLeft` and `dribble` in a mirror.
 
+### Motions measured from reference footage
+
+`finishGather`, `dunk`, `layup` and their left-handed twins are this project's own. They are built by
+`tools/blender/build_motion.py` from `assets/source/tracked/*.json`: which way each limb pointed at a few named moments
+of a move, measured from reference footage with `tools/video/` (MediaPipe pose tracking). The footage itself, and any
+name or picture from it, is not in the repository or the game. The layup's legs in the air were set by eye: the footage
+hid them.
+
 ## The floor (CC0)
 
 The court's wood is the texture **Wood Floor** by Dimitrios Savva, from Poly Haven, licence CC0:

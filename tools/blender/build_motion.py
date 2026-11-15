@@ -19,7 +19,8 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from build_players import build_person, finish, people  # noqa: E402
 from common import bounds, clear_scene, project, snapshot  # noqa: E402
-from poses import POSES, pose_frames, whole_body  # noqa: E402
+from poses import POSES, TRACKED, pose_frames, whole_body  # noqa: E402
+from tracked import aimed, clip  # noqa: E402
 
 FPS = 30
 # Name (and file name) of each Mixamo clip: its kind. A 'loop' repeats; in a 'held' one the game sets how far through it is.
@@ -27,7 +28,8 @@ CLIPS = {'idle': 'loop', 'walk': 'loop', 'run': 'loop', 'sprint': 'loop', 'jump'
          'strafeLeft': 'loop', 'backpedal': 'loop', 'dribble': 'loop'}
 # Motions the build makes: another one in a mirror.
 MIRRORS = {'strafeRight': 'strafeLeft', 'dribbleLeft': 'dribble', 'holdLeft': 'hold',
-           'crossoverLeft': 'crossover', 'betweenLegsLeft': 'betweenLegs', 'behindBackLeft': 'behindBack'}
+           'crossoverLeft': 'crossover', 'betweenLegsLeft': 'betweenLegs', 'behindBackLeft': 'behindBack',
+           'finishGatherLeft': 'finishGather', 'dunkLeft': 'dunk', 'layupLeft': 'layup'}
 # Clips that are taken if their file is in assets/source/mixamo/, and done without if it is not: the first five have a
 # hand-made motion of the same name in poses.py, which is used until the clip is there.
 OPTIONAL = {'crossover': 'once', 'betweenLegs': 'once', 'behindBack': 'once', 'stepBack': 'once', 'fade': 'held',
@@ -344,6 +346,11 @@ def main():
             add(made, pose['kind'], frames, framed=MADE_BOX, **more)
         if name in OPTIONAL:
             found[name] = 'hand'
+    # The motions measured from reference clips: each key is a measured moment put on the rig.
+    for name, pose in TRACKED.items():
+        keys = [(share, aimed(rig, clip(source)[moment], overrides)) for share, (source, moment), overrides in pose['keys']]
+        for made, frames in with_mirrors(name, pose_frames(rig, {**pose, 'keys': keys}, FPS)):
+            add(made, pose['kind'], frames, framed=MADE_BOX, **{'from': 'tracked', 'whole': True})
     print('MOTION optional:', ', '.join(f'{name} {found.get(name, "absent")}' for name in OPTIONAL))
 
     rig.animation_data.action = None

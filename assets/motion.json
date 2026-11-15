@@ -192,6 +192,48 @@
       "loop": false,
       "kind": "held",
       "from": "hand"
+    },
+    "finishGather": {
+      "duration": 0.5,
+      "loop": false,
+      "kind": "held",
+      "from": "tracked",
+      "whole": true
+    },
+    "finishGatherLeft": {
+      "duration": 0.5,
+      "loop": false,
+      "kind": "held",
+      "from": "tracked",
+      "whole": true
+    },
+    "dunk": {
+      "duration": 0.8667,
+      "loop": false,
+      "kind": "held",
+      "from": "tracked",
+      "whole": true
+    },
+    "dunkLeft": {
+      "duration": 0.8667,
+      "loop": false,
+      "kind": "held",
+      "from": "tracked",
+      "whole": true
+    },
+    "layup": {
+      "duration": 0.6667,
+      "loop": false,
+      "kind": "held",
+      "from": "tracked",
+      "whole": true
+    },
+    "layupLeft": {
+      "duration": 0.6667,
+      "loop": false,
+      "kind": "held",
+      "from": "tracked",
+      "whole": true
     }
   }
 }
