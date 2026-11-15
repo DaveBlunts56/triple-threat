@@ -97,3 +97,10 @@ What to keep to when changing one:
 - Skeleton: `HumanService.add_builtin_rig(body, 'mixamo')` gives 52 bones named `mixamorig:*`. It must be added before hair or shoes.
 - The body mesh carries helper surfaces as vertex groups. `body` is the skin; `helper-tights` is a body stocking the jersey and shorts are cut from.
 - Skins in the pack: `young`, `middleage` and `old`, each `african`, `asian` or `caucasian`, `male` or `female`. Hair: `afro01`, `short01` to `short04` and longer styles. Shoes: `shoes01` to `shoes06`; `shoes05` is the white trainer used.
+
+## Motions measured from reference clips
+
+`tracked/*.json` holds what was measured from reference footage with `tools/video/` (see its README): the direction of
+every limb at each named moment of a move, as numbers. No frame, name or picture of the footage is here or anywhere in
+the repository. `tools/blender/build_motion.py` builds `finishGather`, `dunk` and `layup` (and their left-handed twins)
+from them.

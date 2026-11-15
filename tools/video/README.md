@@ -52,6 +52,18 @@ whether both hands are on the ball, and how far apart the feet are along the way
 amount nobody states; a jump is the one thing in them whose real length is known (0.75 to 0.95 s for a dunk), so it
 gives the factor, and the real time of every other moment.
 
+## 3. Write the limb directions the motions are built from
+
+```bash
+tools/video/.venv/bin/python -I tools/video/poses.py dunk-one-foot --hand right
+```
+
+It writes `assets/source/tracked/NAME.json`: for each named moment, which way every limb points in the body's own
+frame (toward his left, up, out of his chest), the lines of the trunk, shoulders and hips, the real time, and how sure
+the tracker was of each limb. That file is numbers only and is committed; `tools/blender/build_motion.py` builds the
+motions from it, so they can be rebuilt without the clip or the tracker. Which way is "his left" is taken from the
+planes his knees bend in, because a single camera sees depth poorly.
+
 ## What the numbers are good for
 
 - **Good:** the order of things, which foot, which hand, the shape of each curve, the pose at a named moment to within
