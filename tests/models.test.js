@@ -5,6 +5,7 @@ import { readGlb, primitivesUnder, floatsOf } from './glb.js';
 import { pack } from '../tools/single-file.mjs';
 import { ROSTER } from '../src/sim/tuning.js';
 import { LEG_CLIPS, ARM_CLIPS } from '../src/render/motion.js';
+import { KIT } from '../src/render/kit.js';
 
 const players = readGlb('assets/players.glb');
 const people = JSON.parse(readFileSync('assets/source/people.json', 'utf8')).people;
@@ -53,12 +54,37 @@ test('jersey and shorts are laid out as a front panel and a back panel, the righ
   for (const person of people) for (const name of ['jersey', 'shorts']) {
     const { at, normal, uv } = piece(person, name);
     assert.ok(uv.every(([u, v]) => u >= 0 && u <= 1 && v >= 0 && v <= 1), `${rootName(person)} ${name}: outside the picture`);
-    const front = uv.map(([u], i) => (u < 0.5 ? i : -1)).filter(i => i >= 0), back = uv.map(([u], i) => (u > 0.5 ? i : -1)).filter(i => i >= 0);
-    assert.ok(mean(front.map(i => normal[i][2])) > 0.3 && mean(back.map(i => normal[i][2])) < -0.3, `${rootName(person)} ${name}: panels face the wrong way`);
+    // The main panels are the top of the picture (KIT.layout in src/render/kit.js); the bindings and side panels are below.
+    const main = i => uv[i][1] <= KIT.layout.main[1];
+    const front = uv.map(([u], i) => (u < 0.5 && main(i) ? i : -1)).filter(i => i >= 0), back = uv.map(([u], i) => (u > 0.5 && main(i) ? i : -1)).filter(i => i >= 0);
+    // The front panel is in front of him (+z) and the back panel behind: both sides of the cloth share its place in the picture.
+    assert.ok(mean(front.map(i => at[i][2])) > mean(back.map(i => at[i][2])) + 0.08, `${rootName(person)} ${name}: panels face the wrong way`);
     const lean = list => { const x = mean(list.map(i => at[i][0])), u = mean(list.map(i => uv[i][0])); return mean(list.map(i => (at[i][0] - x) * (uv[i][0] - u))); };
     assert.ok(lean(front) > 0 && lean(back) < 0, `${rootName(person)} ${name}: a panel is mirrored`);
-    const top = Math.max(...at.map(p => p[1])), high = uv[at.findIndex(p => p[1] === top)][1];
-    assert.ok(high < 0.1, `${rootName(person)} ${name}: the top edge is at v ${high}`);
+    const mains = at.map((p, i) => i).filter(main), top = Math.max(...mains.map(i => at[i][1])), high = uv[mains.find(i => at[i][1] === top)][1];
+    assert.ok(high < 0.2, `${rootName(person)} ${name}: the top edge is at v ${high}`);   // just under its binding
+  }
+});
+
+test('the kit is cloth with thickness, with bindings and side panels, and the jersey is tucked into the shorts', () => {
+  const inRegion = (uv, region) => uv[1] >= KIT.layout[region][0] - 0.005 && uv[1] <= KIT.layout[region][1] + 0.005;
+  for (const person of people) {
+    const name = rootName(person), jersey = piece(person, 'jersey'), shorts = piece(person, 'shorts');
+    for (const [part, kit] of [['jersey', jersey], ['shorts', shorts]]) {
+      for (const region of ['trim', 'panel']) assert.ok(kit.uv.filter(uv => inRegion(uv, region)).length > 40, `${name} ${part}: no ${region}`);
+      // Thickness: from a point on the outside, 3 to 5 mm in along its normal, there is a point of the inside.
+      let found = 0, tried = 0;
+      for (let i = 0; i < kit.at.length && tried < 40; i += 97) {
+        const [x, y, z] = kit.at[i], [nx, ny, nz] = kit.normal[i];
+        if (!inRegion(kit.uv[i], 'main')) continue;
+        tried++;
+        if (kit.at.some((q, j) => j !== i && kit.normal[j][0] * nx + kit.normal[j][1] * ny + kit.normal[j][2] * nz < -0.5
+          && [3, 4, 5].some(d => Math.hypot(q[0] - (x - nx * d / 1000), q[1] - (y - ny * d / 1000), q[2] - (z - nz * d / 1000)) < 0.003))) found++;
+      }
+      assert.ok(found >= tried * 0.7, `${name} ${part}: only ${found} of ${tried} points have cloth 3 to 5 mm behind them`);   // near an edge or a binding the inside is not straight behind
+    }
+    const lowest = Math.min(...jersey.at.map(p => p[1])), waist = Math.max(...shorts.at.map(p => p[1]));
+    assert.ok(lowest < waist - 0.04 && lowest > waist - 0.15, `${name}: the jersey ends ${waist - lowest} m under the shorts' waistband`);
   }
 });
 

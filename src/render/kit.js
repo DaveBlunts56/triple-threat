@@ -10,7 +10,11 @@ const f = Object.freeze;
 // waistband along the top. A band is [x, y, width, height].
 // sides: down his sides, where the front meets the back. hem: along the bottom edge.
 // chest, back: the middle of the number and how tall it is.
+// layout: the regions of each garment's picture, as [top, bottom] shares of its height (the build lays the garment
+// out so: tools/blender/kit.py LAYOUT): main, the front panel on the left and the back on the right; trim, the
+// bindings, waistband and hems; panel, the side panels and stripes.
 export const KIT = f({
+  layout: f({ main: f([0, 0.8]), trim: f([0.82, 0.9]), panel: f([0.92, 1]) }),
   size: 512, team: f(['#2f6fe0', '#d83a3a']), trim: '#ffffff', font: 'bold {px}px system-ui, sans-serif', digit: 0.45,
   sides: f([f([0, 0, 0.035, 1]), f([0.465, 0, 0.07, 1]), f([0.965, 0, 0.035, 1])]),
   hem: f([0, 0.94, 1, 0.06]),

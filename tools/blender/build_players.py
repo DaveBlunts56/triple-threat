@@ -20,6 +20,7 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import MPFB, bounds, clear_scene, project, service, snapshot  # noqa: E402
+from kit import SHORTS, cut_out, make_kit  # noqa: E402
 
 BONE = 'mixamorig:'
 # Muscle and weight for each build (MPFB macros, 0 to 1).
@@ -28,13 +29,7 @@ BUILDS = {'slim': (0.65, 0.38), 'athletic': (0.82, 0.45), 'strong': (0.95, 0.58)
 # A recoloured hair picture is smaller than one in its own colours, so that ten players fit the size the file may have.
 TEXTURE = {'skin': 2048, 'hair': 512, 'recoloured': 384, 'shoes': 512, 'eyes': 256, 'brows': 256, 'lashes': 256}
 OPAQUE = ('skin', 'shoes', 'eyes')   # the generator wires transparency into every material; these do not need it
-# How loosely the kit hangs: how far each ring of the surface is pushed out from the body, as a share of its radius.
-JERSEY = {'chest': 0.05, 'hem': 0.16, 'drop': 0.10}       # drop: metres the hem hangs below the hip joints
-SHORTS = {'hip': 0.07, 'hem': 0.42, 'above_knee': 0.03, 'rise': 0.09}   # rise: metres the waistband sits above the hip bone's root
 SKIN_MARGIN = 0.05   # metres of skin kept under the edge of the kit, so no gap shows when he moves
-# Where the two panels of a kit piece sit in its picture, as shares of the picture's width: the middle of the front panel,
-# the middle of the back panel, and how wide each is. The game paints the colour, the trim and the number onto them.
-PANEL = {'front': 0.25, 'back': 0.75, 'width': 0.46}
 # Share of triangles kept when a mesh is simplified. The face keeps all of its own.
 KEEP = {'body': 0.42, 'hair': 0.65, 'shoes': 0.65}
 # A face other than the generator's own: this many shapes from these folders of MPFB's targets, each this strong.
@@ -144,46 +139,6 @@ def in_group(obj, name):
     return [any(g.group == index and g.weight > 0 for g in v.groups) for v in obj.data.vertices]
 
 
-def cut_out(body, name, keep_vertex):
-    """A new object holding the faces of `body` whose corners all satisfy keep_vertex(index). Weights come with it."""
-    activate(body)
-    bpy.ops.object.duplicate()
-    piece = bpy.context.view_layer.objects.active
-    piece.name = name
-    for m in [m for m in piece.modifiers if m.type != 'ARMATURE']:
-        piece.modifiers.remove(m)
-    bm = bmesh.new()
-    bm.from_mesh(piece.data)
-    bm.faces.ensure_lookup_table()
-    bmesh.ops.delete(bm, geom=[f for f in bm.faces if not all(keep_vertex(v.index) for v in f.verts)], context='FACES')
-    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
-    bm.to_mesh(piece.data)
-    bm.free()
-    return piece
-
-
-def tidy_border(piece, flat=()):
-    """Cut edges follow the faces they were cut along, so they are ragged. Level the hems, and round off the rest.
-
-    `flat` lists heights: border corners within 12 cm of one are moved onto it.
-    """
-    bm = bmesh.new()
-    bm.from_mesh(piece.data)
-    border = {v: [e.other_vert(v) for e in v.link_edges if e.is_boundary] for v in bm.verts if v.is_boundary}
-    level = {}
-    for v in border:
-        near = [z for z in flat if abs(v.co.z - z) < 0.12]
-        if near:
-            v.co.z = level[v] = near[0]
-    # Smooth each border loop without shrinking it: a step toward the neighbours, then a slightly larger step back.
-    for step in [0.5, -0.53] * 12:
-        moved = {v: v.co + step * ((ns[0].co + ns[1].co) / 2 - v.co) for v, ns in border.items() if len(ns) == 2}
-        for v, co in moved.items():
-            v.co = Vector((co.x, co.y, level[v])) if v in level else co
-    bm.to_mesh(piece.data)
-    bm.free()
-
-
 def simplify(obj, keep, protect=None):
     """Reduce the mesh to about `keep` of its triangles. Vertices in the `protect` group are left as they are."""
     activate(obj)
@@ -193,106 +148,6 @@ def simplify(obj, keep, protect=None):
         modifier.vertex_group, modifier.invert_vertex_group, modifier.vertex_group_factor = protect, True, 1000
     bpy.ops.object.modifier_move_to_index(modifier=modifier.name, index=0)
     bpy.ops.object.modifier_apply(modifier=modifier.name)
-
-
-def plain_material(name):
-    """White and matte: the game tints it in the team's colour. There is one of each name, shared by every player."""
-    if name in bpy.data.materials:
-        return bpy.data.materials[name]
-    material = bpy.data.materials.new(name)
-    material.use_nodes = True
-    shader = next(n for n in material.node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
-    shader.inputs['Base Color'].default_value = (1, 1, 1, 1)
-    shader.inputs['Roughness'].default_value = 0.85
-    material.use_backface_culling = False   # the inside shows at the hem and the arm holes
-    return material
-
-
-def dress(piece, material, levels):
-    piece.data.materials.clear()
-    piece.data.materials.append(material)
-    if levels:
-        activate(piece)
-        modifier = piece.modifiers.new('smooth', 'SUBSURF')
-        modifier.levels = levels
-        bpy.ops.object.modifier_move_to_index(modifier=modifier.name, index=0)   # before the skeleton, so it can be applied
-        bpy.ops.object.modifier_apply(modifier=modifier.name)
-    for polygon in piece.data.polygons:
-        polygon.use_smooth = True
-
-
-def panel_uvs(piece):
-    """Lay the piece out in its picture as two panels side by side: the front on the left, the back on the right.
-
-    Each face corner is placed by where it is: across its panel by its x, up it by its z, so the top edge of the piece
-    is the top of the picture. A face is on the front when it faces forward (humans face -Y). Across the front the
-    picture runs toward his left and across the back toward his right, so both read the right way round from outside.
-    """
-    mesh = piece.data
-    xs, zs = [v.co.x for v in mesh.vertices], [v.co.z for v in mesh.vertices]
-    width, lowest, height = max(xs) - min(xs), min(zs), max(zs) - min(zs)
-    corners = mesh.uv_layers.active.data   # the layer the piece was cut out with, so the joined mesh still has only one
-    for polygon in mesh.polygons:
-        front = polygon.normal.y < 0
-        for corner, vertex in zip(polygon.loop_indices, polygon.vertices):
-            across = PANEL['width'] * xs[vertex] / width
-            corners[corner].uv = (PANEL['front'] + across if front else PANEL['back'] - across, (zs[vertex] - lowest) / height)
-
-
-def make_jersey(body, mark, bones, tights):
-    """A sleeveless jersey: the torso of the tights surface, hung loose, with a scooped neck and arm holes."""
-    hem = mark['hip'] - JERSEY['drop']
-    strap = mark['shoulder'].x - 0.035                     # the straps stop short of the shoulder joint
-    coords = [body.matrix_world @ v.co for v in body.data.vertices]
-
-    armpit = mark['shoulder'].z - 0.10
-    is_arm = lambda bone: 'Arm' in bone or 'Hand' in bone
-
-    def keep(i):
-        p, bone = coords[i], bones[i]
-        if not tights[i] or p.z < hem or bone in (None, 'Neck', 'Head'):
-            return False
-        if p.z < armpit:
-            return not is_arm(bone)                        # the whole torso, but not the arms hanging beside it
-        if abs(p.x) > strap:
-            return False                                   # arm hole
-        front = p.y < mark['spine_y']
-        scoop = mark['neck'] - (0.13 if front else 0.05)
-        return not (abs(p.x) < 0.085 and p.z > scoop)      # neck opening, deeper at the front
-
-    jersey = cut_out(body, 'jersey', keep)
-    for v in jersey.data.vertices:
-        t = min(1.0, max(0.0, (v.co.z - hem) / (mark['chest'] - hem)))   # 0 at the hem, 1 at the chest
-        loose = JERSEY['chest'] + (JERSEY['hem'] - JERSEY['chest']) * (1 - t)
-        v.co.x *= 1 + loose
-        v.co.y = mark['spine_y'] + (v.co.y - mark['spine_y']) * (1 + loose)
-    return jersey
-
-
-def make_shorts(body, mark, bones, tights):
-    """Loose knee-length shorts: the hips and thighs of the tights surface, flared toward the hem."""
-    hem, waist = mark['knee'] + SHORTS['above_knee'], mark['pelvis'] + SHORTS['rise']
-    crotch = mark['hip'] - 0.10
-    coords = [body.matrix_world @ v.co for v in body.data.vertices]
-
-    def keep(i):
-        return tights[i] and hem <= coords[i].z <= waist and bones[i] in ('Hips', 'Spine', 'LeftUpLeg', 'RightUpLeg')
-
-    shorts = cut_out(body, 'shorts', keep)
-    thigh = mark['thigh']
-    for v in shorts.data.vertices:
-        if v.co.z >= crotch:                                # around the hips: a little room all round
-            v.co.x *= 1 + SHORTS['hip']
-            v.co.y = mark['spine_y'] + (v.co.y - mark['spine_y']) * (1 + SHORTS['hip'])
-            continue
-        t = (crotch - v.co.z) / (crotch - hem)              # 0 at the crotch, 1 at the hem
-        loose = SHORTS['hip'] + (SHORTS['hem'] - SHORTS['hip']) * t
-        side = 1 if v.co.x >= 0 else -1
-        axis_x = side * (abs(thigh.x) + 0.02 * t)           # each leg flares around its own thigh
-        x = axis_x + (v.co.x - axis_x) * (1 + loose)
-        v.co.x = side * max(0.006, side * x)                # the two legs meet at the middle, never cross
-        v.co.y = thigh.y + (v.co.y - thigh.y) * (1 + loose)
-    return shorts
 
 
 def strip_body(body, mark, bones, shoes):
@@ -343,14 +198,11 @@ def build_person(row, with_doll=False):
     mark, bones, tights = landmarks(rig), dominant_bones(body), in_group(body, 'helper-tights')
     is_skin = in_group(body, 'body')
     doll = cut_out(body, 'doll', lambda i: is_skin[i]) if with_doll else None
-    jersey = make_jersey(body, mark, bones, tights)
-    shorts = make_shorts(body, mark, bones, tights)
-    tidy_border(jersey, flat=[mark['hip'] - JERSEY['drop']])
-    tidy_border(shorts, flat=[mark['knee'] + SHORTS['above_knee'], mark['pelvis'] + SHORTS['rise']])
-    dress(jersey, plain_material('jersey'), levels=0)
-    dress(shorts, plain_material('shorts'), levels=0)
-    panel_uvs(jersey)
-    panel_uvs(shorts)
+    collider = cut_out(body, 'collider', lambda i: is_skin[i])   # the skin as it stands, for the kit to drape on
+    for m in [m for m in collider.modifiers]:
+        collider.modifiers.remove(m)
+    jersey, shorts = make_kit(body, collider, mark, bones, tights)
+    bpy.data.objects.remove(collider)
     strip_body(body, mark, bones, parts['shoes'])
 
     # The face keeps every triangle; hands, limbs, ears and the scalp under the hair give up most of theirs.
@@ -489,9 +341,13 @@ def report(name, meshes):
 def main():
     args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
     shots = args[args.index('--shots') + 1] if '--shots' in args else None
+    # --only a,b: build just these people into the .blend given by --blend, to look at; nothing is exported.
+    only = set(args[args.index('--only') + 1].split(',')) if '--only' in args else None
     clear_scene()
     players = {}   # each finished mesh, by the name of its skeleton
     for row in people():
+        if only and f"player-{row['team']}-{row['number']}" not in only:
+            continue
         rig, meshes, _ = build_person(row)
         report(rig.name, meshes)
         body = players[rig.name] = finish(row, rig, meshes)
@@ -513,6 +369,9 @@ def main():
                      box=(Vector((-0.3, lo.y, 0.35)), Vector((0.3, hi.y, 1.15))))
         for body in bodies:
             body.hide_render = False
+    if only:
+        bpy.ops.wm.save_as_mainfile(filepath=args[args.index('--blend') + 1])
+        return
     bpy.ops.wm.save_as_mainfile(filepath=project('assets', 'source', 'players.blend'))
     bpy.ops.export_scene.gltf(
         filepath=project('assets', 'players.glb'), export_format='GLB', use_selection=False,
