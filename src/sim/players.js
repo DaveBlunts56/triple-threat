@@ -256,13 +256,16 @@ function blockedBy(state, player) {
 function toRelease(state, player) {
   const { ball } = state, sign = attackSign(player.team), hoop = rimCentre(sign);
   let rx = player.x - hoop.x, rz = player.z - hoop.z;
+  // A layup is rolled off the fingers of a raised arm: from above his head, out toward the rim.
+  const layup = player.finish === 'layup', far = Math.hypot(rx, rz);
+  if (layup && far > 1e-6) { const k = Math.max(0, far - FINISH.release.ahead) / far; rx *= k; rz *= k; }
   const r = Math.hypot(rx, rz);
   if (r < SHOT.minRelease) {
     const k = r > 1e-6 ? SHOT.minRelease / r : 0;
     rx = r > 1e-6 ? -sign * Math.abs(rx * k) : -sign * SHOT.minRelease;   // always on the court side of the rim
     rz *= k;
   }
-  ball.x = hoop.x + rx; ball.z = hoop.z + rz; ball.y = player.y + PLAYER.releaseHeight;
+  ball.x = hoop.x + rx; ball.z = hoop.z + rz; ball.y = player.y + (layup ? FINISH.release.up : PLAYER.releaseHeight);
 }
 
 // `green: false`: the release cannot be green, however it is timed (a layup let go by a tap, a dunk kept from the rim).
@@ -282,7 +285,8 @@ export function releaseShot(state, player, { green: mayBeGreen = true } = {}) {
   const made = green || rand(state) < makeChance(state, player);
   streak(state, player, made);
   const dice = made && green ? 1 : rand(state);
-  const how = !made ? (dice < SHOT.tease ? 'tease' : 'clean') : green ? 'clean' : ['clean', 'rattle', 'roll', 'bank'][SHOT.ways.findIndex(share => dice < share)];
+  // A layup that goes in is rolled over the front of the rim: it is not banked in, and does not rattle.
+  const how = !made ? (dice < SHOT.tease ? 'tease' : 'clean') : green || player.finish === 'layup' ? 'clean' : ['clean', 'rattle', 'roll', 'bank'][SHOT.ways.findIndex(share => dice < share)];
   launchShot(state, player, made, info.value, how);
   ball.info = info;
   return { shooter: player.id, defender, blocked: false };

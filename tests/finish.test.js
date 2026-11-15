@@ -300,3 +300,34 @@ test('a layup from a standstill close to the rim: a step in, up, and it is judge
   assert.equal(s.shot.green, true);
   assert.equal(scored(s), 2);
 });
+
+// ---------- after play-testing: higher jumps, and the layup as a finger roll ----------
+
+test('a layup rises about 0.7 m and a dunk over a metre: his hand is above the rim on both', () => {
+  const rise = finish => FINISH.jump[finish] ** 2 / (2 * BALL.gravity);
+  assert.ok(rise('layup') > 0.65 && rise('layup') < 0.8, `a layup rises ${rise('layup')} m`);
+  assert.ok(rise('dunk') > 1 && rise('dunk') < 1.2, `a dunk rises ${rise('dunk')} m`);
+  assert.ok(PLAYER.reach + rise('layup') > RIM.height && PLAYER.reach + rise('dunk') > RIM.height + 0.3);
+});
+
+test('a layup leaves his raised hand: above his head, out toward the rim, never nearer the rim than a shot may be let go', () => {
+  const s = pressed('shoot', 3, 5), p = s.players[0];
+  airUntil(s, shotBest(p), { shoot: true });
+  const at = { x: p.x, y: p.y, z: p.z };
+  tick(s);                                              // the key comes up: the ball leaves his hand
+  const out = Math.hypot(RIM.x - s.ball.x, s.ball.z), his = Math.hypot(RIM.x - at.x, at.z);
+  assert.ok(s.ball.y > at.y + PLAYER.reach, `the ball left ${s.ball.y - at.y} m above his feet`);
+  assert.ok(s.ball.y > RIM.height - 0.1, `the ball left ${RIM.height - s.ball.y} m under the rim`);
+  assert.ok(out < his - 0.1 && out >= SHOT.minRelease - 0.05, `he was ${his} m out and the ball left ${out} m out`);   // one step of its flight has passed
+});
+
+test('a layup that goes in is rolled over the front of the rim: it never touches the glass', () => {
+  let made = 0;
+  for (let seed = 1; seed <= 120; seed++) {
+    const s = driving(3, 5); s.seed = seed; tick(s, { ...RUN, shoot: true });   // a tap: judged by its chance, not green
+    let board = false, meant = null;                    // meant: whether the rules sent it in (a miss can still fall in off the glass)
+    for (let i = 0; i < 100 && s.score[0] === 0; i++) { const events = tick(s); board ||= events.hitBoard; if (meant === null && s.ball.holder === null) meant = s.ball.made; }
+    if (meant) { made++; assert.equal(board, false, `seed ${seed}: a made layup came off the glass`); assert.equal(s.score[0], 2, `seed ${seed}: it did not go in`); }
+  }
+  assert.ok(made > 60, `${made} of 120 went in`);
+});
