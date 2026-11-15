@@ -88,6 +88,16 @@ test('the kit is cloth with thickness, with bindings, and the jersey is tucked i
   }
 });
 
+test('the shorts\' hems are bound all round without a fold: no binding hangs below the cloth\'s edge', () => {
+  for (const person of people) {
+    const { at, uv } = piece(person, 'shorts');
+    const lowest = region => Math.min(...at.filter((p, i) => region(uv[i][1])).map(p => p[1]));
+    const edge = lowest(v => v <= KIT.layout.main[1]), binding = lowest(v => v >= KIT.layout.trim[0] - 0.005);
+    // The binding wraps 2 mm past the edge and the cloth is 4 mm thick: a binding turned off the cloth hangs its own width (16 mm) below.
+    assert.ok(binding > edge - 0.008, `${rootName(person)}: the hem's binding hangs ${((edge - binding) * 1000).toFixed(0)} mm below its edge`);
+  }
+});
+
 test('each player stands as tall as the table says, feet on the floor', () => {
   for (const person of people) {
     const { minY, maxY } = heightOf(players.json, rootName(person));

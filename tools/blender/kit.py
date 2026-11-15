@@ -17,7 +17,7 @@ BONE = 'mixamorig:'
 # How loosely the kit hangs: how far each ring of the surface is pushed out from the body, as a share of its radius.
 # The jersey is tucked into the shorts, as the rules of the game ask: its hem is `tuck` metres below the shorts'
 # waistband, and it is a little narrower there than they are.
-JERSEY = {'chest': 0.09, 'hem': 0.07, 'tuck': 0.08}
+JERSEY = {'chest': 0.09, 'hem': 0.07, 'shoulder': 0.02, 'tuck': 0.08}   # looseness (a share) at each height; tuck: metres in the shorts
 SHORTS = {'hip': 0.10, 'hem': 0.52, 'above_knee': 0.03, 'rise': 0.09}   # rise: metres the waistband sits above the hip bone's root
 # Regions of each garment's picture, as (top, bottom) shares of its height. Must match KIT.layout in src/render/kit.js.
 LAYOUT = {'main': (0.0, 0.8), 'trim': (0.82, 0.9)}
@@ -98,7 +98,8 @@ def make_jersey(body, mark, bones, tights):
     jersey = cut_out(body, 'jersey', keep)
     for v in jersey.data.vertices:
         t = min(1.0, max(0.0, (v.co.z - hem) / (mark['chest'] - hem)))   # 0 at the hem, 1 at the chest
-        loose = JERSEY['chest'] + (JERSEY['hem'] - JERSEY['chest']) * (1 - t)
+        up = min(1.0, max(0.0, (v.co.z - mark['chest']) / (mark['shoulder'].z - mark['chest'])))   # 1 at the shoulder
+        loose = JERSEY['chest'] + (JERSEY['hem'] - JERSEY['chest']) * (1 - t) + (JERSEY['shoulder'] - JERSEY['chest']) * up   # the straps lie on the shoulders
         v.co.x *= 1 + loose
         v.co.y = mark['spine_y'] + (v.co.y - mark['spine_y']) * (1 + loose)
     tidy_border(jersey, flat=[hem])
@@ -228,12 +229,14 @@ def bind(piece, bound):
     for loop in loops:
         if not all(bound(v.co) for v in loop):
             continue
+        # Onto the cloth: square to the edge and to the cloth's normal, turned the same way all round the loop, the way
+        # most of its points' inner neighbours lie (a point at the tip of a lone triangle has none of its own).
+        across = [v.normal.cross(loop[(k + 1) % len(loop)].co - loop[k - 1].co).normalized() for k, v in enumerate(loop)]
+        lean = sum((e.other_vert(v).co - v.co).dot(across[k]) for k, v in enumerate(loop) for e in v.link_edges if not e.is_boundary)
         points = []
-        for v in loop:
+        for k, v in enumerate(loop):
             n = v.normal.copy()
-            inner = [e.other_vert(v).co for e in v.link_edges if not e.is_boundary]
-            into = (sum(inner, Vector()) / len(inner) - v.co) if inner else Vector((0, 0, -1))
-            into = (into - n * into.dot(n)).normalized()
+            into = across[k] if lean >= 0 else -across[k]
             outer = bm.verts.new(v.co - into * BINDING['over'] + n * BINDING['proud'] * 0.5)
             inside = bm.verts.new(v.co + into * BINDING['width'] + n * BINDING['proud'])
             for made in (outer, inside):
@@ -279,6 +282,26 @@ def tuck(jersey, shorts, waist):
     print(f'KIT tucked {pulled} points of the jersey into the shorts')
 
 
+def fit_weights(piece, collider, low, high):
+    """Where the cloth lies on him (above the height `high`) it takes the weights of the skin under it, so that it moves
+    as that skin does; below `low` it keeps the weights it was cut with, and between the two it blends."""
+    mask = piece.vertex_groups.new(name='fit-weights')
+    for v in piece.data.vertices:
+        share = min(1.0, max(0.0, ((piece.matrix_world @ v.co).z - low) / (high - low)))
+        if share > 0:
+            mask.add([v.index], share, 'REPLACE')
+    modifier = piece.modifiers.new('fit-weights', 'DATA_TRANSFER')
+    modifier.object, modifier.use_vert_data = collider, True
+    modifier.data_types_verts = {'VGROUP_WEIGHTS'}
+    modifier.vert_mapping = 'POLYINTERP_NEAREST'
+    modifier.layers_vgroup_select_src, modifier.layers_vgroup_select_dst = 'ALL', 'NAME'   # both were cut from the same body
+    modifier.mix_mode, modifier.mix_factor, modifier.vertex_group = 'REPLACE', 1.0, mask.name
+    activate(piece)
+    bpy.ops.object.modifier_move_to_index(modifier=modifier.name, index=0)
+    bpy.ops.object.modifier_apply(modifier=modifier.name)
+    piece.vertex_groups.remove(piece.vertex_groups['fit-weights'])
+
+
 def thicken(piece):
     """Cloth THICK metres thick, the inside facing in, the edges closed."""
     activate(piece)
@@ -311,6 +334,7 @@ def make_kit(body, collider, mark, bones, tights):
     drape(jersey, collider, lambda p: p.z > mark['shoulder'].z - 0.04 or p.z < hem + 0.06)   # held at the shoulders, and in the shorts
     drape(shorts, collider, lambda p: p.z > waist - 0.03)                 # held at the waistband
     tuck(jersey, shorts, waist)
+    fit_weights(jersey, collider, mark['chest'] - 0.04, mark['chest'] + 0.04)
     for piece, kind in ((jersey, 'jersey'), (shorts, 'shorts')):
         lowest = min(v.co.z for v in piece.data.vertices)
         lay_out(piece)
