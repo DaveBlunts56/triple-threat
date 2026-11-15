@@ -268,7 +268,7 @@ Built in the five stages, each looked at in film strips, contact sheets (`docs/s
   its size, which is why Low and Medium draw only the far one. The near model draws ten meshes, not five; it is drawn
   only within 9 m on High and Ultra. Pictures are WebP.
 - **Budgets met:** near 29,000-38,000 triangles (≤ 45,000), far 15,000 (≤ 18,000); `players.glb` 34.5 MB (≤ 35); the
-  single file about 54 MB. Frame time on the same seeded match against the branch point, back to back: Low 108%,
+  single file 64.5 MB (the spec guessed 50 to 60; the limit is 80). Frame time on the same seeded match against the branch point, back to back: Low 108%,
   Medium 91%, High 111% (budgets 110% and 130%). Ultra was 143% before the far models and not measured since.
 - **Not checked:** the Chromebook; Ultra up close in the game (the test pane could not capture it); skin through cloth
   is checked by eye only. Known: a few white flecks of binding at the jersey's straps up close.
