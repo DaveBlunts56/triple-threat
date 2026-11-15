@@ -181,20 +181,32 @@ def drape(piece, collider, pins):
     return True
 
 
-def lay_out(piece):
+def lay_out(piece, middle, legs=None):
     """The garment's own faces, in the MAIN region: the front panel on the left, the back on the right, each the right
-    way round from outside, its top at the top of the region."""
+    way round from outside, its top at the top of the region. The picture wraps round the garment, across it by the
+    angle round an upright axis, so that its sides get as much of the picture as its front: the axis is the body's
+    middle (at y = `middle`), or below the crotch each leg's own (`legs`: {'crotch': height, 'x': the left leg's
+    axis, 'y'}), its inside at the middle of a panel and its outside at the panel's side edge."""
     mesh = piece.data
-    xs, zs = [v.co.x for v in mesh.vertices], [v.co.z for v in mesh.vertices]
-    width, lowest, height = max(xs) - min(xs), min(zs), max(zs) - min(zs)
+    zs = [v.co.z for v in mesh.vertices]
+    lowest, height = min(zs), max(zs) - min(zs)
     top, bottom = LAYOUT['main']
+    half = PANEL['width'] / 2
     uv = mesh.uv_layers.active.data
     for polygon in mesh.polygons:
-        front = polygon.normal.y < 0                        # humans face -Y
+        c = polygon.center
+        leg = legs is not None and c.z < legs['crotch']
+        side = (1 if c.x >= 0 else -1) if leg else 1                # which way is outward: his left is +x
+        ax, ay = (side * legs['x'], legs['y']) if leg else (0.0, middle)
+        angle = lambda co: math.atan2(side * (co.x - ax), -(co.y - ay))   # 0 at the front (humans face -y), + outward
+        front = abs(angle(c)) <= math.pi / 2
         for corner, vertex in zip(polygon.loop_indices, polygon.vertices):
             co = mesh.vertices[vertex].co
-            across = PANEL['width'] * co.x / width
-            u = PANEL['front'] + across if front else PANEL['back'] - across
+            a = angle(co)
+            if not front:                                          # the back, measured as if seen from the front
+                a = (math.pi - a) if a > 0 else (-math.pi - a)
+            share = side * (a + math.pi / 2) / math.pi if leg else 2 * a / math.pi   # leg: 0 inside to 1 outside
+            u = PANEL['front'] + half * share if front else PANEL['back'] - half * share
             v = top + (bottom - top) * (1 - (co.z - lowest) / height)
             uv[corner].uv = (u, 1 - v)                      # Blender's v runs up; the picture's rows run down
 
@@ -335,9 +347,10 @@ def make_kit(body, collider, mark, bones, tights):
     drape(shorts, collider, lambda p: p.z > waist - 0.03)                 # held at the waistband
     tuck(jersey, shorts, waist)
     fit_weights(jersey, collider, mark['chest'] - 0.04, mark['chest'] + 0.04)
+    legs = {'crotch': mark['hip'] - 0.10, 'x': abs(mark['thigh'].x) + 0.01, 'y': mark['thigh'].y}
     for piece, kind in ((jersey, 'jersey'), (shorts, 'shorts')):
         lowest = min(v.co.z for v in piece.data.vertices)
-        lay_out(piece)
+        lay_out(piece, mark['spine_y'], legs if kind == 'shorts' else None)
         # The jersey's hem is tucked into the shorts: it has no binding.
         bind(piece, (lambda co: co.z > lowest + 0.03) if kind == 'jersey' else (lambda co: True))
         piece.data.materials.clear()

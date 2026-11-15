@@ -46,7 +46,9 @@ test('every player is skinned, within the near level of detail\'s 45,000 triangl
 function piece(person, name) {
   const p = primitivesUnder(players.json, rootName(person)).find(q => players.json.materials[q.material].name === name);
   const rows = (attribute, width) => { const flat = floatsOf(players, p.attributes[attribute]); return Array.from({ length: flat.length / width }, (_, i) => flat.slice(i * width, (i + 1) * width)); };
-  return { at: rows('POSITION', 3), normal: rows('NORMAL', 3), uv: rows('TEXCOORD_0', 2) };
+  const indices = players.json.accessors[p.indices], view = players.json.bufferViews[indices.bufferView], start = (view.byteOffset ?? 0) + (indices.byteOffset ?? 0);
+  const read = { 5121: i => players.bin.readUInt8(start + i), 5123: i => players.bin.readUInt16LE(start + 2 * i), 5125: i => players.bin.readUInt32LE(start + 4 * i) }[indices.componentType];
+  return { at: rows('POSITION', 3), normal: rows('NORMAL', 3), uv: rows('TEXCOORD_0', 2), index: Array.from({ length: indices.count }, (_, i) => read(i)) };
 }
 const mean = list => list.reduce((sum, v) => sum + v, 0) / list.length;
 
@@ -66,6 +68,22 @@ test('jersey and shorts are laid out as a front panel and a back panel, the righ
   }
 });
 
+test('each garment\'s picture is spread evenly round it: its sides are not squeezed into a sliver of the picture', () => {
+  for (const person of people) for (const name of ['jersey', 'shorts']) {
+    const { at, uv, index } = piece(person, name), rates = [];
+    for (let t = 0; t < index.length; t += 3) for (let k = 0; k < 3; k++) {
+      const a = index[t + k], b = index[t + (k + 1) % 3];
+      if (uv[a][1] > KIT.layout.main[1] || uv[b][1] > KIT.layout.main[1]) continue;   // the main panels only
+      const round = Math.hypot(at[a][0] - at[b][0], at[a][2] - at[b][2]), up = Math.abs(at[a][1] - at[b][1]), du = Math.abs(uv[a][0] - uv[b][0]);
+      if (round < 0.01 || up > round * 0.3 || du > 0.2) continue;   // edges that run round the garment, not over a seam
+      rates.push(du / round);
+    }
+    rates.sort((p, q) => p - q);
+    const median = rates[rates.length >> 1], low = rates[Math.floor(rates.length * 0.05)];
+    assert.ok(low > median * 0.35, `${rootName(person)} ${name}: a twentieth of the cloth gets ${(low / median * 100).toFixed(0)}% of the picture its middle gets`);
+  }
+});
+
 test('the kit is cloth with thickness, with bindings, and the jersey is tucked into the shorts', () => {
   const inRegion = (uv, region) => uv[1] >= KIT.layout[region][0] - 0.005 && uv[1] <= KIT.layout[region][1] + 0.005;
   for (const person of people) {
@@ -74,7 +92,7 @@ test('the kit is cloth with thickness, with bindings, and the jersey is tucked i
       assert.ok(kit.uv.filter(uv => inRegion(uv, 'trim')).length > 40, `${name} ${part}: no bindings`);
       // Thickness: from a point on the outside, 3 to 5 mm in along its normal, there is a point of the inside.
       let found = 0, tried = 0;
-      for (let i = 0; i < kit.at.length && tried < 40; i += 97) {
+      for (let i = 0; i < kit.at.length && tried < 100; i += 23) {   // enough points that a few near an edge do not decide it
         const [x, y, z] = kit.at[i], [nx, ny, nz] = kit.normal[i];
         if (!inRegion(kit.uv[i], 'main')) continue;
         tried++;

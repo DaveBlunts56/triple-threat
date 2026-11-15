@@ -15,7 +15,7 @@ const f = Object.freeze;
 // picture, and how far in from the seam it runs.
 export const KIT = f({
   layout: f({ main: f([0, 0.8]), trim: f([0.82, 0.9]) }),
-  sides: f({ at: f([0.02, 0.48, 0.52, 0.98]), jersey: 0.05, shorts: 0.025 }),
+  sides: f({ at: f([0.02, 0.48, 0.52, 0.98]), jersey: 0.025, shorts: 0.015 }),
   size: 512, team: f(['#2f6fe0', '#d83a3a']), trim: '#ffffff', shade: 0.7, font: 'bold {px}px system-ui, sans-serif', digit: 0.45,
   chest: f({ at: f([0.25, 0.34]), height: 0.21 }),
   back: f({ at: f([0.75, 0.32]), height: 0.27 }),
