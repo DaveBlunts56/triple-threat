@@ -94,7 +94,8 @@ test('the chest bends to a dribble on upright legs and comes up under a hand-mad
   }
   assert.ok(near(tip(5, { dribble: 0.5, walk: 0.5 }), rad(dribble - 5) / 2));                 // half shown: half the bend
   assert.ok(near(tip(made + 8, { dribble: 0.25, catch: 0.75 }), 0.25 * rad(dribble - made - 8) - 0.75 * rad(8)));
-  // Between the legs is made bent well over: it is let lean to MOTION.chestLow, and brought back only from further.
+  // A crossover and between the legs are made bent well over: they are let lean to MOTION.chestLow, and brought back only from further.
+  assert.deepEqual([...BENT_CLIPS].sort(), ['betweenLegs', 'betweenLegsLeft', 'crossover', 'crossoverLeft']);
   for (const clip of BENT_CLIPS) {
     assert.ok(near(tip(MOTION.chestLow + 20, { [clip]: 1 }), rad(-20)), clip);
     assert.equal(tip(MOTION.chestLow - 5, { [clip]: 1 }), 0, clip);

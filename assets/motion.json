@@ -149,15 +149,13 @@
       "duration": 0.3,
       "loop": false,
       "kind": "once",
-      "from": "hand",
-      "whole": true
+      "from": "hand"
     },
     "crossoverLeft": {
       "duration": 0.3,
       "loop": false,
       "kind": "once",
-      "from": "hand",
-      "whole": true
+      "from": "hand"
     },
     "betweenLegs": {
       "duration": 0.4,
@@ -175,15 +173,13 @@
       "duration": 0.5,
       "loop": false,
       "kind": "once",
-      "from": "hand",
-      "whole": true
+      "from": "hand"
     },
     "behindBackLeft": {
       "duration": 0.5,
       "loop": false,
       "kind": "once",
-      "from": "hand",
-      "whole": true
+      "from": "hand"
     },
     "stepBack": {
       "duration": 0.3333,

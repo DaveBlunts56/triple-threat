@@ -56,8 +56,8 @@ export const OPTIONAL_CLIPS = Object.freeze(['celebrate', 'dejected', 'stumble']
 
 // The motion of each move (see sim/moves.js). The three dribbles are made for a ball that starts in the right hand
 // and have a twin, named with Left, for one that starts in the left.
-// The arm motions made bent well over the ball: between the legs, which is taken in the step he is in.
-export const BENT_CLIPS = Object.freeze(['betweenLegs', 'betweenLegsLeft']);
+// The arm motions made bent well over the ball: a crossover and between the legs.
+export const BENT_CLIPS = Object.freeze(['crossover', 'crossoverLeft', 'betweenLegs', 'betweenLegsLeft']);
 const MOVE_CLIP = Object.freeze({ cross: 'crossover', legs: 'betweenLegs', back: 'behindBack', stepBack: 'stepBack' });
 const TWINNED = ['cross', 'legs', 'back'];
 
