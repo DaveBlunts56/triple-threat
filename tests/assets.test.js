@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { ASSETS, assetUrl, SOUNDS, soundPath } from '../src/render/assets.js';
+import { ASSETS, MAP_FILES, assetUrl, SOUNDS, soundPath } from '../src/render/assets.js';
 
 test('a file is asked for by its own path when the game is served', () => {
   assert.equal(assetUrl('assets/players.glb'), 'assets/players.glb');
@@ -15,8 +15,9 @@ test('in the single file the packed copy is used instead', () => {
 
 const FLOOR = ['assets/floor/wood_floor_diff_2k.jpg', 'assets/floor/wood_floor_nor_gl_2k.jpg', 'assets/floor/wood_floor_rough_2k.jpg'];
 
-test('the game needs the players, the motion, the motion facts and the floor\'s three pictures', () => {
-  assert.deepEqual([...ASSETS], ['assets/players.glb', 'assets/motion.glb', 'assets/motion.json', ...FLOOR, ...SOUNDS.map(soundPath)]);   // and every sound
+test('the game needs the players, the motion, the motion facts, the floor\'s three pictures, every sound and the cloth\'s tiles', () => {
+  assert.deepEqual([...ASSETS], ['assets/players.glb', 'assets/motion.glb', 'assets/motion.json', ...FLOOR, ...SOUNDS.map(soundPath), ...MAP_FILES]);
+  for (const path of MAP_FILES) assert.ok(existsSync(new URL(`../${path}`, import.meta.url)), path);
 });
 
 test('the floor\'s pictures are in the repository and credited: who made them, where from, under which licence', () => {

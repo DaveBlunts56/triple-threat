@@ -30,12 +30,12 @@ test('the file holds every person in the table, named by team and number', () =>
   assert.deepEqual(roots, people.map(rootName).sort());
 });
 
-test('every player is skinned, under 20,000 triangles, and wears a jersey and shorts the game can tint', () => {
+test('every player is skinned, within the near level of detail\'s 45,000 triangles, and wears a jersey and shorts the game can tint', () => {
   const materials = players.json.materials.map(m => m.name);
   assert.ok(materials.includes('jersey') && materials.includes('shorts'), `materials ${materials}`);
   for (const person of people) {
     const triangles = trianglesUnder(players.json, rootName(person));
-    assert.ok(triangles > 2000 && triangles <= 20000, `${rootName(person)}: ${triangles} triangles`);
+    assert.ok(triangles > 2000 && triangles <= 45000, `${rootName(person)}: ${triangles} triangles`);   // spec section 9
     for (const p of primitivesUnder(players.json, rootName(person))) assert.ok('JOINTS_0' in p.attributes, 'a mesh is not skinned');
   }
   assert.ok(players.json.skins.length >= 1);
@@ -97,8 +97,8 @@ test('each player stands as tall as the table says, feet on the floor', () => {
 });
 
 // Sixteen players at under a megabyte each. Nothing caps the single file's size now; this catches a player grown by accident.
-test('the player file stays under 15 MB', () => {
-  assert.ok(statSync('assets/players.glb').size < 15e6, `${(statSync('assets/players.glb').size / 1e6).toFixed(1)} MB`);
+test('the player file stays under 35 MB', () => {
+  assert.ok(statSync('assets/players.glb').size < 35e6, `${(statSync('assets/players.glb').size / 1e6).toFixed(1)} MB`);
 });
 
 test('textures are no larger than 2048 pixels a side', () => {

@@ -181,11 +181,11 @@ def drape(piece, collider, pins):
     return True
 
 
-def boundary_distance(piece):
-    """For each vertex, metres to the nearest point of the garment's edge."""
+def boundary_distance(piece, bound=lambda co: True):
+    """For each vertex, metres to the nearest point of the garment's edges that `bound(point)` says are bound."""
     bm = bmesh.new()
     bm.from_mesh(piece.data)
-    edge = [v.co.copy() for v in bm.verts if v.is_boundary]
+    edge = [v.co.copy() for v in bm.verts if v.is_boundary and bound(v.co)]
     bm.free()
     from mathutils.kdtree import KDTree
     tree = KDTree(len(edge))
@@ -207,9 +207,10 @@ def lay_out(piece, kind, mark):
     """Material regions and UVs. Each face is MAIN, TRIM (within a binding's width of an edge) or PANEL (within the
     side panel's width of the side line); its corners are placed in that region of the picture."""
     mesh = piece.data
-    to_edge = boundary_distance(piece)
     xs, zs = [v.co.x for v in mesh.vertices], [v.co.z for v in mesh.vertices]
     width, lowest, height = max(xs) - min(xs), min(zs), max(zs) - min(zs)
+    # The jersey's hem is tucked into the shorts: it has no binding.
+    to_edge = boundary_distance(piece, (lambda co: co.z > lowest + 0.03) if kind == 'jersey' else (lambda co: True))
     thigh = mark['thigh']
 
     def offset(co):
@@ -255,12 +256,46 @@ def lay_out(piece, kind, mark):
     return region
 
 
+def tuck(jersey, shorts, waist):
+    """Keeps the jersey inside the shorts below their waistband: any point of it that is not at least the cloth's
+    thickness and a little more inside them is drawn in. A strong player's seat pushes the shorts' cut only so far."""
+    from mathutils.bvhtree import BVHTree
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    tree = BVHTree.FromObject(shorts, depsgraph)
+    room = THICK + 0.003
+    pulled = 0
+    for v in jersey.data.vertices:
+        if v.co.z > waist - 0.005:
+            continue
+        at, normal, _, _ = tree.find_nearest(v.co)
+        if at is None:
+            continue
+        if (v.co - at).dot(normal) > -room:
+            v.co = at - normal * room
+            pulled += 1
+    print(f'KIT tucked {pulled} points of the jersey into the shorts')
+
+
+def refine_edges(piece, bound):
+    """Halves the faces along the garment's bound edges: the body's helper surface is coarse (faces about 2.5 cm), too
+    coarse for a binding 1.6 cm wide. Only there, so the rest keeps its triangles few."""
+    bm = bmesh.new()
+    bm.from_mesh(piece.data)
+    near = {f for v in bm.verts if v.is_boundary and bound(v.co) for f in v.link_faces}
+    near |= {g for f in list(near) for v in f.verts for g in v.link_faces}       # and the ring beyond them
+    edges = list({e for f in near for e in f.edges})
+    bmesh.ops.subdivide_edges(bm, edges=edges, cuts=1, use_grid_fill=True, smooth=0.0)
+    bm.to_mesh(piece.data)
+    bm.free()
+
+
 def thicken(piece):
     """Cloth THICK metres thick, the inside facing in, the edges closed."""
     activate(piece)
     modifier = piece.modifiers.new('thick', 'SOLIDIFY')
     modifier.thickness, modifier.offset, modifier.use_rim = THICK, 1, True   # outward: the draped surface is the inside
-    modifier.use_even_offset = True
+    modifier.use_even_offset = False   # an even offset throws spikes off the sharp corners where the shorts' legs meet
+    modifier.use_quality_normals = True
     bpy.ops.object.modifier_move_to_index(modifier=modifier.name, index=0)
     bpy.ops.object.modifier_apply(modifier=modifier.name)
 
@@ -285,7 +320,10 @@ def make_kit(body, collider, mark, bones, tights):
     hem = waist - JERSEY['tuck']
     drape(jersey, collider, lambda p: p.z > mark['shoulder'].z - 0.04 or p.z < hem + 0.06)   # held at the shoulders, and in the shorts
     drape(shorts, collider, lambda p: p.z > waist - 0.03)                 # held at the waistband
+    tuck(jersey, shorts, waist)
     for piece, kind in ((jersey, 'jersey'), (shorts, 'shorts')):
+        lowest = min(v.co.z for v in piece.data.vertices)
+        refine_edges(piece, (lambda co: co.z > lowest + 0.03) if kind == 'jersey' else (lambda co: True))
         lay_out(piece, kind, mark)
         piece.data.materials.clear()
         piece.data.materials.append(material(kind))
