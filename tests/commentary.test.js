@@ -144,7 +144,7 @@ test('where the browser has no voice nothing is said and nothing throws', () => 
 
 const quiet = () => ({ available: true, said: [], stops: 0, speak(text) { this.said.push(text); }, stop() { this.stops++; } });
 // A computer match with the broadcast listening, a frame every step. Returns the captions shown, in order.
-function aired(commentary, voice = quiet(), seed = 2, seconds = 240) {
+function aired(commentary, voice = quiet(), seed = 1, seconds = 240) {   // a match in which a rebound is called as well as baskets
   const s = createMatch(seed, 3), air = createBroadcast(voice), captions = [];
   startMatch(s);
   let last = null;

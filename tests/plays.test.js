@@ -176,11 +176,11 @@ test('a player who has stood his ground is a wall: whoever runs into him takes t
   assert.ok(s.players[6].x <= 3 - 2 * PLAYER.radius + 1e-6, 'the runner went through him');
 });
 
-test('until his play has formed the handler keeps the ball: no shot from outside and no pass, though he is open and so is a team-mate', async () => {
+test('until his play has formed the handler keeps the ball: no shot from outside and no pass, though he is open (not wide open) and so is a team-mate', async () => {
   const { playHolds } = await import('../src/sim/plays.js');
   const open = key => {
     const s = scene(5); run(s, key);
-    at(s, 5, 0, 6);                       // nobody near the handler: he is open, in range, and settled
+    at(s, 5, s.players[0].x - 2.1, s.players[0].z + 0.6);   // his defender a step off him, behind: he is open, in range, and settled
     at(s, 6, -5, -6);                     // nor near the wing
     s.players[0].ai.heldT = 1; s.players[0].ai.had = true;
     at(s, 7, 9, 0.2);                     // but the lane to the hoop is not clear

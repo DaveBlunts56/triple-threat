@@ -1,11 +1,11 @@
-import { AI, BALL, CLOCK, COURT, DT, FT, LATE, MOVES, PASS, PLAY, PLAYER, SHOT, STEAL, TIP, VIOLATION, levelOf } from './tuning.js';
+import { AI, BALL, CLOCK, COURT, DT, FT, LATE, MOVES, PASS, PLAY, PLAYER, READ, SHOT, STEAL, TIP, VIOLATION, levelOf } from './tuning.js';
 import { SHOT_BEST, SHOT_LANDS, zoneOf } from './players.js';
 import { lift, drop, rated, starOf, heatOf } from './ratings.js';
 import { ftChance } from './freethrow.js';
 import { attackSign, emptyIntent, isJumper, onFloor, personOf, rand } from './state.js';
 import { rimCentre } from './ball.js';
 import { manOf } from './matchups.js';
-import { playHolds, playSpot, playTarget } from './plays.js';
+import { playHolds, playRan, playSpot, playTarget } from './plays.js';
 import { situation } from './late.js';
 import { offBallSpot, passed } from './offball.js';
 import { KINDS } from './moves.js';
@@ -86,7 +86,41 @@ function planWithBall(state, p) {
   }
   const settled = ai.heldT >= AI.holdTime;   // just caught it: gather before shooting or passing
   if (ai.stepped !== undefined && state.time - ai.stepped < 1) { ai.stepped = undefined; return shoot(); }   // he stepped back to shoot: he shoots
-  if (settled && toHoop < AI.layupDist) return shoot();
+  // A defender this close cannot reach the ball before it is past him.
+  const untouchable = PLAYER.carryDist + PASS.speed * PASS.clearTime - PLAYER.pickupRadius;
+  // Once the ball is in the front court it is not passed back over the centre line.
+  const legal = m => !(state.frontcourt && sign * m.x < PLAYER.radius + 0.5);
+  // The ball is not thrown about for its own sake. Whoever has just caught a pass keeps it a moment before he moves
+  // it on (a man at the rim apart), and does not give it straight back to the man it came from unless that man has
+  // cut to the hoop.
+  const cutter = state.cut[p.team]?.id, mayPass = ai.heldT >= AI.passAfter;
+  const back = m => m.id === ai.from && state.time - ai.gotAt < AI.noReturn && m.id !== cutter;
+  const zone = zoneOf(p), skill = rated(state, p, zone), room = space(state, p);
+  // A team ahead late in the game uses the clock, whatever it is offered.
+  const milking = !sit.hurry && sit.milk && state.shotClock > LATE.milkClock;
+
+  // ---- The reads. What he sees is acted on before the offence is run: an offence is run to get these. ----
+  // The man the defence has left: a team-mate wide open where he can shoot, whom a pass will reach. The best shooter
+  // of them. He is looked for by a handler about to shoot over a defender (see `guarded` below).
+  const left = () => {
+    const men = mayPass && !milking ? mates(state, p).filter(m => space(state, m) >= READ.wide && dist(m, hoop) <= AI.shootRange && rated(state, m, zoneOf(m)) >= AI.shootAt
+      && legal(m) && !back(m) && dist(m, p) <= AI.passRange && laneClear(state, p, m, untouchable)) : [];
+    return men.length ? men.reduce((a, b) => (rated(state, b, zoneOf(b)) > rated(state, a, zoneOf(a)) ? b : a)) : null;
+  };
+  // About to shoot with a defender on him: if somebody is wide open the ball goes to him instead. Returns whether it did.
+  const guarded = () => { const man = left(); if (man) passTo(ai, p, man); return !!man; };
+  // At the rim he goes up, unless the defence has collapsed on him and left a man.
+  if (settled && toHoop < AI.layupDist) {
+    const crowd = opponents(state, p).filter(o => dist(o, p) <= AI.contestDist).length >= READ.crowd;
+    return crowd && guarded() ? undefined : shoot();
+  }
+  // Wide open where he shoots well: he takes it, on the catch, early in the shot clock or with his play still
+  // forming. With a clear lane to the rim as well he takes that instead, below, when he may. Walking the ball up
+  // against a defence that has not come out to him yet is not being open: the offence must be set (AI.moveFrom
+  // seconds into the shot clock), or a pass must have found him.
+  const found = ai.from != null && ai.heldT < AI.passAfter;   // undefined before his first decision with the ball
+  const open = room >= READ.wide && toHoop <= AI.shootRange && skill >= AI.callAt && !milking && (found || CLOCK.shot - state.shotClock >= AI.moveFrom);
+  if (open && ai.heldT < READ.onCatch) ai.soon = READ.onCatch - ai.heldT + DT;   // he looks again as the ball settles in his hands
   // A move, when it is the right one, he may make it (not within AI.moveEvery of his last), and the level lets him:
   // the number is drawn last, so a player with no move to make draws none.
   const tight = nearestTo(opponents(state, p), p), gap = dist(tight, p);
@@ -98,26 +132,19 @@ function planWithBall(state, p) {
   };
   // Early in the shot clock he does not settle for a shot from outside or take on a set defence: the offence is run
   // first. A team behind late in the game has no time for that.
-  const early = !sit.hurry && CLOCK.shot - state.shotClock < patience(state);
+  // Once the screen of a play has been used the offence has been run, however early it is.
+  const wait = patience(state), early = !sit.hurry && CLOCK.shot - state.shotClock < wait && !playRan(state, p.team);
   // Nobody between him and the hoop: take it all the way in, don't pull up for a jump shot. Early on that is only
   // for a fast break, with every defender well behind him: otherwise he walks the ball up.
   const ahead = opponents(state, p).every(o => dist(o, hoop) > toHoop + AI.breakLead);
   // A handler who has just beaten his man with a move goes too, early or not: that is what the move was for.
   const beat = state.time - p.moved < AI.beatFor;
   if (laneClear(state, p) && (!early || ahead || beat)) return goTo(ai, { x: sign * AI.driveX, z: 0 }, true);
+  if (open && ai.heldT >= READ.onCatch) return shoot();
   // His play has not formed yet: he keeps the ball rather than shoot from outside or pass. So does a team ahead late
   // in the game, until the shot clock is nearly out. A team behind late waits for nothing.
-  const waits = !sit.hurry && (playHolds(state, p) || (sit.milk && state.shotClock > LATE.milkClock));
-  // A defender this close cannot reach the ball before it is past him.
-  const untouchable = PLAYER.carryDist + PASS.speed * PASS.clearTime - PLAYER.pickupRadius;
-  // Once the ball is in the front court it is not passed back over the centre line.
-  const legal = m => !(state.frontcourt && sign * m.x < PLAYER.radius + 0.5);
+  const waits = (!sit.hurry && playHolds(state, p)) || milking;
   const reaches = m => m && m !== p && legal(m) && dist(m, p) <= AI.passRange && laneClear(state, p, m, untouchable, PLAY.feedWidth);
-  // The ball is not thrown about for its own sake. Whoever has just caught a pass keeps it a moment before he moves
-  // it on (a man at the rim apart), and does not give it straight back to the man it came from unless that man has
-  // cut to the hoop.
-  const cutter = state.cut[p.team]?.id, mayPass = ai.heldT >= AI.passAfter;
-  const back = m => m.id === ai.from && state.time - ai.gotAt < AI.noReturn && m.id !== cutter;
   // The room a player needs to shoot from where he stands: the better he shoots from there the less it is, so a shot
   // creator shoots over a defender and a sharpshooter needs only a step.
   const roomOf = m => AI.openDist * drop(rated(state, m, zoneOf(m)), AI.roomGap);
@@ -126,18 +153,18 @@ function planWithBall(state, p) {
   const wanted = playTarget(state, p);
   if (settled && !waits && reaches(wanted)) return passTo(ai, p, wanted);
   // He takes the open shots he is good at. Early in the shot clock only a great shooter with room takes a three.
-  const zone = zoneOf(p), skill = rated(state, p, zone);
-  const mayNow = !early || (zone === 'three' && skill >= AI.earlyThree && space(state, p) > AI.roomFor);
-  // Near the hoop with a defender on him, a post scorer fades over him.
+  const mayNow = !early || (zone === 'three' && skill >= AI.earlyThree && room > AI.roomFor);
+  // Near the hoop with a defender on him, a post scorer fades over him, unless somebody has been left wide open.
   if (moves(settled && !waits && !early && toHoop <= MOVES.fade.within && gap <= AI.fadeNear
-    && (rated(state, p, 'inside') >= AI.fadeAt || role === 'Post scorer'))) return shoot('fade');
-  // A defender too close for the jump shot he is good at: a shooter steps back from him, and then shoots.
+    && (rated(state, p, 'inside') >= AI.fadeAt || role === 'Post scorer'))) return guarded() ? undefined : shoot('fade');
+  // A defender too close for the jump shot he is good at: a shooter steps back from him, and then shoots. The same.
   if (moves(settled && !waits && mayNow && zone !== 'inside' && gap <= AI.stepNear && toHoop <= AI.shootRange - MOVES.stepBack.push
     && skill >= AI.shootAt && (skill >= AI.stepAt || role === 'Shot creator' || role === 'Sharpshooter'))) {
+    if (guarded()) return;
     ai.action = 'stepBack'; ai.stepped = state.time; ai.soon = MOVES.stepBack.time + DT;
     return;
   }
-  if (settled && !waits && mayNow && skill >= AI.shootAt && space(state, p) > roomOf(p) && toHoop <= AI.shootRange) return shoot();
+  if (settled && !waits && mayNow && skill >= AI.shootAt && room > roomOf(p) && toHoop <= AI.shootRange) return shoot();
 
   // Running out of time to cross half court: stop looking for a pass and bring it up.
   if (state.backcourtT > AI.hurryAt && !state.frontcourt) return goTo(ai, { x: sign * AI.topX, z: 0 }, true);
@@ -158,19 +185,19 @@ function planWithBall(state, p) {
   // shot clock the ball is moved round the outside, not thrown in to a man near the hoop: that pass is made once the
   // offence has been run.
   const free = m => space(state, m) > Math.min(AI.openDist, roomOf(m));
-  const open = mates(state, p).filter(m => free(m) && legal(m) && !back(m) && (mayPass || dist(m, hoop) < AI.layupDist) && dist(m, p) <= AI.passRange
+  const freeMen = mates(state, p).filter(m => free(m) && legal(m) && !back(m) && (mayPass || dist(m, hoop) < AI.layupDist) && dist(m, p) <= AI.passRange
     && (pressured || dist(m, hoop) < toHoop) && !(early && dist(m, hoop) < AI.insideDist) && laneClear(state, p, m, untouchable));
   const star = state.players.find(m => m.team === p.team && m.person === starOf(state, p.team));
   // Of the open men the pass leans to the star and to a hot hand, and away from a cold one.
   const pull = m => (m === star ? AI.lean : 1) * ({ hot: AI.lean, cold: AI.shy }[heatOf(personOf(state, m))] ?? 1);
-  const best = () => open.reduce((a, b) => (dist(b, hoop) / pull(b) < dist(a, hoop) / pull(a) ? b : a));
+  const best = () => freeMen.reduce((a, b) => (dist(b, hoop) / pull(b) < dist(a, hoop) / pull(a) ? b : a));
   // With the game on the line the ball goes to the star, if it can reach him. And once the offence has been run, a
   // handler with no shot of his own often gives it to the star to make one.
   // (Once in a possession: after that the star is expected to make something of it.)
   const feed = !waits && !early && mayPass && !state.tempo.fed && !back(star ?? p) && rand(state) < AI.goTo;
   if (settled && reaches(star) && (sit.clutch || feed)) { passTo(ai, p, star); state.tempo.fed = true; }
   // Usually to the best of the open men, sometimes to another, so that he is not read.
-  else if (settled && !waits && open.length) passTo(ai, p, open.length > 1 && rand(state) < AI.vary ? open[Math.floor(rand(state) * open.length)] : best());
+  else if (settled && !waits && freeMen.length) passTo(ai, p, freeMen.length > 1 && rand(state) < AI.vary ? freeMen[Math.floor(rand(state) * freeMen.length)] : best());
   // Nothing on: in a play he takes it where the play says; otherwise to the top, which his team-mates leave to him.
   else goTo(ai, playSpot(state, p) ?? { x: sign * AI.topX, z: 0 });
 }

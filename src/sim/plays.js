@@ -272,6 +272,9 @@ export function playHolds(state, player) {
   return ripe === 'used' ? play.usedAt === null : play.t < ripe;
 }
 
+// Whether `team`'s play has done its work: its screen on the ball has been used. The offence has then been run.
+export const playRan = (state, team) => (state.plays[team]?.usedAt ?? null) !== null;
+
 // The team-mate the play wants the ball passed to now, or null: the big on the block, the cutter going to the rim.
 export function playTarget(state, player) {
   const play = state.plays[player.team], want = play && PLAYS[play.key].target?.(context(state, play));

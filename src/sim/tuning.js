@@ -135,6 +135,11 @@ export const AI = f({
   safetyGap: 4,           // metres between those who get back together when a ball is loose
 });
 
+// What a player with the ball reads before he runs the offence (see ai.js). wide: metres clear of every defender that
+// make him, or a team-mate, wide open. onCatch: seconds after catching the ball that a wide-open shot goes up. crowd:
+// this many defenders within AI.contestDist of him at the rim are a crowd, and he looks for the man they left.
+export const READ = f({ wide: 2.5, onCatch: 0.25, crowd: 2 });
+
 // Off the ball, for the team that has it (see offball.js). shooterAt: the three rating from which a player is a
 // shooter. apart: no two places nearer than this. sideHold: how far past the middle the ball must go before the
 // places change sides. every: seconds between a player's own moments to move, between these two. cutGap: his defender

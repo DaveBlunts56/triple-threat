@@ -6,7 +6,8 @@ import { startMatch } from '../src/sim/rules.js';
 import { step } from '../src/sim/step.js';
 import { aiIntents, isOpen, laneClear } from '../src/sim/ai.js';
 import { keyContains } from '../src/sim/violations.js';
-import { DT, RIM, AI, VIOLATION, SHOT, PASS, BALL } from '../src/sim/tuning.js';
+import { DT, RIM, AI, READ, VIOLATION, SHOT, PASS, BALL } from '../src/sim/tuning.js';
+import { callPlay } from '../src/sim/plays.js';
 import { plain } from './helpers.js';
 
 // Live play with everyone parked out of the way; tests then place the players they care about.
@@ -461,4 +462,93 @@ test('your team-mates use the moves too', () => {
     if (run(s, 1.5, [1], st => st.players[1].move !== null)) n++;
   }
   assert.ok(n > 20 && n < 50, `${n} of 60`);
+});
+
+// ---------- the reads: what a player sees before he runs the offence ----------
+
+// Early in a patient possession: the offence is set, 8 s into a shot clock in which the team waits 19 s before it
+// shoots from outside.
+const earlyOn = s => { s.shotClock = 16; s.tempo = { clock: Infinity, wait: 19 }; return s; };
+const TOP = RIM.x - AI.topX;   // metres from the hoop to the top of the key, where a handler with nothing on stands still
+
+test('a player wide open where he shoots well takes the shot however early in the shot clock; open by less, or a poor shooter, he runs the offence', () => {
+  const s = earlyOn(handler(TOP, 3));                  // nobody within 3 m; the defender stands in the lane
+  assert.ok(run(s, 1, [3], st => st.players[3].shooting), 'wide open: he shoots');
+  const guarded = earlyOn(handler(TOP, READ.wide - 0.4));   // open, but a step from wide open
+  assert.equal(run(guarded, 2, [3], st => st.players[3].shooting), false);
+  const poor = earlyOn(handler(TOP, 3)); rate(poor, 3, 'mid', AI.callAt - 5); rate(poor, 3, 'three', AI.callAt - 5);
+  assert.equal(run(poor, 2, [3], st => st.players[3].shooting), false);
+});
+
+test('wide open, the shot goes up on the catch; open by less, he gathers the ball first', () => {
+  const caught = gap => { const s = handler(TOP, gap); Object.assign(s.players[3].ai, { heldT: 0, had: true, timer: 0 }); return s; };
+  const s = caught(3), from = s.time;
+  assert.ok(run(s, 1, [3], st => st.players[3].shooting));
+  assert.ok(s.time - from < READ.onCatch + 0.1, `he began the shot ${s.time - from} s after the catch`);
+  const t = caught(READ.wide - 0.4), then = t.time;
+  assert.ok(run(t, 2, [3], st => st.players[3].shooting));
+  assert.ok(t.time - then >= AI.holdTime, `he began the shot ${t.time - then} s after the catch`);
+});
+
+test('a play that has not formed does not keep the ball from a man it has already got wide open', () => {
+  const s = handler(TOP, 3);
+  assert.ok(callPlay(s, 1, 'iso'));
+  step(s, aiIntents(s, DT).map(() => emptyIntent()), DT);
+  assert.equal(s.plays[1]?.key, 'iso');
+  assert.ok(run(s, 0.6, [3], st => st.players[3].shooting), 'before the play is ripe');
+});
+
+test('once the screen has been used the offence has been run: he takes a clear lane to the rim, early in the shot clock or not', () => {
+  const scene = () => {
+    const s = handler(TOP, 3); s.shotClock = 15; s.tempo = { clock: Infinity, wait: 19 };   // 9 s in, of a possession that waits 19
+    put(s, 0, s.players[0].x, 3.5);                                                       // the defender is out of the lane, and nearer the hoop
+    rate(s, 3, 'mid', 50); rate(s, 3, 'three', 50);                                       // no shot of his own from out here
+    callPlay(s, 1, 'pickRoll');
+    step(s, aiIntents(s, DT).map(() => emptyIntent()), DT);
+    return s;
+  };
+  const before = scene(); Object.assign(before.players[3].ai, { timer: 0 });
+  run(before, 0.3, [3]);
+  assert.equal(before.players[3].ai.sprint, false, 'the screen has not come: he waits for it');
+  const after = scene(); Object.assign(after.plays[1], { setAt: 0, usedAt: 0 }); Object.assign(after.players[3].ai, { timer: 0 });
+  run(after, 0.3, [3]);
+  assert.deepEqual([after.players[3].ai.sprint, Math.abs(after.players[3].ai.targetX)], [true, AI.driveX]);
+});
+
+// The handler at the rim with the ball long in his hands, his defender on him, and a team-mate (player 4) alone at the arc.
+function atRim(helpers) {
+  const s = handler(2, 0.9); s.players[3].ai.heldT = 2;
+  put(s, 4, -(RIM.x - 6.6), 3.2);
+  if (helpers) put(s, 1, s.players[3].x + 0.2, -1.3);   // a second defender has come across to him
+  return s;
+}
+
+test('crowded at the rim with a team-mate wide open, he kicks the ball out to him; one on one he goes up', () => {
+  const s = atRim(true);
+  assert.ok(run(s, 1.5, [3], st => st.ball.holder === 4 || st.players[3].shooting));
+  assert.deepEqual([s.ball.holder, s.players[3].shooting], [4, false]);
+  const alone = atRim(false);
+  assert.ok(run(alone, 1, [3], st => st.players[3].shooting), 'one defender: he shoots');
+  const nobody = atRim(true); put(nobody, 4, 9, -6);   // no one to kick it to
+  assert.ok(run(nobody, 1, [3], st => st.players[3].shooting));
+});
+
+test('a post scorer about to fade, and a shooter about to step back, give the ball to a team-mate who is wide open instead', () => {
+  const post = handler(3.5, 0.8); rate(post, 3, 'inside', 88); role(post, 3, 'Post scorer'); post.players[3].ai.heldT = 2;
+  put(post, 4, -(RIM.x - 6.6), 3.2);
+  assert.ok(run(post, 1.5, [3], st => st.ball.holder === 4 || st.players[3].shooting));
+  assert.deepEqual([post.ball.holder, post.players[3].shooting], [4, false]);
+  const wing = handler(5, 1); rate(wing, 3, 'mid', 88); role(wing, 3, 'Shot creator'); wing.players[3].ai.heldT = 2;
+  put(wing, 4, -(RIM.x - 6.6), 3.2);
+  assert.ok(run(wing, 1.5, [3], st => st.ball.holder === 4 || st.players[3].move !== null));
+  assert.deepEqual([wing.ball.holder, wing.players[3].move], [4, null]);
+});
+
+test('walking the ball up against a defence that has not come out is not being open: before the offence is set only a pass that finds him brings the shot', () => {
+  const soon = s => { earlyOn(s); s.shotClock = 22; return s; };   // 2 s into the shot clock of a patient possession
+  const walked = soon(handler(TOP, 3));                             // the ball long in his hands
+  assert.equal(run(walked, 1.5, [3], st => st.players[3].shooting), false);
+  const found = soon(handler(TOP, 3));
+  Object.assign(found.players[3].ai, { heldT: 0, had: true, timer: 0, from: 4, gotAt: found.time });   // a team-mate's pass has just reached him
+  assert.ok(run(found, 0.5, [3], st => st.players[3].shooting));
 });
