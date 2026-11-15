@@ -114,3 +114,18 @@ test('running at the pace of the run, a foot on the floor does not slide, and is
   assert.ok(slid / down < 0.004, `feet on the floor slid ${slid / down} m a frame`);     // under 0.25 m/s; the motion alone slides them at over 1 m/s
   assert.ok(worst < FEET.most, `a foot was ${worst} m from the motion's`);
 });
+
+test('the two steps of a finish are planted: carried 1.5 m through the gather, a flat foot hardly slides', async () => {
+  const man = await someone();
+  for (let i = 0; i < 30; i++) man.animator.update({ clip: 'run', rate: 1 }, null, FRAME, null, true);
+  let last = null, slid = 0;
+  for (let i = 1; i <= 30; i++) {
+    man.group.position.set(0, 0, 0.05 * i);                              // the model faces +z: 3 m/s
+    const gather = { clip: 'finishGather', at: i / 30 };
+    man.animator.update(gather, gather, FRAME, null, true);
+    const now = man.feet();
+    if (last) now.forEach((foot, k) => { if (foot.y < FEET.ankle + 0.015 && last[k].y < FEET.ankle + 0.015) slid += across(foot, last[k]); });
+    last = now;
+  }
+  assert.ok(slid < 0.1, `flat feet slid ${slid} m through the gather`);
+});

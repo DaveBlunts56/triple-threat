@@ -140,3 +140,12 @@ test('a dribble move carries the ball its own way, so the ball is drawn across t
   assert.notEqual(carrying(2, 'move'), carrying(2, 'right'));
   assert.notEqual(carrying(2, 'move'), carrying(2, 'both'));
 });
+
+// ---- finishes at the rim ----
+
+test('in a finish the ball is in both hands through the two steps, then in the finishing hand', () => {
+  assert.deepEqual(['finishGather', 'finishGatherLeft', 'dunk', 'dunkLeft', 'layup', 'layupLeft'].map(ballHands), ['both', 'both', 'carryRight', 'carryLeft', 'carryRight', 'carryLeft']);
+  assert.equal(carrying(2, 'carryRight'), '2 carry');
+  assert.equal(carrying(2, 'carryRight'), carrying(2, 'carryLeft'));
+  assert.notEqual(carrying(2, 'carryRight'), carrying(2, 'both'));     // from two hands to one the ball is drawn across
+});

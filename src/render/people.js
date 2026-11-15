@@ -251,6 +251,8 @@ export async function loadPeople() {
         const body = { x: state.players[id].x, z: state.players[id].z, heading: bearings[id].heading };
         return moveSpot(move.kind, Math.min(1, move.t / MOVES[move.kind].time), palmOf(hands[began]), palmOf(hands[other]), body, BALL.radius);
       }
+      // In the jump of a finish it is in the finishing hand.
+      if (side === 'carryRight' || side === 'carryLeft') return palmOf(hands[side === 'carryRight' ? 'right' : 'left']);
       if (side === 'both' || side === 'move') {
         const left = palmOf(hands.left), right = palmOf(hands.right);
         return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2, z: (left.z + right.z) / 2 };

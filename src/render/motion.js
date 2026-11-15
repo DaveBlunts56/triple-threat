@@ -1,5 +1,6 @@
 // Which motion a player shows, worked out from the match alone. No Three.js here, so it can be tested without a browser.
-import { BALL, PLAYER, SHOT, MOVES } from '../sim/tuning.js';
+import { BALL, FINISH, PLAYER, SHOT, MOVES } from '../sim/tuning.js';
+import { finishHand } from '../sim/finish.js';
 import { isJumper, onFloor } from '../sim/state.js';
 import { gathering } from '../sim/players.js';
 import { manOf } from '../sim/matchups.js';
@@ -37,7 +38,8 @@ export const MOTION = Object.freeze({
   land: 0.12, followHold: 0.6, reachBefore: 0.2, catchReach: 0.6, pullIn: 0.15, handUpDist: 2, handSide: 0.3,
   fadeIn: 0.07, fadeOut: 0.22,
   quick: Object.freeze(['pass', 'reach', 'follow', 'freeThrow', 'handUp',
-    'crossover', 'crossoverLeft', 'betweenLegs', 'betweenLegsLeft', 'behindBack', 'behindBackLeft']),
+    'crossover', 'crossoverLeft', 'betweenLegs', 'betweenLegsLeft', 'behindBack', 'behindBackLeft',
+    'finishGather', 'finishGatherLeft', 'dunk', 'dunkLeft', 'layup', 'layupLeft']),
   apart: 0.618, drift: 0.08,
   handStick: 0.4, guardFar: 0.4, sideStick: 10, minRateStep: 0.35,
   dribbleHold: 0.55, handSwitch: 0.2, freeThrowSet: 0.45,
@@ -50,7 +52,8 @@ export const MOTION = Object.freeze({
 export const LEG_CLIPS = Object.freeze(['idle', 'stance', 'walk', 'run', 'sprint', 'strafeLeft', 'strafeRight', 'backpedal', 'jump', 'land', 'gather']);
 
 export const ARM_CLIPS = Object.freeze(['dribble', 'dribbleLeft', 'hold', 'holdLeft', 'shoot', 'follow', 'freeThrow', 'pass', 'catch', 'reach', 'handUp', 'contest', 'tip',
-  'crossover', 'crossoverLeft', 'betweenLegs', 'betweenLegsLeft', 'behindBack', 'behindBackLeft', 'stepBack', 'fade']);
+  'crossover', 'crossoverLeft', 'betweenLegs', 'betweenLegsLeft', 'behindBack', 'behindBackLeft', 'stepBack', 'fade',
+  'finishGather', 'finishGatherLeft', 'dunk', 'dunkLeft', 'layup', 'layupLeft']);
 
 // Motions the file has only if their clips were downloaded: the game does without any that are missing.
 export const OPTIONAL_CLIPS = Object.freeze(['celebrate', 'dejected', 'stumble']);
@@ -105,10 +108,15 @@ export function dribbleHand(state, player, last = 'right') {
 const HAPPENINGS = ['pass', 'release', 'catch', 'reach', 'land', 'switched'];
 const OTHER_HAND = { left: 'right', right: 'left' };
 
+// The motion of a finish's jump ('dunk' or 'layup') for the hand it is made with.
+const finishClip = (finish, hand) => (hand === 'left' ? `${finish}Left` : finish);
+
 // What the renderer remembers from frame to frame, by player id. For each of HAPPENINGS, the seconds since it last
 // happened to him (Infinity if never); `guard`, whether he is guarding his man, and `guarded`, the seconds since that
 // last changed; `hand`, the hand the ball goes in; `was`, what the last frame looked like.
-export const newMarks = () => ({ ...Object.fromEntries(HAPPENINGS.map(what => [what, {}])), guard: {}, guarded: {}, hand: {}, was: null, show: null });
+// `finishHand`: the hand of the finish he is in, as it was when he began it; `finished`: the finish whose ball has
+// gone while he is still in the air, as the motion to play on to the landing.
+export const newMarks = () => ({ ...Object.fromEntries(HAPPENINGS.map(what => [what, {}])), guard: {}, guarded: {}, hand: {}, finishHand: {}, finished: {}, was: null, show: null });
 
 // One frame of noticing: `dt` seconds have passed since the last. The first frame has nothing to compare with, so
 // nothing counts as having just happened.
@@ -149,7 +157,12 @@ export function noteChanges(marks, state, dt) {
       if (hand !== marks.hand[id]) marks.switched[id] = crossed ? MOTION.handSwitch : 0;
     }
     marks.hand[id] = hand;
-    now.players[id] = { shooting: p.shooting, inAir: !onFloor(p), stealCooldown: p.stealCooldown, move: p.move?.kind ?? null };
+    // A finish keeps the hand he began it with, whichever side of the rim his steps take him to; and once the ball has
+    // gone its motion plays on until he lands.
+    if (p.finish && !before?.finish) marks.finishHand[id] = finishHand(p);
+    if (before?.finish && !p.finish && !onFloor(p)) marks.finished[id] = finishClip(before.finish, marks.finishHand[id]);
+    if (onFloor(p)) delete marks.finished[id];
+    now.players[id] = { shooting: p.shooting, inAir: !onFloor(p), stealCooldown: p.stealCooldown, move: p.move?.kind ?? null, finish: p.finish ?? null };
   }
   marks.was = now;
 }
@@ -238,6 +251,13 @@ export function armMotion(player, state, marks, facts) {
   const length = name => facts.clips[name].duration;
   const sided = name => (marks.hand[id] === 'left' ? `${name}Left` : name);
 
+  // In a finish: its two steps on the floor, then its jump; and the jump plays on after the ball has gone.
+  if (hasBall && player.finish && player.shooting) {
+    const hand = marks.finishHand[id] ?? finishHand(player);
+    if (!inAir) return { clip: finishClip('finishGather', hand), at: Math.min(1, player.shotT / FINISH.gather) };
+    return { clip: finishClip(player.finish, hand), at: jumpShare(player) };
+  }
+  if (inAir && marks.finished[id]) return { clip: marks.finished[id], at: jumpShare(player) };
   // In a move: its motion, as far through as the move is.
   if (hasBall && player.move && MOVE_CLIP[player.move.kind]) {
     const { kind, t } = player.move, name = MOVE_CLIP[kind];

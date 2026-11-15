@@ -18,9 +18,12 @@ export const MOVE_BALL = Object.freeze({ leave: 0.15, arrive: 0.85, ahead: Objec
 const MOVE_CLIPS = ['crossover', 'betweenLegs', 'behindBack'];
 
 // The hands a ball is carried in for the arm motion `clip`: one for a dribble, both for everything else; in a dribble
-// move, 'move': it goes from one to the other on its own.
+// move, 'move': it goes from one to the other on its own; in the jump of a finish, 'carryRight' or 'carryLeft': it is
+// in that hand, not bounced.
 export function ballHands(clip) {
   if (MOVE_CLIPS.includes(clip.replace(/Left$/, ''))) return 'move';
+  // In a finish's jump it is carried in the finishing hand.
+  if (/^(dunk|layup)(Left)?$/.test(clip)) return clip.endsWith('Left') ? 'carryLeft' : 'carryRight';
   return clip === 'dribble' ? 'right' : clip === 'dribbleLeft' ? 'left' : 'both';
 }
 
@@ -77,6 +80,7 @@ export function ballSpot(last, now, since) {
 // A dribble move is a way of its own.
 export function carrying(holder, hands) {
   if (holder === null) return null;
+  if (hands === 'carryRight' || hands === 'carryLeft') return `${holder} carry`;
   return `${holder} ${hands === 'both' || hands === 'move' ? hands : hands ? 'one' : 'none'}`;
 }
 

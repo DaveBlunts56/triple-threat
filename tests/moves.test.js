@@ -523,3 +523,33 @@ test('legLook says when he is in a move', () => {
   s.players[0].move = inMove('cross', 0.1);
   assert.equal(legLook(s, s.players[0], marks).moving, true);
 });
+
+// ---------- finishes at the rim ----------
+
+test('a player in a finish shows its two steps on the floor, then its jump, with the hand of his side of the rim', () => {
+  const [s, marks] = watched();
+  const p = s.players[0];                                    // attacks +x: +z is his right
+  at(s, 0, 9.4, 2); Object.assign(p, { finish: 'dunk', shooting: true, shotT: 0.25 }); noteChanges(marks, s, DT);
+  assert.deepEqual(arms(s, marks, 0), { clip: 'finishGather', at: 0.5 });
+  Object.assign(p, { y: 0.5, vy: 1, takeoff: 4.2, jumpT: 0.5 * (2 * 4.2 / 9.81) }); noteChanges(marks, s, DT);
+  assert.deepEqual(arms(s, marks, 0), { clip: 'dunk', at: 0.5 });
+  p.finish = 'layup'; assert.equal(arms(s, marks, 0).clip, 'layup');
+
+  const [t, other] = watched();
+  at(t, 0, 9.4, -2); Object.assign(t.players[0], { finish: 'layup', shooting: true, shotT: 0.1 }); noteChanges(other, t, DT);
+  assert.equal(arms(t, other, 0).clip, 'finishGatherLeft');
+  at(t, 0, 10.5, 1);                                         // he has crossed in front of the rim: the hand he began with is kept
+  noteChanges(other, t, DT);
+  assert.equal(arms(t, other, 0).clip, 'finishGatherLeft');
+});
+
+test('after the ball has gone the finish plays on until he lands, not the jump shot\'s follow-through', () => {
+  const [s, marks] = watched();
+  const p = s.players[0];
+  at(s, 0, 11.8, 1); Object.assign(p, { finish: 'dunk', shooting: true, shotT: 0.9, y: 0.6, vy: -1, takeoff: 4.2, jumpT: 0.6 }); noteChanges(marks, s, DT);
+  Object.assign(p, { finish: null, shooting: false, jumpT: 0.62 }); s.ball.holder = null; s.ball.mode = 'shot'; s.ball.shooter = 0; noteChanges(marks, s, DT);
+  assert.equal(arms(s, marks, 0).clip, 'dunk');
+  assert.ok(arms(s, marks, 0).at > 0.7);
+  Object.assign(p, { y: 0, vy: 0 }); noteChanges(marks, s, DT);
+  assert.notEqual(arms(s, marks, 0)?.clip, 'dunk');
+});
