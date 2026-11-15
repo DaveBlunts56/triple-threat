@@ -1,0 +1,422 @@
+{
+ "clip": "fade-post",
+ "slowed": null,
+ "hand": "right",
+ "moments": [
+  {
+   "name": "gather",
+   "at": 0.0,
+   "limbs": {
+    "leftThigh": [
+     0.4731,
+     -0.6403,
+     0.6052
+    ],
+    "leftShin": [
+     0.2196,
+     -0.5824,
+     -0.7827
+    ],
+    "leftFoot": [
+     0.593,
+     -0.8051,
+     0.0079
+    ],
+    "rightThigh": [
+     -0.1519,
+     -0.5489,
+     0.8219
+    ],
+    "rightShin": [
+     -0.1083,
+     -0.8754,
+     -0.4712
+    ],
+    "rightFoot": [
+     0.095,
+     -0.3383,
+     0.9362
+    ],
+    "leftUpperArm": [
+     0.0723,
+     -0.9967,
+     0.037
+    ],
+    "leftForearm": [
+     0.1175,
+     -0.8981,
+     0.4239
+    ],
+    "rightUpperArm": [
+     -0.1355,
+     -0.9804,
+     -0.143
+    ],
+    "rightForearm": [
+     0.6272,
+     -0.2981,
+     0.7195
+    ]
+   },
+   "trunk": [
+    0.1945,
+    0.9082,
+    0.3707
+   ],
+   "shoulders": [
+    0.9887,
+    -0.1307,
+    -0.0732
+   ],
+   "hips": [
+    0.9956,
+    -0.0506,
+    -0.0794
+   ],
+   "seen": {
+    "leftThigh": 0.37,
+    "leftShin": 0.55,
+    "leftFoot": 0.65,
+    "rightThigh": 0.99,
+    "rightShin": 0.99,
+    "rightFoot": 0.99,
+    "leftUpperArm": 0.04,
+    "leftForearm": 0.1,
+    "rightUpperArm": 0.56,
+    "rightForearm": 0.6
+   }
+  },
+  {
+   "name": "turn",
+   "at": 0.2,
+   "limbs": {
+    "leftThigh": [
+     0.173,
+     -0.7673,
+     0.6175
+    ],
+    "leftShin": [
+     0.2531,
+     -0.9664,
+     -0.0448
+    ],
+    "leftFoot": [
+     0.4847,
+     0.1706,
+     0.8579
+    ],
+    "rightThigh": [
+     -0.0455,
+     -0.6225,
+     0.7813
+    ],
+    "rightShin": [
+     -0.1181,
+     -0.993,
+     -0.0025
+    ],
+    "rightFoot": [
+     0.0408,
+     0.2279,
+     0.9728
+    ],
+    "leftUpperArm": [
+     0.0642,
+     -0.4179,
+     0.9062
+    ],
+    "leftForearm": [
+     -0.693,
+     0.1224,
+     0.7105
+    ],
+    "rightUpperArm": [
+     -0.0193,
+     -0.8676,
+     0.4969
+    ],
+    "rightForearm": [
+     0.445,
+     0.5679,
+     0.6924
+    ]
+   },
+   "trunk": [
+    0.2388,
+    0.9457,
+    0.2206
+   ],
+   "shoulders": [
+    0.9816,
+    0.0326,
+    0.1882
+   ],
+   "hips": [
+    0.9951,
+    -0.0086,
+    -0.0981
+   ],
+   "seen": {
+    "leftThigh": 0.53,
+    "leftShin": 0.67,
+    "leftFoot": 0.69,
+    "rightThigh": 0.99,
+    "rightShin": 0.98,
+    "rightFoot": 0.98,
+    "leftUpperArm": 0.2,
+    "leftForearm": 0.33,
+    "rightUpperArm": 0.34,
+    "rightForearm": 0.52
+   }
+  },
+  {
+   "name": "lift",
+   "at": 0.4,
+   "limbs": {
+    "leftThigh": [
+     0.2124,
+     -0.9433,
+     0.2549
+    ],
+    "leftShin": [
+     0.2785,
+     -0.9183,
+     -0.2813
+    ],
+    "leftFoot": [
+     0.7615,
+     -0.1224,
+     0.6365
+    ],
+    "rightThigh": [
+     -0.1131,
+     -0.774,
+     0.623
+    ],
+    "rightShin": [
+     -0.068,
+     -0.9973,
+     -0.0284
+    ],
+    "rightFoot": [
+     0.0301,
+     0.171,
+     0.9848
+    ],
+    "leftUpperArm": [
+     0.3314,
+     -0.0689,
+     0.941
+    ],
+    "leftForearm": [
+     0.2538,
+     0.9381,
+     0.2357
+    ],
+    "rightUpperArm": [
+     0.0933,
+     -0.4238,
+     0.9009
+    ],
+    "rightForearm": [
+     0.462,
+     0.8804,
+     -0.1069
+    ]
+   },
+   "trunk": [
+    0.048,
+    0.9988,
+    0.0061
+   ],
+   "shoulders": [
+    0.9533,
+    -0.1151,
+    -0.2794
+   ],
+   "hips": [
+    0.9681,
+    0.0074,
+    -0.2506
+   ],
+   "seen": {
+    "leftThigh": 0.42,
+    "leftShin": 0.64,
+    "leftFoot": 0.66,
+    "rightThigh": 0.88,
+    "rightShin": 0.85,
+    "rightFoot": 0.8,
+    "leftUpperArm": 0.22,
+    "leftForearm": 0.22,
+    "rightUpperArm": 0.54,
+    "rightForearm": 0.41
+   }
+  },
+  {
+   "name": "set",
+   "at": 0.6,
+   "limbs": {
+    "leftThigh": [
+     0.2258,
+     -0.9658,
+     0.1277
+    ],
+    "leftShin": [
+     0.2283,
+     -0.966,
+     0.1211
+    ],
+    "leftFoot": [
+     0.5736,
+     -0.6693,
+     0.4723
+    ],
+    "rightThigh": [
+     -0.0523,
+     -0.9286,
+     0.3674
+    ],
+    "rightShin": [
+     0.2479,
+     -0.9649,
+     -0.0872
+    ],
+    "rightFoot": [
+     -0.2193,
+     -0.6396,
+     0.7368
+    ],
+    "leftUpperArm": [
+     -0.4287,
+     0.8326,
+     0.3508
+    ],
+    "leftForearm": [
+     -0.0905,
+     0.97,
+     0.2258
+    ],
+    "rightUpperArm": [
+     -0.8501,
+     0.2237,
+     0.4768
+    ],
+    "rightForearm": [
+     0.1267,
+     0.9822,
+     -0.1387
+    ]
+   },
+   "trunk": [
+    -0.14,
+    0.9899,
+    -0.0225
+   ],
+   "shoulders": [
+    0.5157,
+    -0.4101,
+    -0.7522
+   ],
+   "hips": [
+    0.9392,
+    0.0734,
+    -0.3355
+   ],
+   "seen": {
+    "leftThigh": 0.18,
+    "leftShin": 0.47,
+    "leftFoot": 0.48,
+    "rightThigh": 0.58,
+    "rightShin": 0.7,
+    "rightFoot": 0.65,
+    "leftUpperArm": 0.16,
+    "leftForearm": 0.2,
+    "rightUpperArm": 0.36,
+    "rightForearm": 0.4
+   }
+  },
+  {
+   "name": "release",
+   "at": 0.8,
+   "limbs": {
+    "leftThigh": [
+     0.3143,
+     -0.9419,
+     0.1183
+    ],
+    "leftShin": [
+     0.3873,
+     -0.9219,
+     -0.0113
+    ],
+    "leftFoot": [
+     0.1713,
+     -0.8679,
+     0.4662
+    ],
+    "rightThigh": [
+     0.4534,
+     -0.8753,
+     0.1682
+    ],
+    "rightShin": [
+     0.3828,
+     -0.9121,
+     -0.147
+    ],
+    "rightFoot": [
+     0.2524,
+     -0.5403,
+     0.8027
+    ],
+    "leftUpperArm": [
+     -0.1963,
+     0.9213,
+     0.3358
+    ],
+    "leftForearm": [
+     -0.3565,
+     0.9323,
+     -0.0605
+    ],
+    "rightUpperArm": [
+     -0.382,
+     0.5248,
+     0.7607
+    ],
+    "rightForearm": [
+     -0.4759,
+     0.8676,
+     0.1438
+    ]
+   },
+   "trunk": [
+    -0.2655,
+    0.9634,
+    0.036
+   ],
+   "shoulders": [
+    0.483,
+    -0.5681,
+    0.6663
+   ],
+   "hips": [
+    0.745,
+    0.111,
+    -0.6578
+   ],
+   "seen": {
+    "leftThigh": 0.38,
+    "leftShin": 0.6,
+    "leftFoot": 0.6,
+    "rightThigh": 0.38,
+    "rightShin": 0.52,
+    "rightFoot": 0.45,
+    "leftUpperArm": 0.53,
+    "leftForearm": 0.66,
+    "rightUpperArm": 0.29,
+    "rightForearm": 0.6
+   }
+  }
+ ]
+}

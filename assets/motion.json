@@ -191,7 +191,7 @@
       "duration": 0.3,
       "loop": false,
       "kind": "held",
-      "from": "hand"
+      "from": "tracked"
     },
     "finishGather": {
       "duration": 0.5,

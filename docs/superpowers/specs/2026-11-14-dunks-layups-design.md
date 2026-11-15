@@ -293,3 +293,23 @@ from the left side or by the other team in the browser (the twins are tested in 
 
 Known and left: the computer seldom dunks (it needs a clear lane and a finisher); the layup's legs and timing are not
 from the clip; nobody hangs on the rim; from a standstill the two steps are taken nearly on the spot.
+
+## The other clips (2026-11-14, after the build)
+
+The owner asked for the remaining reference clips to be measured with the same tool and put into the moves the game
+already has. What each gave:
+
+- **The post fadeaway (`fade-post`): used.** Tracked on 103 of 121 frames. The fade's arms now follow the clip from
+  the gather through the turn and the lift to the set point (each arm within 20 degrees of what was measured, a
+  test). The trunk's lean back and the hands are still made by hand: the clip is filmed from high in the stands,
+  where a lean away from the camera cannot be told from standing upright (it measured 3 degrees). The legs are the
+  game's own gather and jump, as before.
+- **The pull-up jump shot (`pullup`): measured, not used.** It is filmed from behind, and at the set point the shooting
+  arm is hidden by the body: the tracker's confidence there is 0.12 and it has the arm pointing down. The jump shot
+  is left as it was.
+- **The crossover (`crossover`): not usable.** Most of the clip is one frozen frame under a caption, the camera is high
+  above the court, and the tracker followed the defender. The crossover is left as it was.
+- **The other two fadeaway clips** were not measured: one fade's arms were enough to replace, and they show the same move.
+
+A clip that would do better for each: one player, filmed from the side at about his own height, unedited, at the
+speed it was played.

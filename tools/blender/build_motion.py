@@ -339,7 +339,7 @@ def main():
         found[name] = 'clip'
 
     for name, pose in POSES.items():
-        if name in found:
+        if name in found or name in TRACKED:
             continue
         for made, frames in with_mirrors(name, pose_frames(rig, pose, FPS)):
             more = {'from': 'hand', **({'whole': True} if whole_body(pose) else {})} if name in OPTIONAL else {}
@@ -347,10 +347,18 @@ def main():
         if name in OPTIONAL:
             found[name] = 'hand'
     # The motions measured from reference clips: each key is a measured moment put on the rig.
+    # One that a downloaded clip has taken the place of is left out, as a hand-made one is.
+    lower = lambda bone: bone in ('Hips', 'Spine') or any(part in bone for part in ('UpLeg', 'Leg', 'Foot', 'ToeBase'))
     for name, pose in TRACKED.items():
+        if name in found:
+            continue
         keys = [(share, aimed(rig, clip(source)[moment], overrides)) for share, (source, moment), overrides in pose['keys']]
+        if pose.get('arms'):                      # of the arms and the upper trunk only: the legs are left at rest
+            keys = [(share, {bone: turn for bone, turn in turns.items() if not lower(bone)}) for share, turns in keys]
         for made, frames in with_mirrors(name, pose_frames(rig, {**pose, 'keys': keys}, FPS)):
-            add(made, pose['kind'], frames, framed=MADE_BOX, **{'from': 'tracked', 'whole': True})
+            add(made, pose['kind'], frames, framed=MADE_BOX, **{'from': 'tracked', **({'whole': True} if pose.get('whole') else {})})
+        if name in OPTIONAL:
+            found[name] = 'tracked'
     print('MOTION optional:', ', '.join(f'{name} {found.get(name, "absent")}' for name in OPTIONAL))
 
     rig.animation_data.action = None

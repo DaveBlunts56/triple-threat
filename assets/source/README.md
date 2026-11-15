@@ -103,4 +103,4 @@ What to keep to when changing one:
 `tracked/*.json` holds what was measured from reference footage with `tools/video/` (see its README): the direction of
 every limb at each named moment of a move, as numbers. No frame, name or picture of the footage is here or anywhere in
 the repository. `tools/blender/build_motion.py` builds `finishGather`, `dunk` and `layup` (and their left-handed twins)
-from them.
+and the arms of `fade` from them.

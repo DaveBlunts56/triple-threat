@@ -123,8 +123,8 @@ test('the file has a motion for each move, the dribbles with a twin for the othe
   const lengths = { crossover: 0.3, betweenLegs: 0.4, behindBack: 0.5, stepBack: 0.35, fade: 0.3 };
   for (const [name, seconds] of Object.entries(lengths)) {
     assert.ok(motionFacts.clips[name], name);
-    assert.ok(['hand', 'clip'].includes(motionFacts.clips[name].from), `${name} says where it is from`);
-    if (byHand(name)) assert.ok(Math.abs(motionFacts.clips[name].duration - seconds) < 0.02, `${name} lasts ${motionFacts.clips[name].duration}`);   // to the nearest frame
+    assert.ok(['hand', 'clip', 'tracked'].includes(motionFacts.clips[name].from), `${name} says where it is from`);
+    if (motionFacts.clips[name].from !== 'clip') assert.ok(Math.abs(motionFacts.clips[name].duration - seconds) < 0.02, `${name} lasts ${motionFacts.clips[name].duration}`);   // to the nearest frame
   }
   for (const name of ['crossover', 'betweenLegs', 'behindBack']) assert.equal(motionFacts.clips[`${name}Left`].duration, motionFacts.clips[name].duration);
 });
@@ -191,4 +191,15 @@ test('a fade ends at the set point with the trunk leaning back', () => {
   assert.ok(fade.Head.z < shot.Head.z - 0.08, `the head is ${shot.Head.z - fade.Head.z} m further back`);
   assert.ok(fade.RightHand.y > fade.Head.y, 'the ball hand is above the head');
   assert.ok(fade.Hips.distanceTo(shot.Hips) < 0.002);
+});
+
+test('the fade measured from a clip: the ball goes from the waist to above the head, he leans back, and his legs are left to the game', () => {
+  if (motionFacts.clips.fade.from !== 'tracked') return;
+  assert.notEqual(motionFacts.clips.fade.whole, true);
+  const start = posed('fade', 0), set = posed('fade', 1), shot = posed('shoot', 1);
+  assert.ok(start.mid.y < start.Spine2.y, `it starts ${start.mid.y - start.Spine2.y} m above the chest`);
+  assert.ok(set.mid.y > set.Head.y && set.RightHand.y > set.Head.y, `the ball is ${set.mid.y - set.Head.y} m above the head at the set point`);
+  assert.ok(set.apart > 0.1 && set.apart < 0.55, `the wrists are ${set.apart} m apart`);
+  assert.ok(set.Head.z < shot.Head.z - 0.08, `the head is ${shot.Head.z - set.Head.z} m further back than in a plain shot`);
+  for (const share of [0, 0.33, 0.67, 1]) { const p = posed('fade', share); for (const bone of ['Hips', 'LeftLeg', 'RightLeg', 'LeftFoot', 'RightFoot']) assert.ok(p[bone].distanceTo(still[bone]) < 0.002, `fade at ${share}: ${bone}`); }
 });

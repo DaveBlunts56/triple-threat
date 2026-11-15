@@ -160,8 +160,10 @@ POSES = {
     'betweenLegs': {'kind': 'once', 'seconds': 0.4, 'keys': [(0, LEGS_FROM), (0.5, LEGS_MID), (1, LEGS_TO)]},
     'behindBack': {'kind': 'once', 'seconds': 0.5, 'keys': [(0, BACK_FROM), (0.35, BACK_WRAP), (0.7, BACK_TAKE), (1, BACK_TO)]},
     'stepBack': {'kind': 'once', 'seconds': 0.35, 'keys': [(0, LOW), (0.5, TUCKED), (1, LIFT)]},
-    'fade': {'kind': 'held', 'seconds': 0.3, 'keys': [(0, ON_HIP), (0.55, DIP), (0.78, {**LIFT, 'Spine1': (-6, 0, 0), 'Spine2': (-6, 0, 0)}), (1, SET_BACK)]},
 }
+# The fade made by hand, kept for reference and as the source of the trunk's lean below: the clip is filmed from high
+# in the stands, where a lean away from the camera cannot be told from standing upright.
+FADE_BY_HAND = {'kind': 'held', 'seconds': 0.3, 'keys': [(0, ON_HIP), (0.55, DIP), (0.78, {**LIFT, 'Spine1': (-6, 0, 0), 'Spine2': (-6, 0, 0)}), (1, SET_BACK)]}
 
 
 # ---- The motions measured from reference clips (assets/source/tracked/; see tracked.py and tools/video/README.md). ----
@@ -175,18 +177,26 @@ TUCK = {'RightUpLeg': (-55, 0, 0), 'RightLeg': (95, 0, 0), 'RightFoot': (-15, 0,
 TUCK_OPEN = {'RightUpLeg': (-30, 0, 0), 'RightLeg': (55, 0, 0), 'RightFoot': (-10, 0, 0), 'LeftUpLeg': (-12, 0, 0), 'LeftLeg': (40, 0, 0), 'LeftFoot': (-5, 0, 0)}
 # The ball arm coming down after the ball has gone: as it hangs at his side.
 ARM_DOWN = {'RightArm': (17, -22, 21), 'RightForeArm': (-5, -12, -9), 'RightHand': (-5, -10, -12)}
-D, L = 'dunk-one-foot', 'layup-finish'
+D, L, F = 'dunk-one-foot', 'layup-finish', 'fade-post'
+# What the fade keeps from the poses made by hand: the trunk (see FADE_BY_HAND) and the hands, which no clip gives.
+trunk_and_hands = lambda pose: {bone: pose[bone] for bone in ('Spine1', 'Spine2', 'Neck', 'Head', 'RightHand', 'LeftHand') if bone in pose}
 TRACKED = {
+    # The post fade: the arms' path from the gather to the set point is the clip's (the shares are its own timing);
+    # the trunk's lean back and the hands are made by hand. `arms`: of the arms and upper trunk only, as the hand-made
+    # shot is: the legs are the game's own gather and jump.
+    'fade': {'kind': 'held', 'seconds': 0.3, 'through': True, 'arms': True, 'keys': [
+        (0, (F, 'gather'), trunk_and_hands(ON_HIP)), (0.33, (F, 'turn'), trunk_and_hands(DIP)),
+        (0.67, (F, 'lift'), trunk_and_hands({**LIFT, 'Spine1': (-6, 0, 0), 'Spine2': (-6, 0, 0)})), (1, (F, 'set'), trunk_and_hands(SET_BACK))]},
     # The two steps: the shares are the measured times over the 0.52 s from the gather to the take-off.
-    'finishGather': {'kind': 'held', 'seconds': 0.5, 'through': True, 'keys': [
+    'finishGather': {'kind': 'held', 'seconds': 0.5, 'through': True, 'whole': True, 'keys': [
         (0, (D, 'gather'), {}), (0.33, (D, 'step1'), {}), (0.69, (D, 'step2'), {}), (0.81, (D, 'deepest'), {}), (1, (D, 'takeoff'), {})]},
     # The dunk's jump: cocked at 0.36 of it and thrown down at 0.69, as measured.
-    'dunk': {'kind': 'held', 'seconds': 0.86, 'through': True, 'keys': [
+    'dunk': {'kind': 'held', 'seconds': 0.86, 'through': True, 'whole': True, 'keys': [
         (0, (D, 'takeoff'), {}), (0.36, (D, 'cocked'), {}), (0.69, (D, 'dunk'), {}), (0.82, (D, 'dunk'), ARM_DOWN), (1, (D, 'landing'), {})]},
     # The layup's jump: the take-off and the landing are the dunk's (measured); the arms and trunk of the finish are
     # the layup clip's; the legs in the air are by eye (TUCK). Of that clip's six moments, `reaching` and `extended`
     # are not used: the tracker had lost the arm there.
-    'layup': {'kind': 'held', 'seconds': 0.65, 'through': True, 'keys': [
+    'layup': {'kind': 'held', 'seconds': 0.65, 'through': True, 'whole': True, 'keys': [
         (0, (D, 'takeoff'), {}), (0.3, (L, 'tucked'), TUCK), (0.62, (L, 'release'), TUCK_OPEN),
         (0.8, (L, 'release'), {**TUCK_OPEN, **ARM_DOWN}), (1, (D, 'landing'), {})]},
 }

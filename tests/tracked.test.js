@@ -9,6 +9,7 @@ const LIMBS = ['leftThigh', 'leftShin', 'leftFoot', 'rightThigh', 'rightShin', '
 const MOMENTS = {
   'dunk-one-foot': ['gather', 'step1', 'step2', 'deepest', 'takeoff', 'cocked', 'dunk', 'landing', 'settled'],
   'layup-finish': ['offFloor', 'rising', 'tucked', 'reaching', 'extended', 'release'],
+  'fade-post': ['gather', 'turn', 'lift', 'set', 'release'],
 };
 
 test('each measured clip is its named moments in order, every limb a direction, and nothing but numbers', () => {
@@ -108,4 +109,16 @@ test('through the gather a toe is on the floor, and he leaves it from his left f
   const off = posed('finishGather', 1);
   assert.ok(off('LeftToeBase').y < off('RightToeBase').y - 0.2, 'the left foot is not the one on the floor at the take-off');
   assert.ok(off('RightLeg').y > off('LeftLeg').y + 0.15 && off('RightLeg').z > off('Hips').z + 0.2, 'the right knee is not up in front');
+});
+
+test('the fade\'s arms lie along what its clip measured, from the gather to the set point', () => {
+  assert.equal(facts.clips.fade.from, 'tracked');
+  const fade = Object.fromEntries(tracked('fade-post').moments.map(m => [m.name, m]));
+  for (const [share, moment] of [[0, 'gather'], [0.33, 'turn'], [0.67, 'lift'], [1, 'set']]) {
+    const at = posed('fade', share);
+    for (const limb of ['leftUpperArm', 'leftForearm', 'rightUpperArm', 'rightForearm']) {
+      const [from, to] = JOINTS[limb], off = degrees(at(to).sub(at(from)), new THREE.Vector3(...fade[moment].limbs[limb]));
+      assert.ok(off < 20, `fade at ${share} (${moment}): ${limb} is ${off.toFixed(0)} degrees off`);
+    }
+  }
 });
