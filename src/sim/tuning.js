@@ -66,6 +66,7 @@ export const MOVES = f({
   back: f({ time: 0.50, push: 1.2, keep: 1, steal: 1, hidden: true }),
   stepBack: f({ time: 0.35, push: 1.3 }),
   gap: 0.3,            // seconds after a move before another may start
+  plant: 0.25,         // the share of a move, at its start and again at its end, over which its push builds and is spent
   cost: 0.02,          // energy a move takes
   tired: 0.6,          // the share of its push a move keeps at no energy (all of it at full, in a straight line between)
   near: 1.6,           // metres: a defender this close can be beaten

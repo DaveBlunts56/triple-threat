@@ -5,7 +5,8 @@ import { gathering } from '../sim/players.js';
 import { manOf } from '../sim/matchups.js';
 
 // Speeds in metres per second. stick: how far past an edge he must go before the gait changes.
-// minRate, maxRate: limits on how slow or fast a clip is played. fade: seconds to blend from one motion to the next.
+// minRate, maxRate: limits on how slow or fast a clip is played; maxRateMove: the upper one in a dribble move, whose
+// push-off is quicker than any step he takes otherwise. fade: seconds to blend from one motion to the next.
 // guardDist: a defender this close to his man is drawn facing him. guardSpeed: walking pace: above it a defender turns
 // and runs. guardStick: how far past that pace he must go once he is guarding. sideways: degrees either side of
 // straight ahead that still count as forward, and the same either side of straight back as backward.
@@ -31,7 +32,7 @@ import { manOf } from '../sim/matchups.js';
 // the way he is drawn facing beyond which he does not look at a thing but where he is going. headRate: degrees a second
 // the head turns at most, each way. ballHeld: metres up a ball somebody holds is looked at, whatever its bounce.
 export const MOTION = Object.freeze({
-  idleBelow: 0.3, walkBelow: 2.2, runBelow: 5.6, stick: 0.2, minRate: 0.6, maxRate: 1.5, fade: 0.15,
+  idleBelow: 0.3, walkBelow: 2.2, runBelow: 5.6, stick: 0.2, minRate: 0.6, maxRate: 1.5, maxRateMove: 3, fade: 0.15,
   guardDist: 4, guardSpeed: 2.2, guardStick: 0.4, sideways: 50,
   land: 0.12, followHold: 0.6, reachBefore: 0.2, catchReach: 0.6, pullIn: 0.15, handUpDist: 2, handSide: 0.3,
   fadeIn: 0.07, fadeOut: 0.22,
@@ -169,6 +170,7 @@ export function legLook(state, player, marks) {
     facing: drawnFacing(state, player, marks),
     defending: defending(state, player),
     guarding: marks.guard[player.id],
+    moving: !!player.move,   // in a move: he is carried across his line or back from it, without turning
     crouch: state.ball.holder === player.id && !player.inbounder && (player.held || dribbling),
     landed: marks.land[player.id],
   };
@@ -208,8 +210,14 @@ export function legMotion(player, gaits, last = null, look = null) {
   if (Math.abs(kept - band) === 1 && kept >= 0 && Math.abs(speed - EDGES[Math.min(kept, band)]) < MOTION.stick) band = kept;
 
   if (band === 0) return { clip: look?.defending || look?.crouch ? 'stance' : 'idle', rate: 1 };
-  const clip = (look?.guarding && guardStep(player, look.facing, last)) || GAITS[band];
-  // Played faster or slower so the feet cover the ground he really covers.
+  // A defender guarding his man, and a handler in a move, do not turn to where they go: they step sideways or back.
+  const clip = ((look?.guarding || look?.moving) && guardStep(player, look.facing, last)) || GAITS[band];
+  // Played faster or slower so the feet cover the ground he really covers. In a move they keep exactly to it, from
+  // the plant through the push-off.
+  // Back from the hoop he pushes off a planted crouch and steps: the back-step itself skims the floor, which at the
+  // pace of a step-back is a slide.
+  if (look?.moving && clip === 'backpedal') return { clip: 'stance', rate: 1 };
+  if (look?.moving) return { clip, rate: Math.min(MOTION.maxRateMove, speed / gaits[clip]) };
   const slowest = SIDE_STEPS.includes(clip) ? MOTION.minRateStep : MOTION.minRate;
   return { clip, rate: Math.min(MOTION.maxRate, Math.max(slowest, speed / gaits[clip])) };
 }

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { LEG_CLIPS, ARM_CLIPS, OPTIONAL_CLIPS, STRIDES, crossFade, layerOf, outOfStep, stridePhase, wholeBody } from './motion.js';
 import { chestTip } from './bearing.js';
 import { keepTrack } from './checks.js';
+import { createFeet } from './feet.js';
 
 // catchUp: the most of its cycle a dribble gains or loses on its own pace in a second, to fall in with the stride.
 // Less than its own pace, so it never runs backwards. look: the share of a turn of the head that each of the bones
@@ -98,8 +99,10 @@ export function createAnimator(model, clips, facts, scale, index = 0) {
   // The bones turned after the motions, and the turns the motions gave them on the last frame. The mixer only sets a
   // bone whose motions give it a new turn, so each is first put back to the last: otherwise a turn added after the
   // motions would stay on a bone held still, and build up.
-  const turned = [chest, ...looking.map(([joint]) => joint)];
+  const feet = createFeet(model, scale);
+  const turned = [chest, ...looking.map(([joint]) => joint), ...feet.bones];
   const given = turned.map(joint => joint.quaternion.clone());
+  const hipsAt = feet.hips.position.clone();   // and where the motions had the hips, which planting lowers
 
   // The chest, after the motions: each arms-layer motion asks for it to lean as it was made to (see chestTip).
   function tipChest() {
@@ -121,6 +124,7 @@ export function createAnimator(model, clips, facts, scale, index = 0) {
 
   function reset() {
     for (const layer of LAYERS) for (const name in actions[layer]) weights[layer][name] = name === 'idle' ? 1 : 0;
+    feet.free();
   }
   reset();
 
@@ -137,8 +141,10 @@ export function createAnimator(model, clips, facts, scale, index = 0) {
     // One frame, `dt` seconds long. `legs` is what legMotion gave and `arms` what armMotion gave: { clip, at } holds
     // the motion at that share of its length, { clip, rate } plays it at that rate, and with no `arms` the arms show
     // their half of the leg motion. `head` is where the head ends up looking, { yaw, pitch } in radians from the
-    // model's forward and from level (see aim), or null for the motion's own head.
-    update(legs, arms, dt, head = null) {
+    // model's forward and from level (see aim), or null for the motion's own head. `plant`: he is on the floor in
+    // play, and a foot on the floor is kept where it is on the court (see feet.js); the model must already be where
+    // he stands.
+    update(legs, arms, dt, head = null, plant = false) {
       choose(legs);
       if (arms) choose(arms);
       for (const name in at) {
@@ -170,10 +176,15 @@ export function createAnimator(model, clips, facts, scale, index = 0) {
       // The dribble's share of the arm it leaves out goes to the leg motions, as the legs share it among themselves.
       for (const dribble in offArm) for (const name of LEG_CLIPS) show(offArm[dribble][name], name, weights.arms[dribble] * weights.legs[name]);
       turned.forEach((joint, i) => joint.quaternion.copy(given[i]));
+      feet.hips.position.copy(hipsAt);
       mixer.update(0);
       turned.forEach((joint, i) => given[i].copy(joint.quaternion));
+      hipsAt.copy(feet.hips.position);
       tipChest();
       if (head) aim(head);
+      feet.plant(plant, dt);
     },
+    // Forgets where his feet were planted: he has been put somewhere else (see actors.cut).
+    unplant: () => feet.free(),
   };
 }

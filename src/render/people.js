@@ -228,11 +228,11 @@ export async function loadPeople() {
         he.arms = standing ? null : armMotion(player, state, marks, facts);
         // A downloaded clip of the whole body (a move, a stumble) is played by the legs as well.
         const whole = he.arms && 'at' in he.arms && wholeBody(facts.clips, he.arms.clip) ? he.arms : null;
-        he.animator.update(whole ?? legs, he.arms, dt, standing ? null : bearing.head);
+        he.animator.update(whole ?? legs, he.arms, dt, standing ? null : bearing.head, !standing && onFloor(player));
       });
     },
     // Forgets what is remembered from frame to frame (see actors.cut).
-    cut() { marks = newMarks(); cross = null; },
+    cut() { marks = newMarks(); cross = null; for (const he of Object.values(people)) he.animator.unplant(); },
     // The hands the holder carries the ball in on this frame (see handsOf). To be asked after `update`.
     hands: handsOf,
     // Where the ball is in its holder's hands on this frame, { x, y, z }, or null when nobody holds it and on the

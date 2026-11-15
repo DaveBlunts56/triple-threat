@@ -316,3 +316,20 @@ test('a fade that comes down with the ball is a travel and is over', () => {
   assert.equal(s.call?.kind, 'travel');
   assert.equal(s.players[0].fading, false);
 });
+
+// ---------- the push-off ----------
+
+test('a move pushes him as a push-off does: it builds as he plants, holds, and is spent as he lands, and still carries him its push', () => {
+  for (const kind of ['cross', 'legs', 'back', 'stepBack']) {
+    const s = scene(), p = s.players[0], speeds = [];
+    step(s, only(0, { [kind]: true }), DT);                                // the move begins; it carries him from the next step
+    const from = { x: p.x, z: p.z };
+    while (p.move) { step(s, idle(), DT); if (p.move || kind !== 'stepBack') speeds.push(Math.hypot(p.vx, p.vz)); }   // a step-back ends stopped
+    const steady = MOVES[kind].push / MOVES[kind].time, peak = Math.max(...speeds);
+    assert.ok(speeds[0] < steady * 0.3, `${kind} starts at ${speeds[0]} m/s`);
+    assert.ok(speeds[speeds.length - 1] < steady * 0.45, `${kind} ends at ${speeds[speeds.length - 1]} m/s`);   // a step-back's last step is not sampled: it ends stopped
+    assert.ok(peak > steady * 1.2 && peak < steady * 1.5, `${kind} peaks at ${peak} m/s against ${steady} steady`);
+    for (let i = 1; i < speeds.length; i++) assert.ok(Math.abs(speeds[i] - speeds[i - 1]) < steady * 0.3, `${kind} jumps from ${speeds[i - 1]} to ${speeds[i]} m/s`);
+    assert.ok(Math.abs(Math.hypot(p.x - from.x, p.z - from.z) - MOVES[kind].push) < 0.03, `${kind} carried him ${Math.hypot(p.x - from.x, p.z - from.z)} m`);
+  }
+});

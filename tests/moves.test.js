@@ -501,3 +501,25 @@ test('the scorer the broadcast has celebrating raises an arm, or plays the celeb
   marks.show = null;
   assert.notEqual(arms(s, marks, 1)?.clip, 'handUp');
 });
+
+// ---------- the legs in a move ----------
+
+test('in a move he does not turn to where he goes: across his line he side-steps, at the pace he really travels; back from the hoop he pushes off a planted crouch', () => {
+  const gaits = facts.gaits, look = { facing: 0, defending: false, guarding: false, moving: true, crouch: true, landed: Infinity };
+  const going = (vx, vz) => legMotion({ ...still, vx, vz }, gaits, 'stance', look);
+  assert.deepEqual(going(0, 4), { clip: 'strafeRight', rate: 4 / gaits.strafeRight });            // +z is his right when he faces +x
+  assert.deepEqual(going(0, -4), { clip: 'strafeLeft', rate: 4 / gaits.strafeLeft });
+  assert.equal(going(0, 4).rate > MOTION.maxRate, true, 'quicker than any step he takes otherwise');
+  assert.equal(going(0, 9).rate, MOTION.maxRateMove);
+  assert.deepEqual(going(0, 0.6), { clip: 'strafeRight', rate: 0.6 / gaits.strafeRight });        // and as slowly as he is carried, as the push builds
+  assert.deepEqual(going(-3, 0), { clip: 'stance', rate: 1 });                                    // a step-back
+  assert.equal(going(5, 1).clip, 'run');                                                          // a move in his stride: he runs on
+  assert.equal(legMotion({ ...still, vx: 0, vz: 4 }, gaits, 'stance', { ...look, moving: false }).clip, 'run', 'out of a move he turns and runs');
+});
+
+test('legLook says when he is in a move', () => {
+  const [s, marks] = watched();
+  assert.equal(legLook(s, s.players[0], marks).moving, false);
+  s.players[0].move = inMove('cross', 0.1);
+  assert.equal(legLook(s, s.players[0], marks).moving, true);
+});

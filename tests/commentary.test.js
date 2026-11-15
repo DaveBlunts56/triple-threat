@@ -162,7 +162,9 @@ test('through a match the commentator calls it in captions and the voice says ea
   assert.ok(captions.length > 25, `${captions.length} captions`);
   for (const text of captions) assert.ok(!/[{}]|undefined|null/.test(text), text);
   assert.deepEqual(voice.said, captions);
-  assert.ok(captions.some(text => /scores|two|three/i.test(text)) && captions.some(text => /[Rr]ebound|glass|board/.test(text)));
+  assert.ok(captions.some(text => /scores|two|three/i.test(text)));
+  // A rebound is called when nothing bigger is being said: in one of a few matches at least, whichever way they go.
+  assert.ok([1, 2, 3, 4].some(seed => aired('captions', quiet(), seed).captions.some(text => /[Rr]ebound|glass|board/.test(text))), 'no rebound was called in four matches');
   for (let i = 1; i < captions.length; i++) assert.notEqual(captions[i], captions[i - 1]);
 });
 

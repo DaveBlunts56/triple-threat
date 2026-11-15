@@ -80,8 +80,12 @@ export function stepMove(state, p, dt) {
   if (state.ball.holder !== p.id || state.phase !== 'live' || p.shooting) { endMove(state, p); return; }
   move.t += dt;
   const keep = spec.keep ?? 0;
-  p.vx = (move.dx * move.push) / spec.time + move.cx * keep;
-  p.vz = (move.dz * move.push) / spec.time + move.cz * keep;
+  // The push comes as a push-off does: it builds as he plants (the first MOVES.plant of the move), holds, and is spent
+  // as he lands (the last). Over the whole move it carries him its `push`, as a steady one would.
+  const share = Math.min(1, (move.t - dt / 2) / spec.time);
+  const burst = Math.min(1, share / MOVES.plant, (1 - share) / MOVES.plant) / (1 - MOVES.plant);
+  p.vx = (move.dx * move.push * burst) / spec.time + move.cx * keep;
+  p.vz = (move.dz * move.push * burst) / spec.time + move.cz * keep;
 }
 
 // After he has been moved: the move ends when its time is up.
