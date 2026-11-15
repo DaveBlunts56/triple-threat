@@ -77,7 +77,7 @@ planes his knees bend in, because a single camera sees depth poorly.
 |---|---|---|
 | `dunk-one-foot` | A running one-foot, one-hand dunk: gather, two steps, take-off, cocked, dunk, landing | 171 of 183 frames |
 | `dunk-windmill-approach` | A two-foot gather and rise into a windmill | all 129 frames |
-| `dunk-windmill-flight` | The windmill's arm circle in the air | 189 of 219 frames; lost before the ball goes down |
+| `dunk-windmill-flight` | The windmill's arm circle in the air | 189 of 219 frames; lost before the ball goes down. Used for the first half of the windmill's circle (down, out and back) |
 | `layup-finish` | A layup's finish, on an enlarged crop of the shooter | upper body on 27 of 36 frames; his legs are hidden |
 | `fade-post` | A post fadeaway: gather, turn, lift, set point, release | 103 of 121 frames; used for the fade's arms |
 | `pullup` | A pull-up jump shot seen from behind | 50 of 55 frames, but the shooting arm is hidden at the set point (confidence 0.12): not used |

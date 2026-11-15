@@ -553,3 +553,19 @@ test('after the ball has gone the finish plays on until he lands, not the jump s
   Object.assign(p, { y: 0, vy: 0 }); noteChanges(marks, s, DT);
   assert.notEqual(arms(s, marks, 0)?.clip, 'dunk');
 });
+
+test('a dunk with a flair shows the flair: a windmill, in the air and on to the landing after the ball has gone', () => {
+  const [s, marks] = watched();
+  const p = s.players[0];
+  at(s, 0, 9.4, 2); Object.assign(p, { finish: 'dunk', flair: 'windmill', shooting: true, shotT: 0.25 }); noteChanges(marks, s, DT);
+  assert.equal(arms(s, marks, 0).clip, 'finishGather');                      // the two steps are any dunk's
+  Object.assign(p, { y: 0.6, vy: 1, takeoff: 4.6, jumpT: 0.3 }); noteChanges(marks, s, DT);
+  assert.equal(arms(s, marks, 0).clip, 'windmill');
+  Object.assign(p, { finish: null, shooting: false, jumpT: 0.7 }); s.ball.holder = null; s.ball.mode = 'shot'; s.ball.shooter = 0; noteChanges(marks, s, DT);
+  assert.equal(arms(s, marks, 0).clip, 'windmill');
+  const [t, other] = watched();
+  at(t, 0, 9.4, -2); Object.assign(t.players[0], { finish: 'dunk', flair: 'windmill', shooting: true, shotT: 0.6, y: 0.5, vy: 1, takeoff: 4.6, jumpT: 0.2 }); noteChanges(other, t, DT);
+  assert.equal(arms(t, other, 0).clip, 'windmillLeft');
+  t.players[0].finish = 'layup';                                             // a layup has no flair, whatever was left from the last dunk
+  assert.equal(arms(t, other, 0).clip, 'layupLeft');
+});

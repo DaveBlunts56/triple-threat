@@ -39,7 +39,7 @@ export const MOTION = Object.freeze({
   fadeIn: 0.07, fadeOut: 0.22,
   quick: Object.freeze(['pass', 'reach', 'follow', 'freeThrow', 'handUp',
     'crossover', 'crossoverLeft', 'betweenLegs', 'betweenLegsLeft', 'behindBack', 'behindBackLeft',
-    'finishGather', 'finishGatherLeft', 'dunk', 'dunkLeft', 'layup', 'layupLeft']),
+    'finishGather', 'finishGatherLeft', 'dunk', 'dunkLeft', 'layup', 'layupLeft', 'windmill', 'windmillLeft']),
   apart: 0.618, drift: 0.08,
   handStick: 0.4, guardFar: 0.4, sideStick: 10, minRateStep: 0.35,
   dribbleHold: 0.55, handSwitch: 0.2, freeThrowSet: 0.45,
@@ -53,7 +53,7 @@ export const LEG_CLIPS = Object.freeze(['idle', 'stance', 'walk', 'run', 'sprint
 
 export const ARM_CLIPS = Object.freeze(['dribble', 'dribbleLeft', 'hold', 'holdLeft', 'shoot', 'follow', 'freeThrow', 'pass', 'catch', 'reach', 'handUp', 'contest', 'tip',
   'crossover', 'crossoverLeft', 'betweenLegs', 'betweenLegsLeft', 'behindBack', 'behindBackLeft', 'stepBack', 'fade',
-  'finishGather', 'finishGatherLeft', 'dunk', 'dunkLeft', 'layup', 'layupLeft']);
+  'finishGather', 'finishGatherLeft', 'dunk', 'dunkLeft', 'layup', 'layupLeft', 'windmill', 'windmillLeft']);
 
 // Motions the file has only if their clips were downloaded: the game does without any that are missing.
 export const OPTIONAL_CLIPS = Object.freeze(['celebrate', 'dejected', 'stumble']);
@@ -108,8 +108,10 @@ export function dribbleHand(state, player, last = 'right') {
 const HAPPENINGS = ['pass', 'release', 'catch', 'reach', 'land', 'switched'];
 const OTHER_HAND = { left: 'right', right: 'left' };
 
-// The motion of a finish's jump ('dunk' or 'layup') for the hand it is made with.
+// The motion of a finish's jump ('dunk', 'layup', or a dunk's flair: 'windmill') for the hand it is made with.
 const finishClip = (finish, hand) => (hand === 'left' ? `${finish}Left` : finish);
+// What a player's finish looks like in the air: a dunk with a flair is that flair.
+const jumpOf = p => (p.finish === 'dunk' && p.flair ? p.flair : p.finish);
 
 // What the renderer remembers from frame to frame, by player id. For each of HAPPENINGS, the seconds since it last
 // happened to him (Infinity if never); `guard`, whether he is guarding his man, and `guarded`, the seconds since that
@@ -160,9 +162,9 @@ export function noteChanges(marks, state, dt) {
     // A finish keeps the hand he began it with, whichever side of the rim his steps take him to; and once the ball has
     // gone its motion plays on until he lands.
     if (p.finish && !before?.finish) marks.finishHand[id] = finishHand(p);
-    if (before?.finish && !p.finish && !onFloor(p)) marks.finished[id] = finishClip(before.finish, marks.finishHand[id]);
+    if (before?.finish && !p.finish && !onFloor(p)) marks.finished[id] = finishClip(before.finish, marks.finishHand[id]);   // before.finish: as jumpOf gave it
     if (onFloor(p)) delete marks.finished[id];
-    now.players[id] = { shooting: p.shooting, inAir: !onFloor(p), stealCooldown: p.stealCooldown, move: p.move?.kind ?? null, finish: p.finish ?? null };
+    now.players[id] = { shooting: p.shooting, inAir: !onFloor(p), stealCooldown: p.stealCooldown, move: p.move?.kind ?? null, finish: p.finish ? jumpOf(p) : null };
   }
   marks.was = now;
 }
@@ -255,7 +257,7 @@ export function armMotion(player, state, marks, facts) {
   if (hasBall && player.finish && player.shooting) {
     const hand = marks.finishHand[id] ?? finishHand(player);
     if (!inAir) return { clip: finishClip('finishGather', hand), at: Math.min(1, player.shotT / FINISH.gather) };
-    return { clip: finishClip(player.finish, hand), at: jumpShare(player) };
+    return { clip: finishClip(jumpOf(player), hand), at: jumpShare(player) };
   }
   if (inAir && marks.finished[id]) return { clip: marks.finished[id], at: jumpShare(player) };
   // In a move: its motion, as far through as the move is.

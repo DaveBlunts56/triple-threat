@@ -221,6 +221,20 @@
       "from": "tracked",
       "whole": true
     },
+    "windmill": {
+      "duration": 0.9333,
+      "loop": false,
+      "kind": "held",
+      "from": "tracked",
+      "whole": true
+    },
+    "windmillLeft": {
+      "duration": 0.9333,
+      "loop": false,
+      "kind": "held",
+      "from": "tracked",
+      "whole": true
+    },
     "layup": {
       "duration": 0.7333,
       "loop": false,

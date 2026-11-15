@@ -23,7 +23,7 @@ const MOVE_CLIPS = ['crossover', 'betweenLegs', 'behindBack'];
 export function ballHands(clip) {
   if (MOVE_CLIPS.includes(clip.replace(/Left$/, ''))) return 'move';
   // In a finish's jump it is carried in the finishing hand.
-  if (/^(dunk|layup)(Left)?$/.test(clip)) return clip.endsWith('Left') ? 'carryLeft' : 'carryRight';
+  if (/^(dunk|layup|windmill)(Left)?$/.test(clip)) return clip.endsWith('Left') ? 'carryLeft' : 'carryRight';
   return clip === 'dribble' ? 'right' : clip === 'dribbleLeft' ? 'left' : 'both';
 }
 

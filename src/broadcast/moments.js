@@ -51,7 +51,7 @@ export function watchStep(watch, state, events = null) {
   // A basket from the floor.
   const sc = now.score;
   if (sc && sc !== was.score) {
-    plain('made', sc.team, sc.row, { points: sc.points, far: sc.far, finish: sc.finish ?? null, assist: sc.assist === null ? null : surname(state.rosters[sc.team][sc.assist]) });
+    plain('made', sc.team, sc.row, { points: sc.points, far: sc.far, finish: sc.finish ?? null, flair: sc.flair ?? null, assist: sc.assist === null ? null : surname(state.rosters[sc.team][sc.assist]) });
     if (sc.fouled) moment('andOne', sc.team, sc.row);
     if (sc.clock <= MOMENT.buzzer) moment('buzzer', sc.team, sc.row);
     const stumble = state.last.stumble, steal = now.steal;

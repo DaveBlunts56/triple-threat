@@ -149,3 +149,7 @@ test('in a finish the ball is in both hands through the two steps, then in the f
   assert.equal(carrying(2, 'carryRight'), carrying(2, 'carryLeft'));
   assert.notEqual(carrying(2, 'carryRight'), carrying(2, 'both'));     // from two hands to one the ball is drawn across
 });
+
+test('through a windmill the ball stays in the hand that swings it', () => {
+  assert.deepEqual(['windmill', 'windmillLeft'].map(ballHands), ['carryRight', 'carryLeft']);
+});

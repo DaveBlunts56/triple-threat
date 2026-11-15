@@ -10,6 +10,7 @@ const MOMENTS = {
   'dunk-one-foot': ['gather', 'step1', 'step2', 'deepest', 'takeoff', 'cocked', 'dunk', 'landing', 'settled'],
   'layup-finish': ['offFloor', 'rising', 'tucked', 'reaching', 'extended', 'release'],
   'fade-post': ['gather', 'turn', 'lift', 'set', 'release'],
+  'dunk-windmill-flight': ['ballHigh', 'down', 'low', 'behind', 'rising', 'up'],
 };
 
 test('each measured clip is its named moments in order, every limb a direction, and nothing but numbers', () => {
@@ -132,4 +133,26 @@ test('the layup is as described: up off the left foot with the right knee raised
   assert.ok(roll('LeftHand').y < roll('Hips').y + 0.25, 'the left arm is not down');
   assert.ok(roll('Head').z < roll('Hips').z + 0.05, 'he is not leaning a little back at the release');
   assert.ok(Math.abs(down('RightLeg').y - down('LeftLeg').y) < 0.2, 'his legs are not both under him as he comes down');
+});
+
+test('the windmill: the knee to the chest at the take-off, the ball swung down, out and back, over the top, and slammed forward at 0.69 of the jump', () => {
+  for (const name of ['windmill', 'windmillLeft']) assert.deepEqual([facts.clips[name]?.from, facts.clips[name]?.whole], ['tracked', true], name);
+  const off = posed('windmill', 0), plain = posed('dunk', 0);
+  assert.ok(off('RightLeg').y > plain('RightLeg').y + 0.05, 'the knee is no higher than in the plain dunk');
+  const down = posed('windmill', 0.14), out = posed('windmill', 0.48), top = posed('windmill', 0.58), slam = posed('windmill', 0.69);
+  assert.ok(down('RightHand').y < down('Hips').y + 0.05, 'the ball is not swung down by the hip');
+  assert.ok(out('RightHand').x < out('RightArm').x - 0.3 && out('RightHand').z < out('Hips').z + 0.1, 'the arm is not out to his side and back');
+  assert.ok(top('RightHand').y > top('Head').y + 0.2 && top('RightHand').z < top('Head').z + 0.1, 'the ball does not come over the top');
+  assert.ok(slam('RightHand').y > slam('Head').y && slam('RightHand').z > slam('Hips').z + 0.3, 'the arm is not out over the rim at the slam');
+  // The measured part of the circle lies along what the clip measured.
+  const clip = Object.fromEntries(tracked('dunk-windmill-flight').moments.map(m => [m.name, m]));
+  for (const [share, moment] of [[0.14, 'down'], [0.27, 'low'], [0.38, 'behind'], [0.48, 'rising']]) {
+    const at = posed('windmill', share);
+    for (const limb of ['rightUpperArm', 'rightForearm']) {
+      const [from, to] = JOINTS[limb], offBy = degrees(at(to).sub(at(from)), new THREE.Vector3(...clip[moment].limbs[limb]));
+      assert.ok(offBy < 25, `windmill at ${share} (${moment}): ${limb} is ${offBy.toFixed(0)} degrees off`);
+    }
+  }
+  const twin = posed('windmillLeft', 0.58);
+  assert.ok(Math.abs(twin('LeftHand').x + top('RightHand').x) < 0.03, 'the twin is not the windmill in a mirror');
 });

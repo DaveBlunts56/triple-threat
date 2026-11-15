@@ -209,3 +209,10 @@ test('a dunk and a layup are called as what they were, with the scorer named', (
   assert.equal(LINES.dunk.length, 3); assert.equal(LINES.layup.length, 3);
   assert.equal(rankOf(made('dunk')), rankOf(made(null)));                 // an ordinary basket's rank
 });
+
+test('a windmill is called a windmill', () => {
+  const s = createMatch(), booth = createBooth();
+  const line = lineFor(booth, { kind: 'made', team: 0, name: 'Cross', points: 2, assist: null, finish: 'dunk', flair: 'windmill' }, s);
+  assert.ok(LINES.windmill.some(text => text.replace('{name}', 'Cross') === line), line);
+  assert.equal(LINES.windmill.length, 3);
+});

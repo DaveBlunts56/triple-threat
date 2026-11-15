@@ -337,3 +337,20 @@ Measured over 30 computer matches at each size: three a side 75.7 points (69.7 b
 possession, with 1.0 dunks, 13.9 layups and 16.3 shots a match; five a side 59.3 points (55.5) and 12.6 s, with 0.2,
 9.4 and 14.6. In the game: stills of a layup with the knee up and the arm at the rim, the ball leaving the hand at rim
 height and going in, and of a dunk with the hand above the rim at 1.06 m off the floor; no error in the console.
+
+## The windmill (2026-11-14)
+
+Section 9 left the windmill out because its clip loses the player before the ball goes down. The owner then described
+it, and it is built from both.
+
+- **When.** A dunk is a windmill when the dunker's Inside is at least `FINISH.windmillAt` (86) and no defender is
+  within `FINISH.windmillRoom` (2.5 m) as he begins it. The key is the dunk's; nothing is chosen by hand. The rules
+  treat it as the dunk it is (same jump, same moment, same chance); `flair: 'windmill'` is carried on the player and
+  on the basket so that it is drawn and called as one.
+- **The motion (`windmill`, and its twin).** The take-off is the measured dunk's with the knee driven toward the chest,
+  as described (the clip's own take-off is from two feet). The ball swings down, out to his side and back: four
+  moments measured from the clip, the arm within 25 degrees of them. Then over the top and slammed forward and down
+  at 0.69 of the jump: described, since the tracker had lost him. The landing is the measured dunk's. The ball stays
+  in the swinging hand throughout.
+- **Called** as a windmill by the commentator (three wordings).
+- **Not in it:** grabbing or hanging on the rim; a choice of dunk by the player.
