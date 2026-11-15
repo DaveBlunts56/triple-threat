@@ -9,6 +9,7 @@ import { BALL_IN_HAND, ballHands, crossFrom, dribbleSpot, moveSpot } from './han
 import { checkGaits, checkMotions, checkFacts, personName, courtPeople, sized, missingPeople, checkHands } from './checks.js';
 import { easeFacing, leanOf, lookTarget, headTurn, easeHead } from './bearing.js';
 import { createAnimator } from './animator.js';
+import { createFace, faceWants } from './face.js';
 import { ATLAS, KIT, atlasPart, atlasRect, atlasUV, kitOps, heightOps, kitColours, paintKit, normalFromHeight } from './kit.js';
 import { MATERIALS, kitMaterial, partMaterial, fabricTiles, isPhysical, isDetailed } from './materials.js';
 import { QUALITY, modelFor } from './quality.js';
@@ -178,6 +179,7 @@ export async function loadPeople(camera) {
   // that is his near model. His far model is the same parts joined.
   function person(model, team, number, index) {
     const near = [], parts = [], drawn = {};
+    let skin = null;   // the mesh that carries his expressions
     model.traverse(part => {
       // GLTFLoader numbers the bone names that repeat in the file (mixamorigHips_1); the motions look for the plain ones.
       if (part.isBone) part.name = THREE.PropertyBinding.sanitizeNodeName(part.userData.name);
@@ -201,6 +203,9 @@ export async function loadPeople(camera) {
       part.frustumCulled = false;   // its bounds are those of the rest pose, not of where the motion puts it
       dressed.push([part, made]);
       near.push(part);
+      // The file gives every part the expressions' targets, all still but the skin's: only the skin keeps them.
+      if (kind === 'skin') skin = part;
+      else if (part.morphTargetInfluences) { part.geometry.morphAttributes = {}; part.morphTargetInfluences = undefined; part.morphTargetDictionary = undefined; }
     });
     if (!parts.length) throw new Error(`${model.name} has nothing to draw`);
     const far = farModel(parts, drawn, team, number);
@@ -208,7 +213,7 @@ export async function loadPeople(camera) {
     const hands = { left: model.getObjectByName('mixamorigLeftHand'), right: model.getObjectByName('mixamorigRightHand') };
     checkHands(model.name, hands);   // so a broken file falls back to capsules at load, not on the first possession
     // arms: the arm motion he was given on the last frame, or null when his arms followed his legs.
-    return { model, hands, near, far, drawnAs: 'near', animator: createAnimator(model, clips, facts, scale, index), gaits: sized(facts.gaits, scale), last: 'idle', arms: null };
+    return { model, hands, near, far, drawnAs: 'near', face: createFace(skin, team * 100 + number), animator: createAnimator(model, clips, facts, scale, index), gaits: sized(facts.gaits, scale), last: 'idle', arms: null };
   }
   // Shows his `which` model ('near' or 'far') and hides the other.
   const wear = (he, which) => {
@@ -263,6 +268,7 @@ export async function loadPeople(camera) {
           if (shown[i] && shown[i].model.parent === group) group.remove(shown[i].model);
           group.add(he.model);
           he.animator.reset();
+          he.face.reset();
           he.last = 'idle';
           shown[i] = he;
         }
@@ -292,6 +298,7 @@ export async function loadPeople(camera) {
         // A downloaded clip of the whole body (a move, a stumble) is played by the legs as well.
         const whole = he.arms && 'at' in he.arms && wholeBody(facts.clips, he.arms.clip) ? he.arms : null;
         he.animator.update(whole ?? legs, he.arms, dt, standing ? null : bearing.head, !standing && onFloor(player));
+        he.face.update(dt, standing ? {} : faceWants(player, marks));
       });
     },
     // Forgets what is remembered from frame to frame (see actors.cut).

@@ -69,6 +69,33 @@ test('each player has his eyes (the detailed ones), a cornea over each, brows, l
   }
 });
 
+test('the skin carries the four expressions, and they move only his face: nothing below his neck', async () => {
+  const { Matrix4, Vector3 } = await import('three');
+  for (const person of people) {
+    const name = rootName(person), root = players.json.nodes.findIndex(n => n.name === name);
+    const meshNode = nodesUnder(players.json, root).map(i => players.json.nodes[i]).find(n => n.mesh !== undefined);
+    const mesh = players.json.meshes[meshNode.mesh];
+    assert.deepEqual(mesh.extras?.targetNames, ['blink', 'effort', 'shout', 'dejected'], `${name}: ${mesh.extras?.targetNames}`);
+    // The neck's height: where the skin's Neck joint is, from its inverse bind matrix.
+    const skin = players.json.skins[meshNode.skin], neckJoint = skin.joints.findIndex(j => players.json.nodes[j].name === 'mixamorig:Neck');
+    const neck = new Vector3().setFromMatrixPosition(new Matrix4().fromArray(floatsOf(players, skin.inverseBindMatrices).slice(16 * neckJoint, 16 * neckJoint + 16)).invert()).y;
+    const p = mesh.primitives.find(q => players.json.materials[q.material].name.startsWith('skin')), at = floatsOf(players, p.attributes.POSITION);
+    p.targets.forEach((target, t) => {
+      const moved = floatsOf(players, target.POSITION);
+      let count = 0;
+      for (let i = 0; i < moved.length; i += 3) {
+        if (Math.hypot(moved[i], moved[i + 1], moved[i + 2]) < 1e-5) continue;
+        count++;
+        assert.ok(at[i + 1] > neck, `${name}: ${mesh.extras.targetNames[t]} moves a point ${(neck - at[i + 1]).toFixed(3)} m under the neck`);
+      }
+      assert.ok(count > 20, `${name}: ${mesh.extras.targetNames[t]} moves ${count} points`);
+    });
+    for (const q of mesh.primitives.filter(q => q !== p)) for (const target of q.targets ?? []) {
+      assert.ok(floatsOf(players, target.POSITION).every(v => Math.abs(v) < 1e-6), `${name}: an expression moves his ${players.json.materials[q.material].name}`);
+    }
+  }
+});
+
 // One player's kit piece: positions, normals and texture coordinates of the primitive whose material is `name`.
 function piece(person, name) {
   const p = primitivesUnder(players.json, rootName(person)).find(q => players.json.materials[q.material].name === name);

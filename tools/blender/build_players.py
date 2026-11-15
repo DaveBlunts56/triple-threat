@@ -29,6 +29,14 @@ BUILDS = {'slim': (0.65, 0.38), 'athletic': (0.82, 0.45), 'strong': (0.95, 0.58)
 # A recoloured hair picture is smaller than one in its own colours, so that ten players fit the size the file may have.
 TEXTURE = {'skin': 2048, 'hair': 512, 'recoloured': 384, 'shoes': 512, 'eyes': 256, 'brows': 256, 'lashes': 256, 'mouth': 512}
 OPAQUE = ('skin', 'shoes', 'eyes', 'mouth')   # the generator wires transparency into every material; these do not need it
+# The face's expressions, each the sum of the generator's expression units (data/targets/expression/units/<race>/)
+# at full strength, kept as shape keys on the skin above his neck (see add_expressions; src/render/face.js shows them).
+EXPRESSIONS = {
+    'blink': ('eye-left-closure', 'eye-right-closure'),
+    'effort': ('mouth-compression', 'eyebrows-left-down', 'eyebrows-right-down', 'nose-compression', 'neck-platysma'),
+    'shout': ('mouth-open', 'eyebrows-left-up', 'eyebrows-right-up', 'mouth-retraction'),
+    'dejected': ('eyebrows-left-inner-up', 'eyebrows-right-inner-up', 'mouth-depression'),
+}
 # The clear shell over each eye: the faces of the eyes' own outer shell within `front` of looking straight ahead.
 CORNEA = {'front': 0.5}
 SKIN_MARGIN = 0.05   # metres of skin kept under the edge of the kit, so no gap shows when he moves
@@ -243,6 +251,48 @@ def bake_detail(whole, skin, name):
     scene.render.engine = engine
 
 
+def expression_moves(body, row):
+    """{expression: how far each point of the body as generated moves for it, an array of (x, y, z)}: each unit
+    loaded as a shape key, measured against the key it is relative to, and taken off again."""
+    TargetService = service('targetservice', 'TargetService')
+    race = row['skin'].split('_')[1]
+    folder = os.path.join(os.path.dirname(importlib.import_module(MPFB).__file__), 'data', 'targets', 'expression', 'units', race)
+    moves = {}
+    for name, units in EXPRESSIONS.items():
+        total = np.zeros((len(body.data.vertices), 3))
+        for unit in units:
+            TargetService.load_target(body, os.path.join(folder, f'{unit}.target.gz'), weight=1.0)
+            key = body.data.shape_keys.key_blocks[-1]
+            moved, rest = np.empty(len(key.data) * 3), np.empty(len(key.data) * 3)
+            key.data.foreach_get('co', moved)
+            key.relative_key.data.foreach_get('co', rest)
+            total += (moved - rest).reshape(-1, 3)
+            body.shape_key_remove(key)
+        moves[name] = total
+    return moves
+
+
+def add_expressions(body, moves, rest, neck):
+    """The expressions as shape keys on the simplified skin: each point that is still one of the body's own points
+    as generated (the `source` attribute, and the same place) and stands above the height `neck` moves as `moves`
+    says; the rest stay put. `rest`: the body's points as generated."""
+    count = len(body.data.vertices)
+    source, at = np.empty(count, dtype=np.int32), np.empty(count * 3)
+    body.data.attributes['source'].data.foreach_get('value', source)
+    body.data.vertices.foreach_get('co', at)
+    at = at.reshape(-1, 3)
+    own = (source >= 0) & (source < len(rest))
+    own[own] &= np.linalg.norm(at[own] - rest[source[own]], axis=1) < 1e-6
+    face = own & (at[:, 2] > neck)
+    body.shape_key_add(name='Basis', from_mix=False)
+    for name, move in moves.items():
+        moved = at.copy()
+        moved[face] += move[source[face]]
+        body.shape_key_add(name=name, from_mix=False).data.foreach_set('co', moved.ravel())
+    body.data.attributes.remove(body.data.attributes['source'])
+    print(f'BUILD expressions on {int(face.sum())} points of the face')
+
+
 def make_mouth(teeth, tongue):
     """The teeth and tongue as one mesh wearing one picture: the teeth's on its left half and the tongue's on its right."""
     pictures_of = lambda obj: [image for material in obj.data.materials for image in pictures(material)]
@@ -326,8 +376,13 @@ def build_person(row, with_doll=False):
     The doll is the whole body before any skin is removed, for Mixamo; None unless asked for.
     """
     body, rig, parts = make_body(row)
+    moves = expression_moves(body, row)
     for obj in [body, *parts.values()]:
         bake_shape(obj)
+    rest = np.empty(len(body.data.vertices) * 3)
+    body.data.vertices.foreach_get('co', rest)
+    rest = rest.reshape(-1, 3)
+    body.data.attributes.new('source', 'INT', 'POINT').data.foreach_set('value', range(len(body.data.vertices)))
     parts['mouth'] = make_mouth(parts.pop('teeth'), parts.pop('tongue'))
     parts['cornea'] = make_cornea(parts['eyes'])
     mark, bones, tights = landmarks(rig), dominant_bones(body), in_group(body, 'helper-tights')
@@ -346,6 +401,7 @@ def build_person(row, with_doll=False):
     whole = whole_copy(body)
     simplify(body, KEEP['body'], protect='keep')
     bake_detail(whole, body, f"detail-player-{row['team']}-{row['number']}")
+    add_expressions(body, moves, rest, (rig.matrix_world @ rig.data.bones[BONE + 'Neck'].head_local).z)
     bpy.data.objects.remove(whole)
     if 'hair' in parts:
         simplify(parts['hair'], KEEP['hair'])
@@ -459,7 +515,10 @@ def finish(row, rig, meshes, extra=()):
     lowest = min((body.matrix_world @ v.co).z for v in body.data.vertices) * row['height'] / top
     place = Matrix.Translation((0, 0, -lowest)) @ scale
     for obj in [body, rig, *extra]:
-        obj.data.transform(place)
+        if obj.type == 'MESH':
+            obj.data.transform(place, shape_keys=True)
+        else:
+            obj.data.transform(place)
     body.data.update()
     return body
 
@@ -515,7 +574,7 @@ def main():
     bpy.ops.wm.save_as_mainfile(filepath=project('assets', 'source', 'players.blend'))
     bpy.ops.export_scene.gltf(
         filepath=project('assets', 'players.glb'), export_format='GLB', use_selection=False,
-        export_animations=False, export_skins=True, export_morph=False, export_yup=True,
+        export_animations=False, export_skins=True, export_morph=True, export_morph_normal=False, export_yup=True,
         export_image_format='JPEG', export_jpeg_quality=85, export_materials='EXPORT',
         export_cameras=False, export_lights=False, export_extras=False)
     print('BUILD wrote assets/players.glb', os.path.getsize(project('assets', 'players.glb')), 'bytes')

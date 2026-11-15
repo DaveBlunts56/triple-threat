@@ -26,12 +26,23 @@ export function primitivesUnder(gltf, name) {
   return nodesUnder(gltf, root).map(i => gltf.nodes[i].mesh).filter(m => m !== undefined).flatMap(m => gltf.meshes[m].primitives);
 }
 
-// The numbers of a FLOAT accessor, in file order.
+// The numbers of a FLOAT accessor, in file order. A sparse accessor (as morph targets are written) is its base, or
+// zeros, with its listed elements replaced.
 export function floatsOf({ json, bin }, index) {
-  const accessor = json.accessors[index], view = json.bufferViews[accessor.bufferView];
-  const width = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 }[accessor.type];
-  const start = (view.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
-  return Array.from({ length: accessor.count * width }, (_, i) => bin.readFloatLE(start + 4 * i));
+  const accessor = json.accessors[index];
+  const width = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 }[accessor.type];
+  const at = (viewIndex, offset = 0) => (json.bufferViews[viewIndex].byteOffset ?? 0) + offset;
+  const out = accessor.bufferView === undefined ? new Array(accessor.count * width).fill(0)
+    : Array.from({ length: accessor.count * width }, (_, i) => bin.readFloatLE(at(accessor.bufferView, accessor.byteOffset) + 4 * i));
+  if (accessor.sparse) {
+    const { count, indices, values } = accessor.sparse, size = { 5121: 1, 5123: 2, 5125: 4 }[indices.componentType];
+    const read = { 1: o => bin.readUInt8(o), 2: o => bin.readUInt16LE(o), 4: o => bin.readUInt32LE(o) }[size];
+    for (let k = 0; k < count; k++) {
+      const element = read(at(indices.bufferView, indices.byteOffset) + size * k);
+      for (let c = 0; c < width; c++) out[element * width + c] = bin.readFloatLE(at(values.bufferView, values.byteOffset) + 4 * (k * width + c));
+    }
+  }
+  return out;
 }
 
 // A PNG file as { width, height, channels, pixels } (8 bits a channel, not interlaced): what our tools write.
