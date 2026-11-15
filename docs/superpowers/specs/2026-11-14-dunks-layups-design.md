@@ -248,3 +248,48 @@ The landing is the one the game has.
 - **Scoring.** More baskets at the rim go in. It is measured, and turned down if it moves the game.
 - **A dunk needs room to land.** From 2.2 m out he comes down about under the rim, a metre and a half inside the
   baseline; a player dunking from the side comes down nearer the sideline's corner, and is kept in bounds.
+
+## As built (2026-11-14)
+
+What differs from the sections above, and what was measured.
+
+- **Close to the rim, a finish needs no drive.** Section 3.1 made Space a layup only when driving at the rim (2 m/s or
+  more) from 1.2 m out. Measured over computer matches, about 30 shots a match were begun within 2.8 m of the rim
+  standing still or right under it, and so stayed jump shots: the thing this was meant to end. Now, within
+  `FINISH.close` (2.8 m) and from `FINISH.layupNear` (0.5 m), Space is a layup and R a dunk from a standstill too (a
+  step in), unless he is going away from the rim faster than `FINISH.away` (1 m/s). Beyond 2.8 m it is still a drive
+  that makes a finish. Cost: no short jump shot is left inside 2.8 m except right under the rim or moving away.
+- **A finish is harder to block.** `FINISH.block` (0.35) multiplies a block's chance on a layup or a dunk. A layup
+  carries him into the defenders in the air, and a quarter of them were being blocked (6.3 a match at three a side);
+  now about 2.
+- **The grip holds through the whole finish.** `FINISH.stealFactor` (0.5) applies in the air too, not only during the
+  two steps.
+- **A saved key on R.** A save that already had another action on R keeps it there; the dunk takes that action's old
+  key (the keys swap, as they do in the Keys panel), not the first free letter.
+- **A visiting dunk.** The home crowd groans at it, as at any big moment of the visitors', instead of cheering.
+- **The body's frame.** Which way is "his left" in a measured moment is taken mostly from the planes his knees bend
+  in, not from the line of his hips: seen from the side that line runs into the camera's depth, which one camera
+  measures worst, and it put the take-off leg out sideways.
+- **The layup's finish uses four of its clip's six moments.** At `reaching` and `extended` the tracker had lost the
+  arm (confidence 0.26 to 0.33, the arm pointing down); they are left out, and the arm eases from `tucked` to
+  `release`.
+- **The tracked motions pass through their keys** without stopping at each, where hand-made ones ease in and out of
+  every key: five keys in half a second would stutter.
+- **No hand or head overrides.** The hands rest straight on the forearms; the game aims the head itself.
+
+Measured:
+
+- **The built poses against the clip:** at every purely measured key (the gather's five, the dunk's four, the layup's
+  take-off) each thigh, shin, upper arm and forearm and the trunk lie within 20 degrees of what was measured (a test).
+- **Feet:** carried 1.5 m through the gather with the game's own animator, a flat foot slides less than 0.1 m (a test).
+- **30 computer matches at each size, before and after:** three a side 69.7 to 73.2 points and 11.3 to 11.2 s a
+  possession; five a side 55.5 to 56.7 points and 12.4 to 12.2 s. Of the baskets, three a side: 1.1 dunks, 13.7
+  layups and 15.8 shots a match; five a side: 0.2, 7.6 and 15.7.
+- **In the game:** stills of a dunk (the two steps with the ball in both hands, cocked overhead in one, down through
+  the rim, two points, "throws it down") and of a layup with its meter; no error in the console.
+
+Not checked: any of it in motion or by hand; the Chromebook; the Keys panel's twenty rows on a small screen; a dunk
+from the left side or by the other team in the browser (the twins are tested in the file, not seen).
+
+Known and left: the computer seldom dunks (it needs a clear lane and a finisher); the layup's legs and timing are not
+from the clip; nobody hangs on the rim; from a standstill the two steps are taken nearly on the spot.
