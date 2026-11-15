@@ -274,6 +274,12 @@ def main():
     clear_scene()
     row = people()[0]
     rig, meshes, _ = build_person(row)
+    # The motions move the skeleton's own bones only: the spring bones the player is given are left out of them.
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode='EDIT')
+    for bone in [b for b in rig.data.edit_bones if not b.name.startswith('mixamorig:')]:
+        rig.data.edit_bones.remove(bone)
+    bpy.ops.object.mode_set(mode='OBJECT')
     body = finish(row, rig, meshes)
     scene = bpy.context.scene
     scene.render.fps = FPS
