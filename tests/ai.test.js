@@ -6,7 +6,7 @@ import { startMatch } from '../src/sim/rules.js';
 import { step } from '../src/sim/step.js';
 import { aiIntents, isOpen, laneClear } from '../src/sim/ai.js';
 import { keyContains } from '../src/sim/violations.js';
-import { DT, RIM, AI, READ, VIOLATION, SHOT, PASS, BALL } from '../src/sim/tuning.js';
+import { DT, RIM, AI, READ, FINISH, VIOLATION, SHOT, PASS, BALL } from '../src/sim/tuning.js';
 import { callPlay } from '../src/sim/plays.js';
 import { plain } from './helpers.js';
 
@@ -318,8 +318,11 @@ test('a handler with nobody between him and the hoop goes all the way for the la
   const s = live();
   put(s, 0, 5, 1);                                         // open, in shooting range, nothing but floor ahead
   assert.ok(run(s, 4, [0], st => st.players[0].shooting));
+  // He no longer runs right under the rim before he shoots: from in range he begins a finish, whose two steps and
+  // jump carry him there (see finish.js). What he does not do is pull up for a jump shot.
   const from = Math.hypot(RIM.x - s.players[0].x, s.players[0].z);
-  assert.ok(from < AI.layupDist, `he pulled up from ${from} m`);
+  assert.ok(['layup', 'dunk'].includes(s.players[0].finish), `he pulled up from ${from} m`);
+  assert.ok(from <= FINISH.layupFar + 0.2, `he began his finish ${from} m out`);
 });
 
 // Team 0 has just scored at the +x hoop: the ball is dead under it and team 1 will inbound from that baseline.
@@ -551,4 +554,48 @@ test('walking the ball up against a defence that has not come out is not being o
   const found = soon(handler(TOP, 3));
   Object.assign(found.players[3].ai, { heldT: 0, had: true, timer: 0, from: 4, gotAt: found.time });   // a team-mate's pass has just reached him
   assert.ok(run(found, 0.5, [3], st => st.players[3].shooting));
+});
+
+// ---------- finishes at the rim ----------
+
+// The computer's handler (player 3, Inside `inside`) running at his hoop from `out` metres; his defender `gap` in front
+// of him on the line to it, or out of the way when `gap` is null.
+function driver(out, inside, gap = null) {
+  const s = handler(out, gap ?? 3);
+  if (gap === null) put(s, 0, s.players[0].x, 5);
+  rate(s, 3, 'inside', inside);
+  Object.assign(s.players[3], { vx: -5 }); s.players[3].ai.timer = 0;
+  return s;
+}
+
+test('the computer dunks a clear lane when it can, and lays it up when it cannot', () => {
+  const able = driver(4, 90);
+  assert.ok(run(able, 1.2, [3], st => st.players[3].shooting));
+  assert.equal(able.players[3].finish, 'dunk');
+  const unable = driver(4, 60);
+  assert.ok(run(unable, 1.2, [3], st => st.players[3].shooting));
+  assert.equal(unable.players[3].finish, 'layup');
+});
+
+test('with a defender between him and the rim the computer lays it up, though it could dunk', () => {
+  const s = driver(2.5, 90, 0.8);
+  assert.ok(run(s, 1, [3], st => st.players[3].shooting));
+  assert.deepEqual([s.players[3].finish, s.players[3].fading], ['layup', false]);
+});
+
+test('standing under the rim the computer takes the short shot, as before', () => {
+  const s = handler(2, 8); rate(s, 3, 'inside', 90);
+  assert.ok(run(s, 1.5, [3], st => st.players[3].shooting));
+  assert.equal(s.players[3].finish, null);
+});
+
+test('the computer lets a layup go at its best moment, give or take what its level allows', async () => {
+  const { shotBest } = await import('../src/sim/players.js');
+  const { DIFFICULTY } = await import('../src/sim/tuning.js');
+  for (let seed = 1; seed <= 20; seed++) {
+    const s = driver(4, 60); s.seed = seed;
+    let best = null;
+    assert.ok(run(s, 2.5, [3], st => { if (st.players[3].finish) best = shotBest(st.players[3]); return st.shot !== null; }), 'no layup was let go');
+    assert.ok(Math.abs(s.shot.t - best) <= DIFFICULTY.levels.legend.jitter + DT + 1e-9, `released ${s.shot.t - best} s from the best moment`);
+  }
 });

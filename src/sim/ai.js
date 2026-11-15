@@ -1,5 +1,6 @@
-import { AI, BALL, CLOCK, COURT, DT, FT, LATE, MOVES, PASS, PLAY, PLAYER, READ, SHOT, STEAL, TIP, VIOLATION, levelOf } from './tuning.js';
-import { SHOT_BEST, SHOT_LANDS, zoneOf } from './players.js';
+import { AI, BALL, CLOCK, COURT, DT, FINISH, FT, LATE, MOVES, PASS, PLAY, PLAYER, READ, SHOT, STEAL, TIP, VIOLATION, levelOf } from './tuning.js';
+import { SHOT_BEST, SHOT_LANDS, gatherOf, shotBest, shotLands, zoneOf } from './players.js';
+import { canDunk, finishFor } from './finish.js';
 import { lift, drop, rated, starOf, heatOf } from './ratings.js';
 import { ftChance } from './freethrow.js';
 import { attackSign, emptyIntent, isJumper, onFloor, personOf, rand } from './state.js';
@@ -74,9 +75,13 @@ function planWithBall(state, p) {
   const sit = situation(state, p.team);
   const shoot = (how = 'shoot') => {
     ai.action = how;
-    const at = SHOT_BEST + (rand(state) * 2 - 1) * (p.team === 1 ? levelOf(state).jitter : AI.releaseJitter);   // the computer's team times its shots as the level says
-    ai.releaseAt = Math.min(Math.max(at, SHOT.gather + DT), SHOT_LANDS - 3 * DT);   // in the air, and clear of the landing
+    ai.releaseOff = (rand(state) * 2 - 1) * (p.team === 1 ? levelOf(state).jitter : AI.releaseJitter);   // the computer's team times its shots as the level says
+    ai.releaseAt = Math.min(Math.max(SHOT_BEST + ai.releaseOff, SHOT.gather + DT), SHOT_LANDS - 3 * DT);   // in the air, and clear of the landing
   };
+  // Driving at the rim from in range, the shot he begins is a finish (see finish.js): a dunk with nobody between him
+  // and the rim if he can dunk, otherwise a layup, which is what the shot key gives him there.
+  const driving = () => finishFor(state, p, 'shoot') === 'layup';
+  const finish = () => { if (driving() && laneClear(state, p) && canDunk(state, p)) ai.action = 'dunk'; else shoot(); };
   // Out of time on the shot clock: he shoots. A team behind late in the game does not wait that long.
   if (state.shotClock < (sit.hurry ? LATE.hurryClock : AI.panicClock)) return shoot();
   // The period is running out: he shoots before it does, running nearer first if he is far out and there is time.
@@ -112,7 +117,7 @@ function planWithBall(state, p) {
   // At the rim he goes up, unless the defence has collapsed on him and left a man.
   if (settled && toHoop < AI.layupDist) {
     const crowd = opponents(state, p).filter(o => dist(o, p) <= AI.contestDist).length >= READ.crowd;
-    return crowd && guarded() ? undefined : shoot();
+    return crowd && guarded() ? undefined : finish();
   }
   // Wide open where he shoots well: he takes it, on the catch, early in the shot clock or with his play still
   // forming. With a clear lane to the rim as well he takes that instead, below, when he may. Walking the ball up
@@ -139,7 +144,12 @@ function planWithBall(state, p) {
   const ahead = opponents(state, p).every(o => dist(o, hoop) > toHoop + AI.breakLead);
   // A handler who has just beaten his man with a move goes too, early or not: that is what the move was for.
   const beat = state.time - p.moved < AI.beatFor;
-  if (laneClear(state, p) && (!early || ahead || beat)) return goTo(ai, { x: sign * AI.driveX, z: 0 }, true);
+  if (laneClear(state, p) && (!early || ahead || beat)) {
+    // Close enough for his two steps, he finishes; until then he runs at the rim.
+    const kind = canDunk(state, p) ? 'dunk' : 'layup';
+    if (settled && driving() && toHoop >= FINISH.takeoff[kind] + 0.3) return finish();
+    return goTo(ai, { x: sign * AI.driveX, z: 0 }, true);
+  }
   if (open && ai.heldT >= READ.onCatch) return shoot();
   // His play has not formed yet: he keeps the ball rather than shoot from outside or pass. So does a team ahead late
   // in the game, until the shot clock is nearly out. A team behind late waits for nothing.
@@ -381,7 +391,9 @@ function act(state, p) {
     intent.moveX = intent.moveZ = 0;
     // Press (a fresh press needs the key up first), hold through the gather and the jump,
     // and let go on the first step at or after the chosen moment.
-    intent.shoot = p.shooting ? p.shotT + DT < ai.releaseAt : !p.prev.shoot;
+    // A layup's best moment is its own jump's, known once he has begun it.
+    const releaseAt = p.finish ? Math.min(Math.max(shotBest(p) + (ai.releaseOff ?? 0), gatherOf(p) + DT), shotLands(p) - 3 * DT) : ai.releaseAt;
+    intent.shoot = p.shooting ? p.shotT + DT < releaseAt : !p.prev.shoot;
   } else if (ai.action === 'pass' && hasBall) {
     intent.pass = !p.prev.pass;
     intent.moveX = ai.passX; intent.moveZ = ai.passZ;
@@ -389,6 +401,10 @@ function act(state, p) {
   } else if (ai.action === 'fade' && hasBall) {
     intent.moveX = intent.moveZ = 0;
     intent.fade = p.shooting ? p.shotT + DT < ai.releaseAt : !p.prev.fade;   // held and let go as a shot is
+  } else if (ai.action === 'dunk' && hasBall) {
+    intent.moveX = intent.moveZ = 0;
+    intent.dunk = !p.shooting && !p.prev.dunk;   // one press: a dunk has nothing to hold or time
+    if (intent.dunk) ai.action = null;
   } else if (KINDS.includes(ai.action) && hasBall) {
     intent.moveX = intent.moveZ = 0;   // no key held: the move goes away from his defender
     intent[ai.action] = !p.prev[ai.action];
