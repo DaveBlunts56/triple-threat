@@ -583,10 +583,13 @@ test('with a defender between him and the rim the computer lays it up, though it
   assert.deepEqual([s.players[3].finish, s.players[3].fading], ['layup', false]);
 });
 
-test('standing under the rim the computer takes the short shot, as before', () => {
-  const s = handler(2, 8); rate(s, 3, 'inside', 90);
+test('directly under the rim the computer takes the short shot, as before; a step out from it, it lays the ball up from a standstill', () => {
+  const s = handler(0.4, 8); rate(s, 3, 'inside', 60);
   assert.ok(run(s, 1.5, [3], st => st.players[3].shooting));
   assert.equal(s.players[3].finish, null);
+  const stood = handler(2, 8); rate(stood, 3, 'inside', 60);
+  assert.ok(run(stood, 1.5, [3], st => st.players[3].shooting));
+  assert.equal(stood.players[3].finish, 'layup');
 });
 
 test('the computer lets a layup go at its best moment, give or take what its level allows', async () => {

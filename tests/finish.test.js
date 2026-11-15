@@ -20,10 +20,11 @@ function driving(out, speed, z = 0) {
 }
 const speedOf = v => Math.hypot(v.vx, v.vz);
 
-test('Space is a layup only driving at the rim from layup range', () => {
+test('Space is a layup driving at the rim from layup range, or close to it from a standstill; otherwise the jump shot', () => {
   const s = driving(3, 4);
   assert.equal(finishFor(s, s.players[0], 'shoot'), 'layup');
-  for (const [out, speed] of [[3, 1.5], [3, -4], [1.0, 4], [5, 4]]) { const t = driving(out, speed); assert.equal(finishFor(t, t.players[0], 'shoot'), null, `${out} m at ${speed} m/s`); }
+  for (const [out, speed] of [[2, 0], [2.7, 1], [1.0, 4], [0.6, 0], [1.5, -0.5]]) { const t = driving(out, speed); assert.equal(finishFor(t, t.players[0], 'shoot'), 'layup', `${out} m at ${speed} m/s`); }
+  for (const [out, speed] of [[3, 1.5], [3, -4], [2, -1.5], [0.3, 4], [5, 4]]) { const t = driving(out, speed); assert.equal(finishFor(t, t.players[0], 'shoot'), null, `${out} m at ${speed} m/s`); }
   assert.ok(near(closing(s.players[0], { x: RIM.x, z: 0 }), 4));
 });
 
@@ -36,6 +37,7 @@ test('R is a dunk for a finisher with legs left, a layup for anyone else in rang
   rate(s, 0, 'inside', 90); personOf(s, s.players[0]).energy = FINISH.dunkEnergy - 0.05; assert.equal(finishFor(s, s.players[0], 'dunk'), 'layup');
   const far = driving(6, 4); rate(far, 0, 'inside', 90); assert.equal(finishFor(far, far.players[0], 'dunk'), null);
   const slow = driving(3, 1); rate(slow, 0, 'inside', 90); assert.equal(finishFor(slow, slow.players[0], 'dunk'), null);
+  const stood = driving(2, 0); rate(stood, 0, 'inside', 90); assert.equal(finishFor(stood, stood.players[0], 'dunk'), 'dunk');   // close in, from a standstill
 });
 
 test('behind the backboard, or past it, there is no finish', () => {
@@ -111,7 +113,7 @@ test('through the gather he closes on the rim steadily and leaves the floor at t
   assert.ok(Math.abs(last - FINISH.takeoff.dunk) < 0.1, `he took off ${last} m out`);
 });
 
-test('standing near the rim Space is still the jump shot, with its own gather', () => {
+test('standing further out than a step in, Space is still the jump shot, with its own gather', () => {
   const s = driving(3, 0); tick(s, { shoot: true });
   const p = s.players[0];
   assert.deepEqual([p.finish, p.shooting], [null, true]);
@@ -286,4 +288,15 @@ test('the shot meter shows for a layup and not for a dunk', () => {
   assert.equal(shotMeter(dunk), null);
   until(dunk, () => dunk.ball.holder === null);
   assert.equal(shotMeter(dunk), null, 'a dunk has no verdict to show');
+});
+
+test('a layup from a standstill close to the rim: a step in, up, and it is judged as a layup', () => {
+  const s = driving(2.4, 0); tick(s, { shoot: true });
+  const p = s.players[0];
+  assert.equal(p.finish, 'layup');
+  until(s, q => q.y > 0, { shoot: true });
+  assert.ok(Math.abs(farOf(p) - FINISH.takeoff.layup) < 0.1, `he took off ${farOf(p)} m out`);
+  airUntil(s, shotBest(p), { shoot: true }); tick(s);
+  assert.equal(s.shot.green, true);
+  assert.equal(scored(s), 2);
 });

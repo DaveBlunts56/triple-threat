@@ -236,7 +236,7 @@ function blockedBy(state, player) {
   const { ball } = state, sign = attackSign(player.team), hoop = rimCentre(sign);
   const blocker = state.players.find(o => o.team !== player.team && o.y > BLOCK.minHeight
     && dist(o, player) <= BLOCK.reach * (player.fading ? MOVES.fade.block : 1) && inArc(player, o, BLOCK.cone));
-  if (!blocker || rand(state) >= BLOCK.chance) return null;
+  if (!blocker || rand(state) >= BLOCK.chance * (player.finish ? FINISH.block : 1)) return null;
   letGo(state, player, 'loose');
   state.lastTouch = blocker.team;
   ball.vx = -sign * BLOCK.deflect; ball.vy = 0; ball.vz = 0;
@@ -434,8 +434,8 @@ export function trySteal(state, player) {
   // In a dribble move the ball is easier or harder to get at, and behind his back it cannot be had from in front.
   const move = holder.move && DRIBBLES.includes(holder.move.kind) ? MOVES[holder.move.kind] : null;
   const guarded = move ? (move.hidden && front ? 0 : move.steal) : 1;
-  // Gathering for a finish he has it in both hands.
-  const gripped = holder.finish && gathering(holder) ? FINISH.stealFactor : 1;
+  // In a finish he has it in both hands through his two steps, and high in one as he goes up: hard to get at.
+  const gripped = holder.finish ? FINISH.stealFactor : 1;
   const won = rand(state) < clamp((front ? STEAL.frontChance : STEAL.backChance) * (holder.held ? STEAL.heldFactor : 1) * skill * guarded * gripped, 0, 1);
   if (won) {
     holder.shooting = false; holder.fading = false; holder.finish = null;

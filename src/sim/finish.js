@@ -25,12 +25,14 @@ export function closing(player, hoop) {
 export const canDunk = (state, player) => rated(state, player, 'inside') >= FINISH.dunkAt && personOf(state, player).energy >= FINISH.dunkEnergy;
 
 // What the key `key` ('shoot' or 'dunk') begins for a player with the ball on the floor: 'layup', 'dunk', or null:
-// for the shot key the jump shot, for the dunk key nothing. A finish needs him driving at the rim from in front of the
-// board's plane, within range; a dunk needs a finisher with legs left, and anybody else lays it up.
+// for the shot key the jump shot, for the dunk key nothing. A finish needs him in front of the board's plane and within
+// range, and either driving at the rim or close to it and not going away (a step in from a standstill); a dunk needs a
+// finisher with legs left, and anybody else lays it up.
 export function finishFor(state, player, key) {
-  const hoop = hoopOf(player), far = dist(player, hoop);
+  const hoop = hoopOf(player), far = dist(player, hoop), speed = closing(player, hoop);
   const inFront = attackSign(player.team) * player.x < BOARD.x && !behindBoard(player);
-  if (!inFront || far < FINISH.layupNear || far > FINISH.layupFar || closing(player, hoop) < FINISH.drive) return null;
+  if (!inFront || far < FINISH.layupNear || far > FINISH.layupFar) return null;
+  if (speed < FINISH.drive && !(far <= FINISH.close && speed > -FINISH.away)) return null;
   return key === 'dunk' && canDunk(state, player) ? 'dunk' : 'layup';
 }
 
