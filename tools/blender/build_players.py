@@ -39,6 +39,15 @@ EXPRESSIONS = {
     'shout': ('mouth-open', 'eyebrows-left-up', 'eyebrows-right-up', 'mouth-retraction'),
     'dejected': ('eyebrows-left-inner-up', 'eyebrows-right-inner-up', 'mouth-depression'),
 }
+# Skin the kit covers is taken away when cloth lies within `reach` metres along its normal and along lines `spread`
+# (about 14 degrees) to each side of it.
+COVER = {'reach': 0.03, 'spread': 0.25}
+# The skin's regions, kept in its vertex colours for the game's skin material (src/render/materials.js skinMaterial):
+# red how rough it is, green how much sweat gathers there. `rough` and `sweat` give each region's values.
+MASKS = {
+    'rough': {'forehead': 0.45, 'nose': 0.45, 'lip': 0.45, 'cheeks': 0.55, 'body': 0.6},
+    'sweat': {'forehead': 1.0, 'temples': 1.0, 'lip': 1.0, 'neck': 0.9, 'chest': 0.8, 'arms': 0.6, 'hands': 0.2, 'legs': 0.4, 'head': 0.5, 'body': 0.5},
+}
 # The clear shell over each eye: the faces of the eyes' own outer shell within `front` of looking straight ahead.
 CORNEA = {'front': 0.5}
 SKIN_MARGIN = 0.05   # metres of skin kept under the edge of the kit, so no gap shows when he moves
@@ -174,6 +183,26 @@ def simplify(obj, keep, protect=None):
         modifier.vertex_group, modifier.invert_vertex_group, modifier.vertex_group_factor = protect, True, 1000
     bpy.ops.object.modifier_move_to_index(modifier=modifier.name, index=0)
     bpy.ops.object.modifier_apply(modifier=modifier.name)
+
+
+def under_cloth(body, is_skin, garments):
+    """The points of the skin the garments cover well: cloth found along the skin's normal and a little to each side of
+    it, close by (COVER). The skin near a garment's openings keeps it: there some of those lines miss the cloth."""
+    from mathutils.bvhtree import BVHTree
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    trees = [BVHTree.FromObject(g, depsgraph) for g in garments]
+    hidden = set()
+    for v in body.data.vertices:
+        if not is_skin[v.index]:
+            continue
+        n = v.normal
+        side = n.orthogonal().normalized()
+        other = n.cross(side)
+        lines = [n] + [(n + d * COVER['spread']).normalized() for d in (side, -side, other, -other)]
+        start = v.co + n * 0.001
+        if all(any(t.ray_cast(start, line, COVER['reach'])[0] is not None for t in trees) for line in lines):
+            hidden.add(v.index)
+    return hidden
 
 
 def strip_body(body, mark, bones, shoes, under_hair=()):
@@ -378,6 +407,45 @@ def make_cornea(eyes):
     return cornea
 
 
+def skin_masks(body, frame, eyes, mouth):
+    """The skin's regions (see MASKS) as its vertex colours, from where each point is on his face and which bone moves
+    it. `eyes`, `mouth`: the heights of his eyes and of his mouth."""
+    bones = dominant_bones(body)
+    colours = body.data.color_attributes.new('masks', 'FLOAT_COLOR', 'POINT')   # the numbers as they are, no colour space
+    middle = frame['middle']
+    for v, bone in zip(body.data.vertices, bones):
+        p = body.matrix_world @ v.co
+        x, front = abs(p.x - middle.x), p.y < middle.y - 0.03
+        region = 'body'
+        if bone == 'Head':
+            region = 'head'
+            if front and p.z > eyes + 0.025:
+                region = 'forehead'
+            elif not front and x > 0.05 and eyes - 0.01 < p.z < eyes + 0.05:
+                region = 'temples'
+            elif front and x < 0.03 and mouth < p.z < mouth + 0.02:
+                region = 'lip'
+            elif front and x < 0.018 and mouth + 0.02 <= p.z < eyes - 0.005:
+                region = 'nose'
+            elif front and mouth - 0.01 < p.z < eyes - 0.005:
+                region = 'cheeks'
+        elif bone == 'Neck':
+            region = 'neck'
+        elif bone in ('Spine2', 'LeftShoulder', 'RightShoulder'):
+            region = 'chest'
+        elif bone and ('Arm' in bone):
+            region = 'arms'
+        elif bone and 'Hand' in bone:
+            region = 'hands'
+        elif bone and ('Leg' in bone or 'Foot' in bone):
+            region = 'legs'
+        rough = MASKS['rough'].get(region, MASKS['rough']['body'])
+        sweat = MASKS['sweat'].get(region, MASKS['sweat']['body'])
+        colours.data[v.index].color = (rough, sweat, 0.0, 1.0)
+    body.data.color_attributes.active_color = colours
+    body.data.color_attributes.render_color_index = list(body.data.color_attributes).index(colours)
+
+
 def part_names(row):
     """What each mesh of a built person is, in the order build_person returns them."""
     return ['skin', 'jersey', 'shorts', 'eyes', 'brows', 'lashes', 'hair', 'shoes', 'mouth', 'cornea', *(['gear'] * len(row.get('gear', [])))]
@@ -426,8 +494,9 @@ def build_person(row, with_doll=False):
     bpy.data.objects.remove(collider)
     add_springs(rig, shorts, mark)
     rig['headTop'] = max((body.matrix_world @ v.co).z for v, skin in zip(body.data.vertices, is_skin) if skin)
-    gear, under_gear = make_gear(body, row, mark, bones, head_frame(body, rig), bounds([parts['shoes']])[1].z - 0.03, joint)
-    strip_body(body, mark, bones, parts['shoes'], under_hair | under_gear)
+    frame = head_frame(body, rig)
+    gear, under_gear = make_gear(body, row, mark, bones, frame, bounds([parts['shoes']])[1].z - 0.03, joint)
+    strip_body(body, mark, bones, parts['shoes'], under_hair | under_gear | under_cloth(body, is_skin, [jersey, shorts]))
 
     protect(body, rig)
     rig['skinTriangles'] = sum(len(p.vertices) - 2 for p in body.data.polygons)   # before it is simplified: counts.json
@@ -435,6 +504,7 @@ def build_person(row, with_doll=False):
     simplify(body, KEEP['body'], protect='keep')
     bake_detail(whole, body, f"detail-player-{row['team']}-{row['number']}")
     add_expressions(body, moves, rest, (rig.matrix_world @ rig.data.bones[BONE + 'Neck'].head_local).z)
+    skin_masks(body, frame, bounds([parts['eyes']])[0].z / 2 + bounds([parts['eyes']])[1].z / 2, bounds([parts['mouth']])[0].z / 2 + bounds([parts['mouth']])[1].z / 2)
     bpy.data.objects.remove(whole)
     if row['hairStyle'] in PACK:   # the modelled styles are made to their budget
         simplify(parts['hair'], KEEP['hair'])
@@ -612,7 +682,7 @@ def main():
     bpy.ops.wm.save_as_mainfile(filepath=project('assets', 'source', 'players.blend'))
     bpy.ops.export_scene.gltf(
         filepath=project('assets', 'players.glb'), export_format='GLB', use_selection=False,
-        export_animations=False, export_skins=True, export_morph=True, export_morph_normal=False, export_yup=True,
+        export_animations=False, export_skins=True, export_morph=True, export_morph_normal=False, export_yup=True, export_vertex_color='ACTIVE',
         export_image_format='JPEG', export_jpeg_quality=85, export_materials='EXPORT',
         export_cameras=False, export_lights=False, export_extras=False)
     print('BUILD wrote assets/players.glb', os.path.getsize(project('assets', 'players.glb')), 'bytes')

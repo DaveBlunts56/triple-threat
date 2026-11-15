@@ -47,7 +47,7 @@ test('the skin keeps three quarters or more of the generated body\'s triangles, 
   for (const person of people) {
     const name = rootName(person), skin = primitivesUnder(players.json, name).find(p => players.json.materials[p.material].name.startsWith('skin'));
     const share = players.json.accessors[skin.indices].count / 3 / counts[name].skin;
-    assert.ok(share >= 0.7 && share <= 0.9, `${name}: the skin keeps ${(share * 100).toFixed(0)}% of its triangles`);
+    assert.ok(share >= 0.7 && share <= 0.92, `${name}: the skin keeps ${(share * 100).toFixed(0)}% of its triangles`);
     const normal = players.json.materials[skin.material].normalTexture;
     assert.ok(normal, `${name}: the skin has no normal map`);
     const image = players.json.images[players.json.textures[normal.index].source], view = players.json.bufferViews[image.bufferView];
@@ -177,6 +177,25 @@ test('each player wears the gear the table gives him, with the skin under a slee
   }
   assert.equal(shoes[0].size, 1, 'every player of a team wears the same shoes');
   assert.notDeepEqual([...shoes[0]], [...shoes[1]], 'the two teams\' shoes are painted alike');
+});
+
+test('the skin carries its regions in its vertex colours: how rough (red) and where sweat gathers (green)', () => {
+  for (const person of people) {
+    const name = rootName(person), prims = primitivesUnder(players.json, name), material = p => players.json.materials[p.material].name;
+    const skin = prims.find(p => material(p).startsWith('skin')), eyes = prims.find(p => material(p).startsWith('eyes'));
+    assert.ok(skin.attributes.COLOR_0 !== undefined, `${name}: no masks`);
+    const colours = floatsOf(players, skin.attributes.COLOR_0), at = floatsOf(players, skin.attributes.POSITION), width = colours.length / (at.length / 3);
+    const eyeTop = players.json.accessors[eyes.attributes.POSITION].max[1];
+    const rough = new Set(), forehead = [];
+    for (let i = 0; i < at.length / 3; i++) {
+      const r = colours[i * width], g = colours[i * width + 1];
+      rough.add(r.toFixed(2));
+      assert.ok(g >= 0 && g <= 1, `${name}: sweat ${g}`);
+      if (at[3 * i + 1] > eyeTop + 0.03 && at[3 * i + 2] > 0.05) forehead.push([r, g]);   // in front, above his eyes
+    }
+    assert.deepEqual([...rough].sort(), ['0.45', '0.55', '0.60'], `${name}: roughness ${[...rough]}`);
+    assert.ok(forehead.length > 10 && forehead.filter(([r, g]) => r < 0.5 && g === 1).length > forehead.length / 2, `${name}: the forehead`);
+  }
 });
 
 // One player's kit piece: positions, normals and texture coordinates of the primitive whose material is `name`.

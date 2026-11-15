@@ -26,14 +26,17 @@ export function primitivesUnder(gltf, name) {
   return nodesUnder(gltf, root).map(i => gltf.nodes[i].mesh).filter(m => m !== undefined).flatMap(m => gltf.meshes[m].primitives);
 }
 
-// The numbers of a FLOAT accessor, in file order. A sparse accessor (as morph targets are written) is its base, or
+// The numbers of an accessor, in file order. A sparse accessor (as morph targets are written) is its base, or
 // zeros, with its listed elements replaced.
 export function floatsOf({ json, bin }, index) {
   const accessor = json.accessors[index];
   const width = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 }[accessor.type];
   const at = (viewIndex, offset = 0) => (json.bufferViews[viewIndex].byteOffset ?? 0) + offset;
+  // Floats as they are; normalized whole numbers (as colours may be written) as shares of their largest.
+  const kinds = { 5126: [4, (o) => bin.readFloatLE(o)], 5121: [1, (o) => bin.readUInt8(o) / 255], 5123: [2, (o) => bin.readUInt16LE(o) / 65535] };
+  const [size, read] = kinds[accessor.componentType], stride = json.bufferViews[accessor.bufferView ?? 0]?.byteStride ?? size * width;
   const out = accessor.bufferView === undefined ? new Array(accessor.count * width).fill(0)
-    : Array.from({ length: accessor.count * width }, (_, i) => bin.readFloatLE(at(accessor.bufferView, accessor.byteOffset) + 4 * i));
+    : Array.from({ length: accessor.count * width }, (_, i) => read(at(accessor.bufferView, accessor.byteOffset) + Math.floor(i / width) * stride + (i % width) * size));
   if (accessor.sparse) {
     const { count, indices, values } = accessor.sparse, size = { 5121: 1, 5123: 2, 5125: 4 }[indices.componentType];
     const read = { 1: o => bin.readUInt8(o), 2: o => bin.readUInt16LE(o), 4: o => bin.readUInt32LE(o) }[size];
