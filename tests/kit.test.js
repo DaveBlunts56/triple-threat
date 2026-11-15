@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { kitOps, heightOps, kitColours, paintKit, normalFromHeight, KIT } from '../src/render/kit.js';
+import { kitOps, heightOps, kitColours, paintKit, normalFromHeight, gearColour, KIT } from '../src/render/kit.js';
 
 const recorder = () => {
   const calls = [];
@@ -83,7 +83,7 @@ test('a flat picture of heights makes a flat normal map; a raised square tilts i
 test('a player\'s far model wears one picture with a place for each part, none overlapping and all inside it', async () => {
   const { ATLAS, atlasPart, atlasRect, atlasUV } = await import('../src/render/kit.js');
   const parts = Object.keys(ATLAS.cells);
-  assert.deepEqual(parts, ['skin', 'jersey', 'shorts', 'hair', 'shoes']);
+  assert.deepEqual(parts, ['skin', 'jersey', 'shorts', 'hair', 'shoes', 'gear']);
   for (const part of parts) {
     const [x, y, w, h] = ATLAS.cells[part];
     assert.ok(x >= 0 && y >= 0 && x + w <= 1 && y + h <= 1 && w > 0 && h > 0, part);
@@ -98,7 +98,15 @@ test('a player\'s far model wears one picture with a place for each part, none o
     assert.deepEqual(atlasUV(part, 1, 1), [rx + rw, ry + rh]);
     assert.deepEqual(atlasUV(part, -0.2, 1.3), [rx, ry + rh]);                // a stray point is held inside its own place
   }
-  assert.deepEqual(['skin-player-0-4', 'jersey', 'shorts', 'hair-player-1-8', 'shoes-player-0-7', 'eyes-player-0-4', 'brows-player-0-4', 'lashes-player-0-4'].map(atlasPart),
-    ['skin', 'jersey', 'shorts', 'hair', 'shoes', null, null, null]);
+  assert.deepEqual(['skin-player-0-4', 'jersey', 'shorts', 'hair-player-1-8', 'shoes-player-0-7', 'gear-headband-white-player-0-11', 'eyes-player-0-4', 'brows-player-0-4', 'lashes-player-0-4', 'cornea', 'mouth-player-0-4'].map(atlasPart),
+    ['skin', 'jersey', 'shorts', 'hair', 'shoes', 'gear', null, null, null, null, null]);
   assert.ok([ATLAS, ATLAS.cells].every(Object.isFrozen));
+});
+
+test('gear is white, black or the team\'s colour', () => {
+  assert.equal(gearColour('white', 1), KIT.gear.white);
+  assert.equal(gearColour('black', 0), KIT.gear.black);
+  assert.equal(gearColour('team', 0), KIT.team[0]);
+  assert.equal(gearColour('team', 1), KIT.team[1]);
+  assert.deepEqual(KIT.gear.order, ['white', 'black', 'team']);
 });

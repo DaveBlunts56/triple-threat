@@ -54,7 +54,7 @@ test('pack embeds every asset, byte for byte', () => {
   const root = project({ ...assets(), 'assets/players.glb': bytes, 'assets/floor/wood_floor_diff_2k.jpg': bytes });
   const packed = assetsIn(pack(root));
   assert.deepEqual(Object.keys(packed), [...ASSETS]);
-  assert.equal(Object.keys(packed).length, 6 + SOUNDS.length + 4);   // the models, the motion, the floor, every sound and the cloth's four tiles
+  assert.equal(Object.keys(packed).length, 6 + SOUNDS.length + 6);   // the models, the motion, the floor, every sound, the cloth's four tiles, the strands and the pores
   assert.deepEqual(Buffer.from(packed['assets/players.glb'], 'base64'), bytes);
   assert.deepEqual(Buffer.from(packed['assets/floor/wood_floor_diff_2k.jpg'], 'base64'), bytes);
 });

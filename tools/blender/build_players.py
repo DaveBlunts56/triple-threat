@@ -21,6 +21,8 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import MPFB, bounds, clear_scene, project, service, snapshot  # noqa: E402
 from kit import SHORTS, add_springs, cut_out, make_kit  # noqa: E402
+from hair import PACK, covered, head_frame, make_hair  # noqa: E402
+from gear import high_tops, make_gear, paint_shoes  # noqa: E402
 
 BONE = 'mixamorig:'
 # Muscle and weight for each build (MPFB macros, 0 to 1).
@@ -40,9 +42,10 @@ EXPRESSIONS = {
 # The clear shell over each eye: the faces of the eyes' own outer shell within `front` of looking straight ahead.
 CORNEA = {'front': 0.5}
 SKIN_MARGIN = 0.05   # metres of skin kept under the edge of the kit, so no gap shows when he moves
-# Share of triangles kept when a mesh is simplified. The face, ears and hands keep all of their own, and so does the skin
-# around the shoulders and knees (within `joints` metres of the joint), which bends most in sight.
-KEEP = {'body': 0.75, 'hair': 0.65, 'shoes': 0.65, 'mouth': 0.4, 'joints': 0.08}
+# Share of triangles kept when a mesh is simplified. The face, ears, neck and hands keep all of their own, and so does
+# the skin around the shoulders and knees (within `joints` metres of the joint), which bends most in sight; `body` is
+# the share kept of the rest of the skin.
+KEEP = {'body': 0.55, 'hair': 0.65, 'shoes': 0.65, 'mouth': 0.4, 'joints': 0.08}
 # The muscle detail the simplified skin loses, baked from the whole body (subdivided once) into a normal map this many
 # pixels a side, looked for this far either side of the skin.
 DETAIL = {'size': 1024, 'reach': 0.01}
@@ -156,18 +159,26 @@ def in_group(obj, name):
 
 
 def simplify(obj, keep, protect=None):
-    """Reduce the mesh to about `keep` of its triangles. Vertices in the `protect` group are left as they are."""
+    """Reduce the mesh to about `keep` of its triangles; with a `protect` group, its points are left as they are and
+    `keep` is the share kept of the triangles outside it."""
     activate(obj)
     modifier = obj.modifiers.new('simplify', 'DECIMATE')
     modifier.ratio = keep
+    if protect:
+        index = obj.vertex_groups[protect].index
+        held = {v.index for v in obj.data.vertices if any(g.group == index and g.weight > 0 for g in v.groups)}
+        count = lambda faces: sum(len(p.vertices) - 2 for p in faces)
+        total, inside = count(obj.data.polygons), count(p for p in obj.data.polygons if all(i in held for i in p.vertices))
+        modifier.ratio = (inside + keep * (total - inside)) / total
     if protect:
         modifier.vertex_group, modifier.invert_vertex_group, modifier.vertex_group_factor = protect, True, 1000
     bpy.ops.object.modifier_move_to_index(modifier=modifier.name, index=0)
     bpy.ops.object.modifier_apply(modifier=modifier.name)
 
 
-def strip_body(body, mark, bones, shoes):
-    """Remove everything that is not skin (helpers, joints) and the skin the kit and shoes hide."""
+def strip_body(body, mark, bones, shoes, under_hair=()):
+    """Remove everything that is not skin (helpers, joints) and the skin the kit, shoes and hair hide (`under_hair`:
+    the points of the skin the hair hides)."""
     is_body = in_group(body, 'body')
     coords = [body.matrix_world @ v.co for v in body.data.vertices]
     shorts_hem = mark['knee'] + SHORTS['above_knee'] + SKIN_MARGIN
@@ -176,6 +187,8 @@ def strip_body(body, mark, bones, shoes):
 
     def hidden(i):
         p, bone = coords[i], bones[i]
+        if i in under_hair:
+            return True
         if bone in ('Hips', 'LeftUpLeg', 'RightUpLeg'):
             return p.z > shorts_hem
         if bone in ('Spine', 'Spine1'):
@@ -207,7 +220,7 @@ def protect(body, rig):
     for v, bone in zip(body.data.vertices, dominant_bones(body)):
         groups = {g.group: g.weight for g in v.groups if g.weight > 0}
         at = body.matrix_world @ v.co
-        if ((groups.get(head, 0) > 0.5 and scalp not in groups) or ears in groups or (bone and 'Hand' in bone)
+        if ((groups.get(head, 0) > 0.5 and scalp not in groups) or ears in groups or bone == 'Neck' or (bone and 'Hand' in bone)
                 or (bone in ('LeftArm', 'RightArm') and min((at - j).length for j in shoulders) < KEEP['joints'])
                 or min((at - j).length for j in knees) < KEEP['joints']):
             keep.add([v.index], 1.0, 'REPLACE')
@@ -367,7 +380,16 @@ def make_cornea(eyes):
 
 def part_names(row):
     """What each mesh of a built person is, in the order build_person returns them."""
-    return ['skin', 'jersey', 'shorts', 'eyes', 'brows', 'lashes', *(['hair'] if row['hair'] else []), 'shoes', 'mouth', 'cornea']
+    return ['skin', 'jersey', 'shorts', 'eyes', 'brows', 'lashes', 'hair', 'shoes', 'mouth', 'cornea', *(['gear'] * len(row.get('gear', [])))]
+
+
+def skin_tone(body):
+    """The average colour of his skin's picture, (r, g, b) from 0 to 1, for hair that shows skin through it."""
+    image = pictures(body.data.materials[0])[0].copy()
+    image.scale(64, 64)
+    pixels = np.array(image.pixels[:], dtype=np.float32).reshape(-1, 4)
+    bpy.data.images.remove(image)
+    return tuple(np.average(pixels[:, :3], axis=0, weights=pixels[:, 3] + 1e-6))
 
 
 def build_person(row, with_doll=False):
@@ -385,6 +407,15 @@ def build_person(row, with_doll=False):
     body.data.attributes.new('source', 'INT', 'POINT').data.foreach_set('value', range(len(body.data.vertices)))
     parts['mouth'] = make_mouth(parts.pop('teeth'), parts.pop('tongue'))
     parts['cornea'] = make_cornea(parts['eyes'])
+    if row['hairStyle'] not in PACK:
+        colour = tuple(int(row['hairColour'][i:i + 2], 16) / 255 for i in (1, 3, 5))
+        parts['hair'], under_hair = make_hair(body, rig, row['hairStyle'], colour, skin_tone(body), seed=row['face'] * 31 + row['number'])
+    else:   # the pack's afro hides the scalp too (simplified under it, the scalp once spiked through)
+        under_hair = covered(body, head_frame(body, rig), row['hairStyle'])
+    parts = {name: parts[name] for name in part_names(row)[3:] if name != 'gear'}   # in the order part_names gives
+    joint = lambda name: rig.matrix_world @ rig.data.bones[BONE + name].head_local
+    high_tops(parts['shoes'], joint('LeftFoot').z)
+    paint_shoes(parts['shoes'], row['team'])
     mark, bones, tights = landmarks(rig), dominant_bones(body), in_group(body, 'helper-tights')
     is_skin = in_group(body, 'body')
     doll = cut_out(body, 'doll', lambda i: is_skin[i]) if with_doll else None
@@ -394,7 +425,9 @@ def build_person(row, with_doll=False):
     jersey, shorts = make_kit(body, collider, mark, bones, tights)
     bpy.data.objects.remove(collider)
     add_springs(rig, shorts, mark)
-    strip_body(body, mark, bones, parts['shoes'])
+    rig['headTop'] = max((body.matrix_world @ v.co).z for v, skin in zip(body.data.vertices, is_skin) if skin)
+    gear, under_gear = make_gear(body, row, mark, bones, head_frame(body, rig), bounds([parts['shoes']])[1].z - 0.03, joint)
+    strip_body(body, mark, bones, parts['shoes'], under_hair | under_gear)
 
     protect(body, rig)
     rig['skinTriangles'] = sum(len(p.vertices) - 2 for p in body.data.polygons)   # before it is simplified: counts.json
@@ -403,13 +436,13 @@ def build_person(row, with_doll=False):
     bake_detail(whole, body, f"detail-player-{row['team']}-{row['number']}")
     add_expressions(body, moves, rest, (rig.matrix_world @ rig.data.bones[BONE + 'Neck'].head_local).z)
     bpy.data.objects.remove(whole)
-    if 'hair' in parts:
+    if row['hairStyle'] in PACK:   # the modelled styles are made to their budget
         simplify(parts['hair'], KEEP['hair'])
     simplify(parts['shoes'], KEEP['shoes'])
     simplify(parts['mouth'], KEEP['mouth'])
     name = f"player-{row['team']}-{row['number']}"
     rig.name = name
-    return rig, [body, jersey, shorts, *parts.values()], doll
+    return rig, [body, jersey, shorts, *parts.values(), *gear.values()], doll
 
 
 def pictures(material):
@@ -479,7 +512,12 @@ def finish(row, rig, meshes, extra=()):
     for obj, name in zip(meshes, part_names(row)):
         material = obj.data.materials[0]
         if name not in ('jersey', 'shorts', 'cornea'):
-            material.name = f'{name}-{rig.name}'
+            # A modelled style's name comes with it, for the game: hair-fade-player-0-4.
+            modelled = name == 'hair' and row['hairStyle'] not in PACK
+            if name == 'gear':   # gear-<item>-<colour>, made for him: the game reads the colour from it
+                material.name = f"{material.name.split('.')[0]}-{rig.name}"
+            else:
+                material.name = f"{name}-{row['hairStyle']}-{rig.name}" if modelled else f'{name}-{rig.name}'
             # The generator's bump pictures cost megabytes and cannot be seen at this size on screen; the skin's own
             # baked detail stays.
             tree = material.node_tree
@@ -506,11 +544,11 @@ def finish(row, rig, meshes, extra=()):
         for node in tree.nodes:
             if node.type == 'TEX_IMAGE' and node.image:
                 fit(node.image, kind)
-                if kind == 'hair' and row['hairColour']:   # without a colour the hair keeps the picture it came with
+                if kind == 'hair' and row['hairColour'] and row['hairStyle'] in PACK:   # a modelled style is made in its colour
                     node.image = recoloured(node.image, f"{row['hair']}-{row['hairColour'][1:]}", row['hairColour'])
 
     bpy.context.view_layer.update()
-    top = max((body.matrix_world @ v.co).z for v in body.data.vertices if any(g.group == body.vertex_groups['body'].index for g in v.groups))
+    top = rig['headTop']   # the top of his head as generated: under some hair styles that skin is gone
     scale = Matrix.Scale(row['height'] / top, 4)
     lowest = min((body.matrix_world @ v.co).z for v in body.data.vertices) * row['height'] / top
     place = Matrix.Translation((0, 0, -lowest)) @ scale

@@ -10,12 +10,15 @@ import { checkGaits, checkMotions, checkFacts, personName, courtPeople, sized, m
 import { easeFacing, leanOf, lookTarget, headTurn, easeHead } from './bearing.js';
 import { createAnimator } from './animator.js';
 import { createFace, faceWants } from './face.js';
-import { ATLAS, KIT, atlasPart, atlasRect, atlasUV, kitOps, heightOps, kitColours, paintKit, normalFromHeight } from './kit.js';
-import { MATERIALS, kitMaterial, partMaterial, fabricTiles, isPhysical, isDetailed } from './materials.js';
+import { createSweat } from './sweat.js';
+import { ATLAS, KIT, atlasPart, atlasRect, atlasUV, gearColour, kitOps, heightOps, kitColours, paintKit, normalFromHeight } from './kit.js';
+import { MATERIALS, kitMaterial, partMaterial, hairMaterial, gearMaterial, skinMaterial, fabricTiles, isPhysical, isDetailed } from './materials.js';
 import { QUALITY, modelFor } from './quality.js';
 
 // The size of each garment's painted picture at full quality, in pixels along each side.
 const GARMENT = Object.freeze({ jersey: 1024, shorts: 512 });
+// The hair styles modelled in the build, named in their material (hair-fade-player-0-4); the rest are the pack's.
+const MODELLED = Object.freeze(['buzz', 'fade', 'curls', 'twists', 'locs', 'cornrows']);
 
 const IDLE = Object.freeze({ clip: 'idle', rate: 1 });   // what everyone's legs do before and after a match
 const UPRIGHT = Object.freeze({ forward: 0, side: 0 }), AHEAD = Object.freeze({ yaw: 0, pitch: 0 });
@@ -113,6 +116,8 @@ export async function loadPeople(camera) {
         g.translate(x, y); g.scale(w / KIT.size, h / KIT.size);
         paintKit(g, KIT.size, kitOps(part, number), kitColours(team));
         g.restore();
+      } else if (part === 'gear') {
+        KIT.gear.order.forEach((colour, k) => { g.fillStyle = gearColour(colour, team); g.fillRect(x + (k * w) / 3, y, w / 3, h); });
       } else if (drawn[part]) g.drawImage(drawn[part], x, y, w, h);
     }
     const made = new THREE.Texture();
@@ -141,16 +146,18 @@ export async function loadPeople(camera) {
     return made;
   })();
 
-  // The far model: `parts` ([mesh, its place in ATLAS]) joined into one mesh on the same skeleton, wearing one picture.
+  // The far model: `parts` ([mesh, its place in ATLAS, its material's name in the file]) joined into one mesh on the same skeleton, wearing one picture.
   // Each part is one more thing to draw in every pass; joined, the whole player is drawn at once.
   function farModel(parts, drawn, team, number) {
-    const whole = mergeGeometries(parts.map(([part, place]) => {
+    const whole = mergeGeometries(parts.map(([part, place, name]) => {
       const from = part.geometry, uv = from.getAttribute('uv'), geometry = new THREE.BufferGeometry();
       // Every part's numbers in the same form, so that they can be joined; its picture's points moved to its place.
       const floats = (attribute, size) => new THREE.Float32BufferAttribute(Float32Array.from({ length: attribute.count * size }, (_, i) => attribute.getComponent(Math.floor(i / size), i % size)), size);
       geometry.setAttribute('position', floats(from.getAttribute('position'), 3));
       geometry.setAttribute('normal', floats(from.getAttribute('normal'), 3));
-      geometry.setAttribute('uv', new THREE.Float32BufferAttribute(Array.from({ length: uv.count }, (_, i) => atlasUV(place, uv.getX(i), uv.getY(i))).flat(), 2));
+      // Gear has no picture: all of a piece takes the swatch of its colour (gear-<item>-<colour>-...).
+      const swatch = place === 'gear' ? (KIT.gear.order.indexOf(name.split('-')[2]) + 0.5) / 3 : null;
+      geometry.setAttribute('uv', new THREE.Float32BufferAttribute(Array.from({ length: uv.count }, (_, i) => (swatch === null ? atlasUV(place, uv.getX(i), uv.getY(i)) : atlasUV('gear', swatch, 0.5))).flat(), 2));
       const joints = from.getAttribute('skinIndex');
       geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(Uint16Array.from({ length: joints.count * 4 }, (_, i) => joints.getComponent(Math.floor(i / 4), i % 4)), 4));
       geometry.setAttribute('skinWeight', floats(from.getAttribute('skinWeight'), 4));
@@ -180,13 +187,14 @@ export async function loadPeople(camera) {
   function person(model, team, number, index) {
     const near = [], parts = [], drawn = {};
     let skin = null;   // the mesh that carries his expressions
+    const wet = [];    // the sweat uniforms of his materials (see sweat.js)
     model.traverse(part => {
       // GLTFLoader numbers the bone names that repeat in the file (mixamorigHips_1); the motions look for the plain ones.
       if (part.isBone) part.name = THREE.PropertyBinding.sanitizeNodeName(part.userData.name);
       if (!part.isMesh) return;
       const kind = part.material.name.split('-')[0];
       const place = atlasPart(part.material.name);
-      if (place) parts.push([part, place]);
+      if (place) parts.push([part, place, part.material.name]);
       if (place && part.material.map) drawn[place] = part.material.map.image;
       let made;
       if (kind === 'jersey' || kind === 'shorts') {
@@ -196,6 +204,13 @@ export async function loadPeople(camera) {
           sizes[size] ??= picture(kitOps(kind, number), colours, size);
           return kitMaterial(level, { part: kind, map: sizes[size], normal, fabric: kind === 'jersey' ? tiles.knit : tiles.twill });
         });
+      } else if (kind === 'skin') {
+        made = atEachLevel(level => skinMaterial(level, { map: part.material.map, normalMap: part.material.normalMap, pores: tiles.pores.normal }));
+      } else if (kind === 'gear') {
+        const colour = gearColour(part.material.name.split('-')[2], team);
+        made = atEachLevel(level => gearMaterial(level, colour));
+      } else if (kind === 'hair' && MODELLED.includes(part.material.name.split('-')[1])) {
+        made = atEachLevel(level => hairMaterial(level, { map: part.material.map, strands: tiles.strands }));
       } else made = atEachLevel(level => partMaterial(level, kind, part.material.map, part.material.normalMap));
       part.material.dispose();
       part.material = made.high;
@@ -203,6 +218,7 @@ export async function loadPeople(camera) {
       part.frustumCulled = false;   // its bounds are those of the rest pose, not of where the motion puts it
       dressed.push([part, made]);
       near.push(part);
+      for (const m of new Set(Object.values(made))) if (m.userData.sweat?.isNode) wet.push(m.userData.sweat);
       // The file gives every part the expressions' targets, all still but the skin's: only the skin keeps them.
       if (kind === 'skin') skin = part;
       else if (part.morphTargetInfluences) { part.geometry.morphAttributes = {}; part.morphTargetInfluences = undefined; part.morphTargetDictionary = undefined; }
@@ -213,7 +229,7 @@ export async function loadPeople(camera) {
     const hands = { left: model.getObjectByName('mixamorigLeftHand'), right: model.getObjectByName('mixamorigRightHand') };
     checkHands(model.name, hands);   // so a broken file falls back to capsules at load, not on the first possession
     // arms: the arm motion he was given on the last frame, or null when his arms followed his legs.
-    return { model, hands, near, far, drawnAs: 'near', face: createFace(skin, team * 100 + number), animator: createAnimator(model, clips, facts, scale, index), gaits: sized(facts.gaits, scale), last: 'idle', arms: null };
+    return { model, hands, near, far, wet, drawnAs: 'near', face: createFace(skin, team * 100 + number), animator: createAnimator(model, clips, facts, scale, index), gaits: sized(facts.gaits, scale), last: 'idle', arms: null };
   }
   // Shows his `which` model ('near' or 'far') and hides the other.
   const wear = (he, which) => {
@@ -223,6 +239,7 @@ export async function loadPeople(camera) {
     he.drawnAs = which;
   };
   let level = 'high';   // the quality level the players are dressed for
+  const sweat = createSweat();
   const people = {};
   ROSTER.numbers.forEach((numbers, team) => numbers.forEach((number, row) => {
     const name = personName(team, number);
@@ -260,6 +277,7 @@ export async function loadPeople(camera) {
       if (!standing) noteChanges(marks, state, dt);
       else if (marks.was) marks = newMarks();
       marks.show = show;
+      sweat.update(state);
       courtPeople(state).forEach((who, i) => {
         const player = state.players[i], group = models[i], he = people[who];
         // The first frame, a substitution, or a match of another size, whose players stand in other places: he
@@ -299,6 +317,7 @@ export async function loadPeople(camera) {
         const whole = he.arms && 'at' in he.arms && wholeBody(facts.clips, he.arms.clip) ? he.arms : null;
         he.animator.update(whole ?? legs, he.arms, dt, standing ? null : bearing.head, !standing && onFloor(player));
         he.face.update(dt, standing ? {} : faceWants(player, marks));
+        for (const u of he.wet) u.value = sweat.of(who);
       });
     },
     // Forgets what is remembered from frame to frame (see actors.cut).

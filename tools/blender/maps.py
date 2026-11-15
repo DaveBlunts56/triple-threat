@@ -19,6 +19,12 @@ SIZE = 512
 # of the grid's spacing), between ribs that run down the cloth. The twill: diagonal ribs, this many to the tile.
 KNIT = {'holes': 20, 'depth': 1.0, 'radius': 0.26, 'ribs': 0.25, 'strength': 4.0, 'rough': 0.76, 'roughHole': 0.9}
 TWILL = {'lines': 48, 'strength': 2.5, 'rough': 0.84}
+# Hair strands, running up the tile (along v): this many to the tile, each wandering by up to `wander` of the spacing,
+# with a slower wave of clumping.
+STRANDS = {'lines': 96, 'wander': 0.35, 'clumps': 12, 'strength': 3.0}
+# Skin pores: a tile this many pixels across holding this many pits, each up to `radius` (a share of the tile) wide,
+# over a fine grain.
+PORES = {'size': 256, 'count': 260, 'radius': 0.012, 'depth': 1.0, 'grain': 0.08, 'strength': 4.0}
 
 
 def grid(size=SIZE):
@@ -57,6 +63,31 @@ def twill(size=SIZE):
     return height, rough
 
 
+def strands(size=SIZE):
+    """Hair: fine ridges running up the tile, each a little uneven, in clumps."""
+    x, y = grid(size)
+    rng = np.random.default_rng(7)
+    phase = rng.uniform(0, 2 * np.pi, 8)
+    wander = sum(np.sin(2 * np.pi * (k + 1) * y + phase[k]) / (k + 1) for k in range(4)) * STRANDS['wander'] / STRANDS['lines']
+    ridges = 0.5 + 0.5 * np.cos(2 * np.pi * (x + wander) * STRANDS['lines'])
+    clumps = 0.5 + 0.5 * np.cos(2 * np.pi * x * STRANDS['clumps'] + phase[4])
+    return ridges * (0.6 + 0.4 * clumps)
+
+
+def pores(size=PORES['size']):
+    """Skin: small soft pits scattered over a fine grain, wrapping at the edges."""
+    x, y = grid(size)
+    rng = np.random.default_rng(11)
+    height = np.zeros((size, size))
+    for cx, cy, r in zip(rng.uniform(0, 1, PORES['count']), rng.uniform(0, 1, PORES['count']), rng.uniform(0.4, 1, PORES['count']) * PORES['radius']):
+        dx = (x - cx + 0.5) % 1 - 0.5   # the nearest way round the wrap
+        dy = (y - cy + 0.5) % 1 - 0.5
+        height -= PORES['depth'] * np.exp(-(dx * dx + dy * dy) / (r * r))
+    grain = rng.normal(0, 1, (size, size))
+    grain = (grain + np.roll(grain, 1, 0) + np.roll(grain, 1, 1) + np.roll(np.roll(grain, 1, 0), 1, 1)) / 4
+    return height + PORES['grain'] * grain
+
+
 def save(name, rgb):
     """Writes a picture (rows from the top, RGB or a single channel, 0 to 1) as assets/maps/<name>.png."""
     import bpy
@@ -82,6 +113,8 @@ def main():
     height, rough = twill()
     save('twill-normal', tile_normal(height, TWILL['strength']))
     save('twill-rough', rough)
+    save('strands-normal', tile_normal(strands(), STRANDS['strength']))
+    save('pores-normal', tile_normal(pores(), PORES['strength']))
 
 
 if __name__ == '__main__':

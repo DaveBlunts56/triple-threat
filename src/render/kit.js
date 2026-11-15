@@ -12,7 +12,8 @@ const f = Object.freeze;
 // of a number in pixels. digit: the widest one digit is painted, as a share of its height: the cloth stretches the
 // picture sideways, so a digit this narrow has its natural shape on the player. chest, back: the middle of the number
 // and how tall it is. stitch: the stitching along each seam: [length, gap, thickness] of a stitch, in shares of the
-// picture, and how far in from the seam it runs.
+// picture, and how far in from the seam it runs. gear: the colours headbands, sleeves and wristbands come in, besides
+// the team's, and their order on the far model's picture (see ATLAS).
 export const KIT = f({
   layout: f({ main: f([0, 0.8]), trim: f([0.82, 0.9]) }),
   sides: f({ at: f([0.02, 0.48, 0.52, 0.98]), jersey: 0.025, shorts: 0.015 }),
@@ -20,15 +21,17 @@ export const KIT = f({
   chest: f({ at: f([0.25, 0.34]), height: 0.21 }),
   back: f({ at: f([0.75, 0.32]), height: 0.27 }),
   stitch: f({ dash: f([0.008, 0.006, 0.003]), inset: 0.006 }),
+  gear: f({ white: '#f2f2f2', black: '#161616', order: f(['white', 'black', 'team']) }),
 });
 
 // The one picture a player's far model wears (see people.js): each part's picture drawn in its own place, so that the
 // whole player is one thing to draw. size: pixels along each side at full quality. gutter: pixels left clear round
 // each part's picture, so that neighbours do not bleed into it when the picture is shrunk for distance. cells: where
-// each part's picture lies, as [x, y, width, height] in shares of the whole, from its top left corner.
+// each part's picture lies, as [x, y, width, height] in shares of the whole, from its top left corner. The gear's
+// place holds a swatch of each of its colours, side by side in KIT.gear.order.
 export const ATLAS = f({
   size: 1024, gutter: 6,
-  cells: f({ skin: f([0, 0, 0.5, 0.5]), jersey: f([0.5, 0, 0.5, 0.5]), shorts: f([0, 0.5, 0.5, 0.5]), hair: f([0.5, 0.5, 0.25, 0.5]), shoes: f([0.75, 0.5, 0.25, 0.5]) }),
+  cells: f({ skin: f([0, 0, 0.5, 0.5]), jersey: f([0.5, 0, 0.5, 0.5]), shorts: f([0, 0.5, 0.5, 0.5]), hair: f([0.5, 0.5, 0.25, 0.4375]), shoes: f([0.75, 0.5, 0.25, 0.5]), gear: f([0.5, 0.9375, 0.25, 0.0625]) }),
 });
 
 // The part of the one picture that a material of the players' file is drawn in, by its name, or null for the parts
@@ -47,6 +50,9 @@ export function atlasUV(part, u, v) {
   const [x, y, w, h] = atlasRect(part), hold = n => Math.min(Math.max(n, 0), 1);
   return [x + hold(u) * w, y + hold(v) * h];
 }
+
+// The colour ('#rrggbb') of gear worn in `colour` ('white', 'black' or 'team') by a player of `team` (0 or 1).
+export const gearColour = (colour, team) => (colour === 'team' ? KIT.team[team] : KIT.gear[colour]);
 
 export const TEAM_COLOURS = KIT.team.map(hex => parseInt(hex.slice(1), 16));   // KIT.team as numbers, for a material
 

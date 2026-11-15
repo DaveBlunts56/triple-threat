@@ -63,7 +63,7 @@ def tidy_border(piece, flat=()):
     border = {v: [e.other_vert(v) for e in v.link_edges if e.is_boundary] for v in bm.verts if v.is_boundary}
     level = {}
     for v in border:
-        near = [z for z in flat if abs(v.co.z - z) < 0.12]
+        near = sorted((z for z in flat if abs(v.co.z - z) < 0.12), key=lambda z: abs(v.co.z - z))   # the nearest level
         if near:
             v.co.z = level[v] = near[0]
     # Smooth each border loop without shrinking it: a step toward the neighbours, then a slightly larger step back.

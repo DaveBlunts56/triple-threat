@@ -22,7 +22,7 @@ function heightOf(gltf, name) {
 test('the table has the sixteen people the rosters name, each one different', () => {
   for (const team of [0, 1]) assert.deepEqual(people.filter(p => p.team === team).map(p => p.number), [...ROSTER.numbers[team]]);
   for (const p of people) assert.ok(p.height >= 1.85 && p.height <= 2.08, `${rootName(p)}: ${p.height} m`);
-  assert.equal(new Set(people.map(p => [p.skin, p.hair, p.hairColour, p.build, p.face].join())).size, 16);
+  assert.equal(new Set(people.map(p => [p.skin, p.hairStyle, p.hair, p.hairColour, p.build, p.face].join())).size, 16);
 });
 
 test('the file holds every person in the table, named by team and number', () => {
@@ -42,12 +42,12 @@ test('every player is skinned, within the near level of detail\'s 45,000 triangl
   assert.equal(players.json.animations, undefined);
 });
 
-test('the skin keeps three quarters of the generated body\'s triangles, and carries the muscle detail baked from the full body', () => {
+test('the skin keeps three quarters or more of the generated body\'s triangles, and carries the muscle detail baked from the full body', () => {
   const counts = JSON.parse(readFileSync('assets/source/counts.json', 'utf8'));
   for (const person of people) {
     const name = rootName(person), skin = primitivesUnder(players.json, name).find(p => players.json.materials[p.material].name.startsWith('skin'));
     const share = players.json.accessors[skin.indices].count / 3 / counts[name].skin;
-    assert.ok(share >= 0.7 && share <= 0.8, `${name}: the skin keeps ${(share * 100).toFixed(0)}% of its triangles`);
+    assert.ok(share >= 0.7 && share <= 0.9, `${name}: the skin keeps ${(share * 100).toFixed(0)}% of its triangles`);
     const normal = players.json.materials[skin.material].normalTexture;
     assert.ok(normal, `${name}: the skin has no normal map`);
     const image = players.json.images[players.json.textures[normal.index].source], view = players.json.bufferViews[image.bufferView];
@@ -94,6 +94,89 @@ test('the skin carries the four expressions, and they move only his face: nothin
       assert.ok(floatsOf(players, target.POSITION).every(v => Math.abs(v) < 1e-6), `${name}: an expression moves his ${players.json.materials[q.material].name}`);
     }
   }
+});
+
+const STYLES = ['buzz', 'fade', 'curls', 'afro', 'twists', 'locs', 'cornrows', 'short'];
+
+test('every hair style is one of the eight, each worn by someone, the pack\'s styles naming the pack\'s hair', () => {
+  for (const p of people) {
+    assert.ok(STYLES.includes(p.hairStyle), `${rootName(p)}: ${p.hairStyle}`);
+    assert.equal(p.hair !== null, ['afro', 'short'].includes(p.hairStyle), `${rootName(p)}: ${p.hairStyle} with ${p.hair}`);
+  }
+  assert.deepEqual([...new Set(people.map(p => p.hairStyle))].sort(), [...STYLES].sort());
+});
+
+test('each player\'s hair sits on his head (locs hang lower), within 9,000 triangles; twists are many separate twists; locs swing', async () => {
+  const { Matrix4, Vector3 } = await import('three');
+  for (const person of people) {
+    const name = rootName(person), root = players.json.nodes.findIndex(n => n.name === name);
+    const meshNode = nodesUnder(players.json, root).map(i => players.json.nodes[i]).find(n => n.mesh !== undefined), skin = players.json.skins[meshNode.skin];
+    const joint = bone => skin.joints.find(j => players.json.nodes[j].name === bone);
+    const hair = primitivesUnder(players.json, name).find(p => players.json.materials[p.material].name.startsWith('hair'));
+    assert.ok(hair, `${name}: no hair`);
+    const triangles = players.json.accessors[hair.indices].count / 3;
+    assert.ok(triangles <= 9000, `${name}: ${triangles} triangles of hair`);
+    // How high the head joint (the base of his skull) is, from its inverse bind matrix.
+    const at = 16 * skin.joints.indexOf(joint('mixamorig:Head'));
+    const headY = new Vector3().setFromMatrixPosition(new Matrix4().fromArray(floatsOf(players, skin.inverseBindMatrices).slice(at, at + 16)).invert()).y;
+    const lowest = players.json.accessors[hair.attributes.POSITION].min[1];
+    if (person.hairStyle === 'locs') assert.ok(lowest < headY, `${name}: his locs do not hang`);
+    else assert.ok(lowest > headY - 0.02, `${name}: his ${person.hairStyle} hair reaches ${(headY - lowest).toFixed(3)} m under the base of his skull`);
+    assert.equal(['hairLocsLeft', 'hairLocsRight'].every(joint), person.hairStyle === 'locs', `${name}: the locs' spring bones`);
+    if (person.hairStyle === 'twists') {
+      // Separate pieces: the twists, and the close-cut base under them.
+      const index = (() => { const a = players.json.accessors[hair.indices], v = players.json.bufferViews[a.bufferView], at = (v.byteOffset ?? 0) + (a.byteOffset ?? 0); return Array.from({ length: a.count }, (_, i) => a.componentType === 5125 ? players.bin.readUInt32LE(at + 4 * i) : players.bin.readUInt16LE(at + 2 * i)); })();
+      const points = floatsOf(players, hair.attributes.POSITION), parent = new Map(), key = i => points.slice(3 * i, 3 * i + 3).map(n => n.toFixed(5)).join();
+      const find = k => { while (parent.get(k) !== k) { parent.set(k, parent.get(parent.get(k))); k = parent.get(k); } return k; };
+      for (const i of index) if (!parent.has(key(i))) parent.set(key(i), key(i));
+      for (let t = 0; t < index.length; t += 3) for (const k of [1, 2]) parent.set(find(key(index[t + k])), find(key(index[t])));
+      const pieces = new Set([...parent.keys()].map(find)).size;
+      assert.ok(pieces >= 61 && pieces <= 95, `${name}: ${pieces} pieces of hair`);
+    }
+  }
+});
+
+test('each player wears the gear the table gives him, with the skin under a sleeve or band taken away; high-top shoes in his team\'s colour', async () => {
+  const { Matrix4, Vector3 } = await import('three');
+  const ITEMS = ['headband', 'armSleeveLeft', 'armSleeveRight', 'legSleeveLeft', 'legSleeveRight', 'wristbandLeft', 'wristbandRight'];
+  const worn = people.filter(p => p.gear.length);
+  assert.ok(worn.length >= 6 && worn.length <= 10, `${worn.length} of 16 wear gear`);
+  const shoes = {};
+  for (const person of people) {
+    const name = rootName(person), prims = primitivesUnder(players.json, name), material = p => players.json.materials[p.material];
+    const gear = prims.filter(p => material(p).name.startsWith('gear-')).map(p => material(p).name.split('-').slice(1, 3));
+    assert.deepEqual(gear.sort(), person.gear.map(g => [...g]).sort(), `${name}: wears ${gear}`);
+    for (const [item, colour] of person.gear) assert.ok(ITEMS.includes(item) && ['white', 'black', 'team'].includes(colour), `${name}: ${item} ${colour}`);
+    const skin = prims.find(p => material(p).name.startsWith('skin')), skinAt = floatsOf(players, skin.attributes.POSITION);
+    for (const p of prims.filter(q => /^gear-(arm|leg)Sleeve/.test(material(q).name))) {
+      // Away from its ends, where the skin it does not cover begins.
+      const at = floatsOf(players, p.attributes.POSITION), box = players.json.accessors[p.attributes.POSITION], [low, high] = [box.min[1], box.max[1]];
+      let over = 0, n = 0;
+      for (let i = 0; i < at.length; i += 3 * 5) {
+        if (at[i + 1] < low + (high - low) * 0.2 || at[i + 1] > high - (high - low) * 0.2) continue;
+        n++;
+        for (let j = 0; j < skinAt.length; j += 3) if (Math.hypot(at[i] - skinAt[j], at[i + 1] - skinAt[j + 1], at[i + 2] - skinAt[j + 2]) < 0.004) { over++; break; }
+      }
+      assert.ok(over < n * 0.15, `${name}: ${over} of ${n} points of his ${material(p).name} lie on skin`);
+    }
+    // High-tops: each trainer (the larger of a foot's two pieces; the other is the sock) reaches 6 cm over the ankle.
+    const shoe = prims.find(p => material(p).name.startsWith('shoes')), at = floatsOf(players, shoe.attributes.POSITION);
+    const index = (() => { const a = players.json.accessors[shoe.indices], v = players.json.bufferViews[a.bufferView], o = (v.byteOffset ?? 0) + (a.byteOffset ?? 0); return Array.from({ length: a.count }, (_, i) => a.componentType === 5125 ? players.bin.readUInt32LE(o + 4 * i) : players.bin.readUInt16LE(o + 2 * i)); })();
+    const key = i => at.slice(3 * i, 3 * i + 3).map(n => n.toFixed(5)).join(), parent = new Map();
+    const find = k => { while (parent.get(k) !== k) { parent.set(k, parent.get(parent.get(k))); k = parent.get(k); } return k; };
+    for (const i of index) if (!parent.has(key(i))) parent.set(key(i), key(i));
+    for (let t = 0; t < index.length; t += 3) for (const k of [1, 2]) parent.set(find(key(index[t + k])), find(key(index[t])));
+    const pieces = new Map();
+    for (const i of index) { const r = find(key(i)), p = pieces.get(r) ?? { n: 0, top: -Infinity }; p.n++; p.top = Math.max(p.top, at[3 * i + 1]); pieces.set(r, p); }
+    const meshNode = nodesUnder(players.json, players.json.nodes.findIndex(n => n.name === name)).map(i => players.json.nodes[i]).find(n => n.mesh !== undefined);
+    const skinOf = players.json.skins[meshNode.skin], foot = skinOf.joints.findIndex(j => players.json.nodes[j].name === 'mixamorig:LeftFoot');
+    const ankle = new Vector3().setFromMatrixPosition(new Matrix4().fromArray(floatsOf(players, skinOf.inverseBindMatrices).slice(16 * foot, 16 * foot + 16)).invert()).y;
+    for (const p of [...pieces.values()].sort((a, b) => b.n - a.n).slice(0, 2)) assert.ok(p.top > ankle + 0.06, `${name}: a shoe reaches ${(p.top - ankle).toFixed(3)} m over his ankle`);
+    const picture = material(shoe).pbrMetallicRoughness.baseColorTexture.index;
+    (shoes[person.team] ??= new Set()).add(players.json.textures[picture].source);
+  }
+  assert.equal(shoes[0].size, 1, 'every player of a team wears the same shoes');
+  assert.notDeepEqual([...shoes[0]], [...shoes[1]], 'the two teams\' shoes are painted alike');
 });
 
 // One player's kit piece: positions, normals and texture coordinates of the primitive whose material is `name`.
@@ -174,7 +257,11 @@ test('each player stands as tall as the table says, feet on the floor', () => {
   for (const person of people) {
     const { minY, maxY } = heightOf(players.json, rootName(person));
     assert.ok(Math.abs(minY) < 0.03, `${rootName(person)}: feet at ${minY}`);
-    assert.ok(Math.abs(maxY - person.height) < 0.03, `${rootName(person)}: top of the head at ${maxY}, table says ${person.height}`);
+    // Under a shell of hair or a base of close-cut hair the top of his head is gone: the hair is there instead.
+    const hair = primitivesUnder(players.json, rootName(person)).find(p => players.json.materials[p.material].name.startsWith('hair'));
+    const hidden = ['buzz', 'fade', 'curls', 'twists', 'locs'].includes(person.hairStyle);
+    if (hidden) assert.ok(maxY < person.height + 0.03 && players.json.accessors[hair.attributes.POSITION].max[1] > person.height - 0.005, `${rootName(person)}: his head and hair stop at ${maxY}, the table says ${person.height}`);
+    else assert.ok(Math.abs(maxY - person.height) < 0.03, `${rootName(person)}: top of the head at ${maxY}, table says ${person.height}`);
   }
 });
 

@@ -5,10 +5,11 @@ import { QUALITY } from './quality.js';
 // environment) lights and is mirrored by everything. key: the strength of the one light that casts shadows, and
 // where it hangs. soft, hard: the blur of its shadow's edge, in shadow-map pixels. panel: how bright the ceiling's
 // light panels are in the hidden scene the environment is made from; bowl, floor: the colours of its dark walls and
-// of the light the court bounces back up.
-const LIGHT = Object.freeze({
+// of the light the court bounces back up. normalBias: how far a surface is moved along its normal before it is tested
+// against the shadow map, so that skin shows no shadow acne.
+export const LIGHT = Object.freeze({
   exposure: 1.1, arena: 0.14, key: 2.4, keyAt: Object.freeze([6, 22, 9]), soft: 2.5, hard: 0.6,
-  panel: 16, bowl: 0x10131a, floor: 0x6b563c,
+  panel: 16, bowl: 0x10131a, floor: 0x6b563c, normalBias: 0.02,
 });
 
 // The hall as light sees it: a dark bowl, rows of bright panels under its roof, and a floor that bounces warm light
@@ -47,6 +48,7 @@ export function createLight(renderer, scene) {
   key.castShadow = true;
   Object.assign(key.shadow.camera, { left: -18, right: 18, top: 12, bottom: -12, near: 1, far: 45 });
   key.shadow.bias = -0.0004;
+  key.shadow.normalBias = LIGHT.normalBias;
   scene.add(key);
 
   return {

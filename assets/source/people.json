@@ -1,20 +1,20 @@
 {
   "people": [
-    { "team": 0, "number": 4, "height": 1.96, "build": "athletic", "skin": "young_african_male", "hair": "short02", "hairColour": null, "face": 0 },
-    { "team": 0, "number": 7, "height": 1.88, "build": "slim", "skin": "young_caucasian_male", "hair": "short01", "hairColour": "#5a3a22", "face": 2 },
-    { "team": 0, "number": 11, "height": 2.03, "build": "strong", "skin": "middleage_african_male", "hair": null, "hairColour": "#000000", "face": 3 },
-    { "team": 0, "number": 15, "height": 1.93, "build": "athletic", "skin": "young_asian_male", "hair": "short02", "hairColour": "#111111", "face": 4 },
-    { "team": 0, "number": 23, "height": 2.08, "build": "strong", "skin": "young_caucasian_male2", "hair": "short04", "hairColour": "#c9a050", "face": 12 },
-    { "team": 1, "number": 5, "height": 1.85, "build": "slim", "skin": "young_asian_male", "hair": "short04", "hairColour": "#151515", "face": 6 },
-    { "team": 1, "number": 8, "height": 1.98, "build": "athletic", "skin": "middleage_caucasian_male", "hair": "short02", "hairColour": "#3b2a1e", "face": 7 },
-    { "team": 1, "number": 10, "height": 2.01, "build": "strong", "skin": "young_african_male", "hair": "afro01", "hairColour": "#17120f", "face": 8 },
-    { "team": 1, "number": 21, "height": 1.91, "build": "athletic", "skin": "middleage_asian_male", "hair": "short01", "hairColour": "#222222", "face": 9 },
-    { "team": 1, "number": 33, "height": 2.06, "build": "strong", "skin": "young_african_male", "hair": "short04", "hairColour": "#1a1512", "face": 10 },
-    { "team": 0, "number": 1, "height": 1.9, "build": "slim", "skin": "young_african_male", "hair": "short01", "hairColour": "#17120f", "face": 13 },
-    { "team": 0, "number": 13, "height": 2.0, "build": "athletic", "skin": "middleage_caucasian_male", "hair": "short04", "hairColour": "#3b2a1e", "face": 14 },
-    { "team": 0, "number": 32, "height": 2.07, "build": "strong", "skin": "young_asian_male", "hair": "short02", "hairColour": "#101010", "face": 15 },
-    { "team": 1, "number": 2, "height": 1.87, "build": "athletic", "skin": "young_caucasian_male", "hair": "short02", "hairColour": "#8a6a3a", "face": 16 },
-    { "team": 1, "number": 14, "height": 1.99, "build": "slim", "skin": "middleage_african_male", "hair": "afro01", "hairColour": "#151210", "face": 17 },
-    { "team": 1, "number": 30, "height": 2.05, "build": "strong", "skin": "young_caucasian_male2", "hair": "short01", "hairColour": "#222222", "face": 18 }
+    { "team": 0, "number": 4, "height": 1.96, "build": "athletic", "skin": "young_african_male", "hairStyle": "fade", "hair": null, "hairColour": "#1a1512", "face": 0, "gear": [["armSleeveRight", "team"], ["wristbandLeft", "white"]] },
+    { "team": 0, "number": 7, "height": 1.88, "build": "slim", "skin": "young_caucasian_male", "hairStyle": "short", "hair": "short01", "hairColour": "#5a3a22", "face": 2, "gear": [] },
+    { "team": 0, "number": 11, "height": 2.03, "build": "strong", "skin": "middleage_african_male", "hairStyle": "buzz", "hair": null, "hairColour": "#000000", "face": 3, "gear": [["headband", "white"]] },
+    { "team": 0, "number": 15, "height": 1.93, "build": "athletic", "skin": "young_asian_male", "hairStyle": "short", "hair": "short02", "hairColour": "#111111", "face": 4, "gear": [["legSleeveLeft", "black"]] },
+    { "team": 0, "number": 23, "height": 2.08, "build": "strong", "skin": "young_caucasian_male2", "hairStyle": "curls", "hair": null, "hairColour": "#c9a050", "face": 12, "gear": [] },
+    { "team": 1, "number": 5, "height": 1.85, "build": "slim", "skin": "young_asian_male", "hairStyle": "fade", "hair": null, "hairColour": "#151515", "face": 6, "gear": [["wristbandLeft", "white"], ["wristbandRight", "white"]] },
+    { "team": 1, "number": 8, "height": 1.98, "build": "athletic", "skin": "middleage_caucasian_male", "hairStyle": "short", "hair": "short02", "hairColour": "#3b2a1e", "face": 7, "gear": [] },
+    { "team": 1, "number": 10, "height": 2.01, "build": "strong", "skin": "young_african_male", "hairStyle": "afro", "hair": "afro01", "hairColour": "#17120f", "face": 8, "gear": [["armSleeveLeft", "black"]] },
+    { "team": 1, "number": 21, "height": 1.91, "build": "athletic", "skin": "middleage_asian_male", "hairStyle": "buzz", "hair": null, "hairColour": "#222222", "face": 9, "gear": [] },
+    { "team": 1, "number": 33, "height": 2.06, "build": "strong", "skin": "young_african_male", "hairStyle": "locs", "hair": null, "hairColour": "#1a1512", "face": 10, "gear": [["legSleeveRight", "team"]] },
+    { "team": 0, "number": 1, "height": 1.9, "build": "slim", "skin": "young_african_male", "hairStyle": "twists", "hair": null, "hairColour": "#17120f", "face": 13, "gear": [] },
+    { "team": 0, "number": 13, "height": 2.0, "build": "athletic", "skin": "middleage_caucasian_male", "hairStyle": "short", "hair": "short04", "hairColour": "#3b2a1e", "face": 14, "gear": [["legSleeveRight", "white"]] },
+    { "team": 0, "number": 32, "height": 2.07, "build": "strong", "skin": "young_asian_male", "hairStyle": "short", "hair": "short04", "hairColour": "#101010", "face": 15, "gear": [] },
+    { "team": 1, "number": 2, "height": 1.87, "build": "athletic", "skin": "young_caucasian_male", "hairStyle": "curls", "hair": null, "hairColour": "#8a6a3a", "face": 16, "gear": [["armSleeveRight", "black"]] },
+    { "team": 1, "number": 14, "height": 1.99, "build": "slim", "skin": "middleage_african_male", "hairStyle": "cornrows", "hair": null, "hairColour": "#151210", "face": 17, "gear": [["headband", "team"], ["wristbandRight", "team"]] },
+    { "team": 1, "number": 30, "height": 2.05, "build": "strong", "skin": "young_caucasian_male2", "hairStyle": "fade", "hair": null, "hairColour": "#222222", "face": 18, "gear": [] }
   ]
 }
