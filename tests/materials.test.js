@@ -55,15 +55,15 @@ test('on High and Ultra the skin shows the muscle detail baked into its normal m
   }
 });
 
-test('the face\'s parts: brows and lashes cut out like hair, a clear glossy cornea over each eye that hides nothing behind it', () => {
+test('the face\'s parts: brows and lashes cut out like hair, a glossy cornea over each eye that only adds its reflections', () => {
   for (const level of QUALITY.order) {
     for (const kind of ['brows', 'lashes']) {
       const m = partMaterial(level, kind, blank());
       assert.deepEqual([m.alphaTest, m.side], [MATERIALS.cutout, THREE.DoubleSide], `${level} ${kind}`);
     }
+    // Black and added to what is behind it: it brings only its reflections, and the iris keeps its colour.
     const cornea = partMaterial(level, 'cornea', null);
-    assert.deepEqual([cornea.transparent, cornea.depthWrite, cornea.roughness, cornea.map], [true, false, MATERIALS.cornea, null], level);
-    assert.ok(cornea.opacity < 0.5, level);
+    assert.deepEqual([cornea.transparent, cornea.depthWrite, cornea.roughness, cornea.map, cornea.blending, cornea.color.getHex()], [true, false, MATERIALS.cornea, null, THREE.AdditiveBlending, 0], level);
     for (const kind of ['eyes', 'mouth']) assert.equal(partMaterial(level, kind, blank()).transparent, false, `${level} ${kind}`);
   }
 });

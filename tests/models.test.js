@@ -55,6 +55,20 @@ test('the skin keeps three quarters of the generated body\'s triangles, and carr
   }
 });
 
+test('each player has his eyes (the detailed ones), a cornea over each, brows, lashes, and a mouth of teeth and tongue', () => {
+  for (const person of people) {
+    const name = rootName(person), kinds = primitivesUnder(players.json, name).map(p => [players.json.materials[p.material].name.split('-')[0], p]);
+    const of = kind => kinds.filter(([k]) => k === kind).map(([, p]) => p);
+    for (const kind of ['eyes', 'cornea', 'brows', 'lashes', 'mouth']) assert.equal(of(kind).length, 1, `${name}: ${of(kind).length} ${kind}`);
+    const triangles = p => players.json.accessors[p.indices].count / 3;
+    assert.ok(triangles(of('eyes')[0]) > 500, `${name}: eyes of ${triangles(of('eyes')[0])} triangles`);   // the low-poly ones have under 200
+    // The cornea is a cap over the front of each eye, standing a few millimetres off it.
+    const eye = players.json.accessors[of('eyes')[0].attributes.POSITION], cornea = players.json.accessors[of('cornea')[0].attributes.POSITION];
+    assert.ok(cornea.max[2] > eye.max[2] && cornea.max[2] < eye.max[2] + 0.005, `${name}: the cornea stands ${((cornea.max[2] - eye.max[2]) * 1000).toFixed(1)} mm in front of the eyes`);
+    assert.ok(cornea.min[2] > (eye.min[2] + eye.max[2]) / 2, `${name}: the cornea reaches behind the middle of the eyes`);
+  }
+});
+
 // One player's kit piece: positions, normals and texture coordinates of the primitive whose material is `name`.
 function piece(person, name) {
   const p = primitivesUnder(players.json, rootName(person)).find(q => players.json.materials[q.material].name === name);

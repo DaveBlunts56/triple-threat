@@ -15,8 +15,6 @@ import { QUALITY, modelFor } from './quality.js';
 
 // The size of each garment's painted picture at full quality, in pixels along each side.
 const GARMENT = Object.freeze({ jersey: 1024, shorts: 512 });
-// Parts of a player that are not shown: smaller than a pixel from the game's camera.
-const HIDDEN = Object.freeze(['eyes', 'brows', 'lashes']);
 
 const IDLE = Object.freeze({ clip: 'idle', rate: 1 });   // what everyone's legs do before and after a match
 const UPRIGHT = Object.freeze({ forward: 0, side: 0 }), AHEAD = Object.freeze({ yaw: 0, pitch: 0 });
@@ -185,7 +183,6 @@ export async function loadPeople(camera) {
       if (part.isBone) part.name = THREE.PropertyBinding.sanitizeNodeName(part.userData.name);
       if (!part.isMesh) return;
       const kind = part.material.name.split('-')[0];
-      if (HIDDEN.includes(kind)) { part.visible = false; return; }
       const place = atlasPart(part.material.name);
       if (place) parts.push([part, place]);
       if (place && part.material.map) drawn[place] = part.material.map.image;
@@ -200,7 +197,7 @@ export async function loadPeople(camera) {
       } else made = atEachLevel(level => partMaterial(level, kind, part.material.map, part.material.normalMap));
       part.material.dispose();
       part.material = made.high;
-      part.castShadow = true;
+      part.castShadow = kind !== 'cornea';
       part.frustumCulled = false;   // its bounds are those of the rest pose, not of where the motion puts it
       dressed.push([part, made]);
       near.push(part);

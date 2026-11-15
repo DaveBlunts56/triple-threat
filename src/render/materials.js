@@ -49,10 +49,11 @@ export function kitMaterial(level, { part, map, normal, fabric }) {
 }
 
 // The materials of the other parts, as the file gives their pictures (`normalMap`: the skin's baked muscle detail, shown
-// on the detailed levels). Hair, brows and lashes are cut out where their picture is clear; the cornea is a clear,
-// glossy shell over each eye that writes no depth, so the eye behind it is never hidden.
+// on the detailed levels). Hair, brows and lashes are cut out where their picture is clear. The cornea is a glossy
+// shell over each eye, black and added to what is behind it, so that it brings only its reflections, and it writes no
+// depth, so the eye behind it is never hidden.
 export function partMaterial(level, kind, map, normalMap = null) {
-  if (kind === 'cornea') return new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: MATERIALS.cornea, metalness: 0, transparent: true, opacity: 0.12, depthWrite: false });
+  if (kind === 'cornea') return new THREE.MeshStandardMaterial({ color: 0x000000, roughness: MATERIALS.cornea, metalness: 0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
   const roughness = { hair: MATERIALS.hair, shoes: MATERIALS.shoes, skin: MATERIALS.skin }[kind] ?? 0.6;
   const cutout = ['hair', 'brows', 'lashes'].includes(kind);
   const options = { map, roughness, metalness: 0, ...(cutout ? { alphaTest: MATERIALS.cutout, side: THREE.DoubleSide } : {}) };

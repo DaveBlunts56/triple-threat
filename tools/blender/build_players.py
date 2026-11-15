@@ -27,12 +27,14 @@ BONE = 'mixamorig:'
 BUILDS = {'slim': (0.65, 0.38), 'athletic': (0.82, 0.45), 'strong': (0.95, 0.58)}
 # Longest side of each picture in pixels, by what it covers. The skin is seen close up; the rest is small on screen.
 # A recoloured hair picture is smaller than one in its own colours, so that ten players fit the size the file may have.
-TEXTURE = {'skin': 2048, 'hair': 512, 'recoloured': 384, 'shoes': 512, 'eyes': 256, 'brows': 256, 'lashes': 256}
-OPAQUE = ('skin', 'shoes', 'eyes')   # the generator wires transparency into every material; these do not need it
+TEXTURE = {'skin': 2048, 'hair': 512, 'recoloured': 384, 'shoes': 512, 'eyes': 256, 'brows': 256, 'lashes': 256, 'mouth': 512}
+OPAQUE = ('skin', 'shoes', 'eyes', 'mouth')   # the generator wires transparency into every material; these do not need it
+# The clear shell over each eye: the faces of the eyes' own outer shell within `front` of looking straight ahead.
+CORNEA = {'front': 0.5}
 SKIN_MARGIN = 0.05   # metres of skin kept under the edge of the kit, so no gap shows when he moves
 # Share of triangles kept when a mesh is simplified. The face, ears and hands keep all of their own, and so does the skin
 # around the shoulders and knees (within `joints` metres of the joint), which bends most in sight.
-KEEP = {'body': 0.75, 'hair': 0.65, 'shoes': 0.65, 'joints': 0.08}
+KEEP = {'body': 0.75, 'hair': 0.65, 'shoes': 0.65, 'mouth': 0.4, 'joints': 0.08}
 # The muscle detail the simplified skin loses, baked from the whole body (subdivided once) into a normal map this many
 # pixels a side, looked for this far either side of the skin.
 DETAIL = {'size': 1024, 'reach': 0.01}
@@ -96,11 +98,13 @@ def make_body(row):
     hair = [('hair', 'hair', f"{row['hair']}/{row['hair']}.mhclo", 'Hair')] if row['hair'] else []
     parts = {}
     for name, subdir, fragment, kind in [
-        ('eyes', 'eyes', 'low-poly/low-poly.mhclo', 'Eyes'),
+        ('eyes', 'eyes', 'high-poly/high-poly.mhclo', 'Eyes'),
         ('brows', 'eyebrows', 'eyebrow001/eyebrow001.mhclo', 'Eyebrows'),
         ('lashes', 'eyelashes', 'eyelashes01/eyelashes01.mhclo', 'Eyelashes'),
         *hair,
         ('shoes', 'clothes', 'shoes05/shoes05.mhclo', 'Clothes'),   # the white trainers, with socks
+        ('teeth', 'teeth', 'teeth_base/teeth_base.mhclo', 'Teeth'),
+        ('tongue', 'tongue', 'tongue01/tongue01.mhclo', 'Tongue'),
     ]:
         parts[name] = HumanService.add_mhclo_asset(asset(fragment, subdir), body, asset_type=kind, subdiv_levels=0, material_type='GAMEENGINE')
     return body, rig, parts
@@ -239,9 +243,81 @@ def bake_detail(whole, skin, name):
     scene.render.engine = engine
 
 
+def make_mouth(teeth, tongue):
+    """The teeth and tongue as one mesh wearing one picture: the teeth's on its left half and the tongue's on its right."""
+    pictures_of = lambda obj: [image for material in obj.data.materials for image in pictures(material)]
+    half = TEXTURE['mouth'] // 2
+    sides = []
+    for obj in (teeth, tongue):
+        image = pictures_of(obj)[0].copy()
+        image.scale(half, half)
+        sides.append(np.array(image.pixels[:], dtype=np.float32).reshape(half, half, 4))
+        bpy.data.images.remove(image)
+    picture = bpy.data.images.new('mouth', 2 * half, half, alpha=False)
+    picture.pixels = np.concatenate(sides, axis=1).ravel()
+    picture.pack()
+    for obj, start in ((teeth, 0.0), (tongue, 0.5)):
+        for corner in obj.data.uv_layers.active.data:
+            corner.uv = (start + corner.uv.x * 0.5, corner.uv.y)
+    for node in teeth.data.materials[0].node_tree.nodes:
+        if node.type == 'TEX_IMAGE' and node.image:
+            node.image = picture
+    tongue.data.materials.clear()
+    tongue.data.materials.append(teeth.data.materials[0])
+    activate(teeth)
+    tongue.select_set(True)
+    bpy.ops.object.join()
+    teeth.name = 'mouth'
+    return teeth
+
+
+def make_cornea(eyes):
+    """The clear shell over the front of each eye, taken from the eyes: the detailed eyes are an eyeball inside a
+    shell, which the generator draws see-through. The shell's front (its faces within CORNEA['front'] of looking
+    straight ahead) becomes the cornea; the rest of it, inside the head, is dropped. Weights come with it."""
+    cornea = eyes.copy()
+    cornea.data = eyes.data.copy()
+    cornea.name = 'cornea'
+    bpy.context.scene.collection.objects.link(cornea)
+    for obj, keep_shell in ((eyes, False), (cornea, True)):
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        bm.normal_update()
+        pieces, left = [], set(bm.faces)
+        while left:                                     # the mesh's separate pieces, each as a set of faces
+            stack, piece = [left.pop()], set()
+            while stack:
+                face = stack.pop()
+                piece.add(face)
+                for edge in face.edges:
+                    for other in edge.link_faces:
+                        if other in left:
+                            left.discard(other)
+                            stack.append(other)
+            pieces.append(piece)
+        front = lambda piece: min(v.co.y for f in piece for v in f.verts)   # he looks along -y
+        side = lambda piece: sum(v.co.x for f in piece for v in f.verts) > 0
+        shells = {id(min((p for p in pieces if side(p) == s), key=front)) for s in (True, False)}   # the front-most piece of each eye
+        doomed = [f for p in pieces for f in p if (id(p) in shells) != keep_shell or (keep_shell and -f.normal.y < CORNEA['front'])]
+        bmesh.ops.delete(bm, geom=doomed, context='FACES')
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+        bm.to_mesh(obj.data)
+        bm.free()
+    cornea.data.materials.clear()
+    if 'cornea' not in bpy.data.materials:   # clear and glossy; the game gives it its own material of the same kind
+        material = bpy.data.materials.new('cornea')
+        material.use_nodes = True
+        shader = next(n for n in material.node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
+        shader.inputs['Base Color'].default_value = (0, 0, 0, 1)
+        shader.inputs['Alpha'].default_value, shader.inputs['Roughness'].default_value = 0.05, 0.05
+        material.surface_render_method = 'BLENDED'
+    cornea.data.materials.append(bpy.data.materials['cornea'])
+    return cornea
+
+
 def part_names(row):
     """What each mesh of a built person is, in the order build_person returns them."""
-    return ['skin', 'jersey', 'shorts', 'eyes', 'brows', 'lashes', *(['hair'] if row['hair'] else []), 'shoes']
+    return ['skin', 'jersey', 'shorts', 'eyes', 'brows', 'lashes', *(['hair'] if row['hair'] else []), 'shoes', 'mouth', 'cornea']
 
 
 def build_person(row, with_doll=False):
@@ -252,6 +328,8 @@ def build_person(row, with_doll=False):
     body, rig, parts = make_body(row)
     for obj in [body, *parts.values()]:
         bake_shape(obj)
+    parts['mouth'] = make_mouth(parts.pop('teeth'), parts.pop('tongue'))
+    parts['cornea'] = make_cornea(parts['eyes'])
     mark, bones, tights = landmarks(rig), dominant_bones(body), in_group(body, 'helper-tights')
     is_skin = in_group(body, 'body')
     doll = cut_out(body, 'doll', lambda i: is_skin[i]) if with_doll else None
@@ -272,6 +350,7 @@ def build_person(row, with_doll=False):
     if 'hair' in parts:
         simplify(parts['hair'], KEEP['hair'])
     simplify(parts['shoes'], KEEP['shoes'])
+    simplify(parts['mouth'], KEEP['mouth'])
     name = f"player-{row['team']}-{row['number']}"
     rig.name = name
     return rig, [body, jersey, shorts, *parts.values()], doll
@@ -343,7 +422,7 @@ def finish(row, rig, meshes, extra=()):
     body = meshes[0]
     for obj, name in zip(meshes, part_names(row)):
         material = obj.data.materials[0]
-        if name not in ('jersey', 'shorts'):
+        if name not in ('jersey', 'shorts', 'cornea'):
             material.name = f'{name}-{rig.name}'
             # The generator's bump pictures cost megabytes and cannot be seen at this size on screen; the skin's own
             # baked detail stays.
