@@ -79,3 +79,26 @@ test('a flat picture of heights makes a flat normal map; a raised square tilts i
   assert.ok(px(8, 3, 1) > 128 && px(8, 12, 1) < 128, 'the top and bottom edges lean out (green points up the picture)');
   assert.deepEqual([px(8, 8, 0), px(8, 8, 1), px(8, 8, 2)], [128, 128, 255], 'its middle is flat');
 });
+
+test('a player\'s far model wears one picture with a place for each part, none overlapping and all inside it', async () => {
+  const { ATLAS, atlasPart, atlasRect, atlasUV } = await import('../src/render/kit.js');
+  const parts = Object.keys(ATLAS.cells);
+  assert.deepEqual(parts, ['skin', 'jersey', 'shorts', 'hair', 'shoes']);
+  for (const part of parts) {
+    const [x, y, w, h] = ATLAS.cells[part];
+    assert.ok(x >= 0 && y >= 0 && x + w <= 1 && y + h <= 1 && w > 0 && h > 0, part);
+    for (const other of parts) if (other !== part) {
+      const [ox, oy, ow, oh] = ATLAS.cells[other];
+      assert.ok(x + w <= ox || ox + ow <= x || y + h <= oy || oy + oh <= y, `${part} overlaps ${other}`);
+    }
+    // The picture is drawn a few pixels inside its place, so that neighbours never bleed into it when shrunk.
+    const [rx, ry, rw, rh] = atlasRect(part), gutter = ATLAS.gutter / ATLAS.size;
+    assert.ok(Math.abs(rx - x - gutter) < 1e-12 && Math.abs(ry - y - gutter) < 1e-12 && Math.abs(rw - w + 2 * gutter) < 1e-12 && Math.abs(rh - h + 2 * gutter) < 1e-12);
+    assert.deepEqual(atlasUV(part, 0, 0), [rx, ry]);
+    assert.deepEqual(atlasUV(part, 1, 1), [rx + rw, ry + rh]);
+    assert.deepEqual(atlasUV(part, -0.2, 1.3), [rx, ry + rh]);                // a stray point is held inside its own place
+  }
+  assert.deepEqual(['skin-player-0-4', 'jersey', 'shorts', 'hair-player-1-8', 'shoes-player-0-7', 'eyes-player-0-4', 'brows-player-0-4', 'lashes-player-0-4'].map(atlasPart),
+    ['skin', 'jersey', 'shorts', 'hair', 'shoes', null, null, null]);
+  assert.ok([ATLAS, ATLAS.cells].every(Object.isFrozen));
+});

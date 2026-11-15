@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { QUALITY, createQuality, autoQuality, stepQuality, pixelRatioFor, prefersWebGL } from '../src/render/quality.js';
+import { QUALITY, createQuality, autoQuality, stepQuality, pixelRatioFor, prefersWebGL, modelFor } from '../src/render/quality.js';
 
 // `seconds` of frames `ms` long, playing or not. Returns how many times the level changed.
 const play = (q, ms, seconds, playing = true) => { let changed = 0; for (let t = 0; t < seconds * 1000; t += ms) changed += autoQuality(q, ms, playing); return changed; }
@@ -9,10 +9,10 @@ const pressTo = (q, level) => { do stepQuality(q); while (q.level !== level); };
 
 test('the four levels are the ones in the design, and nothing can change them', () => {
   assert.deepEqual(QUALITY.order, ['low', 'medium', 'high', 'ultra']);
-  assert.deepEqual(QUALITY.low, { label: 'Low', pixelRatio: 0.75, pixels: 600000, shadow: 1024, soft: false, textures: 0.5, floor: 1024, crowd: 0.15, aa: 'none', ao: false, bloom: false, mirror: 0 });
-  assert.deepEqual(QUALITY.medium, { label: 'Medium', pixelRatio: 1, pixels: 1100000, shadow: 1024, soft: true, textures: 0.5, floor: 1024, crowd: 0.5, aa: 'fxaa', ao: false, bloom: false, mirror: 0 });
-  assert.deepEqual(QUALITY.high, { label: 'High', pixelRatio: 2, pixels: 2100000, shadow: 2048, soft: true, textures: 1, floor: 2048, crowd: 1, aa: 'smaa', ao: true, bloom: true, mirror: 0.5 });
-  assert.deepEqual(QUALITY.ultra, { label: 'Ultra', pixelRatio: 2, pixels: 3700000, shadow: 4096, soft: true, textures: 1, floor: 2048, crowd: 1, aa: 'smaa', ao: true, bloom: true, mirror: 1 });
+  assert.deepEqual(QUALITY.low, { label: 'Low', pixelRatio: 0.75, pixels: 600000, shadow: 1024, soft: false, textures: 0.5, floor: 1024, crowd: 0.15, aa: 'none', ao: false, bloom: false, mirror: 0, models: { near: 0 } });
+  assert.deepEqual(QUALITY.medium, { label: 'Medium', pixelRatio: 1, pixels: 1100000, shadow: 1024, soft: true, textures: 0.5, floor: 1024, crowd: 0.5, aa: 'fxaa', ao: false, bloom: false, mirror: 0, models: { near: 0 } });
+  assert.deepEqual(QUALITY.high, { label: 'High', pixelRatio: 2, pixels: 2100000, shadow: 2048, soft: true, textures: 1, floor: 2048, crowd: 1, aa: 'smaa', ao: true, bloom: true, mirror: 0.5, models: { near: 9 } });
+  assert.deepEqual(QUALITY.ultra, { label: 'Ultra', pixelRatio: 2, pixels: 3700000, shadow: 4096, soft: true, textures: 1, floor: 2048, crowd: 1, aa: 'smaa', ao: true, bloom: true, mirror: 1, models: { near: 9 } });
   assert.deepEqual([QUALITY.autoAfter, QUALITY.autoBelow, QUALITY.longest], [3, 50, 100]);
   assert.ok([QUALITY, QUALITY.order, ...QUALITY.order.map(level => QUALITY[level])].every(Object.isFrozen));
 });
@@ -151,4 +151,10 @@ test('the game draws with WebGL 2 in Firefox, whose WebGPU is slow, and wherever
   assert.deepEqual([prefersWebGL(firefox, ''), prefersWebGL(chrome, '')], [true, false]);
   assert.deepEqual([prefersWebGL(chrome, '#webgl'), prefersWebGL(firefox, '#webgpu')], [true, false]);   // the address has the last word
   assert.equal(prefersWebGL(undefined, undefined), false);
+});
+
+test('High and Ultra draw a player\'s full model within 9 m of the camera and his far one beyond; Low and Medium always the far one', () => {
+  assert.deepEqual(QUALITY.order.map(level => QUALITY[level].models.near), [0, 0, 9, 9]);
+  for (const level of ['high', 'ultra']) assert.deepEqual([modelFor(level, 0.5), modelFor(level, 8.9), modelFor(level, 9.1), modelFor(level, 40)], ['near', 'near', 'far', 'far']);
+  for (const level of ['low', 'medium']) assert.deepEqual([modelFor(level, 0.5), modelFor(level, 20)], ['far', 'far']);
 });

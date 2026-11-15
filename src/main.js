@@ -33,7 +33,7 @@ const MENU_ONCE = new Set(['Enter', 'Space', 'Escape', 'Backspace']);   // a hel
 const view = await createScene(document.getElementById('court'));
 if (view) {
   // The generated players. If their files are missing or broken the match is still playable, with capsules.
-  const people = await loadPeople().catch(error => { console.warn('Players could not be loaded; using capsules.', error); return null; });
+  const people = await loadPeople(view.camera).catch(error => { console.warn('Players could not be loaded; using capsules.', error); return null; });
   const actors = createActors(view.scene, people);
   const hud = createHud(document);
   // What was saved the last time, and the keys as they were left. Both are kept up to date and saved at every change.
