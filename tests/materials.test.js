@@ -91,7 +91,7 @@ test('skin on High and Ultra: rough by its region, never glossy when dry, wetter
   assert.ok(Math.abs(skinRoughness(0.6, 1, 1) - 0.6 * 0.45) < 1e-9);
   assert.equal(skinRoughness(0.4, 1, 1), 0.2);
   assert.equal(skinRoughness(0.6, 1, 0), 0.6);   // where no sweat gathers it stays dry
-  assert.deepEqual([MATERIALS.skinLook.pores, MATERIALS.skinLook.fade], [40, [2, 8]]);
+  assert.deepEqual([MATERIALS.skinLook.pores, MATERIALS.skinLook.fade], [60, [2, 8]]);
   for (const level of ['high', 'ultra']) {
     const m = skinMaterial(level, { map: blank(), normalMap: blank(), pores: blank() });
     assert.equal(m.type, 'MeshPhysicalNodeMaterial', level);

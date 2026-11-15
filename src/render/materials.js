@@ -24,7 +24,7 @@ export const MATERIALS = f({
   cutout: 0.4, hair: 0.65, shoes: 0.4, skin: 0.55, cornea: 0.05, gear: 0.7,
   strands: f({ rough: 0.5, repeat: f([24, 48]), detail: 0.8, sheen: 0.5 }),
   jerseySweat: f({ darker: 0.12, chest: f([0.25, 0.45, 0.12, 0.2]), back: f([0.75, 0.3, 0.12, 0.15]) }),
-  skinLook: f({ sheen: 0.35, sheenColour: 0x4a1e14, sheenRough: 0.6, pores: 40, poreDetail: 0.5, fade: f([2, 8]), floor: 0.4, wet: 0.55, darker: 0.08, least: 0.2 }),
+  skinLook: f({ sheen: 0.35, sheenColour: 0x4a1e14, sheenRough: 0.6, pores: 60, poreDetail: 0.3, fade: f([2, 8]), floor: 0.4, wet: 0.55, darker: 0.08, least: 0.2 }),
 });
 
 export const isDetailed = level => MATERIALS.detailed.includes(level);

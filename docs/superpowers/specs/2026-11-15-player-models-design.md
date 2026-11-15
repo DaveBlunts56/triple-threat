@@ -242,3 +242,33 @@ given varied, invented looks: every style used at least once, about half of them
 - **Morph targets on joined meshes.** The game today joins every part of a player into one mesh; the head with its
   expressions must stay a mesh of its own.
 - **Size and load time.** The file roughly doubles in size, so the first load from Drive is slower.
+
+## 13. As built (2026-11-15)
+
+Built in the five stages, each looked at in film strips, contact sheets (`docs/superpowers/stills/2026-11-15-models/`:
+`before`, `stage1`, `stage2`, `stage4`, `after`) and close-ups in the game. Where it differs from the sections above:
+
+- **Kit (5).** The jersey is tucked into the shorts (a loose hem ballooned into a skirt). Bindings are strips sewn
+  along the edges. The picture wraps round the body and each leg (laid on flat, the sides were squeezed into a
+  sliver). From the chest up the jersey takes the weights of the skin under it, and its looseness tapers to 2% at the
+  shoulders. Two spring bones (the shorts' legs), not four; the locs add two more. High has no cloth sheen (it cost
+  27% a frame); Ultra has it.
+- **Body and face (6).** The skin keeps the face, ears, neck, hands, shoulders and knees whole and 55% of the rest: 87-90%
+  of it in all (the plan said 75% overall; with skin taken away under hair, gear and cloth, an overall share starved
+  the rest and streaked the neck). Skin the kit covers well is taken away. The cornea is the front of the high-poly eyes'
+  own shell, black and additive. Teeth and tongue are one mesh.
+- **Hair (7.1).** Grown from each head's own skin above a hairline. Twists droop, locs lie on the head and hang, the high
+  top is short at the sides. The afro stays the pack's: a modelled one read as a mushroom, its hairline running over
+  the ears. Each style has its own small picture; there is no fade mask.
+- **Gear (7.2).** As written, but the shoes are painted in the build (it knows each player's team), and the high-tops
+  keep the pack's sole (a thicker one would lift him off his planted feet): no separate rim, heel counter or laces map.
+- **Skin and sweat (8).** The masks are the skin's vertex colours, not a picture. Sweat follows the match's own clock.
+- **Levels of detail (9).** The far model is made in the build: each player copied, without eyes, mouth or
+  expressions, simplified to 15,000 triangles. Each mesh drawn costs about 27 microseconds on this computer whatever
+  its size, which is why Low and Medium draw only the far one. The near model draws ten meshes, not five; it is drawn
+  only within 9 m on High and Ultra. Pictures are WebP.
+- **Budgets met:** near 29,000-38,000 triangles (≤ 45,000), far 15,000 (≤ 18,000); `players.glb` 34.5 MB (≤ 35); the
+  single file about 54 MB. Frame time on the same seeded match against the branch point, back to back: Low 108%,
+  Medium 91%, High 111% (budgets 110% and 130%). Ultra was 143% before the far models and not measured since.
+- **Not checked:** the Chromebook; Ultra up close in the game (the test pane could not capture it); skin through cloth
+  is checked by eye only. Known: a few white flecks of binding at the jersey's straps up close.
