@@ -97,8 +97,8 @@ TIP = {'Spine1': (0, 3, 0), 'Spine2': (0, 3, 0), 'Neck': (-10, 0, 0), 'Head': (-
 # The moves. A step-back starts with the ball low on the right: on the hip, with the trunk bent over it.
 LOW = {**ON_HIP, 'Spine1': (16, 0, -8), 'Spine2': (12, 0, -7), 'Neck': (-12, 0, 7), 'Head': (-12, 0, 8)}
 
-# The three dribble moves are of the whole body: low on bent legs, the ball hand taken from low and wide on his right
-# to low and wide on his left. The ball itself is drawn by the game: out of one hand, off the floor, up into the other.
+# The dribble moves take the ball hand from low and wide on his right to low and wide on his left. A crossover and
+# behind the back are of the whole body, low on bent legs; between the legs is taken in the step he is in. The ball itself is drawn by the game: out of one hand, off the floor, up into the other.
 # An arm low and wide with the open hand to the front (the guard's), and an arm low in front of the body (the dip's).
 WIDE = {'RightArm': (-20, 13, 24), 'RightForeArm': (9, -19, -47), 'RightHand': (-12, -29, -21)}
 IN = {'RightArm': (23, -18, 45), 'RightForeArm': (-53, -28, 31), 'RightHand': (-53, -10, -42)}
@@ -120,14 +120,11 @@ def over(bend, lean=0, turn=0):
 # A crossover: the stance, the trunk swung from over his right knee, down through the middle, to over his left.
 CROSS_FROM = {**CROUCH, **over(30, -14, -18), **WIDE, **left(IN)}
 CROSS_MID = {**CROUCH_LOW, **over(40), **IN, **left(IN)}
-# Between the legs: the left foot a stride in front of the right, both knees bent, the feet far enough apart for the
-# ball to go through; bent right over it.
-SPLIT = {'Hips': (8, 0, 0), 'Spine': (10, 0, 0),
-         'LeftUpLeg': (-62, -7, 0), 'LeftLeg': (62, 0, 0), 'LeftFoot': (-8, 0, 0),
-         'RightUpLeg': (2, 7, 0), 'RightLeg': (58, 0, 0), 'RightFoot': (-30, 0, 0)}
-LEGS_FROM = {**SPLIT, **over(36, -8, -14), **WIDE, **left(IN)}
-LEGS_MID = {**SPLIT, **over(46), **IN, **left(IN)}
-LEGS_TO = {**SPLIT, **over(36, 8, 14), **IN, **left(WIDE)}
+# Between the legs: the arms and the upper trunk only, so that his legs go on with the step he is taking and his
+# feet do not slide. Bent right over the ball, which goes under him from one hand to the other.
+LEGS_FROM = {**over(40, -8, -14), **WIDE, **left(IN)}
+LEGS_MID = {**over(52), **IN, **left(IN)}
+LEGS_TO = {**over(40, 8, 14), **IN, **left(WIDE)}
 # Behind the back: the stance with the trunk up, turned to the right as the right arm wraps back round the hip, then
 # to the left as the left hand takes the ball behind him and brings it out wide.
 BACK_FROM = {**CROUCH, **over(6, 0, -8), **WIDE, **left(WIDE)}

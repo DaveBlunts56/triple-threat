@@ -13,9 +13,8 @@ const between = (a, b, share) => ({
 
 // The ball in a dribble move (see moveSpot). leave, arrive: the shares of the move at which it leaves the hand it is
 // in and reaches the other. ahead: metres in front of his feet at which it meets the floor on the way, for each move:
-// a crossover in front of him; between the legs under him, between the knee of the leg behind and the shin of the leg
-// in front; behind the back behind his heels, clear of him.
-export const MOVE_BALL = Object.freeze({ leave: 0.15, arrive: 0.85, ahead: Object.freeze({ cross: 0.45, legs: 0.15, back: -0.45 }) });
+// a crossover in front of him; between the legs under him; behind the back behind his heels, clear of him.
+export const MOVE_BALL = Object.freeze({ leave: 0.15, arrive: 0.85, ahead: Object.freeze({ cross: 0.45, legs: 0.05, back: -0.45 }) });
 const MOVE_CLIPS = ['crossover', 'betweenLegs', 'behindBack'];
 
 // The hands a ball is carried in for the arm motion `clip`: one for a dribble, both for everything else; in a dribble

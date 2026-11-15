@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { easeFacing, leanOf, lookTarget, headTurn, easeHead } from '../src/render/bearing.js';
 import { MOTION } from '../src/render/motion.js';
 import { chestTip } from '../src/render/bearing.js';
-import { LEG_CLIPS, ARM_CLIPS } from '../src/render/motion.js';
+import { LEG_CLIPS, ARM_CLIPS, BENT_CLIPS } from '../src/render/motion.js';
 import { emptyIntent } from '../src/sim/state.js';
 import { passBall } from '../src/sim/players.js';
 import { PLAYER, RIM } from '../src/sim/tuning.js';
@@ -88,12 +88,18 @@ test('the chest bends to a dribble on upright legs and comes up under a hand-mad
   assert.ok(near(tip(5, { dribble: 1 }), rad(dribble - 5)));               // upright legs: forward to the dribble's lean
   assert.ok(near(tip(5, { dribbleLeft: 1 }), rad(dribble - 5)));
   assert.equal(tip(dribble + 10, { dribble: 1 }), 0);                      // leaning further already: left alone
-  for (const clip of ARM_CLIPS.filter(name => !name.startsWith('dribble'))) {
+  for (const clip of ARM_CLIPS.filter(name => !name.startsWith('dribble') && !BENT_CLIPS.includes(name))) {
     assert.ok(near(tip(made + 25, { [clip]: 1 }), rad(-25)), clip);        // leaning legs: back up
     assert.equal(tip(made - 10, { [clip]: 1 }), 0, clip);                  // upright legs: left alone
   }
   assert.ok(near(tip(5, { dribble: 0.5, walk: 0.5 }), rad(dribble - 5) / 2));                 // half shown: half the bend
   assert.ok(near(tip(made + 8, { dribble: 0.25, catch: 0.75 }), 0.25 * rad(dribble - made - 8) - 0.75 * rad(8)));
+  // Between the legs is made bent well over: it is let lean to MOTION.chestLow, and brought back only from further.
+  for (const clip of BENT_CLIPS) {
+    assert.ok(near(tip(MOTION.chestLow + 20, { [clip]: 1 }), rad(-20)), clip);
+    assert.equal(tip(MOTION.chestLow - 5, { [clip]: 1 }), 0, clip);
+  }
+  assert.ok(MOTION.chestLow > MOTION.chestMade + 20);
   // A motion of the whole body brought its own legs: it is left as it was made, however far over.
   assert.equal(chestTip(rad(made + 25), { ...none, crossover: 1 }, ['crossover']), 0);
   assert.ok(near(chestTip(rad(made + 25), { ...none, crossover: 0.5, catch: 0.5 }, ['crossover']), rad(-25) / 2));

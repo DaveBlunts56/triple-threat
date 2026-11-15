@@ -2,7 +2,7 @@
 import { PLAYER } from '../sim/tuning.js';
 import { attackSign } from '../sim/state.js';
 import { rimCentre } from '../sim/ball.js';
-import { MOTION, ARM_CLIPS, dist, nearestOpponent, defending } from './motion.js';
+import { MOTION, ARM_CLIPS, BENT_CLIPS, dist, nearestOpponent, defending } from './motion.js';
 import { manOf } from '../sim/matchups.js';
 
 const rad = degrees => (degrees * Math.PI) / 180;
@@ -83,14 +83,16 @@ const DRIBBLES = ['dribble', 'dribbleLeft'];
 // How far to tip the chest forward over the pose the two layers give, in radians (negative: back). `pitch` is how far
 // forward that pose's chest leans, in radians, and `arms` each arms-layer motion's share of it. The dribble was made on
 // legs that lean, so on legs that lean less it asks for the chest to come forward to MOTION.chestDribble; the poses made
-// by hand were made on upright legs, so on legs that lean more they ask for it to come back to MOTION.chestMade; the arms
+// by hand were made on upright legs, so on legs that lean more they ask for it to come back to MOTION.chestMade
+// (MOTION.chestLow for those made bent well over); the arms
 // that follow the legs ask for nothing, and nor does a motion of the whole body (`whole`: their names), which brought
 // its own legs. Each asks by its share.
 export function chestTip(pitch, arms, whole = []) {
   let tip = 0;
   for (const name in arms) {
     if (whole.includes(name)) continue;
-    if (DRIBBLES.includes(name)) tip += arms[name] * Math.max(0, rad(MOTION.chestDribble) - pitch);
+    if (BENT_CLIPS.includes(name)) tip += arms[name] * Math.min(0, rad(MOTION.chestLow) - pitch);
+    else if (DRIBBLES.includes(name)) tip += arms[name] * Math.max(0, rad(MOTION.chestDribble) - pitch);
     else if (ARM_CLIPS.includes(name)) tip += arms[name] * Math.min(0, rad(MOTION.chestMade) - pitch);
   }
   return tip;

@@ -137,8 +137,10 @@ test('the motions that were downloaded are as they were', () => {
   for (const [name, seconds] of Object.entries(lengths)) assert.equal(motionFacts.clips[name].duration, seconds, name);
 });
 
-test('a step-back and a fade made by hand move the arms and the upper trunk only: the legs and hips stay as they rest', () => {
-  for (const name of ['stepBack', 'fade'].filter(byHand)) for (const share of [0, 0.5, 1]) {
+test('between the legs, a step-back and a fade made by hand move the arms and the upper trunk only: the legs are left to the step he is taking', () => {
+  if (byHand('betweenLegs')) assert.notEqual(motionFacts.clips.betweenLegsLeft.whole, true, 'nor is its twin of the whole body');
+  for (const name of ['betweenLegs', 'stepBack', 'fade'].filter(byHand)) for (const share of [0, 0.5, 1]) {
+    assert.notEqual(motionFacts.clips[name].whole, true, `${name} is not of the whole body`);
     const p = posed(name, share);
     for (const bone of ['Hips', 'LeftLeg', 'RightLeg', 'LeftFoot', 'RightFoot']) assert.ok(p[bone].distanceTo(still[bone]) < 0.002, `${name} at ${share}: ${bone}`);
   }
@@ -146,9 +148,9 @@ test('a step-back and a fade made by hand move the arms and the upper trunk only
 
 const DRIBBLES = ['crossover', 'betweenLegs', 'behindBack'].filter(byHand);
 
-test('a dribble move made by hand is of the whole body: low on bent legs throughout, a toe of each foot on the floor', () => {
+test('a crossover and behind the back made by hand are of the whole body: low on bent legs throughout, a toe of each foot on the floor', () => {
   const floor = posed('stance', 0);
-  for (const name of DRIBBLES) {
+  for (const name of DRIBBLES.filter(name => name !== 'betweenLegs')) {
     assert.equal(motionFacts.clips[name].whole, true, `${name} says it is of the whole body`);
     assert.equal(motionFacts.clips[`${name}Left`].whole, true, `${name}Left`);
     for (const share of [0, 0.25, 0.5, 0.75, 1]) {
@@ -178,18 +180,13 @@ test('a crossover swings the trunk over a wide stance, from over the ball on one
   assert.ok(mid.Head.y < start.Head.y - 0.03 && mid.Head.z > still.Head.z + 0.25, 'lowest and furthest over in the middle');
 });
 
-test('between the legs he is in a stride, with room under him for the ball to go between the leg behind and the leg in front', () => {
+test('between the legs he is bent well over the ball, lowest as it goes under him', () => {
   if (!byHand('betweenLegs')) return;
-  for (const share of [0, 0.5, 1]) {
-    const p = posed('betweenLegs', share);
-    assert.ok(p.LeftFoot.z - p.RightFoot.z > 0.6, `the left foot is ${p.LeftFoot.z - p.RightFoot.z} m in front of the right`);
-    assert.ok(p.LeftFoot.x - p.RightFoot.x > 0.4, `feet ${p.LeftFoot.x - p.RightFoot.x} m apart across`);
-    // Where the ball meets the floor (hands.js: MOVE_BALL.ahead.legs in front of his feet's middle, which the hips are over).
-    const gap = p.Hips.z + MOVE_BALL.ahead.legs;
-    assert.ok(p.RightLeg.z < gap - 0.15 && p.LeftFoot.z > gap + 0.15 && p.LeftLeg.z > gap + 0.15, `the ball lands ${gap} m forward: knee behind ${p.RightLeg.z}, shin in front ${p.LeftFoot.z}`);
-  }
-  const twin = posed('betweenLegsLeft', 0.5);
-  assert.ok(twin.RightFoot.z - twin.LeftFoot.z > 0.6, 'the twin leads with the other foot');
+  const start = posed('betweenLegs', 0), mid = posed('betweenLegs', 0.5), end = posed('betweenLegs', 1);
+  // Measured on legs that stand straight; in the game his legs are bent and lean, and he is lower still.
+  for (const p of [start, mid, end]) assert.ok(p.Head.z > still.Head.z + 0.08 && p.Head.y < still.Head.y - 0.05, `the head is ${p.Head.z - still.Head.z} m forward, ${still.Head.y - p.Head.y} m down`);
+  assert.ok(mid.Head.y < start.Head.y - 0.02 && mid.Head.y < end.Head.y - 0.02, 'lowest in the middle');
+  assert.ok(Math.abs(mid.LeftHand.x) < 0.3 && Math.abs(mid.RightHand.x) < 0.3, 'both hands in by the ball as it goes under');
 });
 
 test('behind the back the right hand goes back round the hip, then the left takes the ball there and brings it out', () => {

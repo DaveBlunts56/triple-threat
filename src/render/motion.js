@@ -25,7 +25,8 @@ import { manOf } from '../sim/matchups.js';
 // forward or back and to either side. leanEase: seconds over which the lean follows what he does. headYaw, headPitch:
 // degrees the head turns at most, to either side and up or down. headEase: how quickly the head follows, a second.
 // eye: metres from his feet up to his eyes. chestDribble: degrees forward the chest leans in the dribble, which was made
-// on legs that lean; chestMade: degrees forward it leans at most under the poses made by hand, made on upright legs.
+// on legs that lean; chestMade: degrees forward it leans at most under the poses made by hand, made on upright legs;
+// chestLow: the same for the ones made bent well over (BENT_CLIPS).
 // guardHold: seconds a defender keeps guarding, or not guarding, before he may change. headBehind: degrees round from
 // the way he is drawn facing beyond which he does not look at a thing but where he is going. headRate: degrees a second
 // the head turns at most, each way. ballHeld: metres up a ball somebody holds is looked at, whatever its bounce.
@@ -40,7 +41,7 @@ export const MOTION = Object.freeze({
   handStick: 0.4, guardFar: 0.4, sideStick: 10, minRateStep: 0.35,
   dribbleHold: 0.55, handSwitch: 0.2, freeThrowSet: 0.45,
   turnRate: 900, leanForward: 12, leanSide: 10, leanEase: 0.15, headYaw: 70, headPitch: 30, headEase: 8, eye: 1.7,
-  chestDribble: 30, chestMade: 15,
+  chestDribble: 30, chestMade: 15, chestLow: 45,
   guardHold: 0.5, headBehind: 120, headRate: 360, ballHeld: 1.1,
 });
 
@@ -55,6 +56,8 @@ export const OPTIONAL_CLIPS = Object.freeze(['celebrate', 'dejected', 'stumble']
 
 // The motion of each move (see sim/moves.js). The three dribbles are made for a ball that starts in the right hand
 // and have a twin, named with Left, for one that starts in the left.
+// The arm motions made bent well over the ball: between the legs, which is taken in the step he is in.
+export const BENT_CLIPS = Object.freeze(['betweenLegs', 'betweenLegsLeft']);
 const MOVE_CLIP = Object.freeze({ cross: 'crossover', legs: 'betweenLegs', back: 'behindBack', stepBack: 'stepBack' });
 const TWINNED = ['cross', 'legs', 'back'];
 

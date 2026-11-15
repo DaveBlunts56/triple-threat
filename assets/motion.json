@@ -163,15 +163,13 @@
       "duration": 0.4,
       "loop": false,
       "kind": "once",
-      "from": "hand",
-      "whole": true
+      "from": "hand"
     },
     "betweenLegsLeft": {
       "duration": 0.4,
       "loop": false,
       "kind": "once",
-      "from": "hand",
-      "whole": true
+      "from": "hand"
     },
     "behindBack": {
       "duration": 0.5,

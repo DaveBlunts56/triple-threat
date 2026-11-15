@@ -34,7 +34,7 @@ test('every motion the two tables name has its place on a layer', () => {
   const a = fresh();
   // The legs play their own motions and those of the whole body: the dribble moves, made by hand or downloaded.
   const whole = ARM_CLIPS.filter(name => wholeBody(facts.clips, name));
-  assert.deepEqual(whole.filter(name => facts.clips[name].from === 'hand').sort(), ['behindBack', 'behindBackLeft', 'betweenLegs', 'betweenLegsLeft', 'crossover', 'crossoverLeft']);
+  assert.deepEqual(whole.filter(name => facts.clips[name].from === 'hand').sort(), ['behindBack', 'behindBackLeft', 'crossover', 'crossoverLeft']);
   assert.deepEqual(Object.keys(a.weights.legs).sort(), [...LEG_CLIPS, ...whole].sort());
   assert.deepEqual(Object.keys(a.weights.arms).sort(), [...LEG_CLIPS, ...ARM_CLIPS].sort());
 });
@@ -185,7 +185,7 @@ test('a dribble move made by hand is played by the legs too: he drops low for it
   const a = fresh(), hips = () => { gltf.scene.updateMatrixWorld(true); return bone('mixamorigHips').getWorldPosition(new THREE.Vector3()).y; };
   frames(a, 30, idle, null);
   const stood = hips();
-  for (const name of ['crossover', 'betweenLegsLeft', 'behindBack']) {
+  for (const name of ['crossover', 'crossoverLeft', 'behindBack']) {
     assert.equal(facts.clips[name].whole, true, name);
     const move = { clip: name, at: 0.5 };
     frames(a, 6, move, move);                                             // 0.1 s: fully in
@@ -194,6 +194,15 @@ test('a dribble move made by hand is played by the legs too: he drops low for it
     frames(a, 30, idle, null);
     assert.ok(Math.abs(hips() - stood) < 0.03, `${name}: back up`);
   }
+});
+
+test('between the legs is taken in the step he is in: the legs keep their gait, so his feet do not slide, and only the trunk and arms make the move', () => {
+  const a = fresh(), move = { clip: 'betweenLegs', at: 0.5 };
+  assert.equal(wholeBody(facts.clips, 'betweenLegs'), false);
+  frames(a, 30, run, null);
+  frames(a, 12, run, move);
+  assert.deepEqual([a.weights.legs.run, a.weights.arms.betweenLegs], [1, 1]);
+  assert.equal('betweenLegs' in a.weights.legs, false);
 });
 
 test('the head turns toward what it is given: right for a positive yaw, up for a positive pitch, and the middle of the spine stays out of it', () => {
