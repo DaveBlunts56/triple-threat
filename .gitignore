@@ -8,3 +8,6 @@ assets/source/*.blend1
 assets/source/*.fbx
 __pycache__/
 assets/source/sounds/
+tools/video/.venv/
+tools/video/models/
+tools/video/out/
