@@ -12,22 +12,31 @@ const inside = (y, [top, bottom]) => y >= top && y <= bottom;
 
 test('a jersey is the team colour, its bindings white, its side panels a darker team colour, its number on the chest and the back', () => {
   const ops = kitOps('jersey', 23);
-  const fillAt = region => ops.find(o => o.rect && inside(centre(o.rect), KIT.layout[region])).fill;
-  assert.deepEqual(['main', 'trim', 'panel'].map(fillAt), ['team', 'trim', 'panel']);
+  assert.equal(ops[0].fill, 'team');
+  assert.equal(ops.find(o => o.rect && inside(centre(o.rect), KIT.layout.trim)).fill, 'trim');
+  const sides = ops.filter(o => o.fill === 'panel');
+  assert.equal(sides.length, 4, 'a side panel at each side edge of the front and of the back');
+  for (const o of sides) assert.ok(KIT.sides.at.some(x => o.rect[0] <= x + 1e-9 && o.rect[0] + o.rect[2] >= x - 1e-9), `a side panel at ${o.rect[0]} is at no side edge`);
   assert.deepEqual(ops.filter(o => o.text).map(o => [o.text, o.at[0], o.fill]), [['23', 0.25, 'trim'], ['23', 0.75, 'trim']]);
-  for (const o of ops.filter(o => o.text)) assert.ok(inside(o.at[1] - o.height / 2, KIT.layout.main) && inside(o.at[1] + o.height / 2, KIT.layout.main), 'a number leaves the main panels');
+  for (const o of ops.filter(o => o.text)) {
+    assert.ok(inside(o.at[1] - o.height / 2, KIT.layout.main) && inside(o.at[1] + o.height / 2, KIT.layout.main), 'a number leaves the main panels');
+    const halfWidth = (o.height * KIT.digit * o.text.length) / 2;
+    assert.ok(sides.every(p => o.at[0] + halfWidth <= p.rect[0] + 1e-9 || o.at[0] - halfWidth >= p.rect[0] + p.rect[2] - 1e-9), 'a number reaches a side panel');
+  }
 });
 
-test('shorts carry white bindings and stripes but no number', () => {
+test('shorts carry white bindings and white stripes down their sides but no number', () => {
   const ops = kitOps('shorts', 23);
   assert.equal(ops.some(o => o.text), false);
-  assert.equal(ops.find(o => o.rect && inside(centre(o.rect), KIT.layout.panel)).fill, 'trim');
+  const stripes = ops.filter(o => o.rect && o.rect[3] > 0.5 && o.fill === 'trim');
+  assert.equal(stripes.length, 4);
+  assert.ok(stripes.every(o => o.rect[2] <= KIT.sides.shorts + 0.03));
 });
 
 test('every region is painted edge to edge, a little past its own edges', () => {
-  for (const part of ['jersey', 'shorts']) for (const region of ['main', 'trim', 'panel']) {
-    const [top, bottom] = KIT.layout[region], op = kitOps(part, 4).find(o => o.rect && inside(centre(o.rect), KIT.layout[region]));
-    assert.ok(op.rect[0] === 0 && op.rect[2] === 1 && op.rect[1] < top + 1e-9 && op.rect[1] + op.rect[3] > bottom - 1e-9, `${part} ${region}`);
+  for (const part of ['jersey', 'shorts']) for (const region of ['main', 'trim']) {
+    const [top, bottom] = KIT.layout[region], op = kitOps(part, 4).find(o => o.rect && o.rect[2] === 1 && inside(centre(o.rect), KIT.layout[region]));
+    assert.ok(op.rect[0] === 0 && op.rect[1] < top + 1e-9 && op.rect[1] + op.rect[3] > bottom - 1e-9, `${part} ${region}`);
   }
 });
 
@@ -46,13 +55,15 @@ test('painting puts the colours and the number where the layout says, in pixels'
   assert.ok(Math.abs(texts[0][5] - KIT.chest.height * 512 * KIT.digit) < 1e-9, `the chest number's maximum width is ${texts[0][5]}`);
 });
 
-test('what stands out: the numbers and rows of stitches along the seams, on flat cloth', () => {
+test('what stands out: the numbers, stitches along the bindings, and down each side panel\'s seams, on flat cloth', () => {
   const ops = heightOps('jersey', 12);
   assert.deepEqual(ops[0], { fill: 'low', rect: [0, 0, 1, 1] });
   assert.deepEqual(ops.filter(o => o.text).map(o => o.text), ['12', '12']);
-  const rows = new Set(ops.filter(o => o.rect && o.fill === 'high').map(o => centre(o.rect).toFixed(4)));
-  assert.equal(rows.size, 3, 'three seams are stitched');
-  for (const y of rows) assert.ok(inside(+y, KIT.layout.trim) || inside(+y, KIT.layout.panel), `stitches at ${y} are on no seam`);
+  const stitched = ops.filter(o => o.rect && o.fill === 'high'), onTrim = o => inside(centre(o.rect), KIT.layout.trim);
+  assert.equal(new Set(stitched.filter(onTrim).map(o => centre(o.rect).toFixed(4))).size, 1, 'one row along the bindings');
+  assert.ok(stitched.filter(o => !onTrim(o)).every(o => inside(centre(o.rect), KIT.layout.main)), 'stitches off the seams');
+  const down = new Set(stitched.filter(o => !onTrim(o)).map(o => (o.rect[0] + o.rect[2] / 2).toFixed(4)));
+  assert.equal(down.size, 6, 'two seams down each inner side panel and one down each outer one');
   assert.equal(heightOps('shorts', 12).some(o => o.text), false);
 });
 

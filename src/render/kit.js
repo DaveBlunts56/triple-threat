@@ -4,8 +4,9 @@ const f = Object.freeze;
 
 // layout: the regions of each garment's picture, as [top, bottom] shares of its height (the build lays the garment
 // out so: tools/blender/kit.py LAYOUT): main, the front panel on the left and the back on the right, the garment's top
-// along the top; trim, the bindings, waistband and hems, with their inner (stitched) edge at the bottom; panel, the side
-// panels and stripes, with the edges where they are stitched to the front and the back at its top and bottom.
+// along the top; trim, the bindings, waistband and hems, with their inner (stitched) edge at the bottom.
+// sides: where the front panel meets the back, as [x, width] shares of the picture's width: the side panels of a
+// jersey and the stripes of the shorts are painted there, as wide as `sides` says for each.
 // size: pixels along each side of a garment's picture. team: the colour each team wears. trim: the bindings and the
 // numbers. shade: how much darker than the team's colour a jersey's side panels are. font: {px} stands for the height
 // of a number in pixels. digit: the widest one digit is painted, as a share of its height: the cloth stretches the
@@ -13,7 +14,8 @@ const f = Object.freeze;
 // and how tall it is. stitch: the stitching along each seam: [length, gap, thickness] of a stitch, in shares of the
 // picture, and how far in from the seam it runs.
 export const KIT = f({
-  layout: f({ main: f([0, 0.8]), trim: f([0.82, 0.9]), panel: f([0.92, 1]) }),
+  layout: f({ main: f([0, 0.8]), trim: f([0.82, 0.9]) }),
+  sides: f({ at: f([0.02, 0.48, 0.52, 0.98]), jersey: 0.05, shorts: 0.025 }),
   size: 512, team: f(['#2f6fe0', '#d83a3a']), trim: '#ffffff', shade: 0.7, font: 'bold {px}px system-ui, sans-serif', digit: 0.45,
   chest: f({ at: f([0.25, 0.34]), height: 0.21 }),
   back: f({ at: f([0.75, 0.32]), height: 0.27 }),
@@ -25,31 +27,43 @@ export const TEAM_COLOURS = KIT.team.map(hex => parseInt(hex.slice(1), 16));   /
 // A region of the picture, [top, bottom], as a rectangle [x, y, width, height] across the whole width, a pixel's worth
 // wider each way so that no seam of the background shows between regions when the picture is shrunk.
 const band = ([top, bottom]) => [0, Math.max(0, top - 0.008), 1, Math.min(1, bottom + 0.008) - Math.max(0, top - 0.008)];
+// The side panels or stripes of a `part`, as rectangles [x, y, width, height] down the main region at the side edges
+// of its front and back panels; the outermost reach the picture's edges.
+const sideRects = part => {
+  const w = KIT.sides[part], [top, bottom] = KIT.layout.main, h = bottom - top, [a, b, c, d] = KIT.sides.at;
+  return [[0, top, a + w, h], [b - w, top, w, h], [c, top, w, h], [d - w, top, 1 - d + w, h]];
+};
 
 // What to paint on a `part` ('jersey' or 'shorts') of the player wearing `number`, in the order it is painted:
 // { fill, rect } or { text, at, height, fill }, placed as in KIT, with `fill` naming 'team', 'trim' or 'panel'.
 export function kitOps(part, number) {
   const ops = [
     { fill: 'team', rect: band(KIT.layout.main) },
+    ...sideRects(part).map(rect => ({ fill: part === 'jersey' ? 'panel' : 'trim', rect })),
     { fill: 'trim', rect: band(KIT.layout.trim) },
-    { fill: part === 'jersey' ? 'panel' : 'trim', rect: band(KIT.layout.panel) },
   ];
   if (part === 'jersey') for (const spot of [KIT.chest, KIT.back]) ops.push({ text: String(number), ...spot, fill: 'trim' });
   return ops;
 }
 
-// A row of stitches across the picture at height y.
+// A row of stitches across the picture at height y; a column of them down the main region at x.
 const stitches = y => {
   const [length, gap, thick] = KIT.stitch.dash, ops = [];
   for (let x = 0; x < 1; x += length + gap) ops.push({ fill: 'high', rect: [x, y - thick / 2, length, thick] });
   return ops;
 };
+const stitchesDown = x => {
+  const [length, gap, thick] = KIT.stitch.dash, [top, bottom] = KIT.layout.main, ops = [];
+  for (let y = top; y < bottom; y += length + gap) ops.push({ fill: 'high', rect: [x - thick / 2, y, thick, Math.min(length, bottom - y)] });
+  return ops;
+};
 
 // What stands out of the cloth on a `part`, painted as heights (white raised, black flat) in the same places: the
-// numbers, which are stitched on, and the stitching along each seam.
+// numbers, which are stitched on, the stitching along the bindings' inner edge, and down each side panel's seams.
 export function heightOps(part, number) {
-  const { trim, panel } = KIT.layout, inset = KIT.stitch.inset;
-  const ops = [{ fill: 'low', rect: [0, 0, 1, 1] }, ...stitches(trim[1] - inset), ...stitches(panel[0] + inset), ...stitches(panel[1] - inset)];
+  const { trim } = KIT.layout, inset = KIT.stitch.inset;
+  const seams = sideRects(part).flatMap(([x, , w]) => [x + inset, x + w - inset]).filter(x => x > 0.01 && x < 0.99);
+  const ops = [{ fill: 'low', rect: [0, 0, 1, 1] }, ...stitches(trim[1] - inset), ...seams.flatMap(stitchesDown)];
   if (part === 'jersey') for (const spot of [KIT.chest, KIT.back]) ops.push({ text: String(number), ...spot, fill: 'high' });
   return ops;
 }

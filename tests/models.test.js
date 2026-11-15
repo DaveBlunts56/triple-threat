@@ -66,12 +66,12 @@ test('jersey and shorts are laid out as a front panel and a back panel, the righ
   }
 });
 
-test('the kit is cloth with thickness, with bindings and side panels, and the jersey is tucked into the shorts', () => {
+test('the kit is cloth with thickness, with bindings, and the jersey is tucked into the shorts', () => {
   const inRegion = (uv, region) => uv[1] >= KIT.layout[region][0] - 0.005 && uv[1] <= KIT.layout[region][1] + 0.005;
   for (const person of people) {
     const name = rootName(person), jersey = piece(person, 'jersey'), shorts = piece(person, 'shorts');
     for (const [part, kit] of [['jersey', jersey], ['shorts', shorts]]) {
-      for (const region of ['trim', 'panel']) assert.ok(kit.uv.filter(uv => inRegion(uv, region)).length > 40, `${name} ${part}: no ${region}`);
+      assert.ok(kit.uv.filter(uv => inRegion(uv, 'trim')).length > 40, `${name} ${part}: no bindings`);
       // Thickness: from a point on the outside, 3 to 5 mm in along its normal, there is a point of the inside.
       let found = 0, tried = 0;
       for (let i = 0; i < kit.at.length && tried < 40; i += 97) {

@@ -2,10 +2,10 @@
 cloth simulation, given bindings, side panels, thickness and a layout the game paints. Used by build_players.py.
 
 The layout of each garment's picture, with (0, 0) at its top left (as src/render/kit.js paints it):
-    MAIN    the front panel on the left half and the back panel on the right, the garment's top along the top edge
-    TRIM    a strip: the bindings round the neck and the arm holes, the waistband and the hems; v runs from the
-            garment's edge (top of the strip) to the binding's inner edge (bottom), where it is stitched on
-    PANEL   a strip: the side panels and stripes; v runs across the panel, from where it meets the front to the back
+    MAIN    the front panel on the left half and the back panel on the right, the garment's top along the top edge;
+            its side panels and stripes are painted at the edges of the two, where the front meets the back
+    TRIM    a strip: the bindings round the neck and the arm holes, the waistband and the shorts' hems; v runs from
+            the garment's edge (top of the strip) to the binding's inner edge (bottom), where it is stitched on
 """
 import math
 
@@ -20,10 +20,9 @@ BONE = 'mixamorig:'
 JERSEY = {'chest': 0.09, 'hem': 0.07, 'tuck': 0.08}
 SHORTS = {'hip': 0.10, 'hem': 0.52, 'above_knee': 0.03, 'rise': 0.09}   # rise: metres the waistband sits above the hip bone's root
 # Regions of each garment's picture, as (top, bottom) shares of its height. Must match KIT.layout in src/render/kit.js.
-LAYOUT = {'main': (0.0, 0.8), 'trim': (0.82, 0.9), 'panel': (0.92, 1.0)}
+LAYOUT = {'main': (0.0, 0.8), 'trim': (0.82, 0.9)}
 PANEL = {'front': 0.25, 'back': 0.75, 'width': 0.46}      # the main panels: their middles across the picture, and their width
-BINDING = {'width': 0.016, 'proud': 0.003}               # metres: how wide a binding is, and how far it stands off the cloth
-SIDE = {'jersey': 0.035, 'shorts': 0.016}                 # metres either side of the side line that are panel or stripe
+BINDING = {'width': 0.016, 'proud': 0.0025, 'over': 0.002}   # metres: how wide a binding is, how far it stands off the cloth, how far past its edge it wraps
 THICK = 0.004                                             # metres of cloth
 # The drape: frames of cloth simulation, and the most any point may move or go into the body before the drape is
 # thrown away for that garment.
@@ -181,79 +180,83 @@ def drape(piece, collider, pins):
     return True
 
 
-def boundary_distance(piece, bound=lambda co: True):
-    """For each vertex, metres to the nearest point of the garment's edges that `bound(point)` says are bound."""
-    bm = bmesh.new()
-    bm.from_mesh(piece.data)
-    edge = [v.co.copy() for v in bm.verts if v.is_boundary and bound(v.co)]
-    bm.free()
-    from mathutils.kdtree import KDTree
-    tree = KDTree(len(edge))
-    for i, co in enumerate(edge):
-        tree.insert(co, i)
-    tree.balance()
-    return [tree.find(v.co)[2] for v in piece.data.vertices]
-
-
-def side_offset(co, centre_y, axis_x, piece_name):
-    """Metres along the surface (roughly) from the side line of the garment, signed: below 0 toward the front."""
-    dx, dy = co.x - axis_x, co.y - centre_y
-    radius = max(math.hypot(dx, dy), 1e-6)
-    angle = math.atan2(dy, abs(dx))                         # 0 at the side, toward -pi/2 at the front (humans face -Y)
-    return angle * radius
-
-
-def lay_out(piece, kind, mark):
-    """Material regions and UVs. Each face is MAIN, TRIM (within a binding's width of an edge) or PANEL (within the
-    side panel's width of the side line); its corners are placed in that region of the picture."""
+def lay_out(piece):
+    """The garment's own faces, in the MAIN region: the front panel on the left, the back on the right, each the right
+    way round from outside, its top at the top of the region."""
     mesh = piece.data
     xs, zs = [v.co.x for v in mesh.vertices], [v.co.z for v in mesh.vertices]
     width, lowest, height = max(xs) - min(xs), min(zs), max(zs) - min(zs)
-    # The jersey's hem is tucked into the shorts: it has no binding.
-    to_edge = boundary_distance(piece, (lambda co: co.z > lowest + 0.03) if kind == 'jersey' else (lambda co: True))
-    thigh = mark['thigh']
-
-    def offset(co):
-        if kind == 'shorts' and co.z < mark['hip'] - 0.10:   # below the crotch each leg has its own outer side
-            side = 1 if co.x >= 0 else -1
-            return side_offset(co, thigh.y, side * abs(thigh.x), kind) if co.x * side > 0 else 1.0
-        return side_offset(co, mark['spine_y'], 0.0, kind)
-
-    region = {}
-    for polygon in mesh.polygons:
-        corners = [mesh.vertices[i].co for i in polygon.vertices]
-        centre = sum(corners, Vector()) / len(corners)
-        if min(to_edge[i] for i in polygon.vertices) < BINDING['width'] * 0.75:
-            region[polygon.index] = 'trim'
-        elif abs(offset(centre)) < SIDE[kind] and (kind == 'jersey' or abs(centre.x) > 0.02):
-            region[polygon.index] = 'panel'
-        else:
-            region[polygon.index] = 'main'
-
+    top, bottom = LAYOUT['main']
     uv = mesh.uv_layers.active.data
     for polygon in mesh.polygons:
-        r = region[polygon.index]
-        top, bottom = LAYOUT[r]
-        front = polygon.normal.y < 0
+        front = polygon.normal.y < 0                        # humans face -Y
         for corner, vertex in zip(polygon.loop_indices, polygon.vertices):
             co = mesh.vertices[vertex].co
-            if r == 'main':
-                across = PANEL['width'] * co.x / width
-                u = PANEL['front'] + across if front else PANEL['back'] - across
-                v = top + (bottom - top) * (1 - (co.z - lowest) / height)
-            elif r == 'trim':
-                u = 0.5 + 0.45 * math.sin(co.x * 9 + co.z * 5)
-                v = top + (bottom - top) * min(1.0, to_edge[vertex] / BINDING['width'])
-            else:
-                u = 0.05 + 0.9 * (1 - (co.z - lowest) / height)
-                v = top + (bottom - top) * min(1.0, max(0.0, 0.5 + offset(co) / (2 * SIDE[kind])))
+            across = PANEL['width'] * co.x / width
+            u = PANEL['front'] + across if front else PANEL['back'] - across
+            v = top + (bottom - top) * (1 - (co.z - lowest) / height)
             uv[corner].uv = (u, 1 - v)                      # Blender's v runs up; the picture's rows run down
-    # The bindings stand off the cloth.
-    raised = {i for p in mesh.polygons if region[p.index] == 'trim' for i in p.vertices}
-    for i in raised:
-        v = mesh.vertices[i]
-        v.co += v.normal * BINDING['proud']
-    return region
+
+
+def bind(piece, bound):
+    """Sews a binding along each edge of the garment that `bound(point)` says is bound: a strip BINDING['width'] wide,
+    standing BINDING['proud'] off the cloth and wrapping just past its edge, in the TRIM region of the picture.
+    Its points take the weights of the edge they are sewn to, so it moves with the garment."""
+    bm = bmesh.new()
+    bm.from_mesh(piece.data)
+    bm.verts.ensure_lookup_table()
+    deform = bm.verts.layers.deform.active
+    uv_layer = bm.loops.layers.uv.active
+    edges = [e for e in bm.edges if e.is_boundary]
+    # The edge's loops, each in order.
+    left, loops = set(edges), []
+    while left:
+        first = left.pop()
+        loop, at, came = [first.verts[0], first.verts[1]], first.verts[1], first
+        while True:
+            nxt = next((e for e in at.link_edges if e in left), None)
+            if nxt is None:
+                break
+            left.discard(nxt)
+            at = nxt.other_vert(at)
+            if at is loop[0]:
+                break
+            loop.append(at)
+        loops.append(loop)
+    sewn = 0
+    top, bottom = LAYOUT['trim']
+    for loop in loops:
+        if not all(bound(v.co) for v in loop):
+            continue
+        points = []
+        for v in loop:
+            n = v.normal.copy()
+            inner = [e.other_vert(v).co for e in v.link_edges if not e.is_boundary]
+            into = (sum(inner, Vector()) / len(inner) - v.co) if inner else Vector((0, 0, -1))
+            into = (into - n * into.dot(n)).normalized()
+            outer = bm.verts.new(v.co - into * BINDING['over'] + n * BINDING['proud'] * 0.5)
+            inside = bm.verts.new(v.co + into * BINDING['width'] + n * BINDING['proud'])
+            for made in (outer, inside):
+                if deform is not None:
+                    for group, weight in v[deform].items():
+                        made[deform][group] = weight
+            points.append((outer, inside))
+        length, along = 0.0, [0.0]
+        for a, b in zip(loop, loop[1:] + loop[:1]):
+            length += (a.co - b.co).length
+            along.append(length)
+        for i in range(len(loop)):
+            j = (i + 1) % len(loop)
+            (o1, i1), (o2, i2) = points[i], points[j]
+            face = bm.faces.new((o1, o2, i2, i1))
+            u1, u2 = along[i] / length, along[i + 1] / length
+            for corner, (u, v) in zip(face.loops, ((u1, top), (u2, top), (u2, bottom), (u1, bottom))):
+                corner[uv_layer].uv = (u, 1 - v)
+        sewn += 1
+    bm.normal_update()
+    bm.to_mesh(piece.data)
+    bm.free()
+    return sewn
 
 
 def tuck(jersey, shorts, waist):
@@ -274,19 +277,6 @@ def tuck(jersey, shorts, waist):
             v.co = at - normal * room
             pulled += 1
     print(f'KIT tucked {pulled} points of the jersey into the shorts')
-
-
-def refine_edges(piece, bound):
-    """Halves the faces along the garment's bound edges: the body's helper surface is coarse (faces about 2.5 cm), too
-    coarse for a binding 1.6 cm wide. Only there, so the rest keeps its triangles few."""
-    bm = bmesh.new()
-    bm.from_mesh(piece.data)
-    near = {f for v in bm.verts if v.is_boundary and bound(v.co) for f in v.link_faces}
-    near |= {g for f in list(near) for v in f.verts for g in v.link_faces}       # and the ring beyond them
-    edges = list({e for f in near for e in f.edges})
-    bmesh.ops.subdivide_edges(bm, edges=edges, cuts=1, use_grid_fill=True, smooth=0.0)
-    bm.to_mesh(piece.data)
-    bm.free()
 
 
 def thicken(piece):
@@ -323,8 +313,9 @@ def make_kit(body, collider, mark, bones, tights):
     tuck(jersey, shorts, waist)
     for piece, kind in ((jersey, 'jersey'), (shorts, 'shorts')):
         lowest = min(v.co.z for v in piece.data.vertices)
-        refine_edges(piece, (lambda co: co.z > lowest + 0.03) if kind == 'jersey' else (lambda co: True))
-        lay_out(piece, kind, mark)
+        lay_out(piece)
+        # The jersey's hem is tucked into the shorts: it has no binding.
+        bind(piece, (lambda co: co.z > lowest + 0.03) if kind == 'jersey' else (lambda co: True))
         piece.data.materials.clear()
         piece.data.materials.append(material(kind))
         thicken(piece)
