@@ -15,6 +15,8 @@ export const LINES = Object.freeze({
   play: ['{team} set up {play}.', '{play} called for {team}.', 'They go to {play}.'],
   made2: ['{name} scores.', '{name}, good for two.', 'Two more for {name}.', '{name} knocks it down.'],
   madeAssist: ['{name} scores, from {off}.', '{off} finds {name} for two.', 'Nice feed from {off}, and {name} finishes.'],
+  dunk: ['{name} throws it down!', 'A slam by {name}!', '{name} rises and hammers it home.'],
+  layup: ['{name} lays it in.', '{name} goes to the rim, and scores.', 'Off the glass and in for {name}.'],
   made3: ['{name} for three. Good!', 'A three from {name}.', '{name} buries the three.', 'From downtown, {name}.'],
   miss: ['{name} misses.', 'No good from {name}.', 'Off the mark from {name}.', '{name} cannot get it to fall.'],
   rebound: ['Rebound, {name}.', '{name} cleans the glass.', '{name} has the board.'],
@@ -78,7 +80,7 @@ function worded(booth, key, facts) {
 export function lineFor(booth, h, state) {
   const facts = { name: h.name, team: h.team === null ? '' : short(h.team), other: h.team === null ? '' : short(1 - h.team), n: h.n, off: h.off, play: h.play };
   let key = h.kind;
-  if (h.kind === 'made') { key = h.points === 3 ? 'made3' : h.assist ? 'madeAssist' : 'made2'; facts.off = h.assist; }
+  if (h.kind === 'made') { key = h.points === 3 ? 'made3' : h.finish === 'dunk' ? 'dunk' : h.finish === 'layup' ? 'layup' : h.assist ? 'madeAssist' : 'made2'; facts.off = h.assist; }
   else if (h.kind === 'rebound') key = h.own ? 'reboundOff' : 'rebound';
   else if (h.kind === 'block') key = h.chase ? 'blockChase' : 'block';
   else if (h.kind === 'foul') { key = h.fouler ? 'foul' : 'foulTeam'; facts.name = h.fouler; facts.what = FOUL_WORDS[h.what] ?? ''; }

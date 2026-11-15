@@ -179,3 +179,15 @@ test('through a whole match every sound asked for is one the game has, the ears 
   const minutes = s.time / 60, squeaks = counts.squeak1 + counts.squeak2 + counts.squeak3;
   assert.ok(squeaks / minutes > 4 && squeaks / minutes < 45, `${(squeaks / minutes).toFixed(0)} squeaks a minute`);
 });
+
+test('a dunk rattles the rim as it goes through the net, and lifts the home crowd as a big moment does', () => {
+  const [s, ears] = heardOnce();
+  s.last.score = { team: 0, by: 0, row: 0, points: 2, finish: 'dunk', at: s.time + DT };
+  assert.deepEqual(then(s, ears, { scored: 1 }).sort(), ['net', 'rim1']);
+  s.last.score = { team: 0, by: 0, row: 0, points: 2, finish: 'layup', at: s.time + DT };
+  assert.deepEqual(then(s, ears, { scored: 1 }), ['swish']);                       // a layup is a basket like any other
+  const life = createLife();
+  assert.deepEqual(names(frameCues(ears, s, [{ kind: 'made', moment: false, team: 0, points: 2, finish: 'dunk' }], life)), ['cheerBig']);
+  assert.deepEqual(names(frameCues(ears, s, [{ kind: 'made', moment: false, team: 1, points: 2, finish: 'dunk' }], life)), ['groan']);
+  assert.deepEqual(names(frameCues(ears, s, [{ kind: 'made', moment: false, team: 0, points: 2, finish: 'layup' }], life)), ['cheer']);
+});

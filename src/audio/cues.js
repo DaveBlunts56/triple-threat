@@ -44,7 +44,12 @@ export function listen(ears, state, events) {
   if (events.hitFloor && ball.vy > CUE.bounceFrom && spaced(ears, 'bounce', t, CUE.hitApart)) cue(ears, take(ears, 'bounce', 3), Math.max(0.25, Math.min(1, ball.vy / 5)));
   if (events.hitRim) { ears.touched = true; if (spaced(ears, 'rim', t, CUE.hitApart)) cue(ears, take(ears, 'rim', 2), 0.8); }
   if (events.hitBoard) { ears.touched = true; if (spaced(ears, 'board', t, CUE.hitApart)) cue(ears, 'board', 0.8); }
-  if (events.scored) { cue(ears, ears.touched ? 'net' : 'swish', 0.9); ears.touched = false; }
+  if (events.scored) {
+    // A dunk goes through with the rim rattling.
+    const dunk = state.last.score?.finish === 'dunk' && Math.abs(state.last.score.at - t) < 1e-6;
+    if (dunk) cue(ears, take(ears, 'rim', 2), 1);
+    cue(ears, dunk || ears.touched ? 'net' : 'swish', 0.9); ears.touched = false;
+  }
   // A dribble: the ball meets the floor twice in each of its beats, as the rules bounce it.
   const holder = state.players[ball.holder];
   const dribbling = holder && state.phase === 'live' && onFloor(holder) && !holder.shooting && !holder.inbounder && !holder.held && Math.hypot(holder.vx, holder.vz) > 0.5;
@@ -81,7 +86,7 @@ export function listen(ears, state, events) {
 // Returns { shots: [{ name, gain, rate }], bed: 0 to 1, distract: 0 to 1 }.
 export function frameCues(ears, state, heard, life) {
   for (const h of heard) {
-    if (h.moment) cue(ears, h.team === 0 ? 'cheerBig' : 'groan', h.team === 0 ? 1 : 0.9);       // the home crowd, for and against
+    if (h.moment || (h.kind === 'made' && h.finish === 'dunk')) cue(ears, h.team === 0 ? 'cheerBig' : 'groan', h.team === 0 ? 1 : 0.9);       // the home crowd, for and against: a big moment, or a dunk
     else if (h.kind === 'made') cue(ears, h.team === 0 ? 'cheer' : 'groan', h.team === 0 ? (h.points === 3 ? 0.8 : 0.6) : 0.5);
   }
   if (life.boo > ears.boo + 0.5) cue(ears, 'boo', 0.8);   // a call against the home team

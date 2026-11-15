@@ -195,3 +195,17 @@ test('a new match starts the broadcast afresh: nothing of the last one is said o
   assert.deepEqual([shown.banner, shown.caption, shown.lower], [null, null, null]);
   assert.ok(voice.stops >= 1);
 });
+
+test('a dunk and a layup are called as what they were, with the scorer named', () => {
+  const s = createMatch(), booth = createBooth();
+  const made = finish => ({ kind: 'made', team: 0, name: 'Cross', points: 2, assist: null, finish });
+  for (let i = 0; i < 4; i++) {
+    const dunk = lineFor(booth, made('dunk'), s), layup = lineFor(booth, made('layup'), s);
+    assert.ok(LINES.dunk.some(line => line.replace('{name}', 'Cross') === dunk), dunk);
+    assert.ok(LINES.layup.some(line => line.replace('{name}', 'Cross') === layup), layup);
+    assert.ok(!/[{}]/.test(dunk + layup));
+  }
+  assert.ok(LINES.made2.some(line => line.replace('{name}', 'Cross') === lineFor(booth, made(null), s)));
+  assert.equal(LINES.dunk.length, 3); assert.equal(LINES.layup.length, 3);
+  assert.equal(rankOf(made('dunk')), rankOf(made(null)));                 // an ordinary basket's rank
+});
