@@ -106,13 +106,17 @@ At the end of the gather he jumps at `FINISH.jump[finish]` m/s (layup 3.2, dunk 
 speed that puts him `FINISH.arrive[finish]` metres in front of its centre at the finish's moment. He turns to face the
 rim and stays so.
 
-- **Layup:** the ball leaves his hand when the key is let go, as a shot's does, or as he begins to come down if it is
-  still held. Its chance, its green window, the contest, the block and the foul are the shot's own, from where he is
-  at the release, on his Inside. The best moment is `SHOT.bestAt` of the way up this jump.
+- **Layup:** the ball leaves his hand when the key is let go in the air, as a shot's does, or as he begins to come
+  down if it is still held. A key let go during the gather (a tap) lays it up at the best moment, but such a layup
+  is never green: the green is for a release timed in the air. Its chance, its green window, the contest, the block
+  and the foul are the shot's own, from where he is at the release, on his Inside. The best moment is `SHOT.bestAt`
+  of the way up this jump.
 - **Dunk:** nothing to time. At `FINISH.dunkMoment` (0.69) of the jump the ball goes down through the rim. It scores with
   chance `FINISH.dunkChance × (1 − FINISH.dunkContest × (1 − contest))`, where `contest` is the shot's own (1 open,
   0.5 smothered): 0.97 open, about 0.75 smothered. The level's make and timing factors do not apply: there is nothing
-  to time. A miss comes off the back of the rim as any miss does. A defender in the air within reach can block it, by
+  to time. A miss comes off the back of the rim as any miss does. If he has been kept from the rim (a
+  defender in his way) and is further than `FINISH.reach` from its centre at that moment, there is no dunk: the ball
+  is laid up from where he is, as a layup let go then. A defender in the air within reach can block it, by
   the shot's own rule, and contact is a foul by the shot's own rule: a dunk through a foul is an and-one.
 - Either way it counts as a field-goal attempt and a two, and an assist as any basket does. The basket is remembered
   with `finish`, so the broadcast can say what it was.
@@ -203,6 +207,8 @@ The landing is the one the game has.
 | `dunkAt` | 78 | The Inside from which a player can dunk (10 of the 16) |
 | `dunkEnergy` | 0.25 | The energy below which he cannot |
 | `dunkChance`, `dunkContest` | 0.97, 0.45 | An open dunk's chance, and how much of it a defender can take |
+| `reach` | 0.9 m | The furthest from the rim's centre he can be at the dunk's moment and still dunk |
+| `dunkDrop` | 4 m/s | How fast the ball goes down through the rim |
 | `stealFactor` | 0.5 | What a reach's chance is multiplied by during the gather |
 
 ## 8. Testing and measuring
