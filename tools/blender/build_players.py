@@ -42,6 +42,8 @@ EXPRESSIONS = {
 # Skin the kit covers is taken away when cloth lies within `reach` metres along its normal and along lines `spread`
 # (about 14 degrees) to each side of it.
 COVER = {'reach': 0.03, 'spread': 0.25}
+# The far level of detail (spec section 9): about this many triangles, without the parts too small to see from afar.
+FAR = {'triangles': 15000, 'without': ('eyes', 'cornea', 'brows', 'lashes', 'mouth')}
 # The skin's regions, kept in its vertex colours for the game's skin material (src/render/materials.js skinMaterial):
 # red how rough it is, green how much sweat gathers there. `rough` and `sweat` give each region's values.
 MASKS = {
@@ -631,6 +633,30 @@ def finish(row, rig, meshes, extra=()):
     return body
 
 
+def make_far(body, rig):
+    """The far level of detail: a copy of the finished player (`body`, one mesh on `rig`) without the parts FAR leaves
+    out, without expressions, simplified to about FAR['triangles'], on the same skeleton. Named <player>-far."""
+    far = body.copy()
+    far.data = body.data.copy()
+    far.name = far.data.name = f'{rig.name}-far'
+    bpy.context.scene.collection.objects.link(far)
+    far.shape_key_clear()   # the points stay as they are at rest
+    for colours in list(far.data.color_attributes):   # the skin's masks are for the near skin's material only
+        far.data.color_attributes.remove(colours)
+    drop = {i for i, m in enumerate(far.data.materials) if m.name.split('-')[0] in FAR['without']}
+    bm = bmesh.new()
+    bm.from_mesh(far.data)
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index in drop], context='FACES')
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+    bm.to_mesh(far.data)
+    bm.free()
+    triangles = sum(len(p.vertices) - 2 for p in far.data.polygons)
+    simplify(far, min(1.0, FAR['triangles'] / triangles))
+    for index in sorted(drop, reverse=True):   # the slots of the parts left out, now empty
+        far.data.materials.pop(index=index)
+    return far
+
+
 def report(name, meshes):
     counts = {}
     for obj in meshes:
@@ -656,6 +682,7 @@ def main():
         counts[rig.name] = {'skin': rig['skinTriangles']}
         report(rig.name, meshes)
         body = players[rig.name] = finish(row, rig, meshes)
+        make_far(body, rig)
         lo, hi = bounds([body])
         print(f'BUILD {rig.name}: stands {hi.z:.3f} m, feet at {lo.z:.3f} m, materials {[m.name for m in body.data.materials]}')
     bodies = list(players.values())
@@ -683,7 +710,7 @@ def main():
     bpy.ops.export_scene.gltf(
         filepath=project('assets', 'players.glb'), export_format='GLB', use_selection=False,
         export_animations=False, export_skins=True, export_morph=True, export_morph_normal=False, export_yup=True, export_vertex_color='ACTIVE',
-        export_image_format='JPEG', export_jpeg_quality=85, export_materials='EXPORT',
+        export_image_format='WEBP', export_image_quality=85, export_materials='EXPORT',
         export_cameras=False, export_lights=False, export_extras=False)
     print('BUILD wrote assets/players.glb', os.path.getsize(project('assets', 'players.glb')), 'bytes')
 

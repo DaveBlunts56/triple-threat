@@ -10,6 +10,8 @@ import { KIT } from '../src/render/kit.js';
 const players = readGlb('assets/players.glb');
 const people = JSON.parse(readFileSync('assets/source/people.json', 'utf8')).people;
 const rootName = p => `player-${p.team}-${p.number}`;
+// The picture a texture shows: in its own `source`, or for a WebP picture in its extension's.
+const sourceOf = texture => players.json.textures[texture].source ?? players.json.textures[texture].extensions?.EXT_texture_webp?.source;
 const trianglesUnder = (gltf, name) => primitivesUnder(gltf, name).reduce((sum, p) => sum + gltf.accessors[p.indices].count / 3, 0);
 // The lowest point of the player's meshes and the top of his skin: an afro or a bald head must not change how tall he measures.
 // Transforms are applied before export, so these are metres.
@@ -50,7 +52,7 @@ test('the skin keeps three quarters or more of the generated body\'s triangles, 
     assert.ok(share >= 0.7 && share <= 0.92, `${name}: the skin keeps ${(share * 100).toFixed(0)}% of its triangles`);
     const normal = players.json.materials[skin.material].normalTexture;
     assert.ok(normal, `${name}: the skin has no normal map`);
-    const image = players.json.images[players.json.textures[normal.index].source], view = players.json.bufferViews[image.bufferView];
+    const image = players.json.images[sourceOf(normal.index)], view = players.json.bufferViews[image.bufferView];
     assert.deepEqual(imageSize(players.bin.subarray(view.byteOffset ?? 0, (view.byteOffset ?? 0) + view.byteLength), image.mimeType), [1024, 1024]);
   }
 });
@@ -73,7 +75,7 @@ test('the skin carries the four expressions, and they move only his face: nothin
   const { Matrix4, Vector3 } = await import('three');
   for (const person of people) {
     const name = rootName(person), root = players.json.nodes.findIndex(n => n.name === name);
-    const meshNode = nodesUnder(players.json, root).map(i => players.json.nodes[i]).find(n => n.mesh !== undefined);
+    const meshNode = nodesUnder(players.json, root).map(i => players.json.nodes[i]).find(n => n.mesh !== undefined && !n.name.endsWith('-far'));
     const mesh = players.json.meshes[meshNode.mesh];
     assert.deepEqual(mesh.extras?.targetNames, ['blink', 'effort', 'shout', 'dejected'], `${name}: ${mesh.extras?.targetNames}`);
     // The neck's height: where the skin's Neck joint is, from its inverse bind matrix.
@@ -110,7 +112,7 @@ test('each player\'s hair sits on his head (locs hang lower), within 9,000 trian
   const { Matrix4, Vector3 } = await import('three');
   for (const person of people) {
     const name = rootName(person), root = players.json.nodes.findIndex(n => n.name === name);
-    const meshNode = nodesUnder(players.json, root).map(i => players.json.nodes[i]).find(n => n.mesh !== undefined), skin = players.json.skins[meshNode.skin];
+    const meshNode = nodesUnder(players.json, root).map(i => players.json.nodes[i]).find(n => n.mesh !== undefined && !n.name.endsWith('-far')), skin = players.json.skins[meshNode.skin];
     const joint = bone => skin.joints.find(j => players.json.nodes[j].name === bone);
     const hair = primitivesUnder(players.json, name).find(p => players.json.materials[p.material].name.startsWith('hair'));
     assert.ok(hair, `${name}: no hair`);
@@ -168,12 +170,12 @@ test('each player wears the gear the table gives him, with the skin under a slee
     for (let t = 0; t < index.length; t += 3) for (const k of [1, 2]) parent.set(find(key(index[t + k])), find(key(index[t])));
     const pieces = new Map();
     for (const i of index) { const r = find(key(i)), p = pieces.get(r) ?? { n: 0, top: -Infinity }; p.n++; p.top = Math.max(p.top, at[3 * i + 1]); pieces.set(r, p); }
-    const meshNode = nodesUnder(players.json, players.json.nodes.findIndex(n => n.name === name)).map(i => players.json.nodes[i]).find(n => n.mesh !== undefined);
+    const meshNode = nodesUnder(players.json, players.json.nodes.findIndex(n => n.name === name)).map(i => players.json.nodes[i]).find(n => n.mesh !== undefined && !n.name.endsWith('-far'));
     const skinOf = players.json.skins[meshNode.skin], foot = skinOf.joints.findIndex(j => players.json.nodes[j].name === 'mixamorig:LeftFoot');
     const ankle = new Vector3().setFromMatrixPosition(new Matrix4().fromArray(floatsOf(players, skinOf.inverseBindMatrices).slice(16 * foot, 16 * foot + 16)).invert()).y;
     for (const p of [...pieces.values()].sort((a, b) => b.n - a.n).slice(0, 2)) assert.ok(p.top > ankle + 0.06, `${name}: a shoe reaches ${(p.top - ankle).toFixed(3)} m over his ankle`);
     const picture = material(shoe).pbrMetallicRoughness.baseColorTexture.index;
-    (shoes[person.team] ??= new Set()).add(players.json.textures[picture].source);
+    (shoes[person.team] ??= new Set()).add(sourceOf(picture));
   }
   assert.equal(shoes[0].size, 1, 'every player of a team wears the same shoes');
   assert.notDeepEqual([...shoes[0]], [...shoes[1]], 'the two teams\' shoes are painted alike');
@@ -196,6 +198,24 @@ test('the skin carries its regions in its vertex colours: how rough (red) and wh
     assert.deepEqual([...rough].sort(), ['0.45', '0.55', '0.60'], `${name}: roughness ${[...rough]}`);
     assert.ok(forehead.length > 10 && forehead.filter(([r, g]) => r < 0.5 && g === 1).length > forehead.length / 2, `${name}: the forehead`);
   }
+});
+
+test('each player has a near and a far level of detail on one skeleton: the far one under 18,000 triangles, without expressions, eyes or mouth; pictures in WebP', () => {
+  for (const person of people) {
+    const name = rootName(person), root = players.json.nodes.findIndex(n => n.name === name);
+    const meshNodes = nodesUnder(players.json, root).map(i => players.json.nodes[i]).filter(n => n.mesh !== undefined);
+    const near = meshNodes.filter(n => !n.name.endsWith('-far')), far = meshNodes.filter(n => n.name.endsWith('-far'));
+    assert.equal(far.length, 1, `${name}: ${far.length} far meshes`);
+    assert.equal(new Set(meshNodes.map(n => n.skin)).size, 1, `${name}: near and far are not on one skeleton`);
+    const triangles = which => primitivesUnder(players.json, name, which).reduce((sum, p) => sum + players.json.accessors[p.indices].count / 3, 0);
+    assert.ok(triangles('near') <= 45000 && triangles('far') <= 18000 && triangles('far') > 6000, `${name}: near ${triangles('near')}, far ${triangles('far')}`);
+    const farParts = primitivesUnder(players.json, name, 'far');
+    assert.ok(farParts.every(p => !p.targets), `${name}: the far one has expressions`);
+    const kinds = farParts.map(p => players.json.materials[p.material].name.split('-')[0]);
+    for (const left of ['eyes', 'cornea', 'brows', 'lashes', 'mouth']) assert.ok(!kinds.includes(left), `${name}: the far one has ${left}`);
+    for (const kept of ['skin', 'jersey', 'shorts', 'hair', 'shoes']) assert.ok(kinds.includes(kept), `${name}: the far one lacks ${kept}`);
+  }
+  assert.ok(players.json.images.every(image => image.mimeType === 'image/webp'), `pictures as ${[...new Set(players.json.images.map(i => i.mimeType))]}`);
 });
 
 // One player's kit piece: positions, normals and texture coordinates of the primitive whose material is `name`.
@@ -301,6 +321,12 @@ test('textures are no larger than 2048 pixels a side', () => {
 // Width and height from a PNG or JPEG header.
 function imageSize(bytes, mimeType) {
   if (mimeType === 'image/png') return [bytes.readUInt32BE(16), bytes.readUInt32BE(20)];
+  if (mimeType === 'image/webp') {   // RIFF....WEBP, then a lossy (VP8 ), lossless (VP8L) or extended (VP8X) chunk
+    const kind = bytes.toString('ascii', 12, 16);
+    if (kind === 'VP8 ') return [bytes.readUInt16LE(26) & 0x3fff, bytes.readUInt16LE(28) & 0x3fff];
+    if (kind === 'VP8L') { const b = bytes.readUInt32LE(21); return [(b & 0x3fff) + 1, ((b >> 14) & 0x3fff) + 1]; }
+    if (kind === 'VP8X') return [1 + bytes.readUIntLE(24, 3), 1 + bytes.readUIntLE(27, 3)];
+  }
   for (let at = 2; at < bytes.length;) {                       // JPEG: walk the segments to the frame header
     const marker = bytes[at + 1], length = bytes.readUInt16BE(at + 2);
     if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) return [bytes.readUInt16BE(at + 7), bytes.readUInt16BE(at + 5)];

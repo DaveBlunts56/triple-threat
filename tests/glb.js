@@ -20,10 +20,12 @@ export function nodesUnder(gltf, index) {
   return [index, ...(gltf.nodes[index].children ?? []).flatMap(child => nodesUnder(gltf, child))];
 }
 
-// Every mesh primitive beneath the node named `name`.
-export function primitivesUnder(gltf, name) {
-  const root = gltf.nodes.findIndex(n => n.name === name);
-  return nodesUnder(gltf, root).map(i => gltf.nodes[i].mesh).filter(m => m !== undefined).flatMap(m => gltf.meshes[m].primitives);
+// Every mesh primitive beneath the node named `name`: of its near level of detail (the meshes not named <...>-far),
+// its far one (`which` 'far') or both ('all').
+export function primitivesUnder(gltf, name, which = 'near') {
+  const root = gltf.nodes.findIndex(n => n.name === name), far = i => (gltf.nodes[i].name ?? '').endsWith('-far');
+  return nodesUnder(gltf, root).filter(i => which === 'all' || far(i) === (which === 'far')).map(i => gltf.nodes[i].mesh)
+    .filter(m => m !== undefined).flatMap(m => gltf.meshes[m].primitives);
 }
 
 // The numbers of an accessor, in file order. A sparse accessor (as morph targets are written) is its base, or

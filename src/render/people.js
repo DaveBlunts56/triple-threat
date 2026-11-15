@@ -185,7 +185,9 @@ export async function loadPeople(camera) {
   // among the ten. His skin, kit, hair and shoes are meshes of their own on his skeleton, each in its own material:
   // that is his near model. His far model is the same parts joined.
   function person(model, team, number, index) {
-    const near = [], parts = [], drawn = {};
+    const near = [], parts = [], drawn = {}, simplified = [];   // simplified: the parts of his far level of detail in the file
+    // A mesh of the file's far level of detail: under the node named <player>-far.
+    const ofFar = mesh => { for (let o = mesh; o && o !== model; o = o.parent) if (o.name.endsWith('-far')) return true; return false; };
     let skin = null;   // the mesh that carries his expressions
     const wet = [];    // the sweat uniforms of his materials (see sweat.js)
     model.traverse(part => {
@@ -194,6 +196,7 @@ export async function loadPeople(camera) {
       if (!part.isMesh) return;
       const kind = part.material.name.split('-')[0];
       const place = atlasPart(part.material.name);
+      if (ofFar(part)) { if (place) simplified.push([part, place, part.material.name]); return; }
       if (place) parts.push([part, place, part.material.name]);
       if (place && part.material.map) drawn[place] = part.material.map.image;
       let made;
@@ -224,7 +227,9 @@ export async function loadPeople(camera) {
       else if (part.morphTargetInfluences) { part.geometry.morphAttributes = {}; part.morphTargetInfluences = undefined; part.morphTargetDictionary = undefined; }
     });
     if (!parts.length) throw new Error(`${model.name} has nothing to draw`);
-    const far = farModel(parts, drawn, team, number);
+    // His far model is made from the file's simplified parts (or, in a file without them, from these).
+    const far = farModel(simplified.length ? simplified : parts, drawn, team, number);
+    for (const [mesh] of simplified) { mesh.removeFromParent(); mesh.geometry.dispose(); }
     const scale = hipsOf(model).position.y / hipHeight;   // his size against the player the motions were made on
     const hands = { left: model.getObjectByName('mixamorigLeftHand'), right: model.getObjectByName('mixamorigRightHand') };
     checkHands(model.name, hands);   // so a broken file falls back to capsules at load, not on the first possession

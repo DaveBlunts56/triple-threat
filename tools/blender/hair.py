@@ -305,7 +305,7 @@ def make_rows(patch, frame, rng):
     source.normal_update()
     tree = BVHTree.FromBMesh(source)
     bm = bmesh.new()
-    uv = bm.loops.layers.uv.new()
+    uv = bm.loops.layers.uv.new(patch.data.uv_layers.active.name)   # the body's own map, not a second one
     rows = rng.randint(*ROWS['rows'])
     c, r = frame['middle'], frame['radius']
     for j in range(rows):
