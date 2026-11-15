@@ -79,6 +79,20 @@ export const MOVES = f({
   // what a blocker's reach is multiplied by.
   fade: f({ within: 5.5, drift: 0.8, contest: 0.6, make: 0.92, block: 0.6 }),
 });
+// Finishes at the rim: the layup and the dunk (see finish.js; measured from reference clips, see the spec).
+// layupNear, layupFar: metres from the rim's centre between which a finish can begin. drive: the least speed toward
+// the rim, m/s, that makes the shot key a layup. gather: seconds of the two steps. gatherSpeed: the fastest he is
+// carried through them. takeoff: metres from the rim's centre at which he leaves the floor. jump: m/s he jumps at.
+// arrive: metres in front of the rim's centre he is at the finish's moment. dunkMoment: the share of the jump at
+// which the ball goes down. dunkAt: the Inside from which he can dunk. dunkEnergy: the energy below which he cannot.
+// dunkChance: an open dunk's chance; dunkContest: how much of it a defender can take. reach: the furthest from the
+// rim's centre he can be at the dunk's moment and still dunk. dunkDrop: m/s the ball goes down through the rim.
+// stealFactor: what a reach's chance is multiplied by during the gather.
+export const FINISH = f({
+  layupNear: 1.2, layupFar: 4.5, drive: 2, gather: 0.5, gatherSpeed: 5,
+  takeoff: f({ layup: 1.6, dunk: 2.2 }), jump: f({ layup: 3.2, dunk: 4.2 }), arrive: f({ layup: 0.9, dunk: 0.35 }),
+  dunkMoment: 0.69, dunkAt: 78, dunkEnergy: 0.25, dunkChance: 0.97, dunkContest: 0.45, reach: 0.9, dunkDrop: 4, stealFactor: 0.5,
+});
 export const BLOCK = f({ reach: 1.2, minHeight: 0.3, chance: 0.36, cone: 45, deflect: 4 });
 
 export const CLOCK = f({ quarters: 4, quarter: 180, overtime: 60, shot: 24, shotAfterFoul: 14, dead: 1.5, quarterBreak: 2, timeout: 3 });
