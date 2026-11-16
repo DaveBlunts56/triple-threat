@@ -21,6 +21,7 @@ export const KINDS = f({
   'timeout.each': 'positive', 'timeout.rest': 'chance',
   'shot.make': 'positive', 'board.offence': 'positive',
   'shot.curve': 'word', 'shot.green': 'word', 'shot.boost': 'positive', 'ft.model': 'word',
+  'decide.temperature': 'positive', 'iq.offence': 'positive', 'iq.defence': 'positive',
 });
 
 // Arcade: the game as it was, read from tuning.js.
@@ -34,6 +35,7 @@ const ARCADE = f({
   'timeout.each': TIMEOUT.each, 'timeout.rest': TIMEOUT.rest,
   'shot.make': 1, 'board.offence': 1,
   'shot.curve': 'line', 'shot.green': 'sure', 'shot.boost': 1, 'ft.model': 'flat',
+  'decide.temperature': 0.3, 'iq.offence': 1, 'iq.defence': 1,
 });
 
 // Simulation: NBA-like. Its own numbers, written out (Stage 4 tunes them).
@@ -47,6 +49,7 @@ const SIM = f({
   'timeout.each': 3, 'timeout.rest': 0.3,
   'shot.make': 1, 'board.offence': 1,
   'shot.curve': 'line', 'shot.green': 'sure', 'shot.boost': 1, 'ft.model': 'flat',
+  'decide.temperature': 0.3, 'iq.offence': 1, 'iq.defence': 1,
 });
 
 export const STYLES = f({ arcade: ARCADE, sim: SIM });
@@ -59,8 +62,8 @@ export const SLIDERS = f([
   f({ key: 'pace', label: 'Pace', scales: f({ 'ai.patience': -1, 'play.startAt': -1 }) }),
   f({ key: 'selection', label: 'Shot selection', scales: f({}) }),
   f({ key: 'shooting', label: 'Shooting', scales: f({ 'shot.make': 1 }) }),
-  f({ key: 'offIQ', label: 'Offensive IQ', scales: f({}) }),
-  f({ key: 'defIQ', label: 'Defensive IQ', scales: f({ 'ai.contestDelay': -1 }) }),
+  f({ key: 'offIQ', label: 'Offensive IQ', scales: f({ 'iq.offence': 1 }) }),
+  f({ key: 'defIQ', label: 'Defensive IQ', scales: f({ 'ai.contestDelay': -1, 'iq.defence': 1 }) }),
   f({ key: 'security', label: 'Ball security', scales: f({ 'steal.front': -1, 'steal.back': -1, 'pass.intercept': -1 }) }),
   f({ key: 'fouls', label: 'Foul frequency', scales: f({ 'foul.reachFront': 1, 'foul.reachBack': 1, 'foul.shooting': 1, 'foul.charge': 1, 'foul.block': 1 }) }),
   f({ key: 'rebounding', label: 'Rebounding', scales: f({ 'board.offence': 1 }) }),
