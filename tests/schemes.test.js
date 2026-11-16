@@ -117,3 +117,25 @@ test('a sharp player looks again sooner than a slow one; Arcade\'s players on av
   assert.ok(Math.abs(mean - 1) < 0.05, `the mean interval is ${mean.toFixed(3)} of Arcade's 0.3 s`);
   assert.equal(AI.interval, 0.3);
 });
+
+test('in Simulation a defender reacts to his man going up later the lower his IQ, and reaches less; in Arcade as before', () => {
+  // The seconds before a defender reacts to his man leaving the floor: the mean over many draws.
+  const reacts = (style, iq) => {
+    let sum = 0;
+    for (let i = 0; i < 300; i++) {
+      const s = scene(i + 1); setStyle(s, style);
+      const shooter = s.players[3], d = guardOf(s, shooter);
+      s.rosters[1][d.person].iq = iq;
+      Object.assign(shooter, { y: 0.3, vy: 2, shooting: true });
+      d.ai.timer = 5; d.ai.sawJump = false;
+      plan(s);
+      sum += d.ai.timer + DT;   // aiIntents takes a step off before it looks
+    }
+    return sum / 300;
+  };
+  const sharp = reacts('sim', 0.98), slow = reacts('sim', 0.4);
+  assert.ok(sharp < slow - 0.03, `sharp ${sharp.toFixed(3)} s, slow ${slow.toFixed(3)} s`);
+  assert.ok(slow < 0.35);
+  assert.ok(reacts('arcade', 0.4) < 0.05, 'Arcade reacts within 0.05 s, as it did');
+  assert.ok(STYLES.sim['ai.stealRate'] < STYLES.arcade['ai.stealRate'] / 2);
+});

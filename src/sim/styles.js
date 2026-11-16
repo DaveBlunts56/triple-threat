@@ -50,7 +50,7 @@ const ARCADE = f({
 
 // Simulation: NBA-like. Its own numbers, written out (Stage 4 tunes them).
 const SIM = f({
-  'ai.patience': f([9, 15]), 'play.startAt': 5, 'ai.contestDelay': 0.05, 'ai.stealRate': 0.03, 'ai.farAway': 6,
+  'ai.patience': f([9, 15]), 'play.startAt': 5, 'ai.contestDelay': 0.3, 'ai.stealRate': 0.01, 'ai.farAway': 6,
   'player.accel': 14, 'player.brake': 28,
   'steal.front': 0.25, 'steal.back': 0.08, 'pass.intercept': 0.4,
   'foul.reachFront': 0.12, 'foul.reachBack': 0.3, 'foul.shooting': 0.25, 'foul.charge': 0.6, 'foul.block': 0.15,
@@ -66,7 +66,7 @@ const SIM = f({
   'decide.temperature': 0.3, 'iq.offence': 1, 'iq.defence': 1, 'coach.adapt': 1, 'coach.rotation': 'plan',
   'decide.possession': 1.0, 'decide.usage': 0.5, 'decide.diet': 0.6, 'decide.drive': 0.2,
   'decide.pass': 0.15, 'decide.floor': 60, 'decide.misread': 0.25, 'decide.foulDraw': 0.15, 'decide.stale': 0.08, 'decide.rhythm': 0.15,
-  'decide.scout': 0.5, 'decide.watch': 0.15, 'decide.watchDelay': 0.5, 'decide.fly': 0.5, 'decide.spread': 0.5, 'react.iq': 0, 'decide.threes': 0.6,
+  'decide.scout': 0.5, 'decide.watch': 0.15, 'decide.watchDelay': 0.5, 'decide.fly': 0.5, 'decide.spread': 0.5, 'react.iq': 1, 'decide.threes': 0.6,
   'rules.overtimeShare': 5 / 12, 'rules.orebClock': 14, 'rules.lastTwo': true, 'form.sd': 0.05, 'move.pacing': 'gaits',
 });
 
