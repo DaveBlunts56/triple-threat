@@ -4,23 +4,25 @@ import { setLength } from './sim/state.js';
 import { SLIDERS, defaultSliders, setStyle } from './sim/styles.js';
 import { DEFAULT_KEYS, KEY_ROWS, keysPanelKey } from './keys.js';
 import { DEFAULT_PREFS } from './prefs.js';
+import { TEAMS } from './sim/teams.js';
 
 const SLIDER_ROWS = Object.freeze([...SLIDERS.map(s => s.key), 'reset']);
 export const MENU = Object.freeze({
-  main: ['play', 'watch', 'simulate', 'mode', 'home', 'teams', 'controls', 'settings'],
+  main: ['exhibition', 'simulate', 'mode', 'teams', 'controls', 'settings'],
+  teamSelect: [],   // a screen of its own (see selectKey), with no rows
   settings: ['quality', 'autoSubs', 'camera', 'difficulty', 'styles', 'commentary', 'replays', 'sound', 'keys'],
   styles: ['playStyle', 'playMinutes', 'watchStyle', 'watchMinutes', 'simulateMinutes', 'arcadeSliders', 'simSliders'],
   arcadeSliders: SLIDER_ROWS, simSliders: SLIDER_ROWS,
   keys: KEY_ROWS,
 });
 
-// size: the mode chosen: 3 for 3 on 3, 5 for 5 on 5. home: the team at home (0 the Waves, yours; 1 the Scorpions),
-// whose arena the match is in. difficulty: the level chosen, one of DIFFICULTY.order. play, watch: the style and
+// size: the mode chosen: 3 for 3 on 3, 5 for 5 on 5. select: the Team Select screen's choice, { away, home, side }:
+// the two teams by id, and the side your controller is on ('away', 'home', or 'none' to watch). difficulty: the level chosen, one of DIFFICULTY.order. play, watch: the style and
 // quarter length each starts at; simulate: Simulate's quarter length; sliders: each style's nine
 // (see prefs.js). listening: on the Keys panel, the next key pressed goes on the highlighted action. trail: the panels
 // a panel inside Settings was opened from, with their rows, for Esc. Every choice starts as `prefs` has it: what was
 // saved the last time.
-export const createMenu = (prefs = DEFAULT_PREFS) => ({ panel: 'main', row: 0, autoSubs: prefs.autoSubs, size: prefs.size, home: prefs.home,
+export const createMenu = (prefs = DEFAULT_PREFS) => ({ panel: 'main', row: 0, autoSubs: prefs.autoSubs, size: prefs.size, select: { ...prefs.select },
   difficulty: prefs.difficulty, play: { ...prefs.play }, watch: { ...prefs.watch }, simulate: { ...prefs.simulate },
   sliders: { arcade: { ...prefs.sliders.arcade }, sim: { ...prefs.sliders.sim } }, from: 0, trail: [], listening: false });
 
@@ -49,10 +51,51 @@ function open(menu, panel) {
   Object.assign(menu, { panel, row: 0 });
 }
 
-// One key on the menu. Returns 'play', 'watch', 'simulate', 'home' (the side at home changed), 'quality', 'camera',
-// 'commentary' or 'keys' (the keys were changed) when the page has something to do, else null. `keys` is the table
-// the Keys panel changes. On the Game styles panel and a slider panel ← and → step a choice, and move a slider by 5.
-export function menuKey(menu, code, keys = { ...DEFAULT_KEYS }) {
+// What a Team Select choice (`select`, see createMenu) makes: the match's teams by id (`teams`, the one you play first,
+// or the visitors first when you watch), the side at home in it (`home`, 0 or 1), and whether you play or watch.
+export function matchTeams({ away, home, side }) {
+  if (side === 'home') return { teams: [home, away], home: 0, mode: 'play' };
+  return { teams: [away, home], home: 1, mode: side === 'away' ? 'play' : 'watch' };
+}
+
+// The controller's places, left to right, and the team after (`way` 1) or before (-1) team `id` in TEAMS, round the end.
+const SIDES = Object.freeze(['away', 'none', 'home']);
+const stepTeam = (id, way) => (id + way + TEAMS.length) % TEAMS.length;
+
+// One key on the Team Select screen. ← → move your controller between the away side, the middle (to watch) and the
+// home side. ↑ ↓ change the team on your controller's side, or the away team's when you watch: a team the other side
+// has changes places with it. R picks two teams at random (`random`: 0 to 1). Enter or Space start the match; Esc or
+// Backspace go back to the main list. Returns 'exhibition' to start, 'select' when the choice changed, else null.
+function selectKey(menu, code, random) {
+  const select = menu.select, way = { ArrowLeft: -1, KeyA: -1, ArrowRight: 1, KeyD: 1 }[code], step = { ArrowUp: -1, KeyW: -1, ArrowDown: 1, KeyS: 1 }[code];
+  if (way) {
+    const at = Math.min(SIDES.length - 1, Math.max(0, SIDES.indexOf(select.side) + way));
+    if (SIDES[at] === select.side) return null;
+    select.side = SIDES[at];
+    return 'select';
+  }
+  if (step) {
+    const mine = select.side === 'home' ? 'home' : 'away', other = mine === 'home' ? 'away' : 'home', was = select[mine];
+    select[mine] = stepTeam(was, step);
+    if (select[mine] === select[other]) select[other] = was;
+    return 'select';
+  }
+  if (code === 'KeyR' && TEAMS.length > 1) {
+    select.away = Math.floor(random() * TEAMS.length) % TEAMS.length;
+    select.home = (select.away + 1 + Math.floor(random() * (TEAMS.length - 1))) % TEAMS.length;
+    return 'select';
+  }
+  if (code === 'Enter' || code === 'Space') return 'exhibition';
+  if (code === 'Escape' || code === 'Backspace') { menu.panel = 'main'; menu.row = menu.from; }
+  return null;
+}
+
+// One key on the menu. Returns 'exhibition', 'select' (the Team Select choice changed), 'simulate', 'quality',
+// 'camera', 'commentary' or 'keys' (the keys were changed) when the page has something to do, else null. `keys` is
+// the table the Keys panel changes. On the Game styles panel and a slider panel ← and → step a choice, and move a
+// slider by 5. `random`: where Team Select's random teams come from.
+export function menuKey(menu, code, keys = { ...DEFAULT_KEYS }, random = Math.random) {
+  if (menu.panel === 'teamSelect') return selectKey(menu, code, random);
   if (menu.panel === 'keys') {
     const did = keysPanelKey(menu, code, keys);
     if (did === 'back') { menu.panel = 'settings'; menu.row = MENU.settings.indexOf('keys'); }
@@ -67,9 +110,9 @@ export function menuKey(menu, code, keys = { ...DEFAULT_KEYS }) {
     else if (style && choice !== 'reset') menu.sliders[style][choice] = Math.min(100, Math.max(0, menu.sliders[style][choice] + 5 * way));
   } else if (code === 'Enter' || code === 'Space') {
     if (menu.panel === 'main') {
-      if (choice === 'play' || choice === 'watch' || choice === 'simulate') return choice;
+      if (choice === 'simulate') return choice;
       if (choice === 'mode') { menu.size = menu.size === 3 ? 5 : 3; return null; }
-      if (choice === 'home') { menu.home = 1 - menu.home; return 'home'; }
+      if (choice === 'exhibition') { menu.from = menu.row; menu.panel = 'teamSelect'; menu.row = 0; return null; }
       menu.from = menu.row; menu.panel = choice; menu.row = 0;
     } else if (menu.panel === 'styles') {
       if (SLIDER_PANELS[choice]) open(menu, choice); else stepStyleRow(menu, choice, 1);
@@ -100,19 +143,24 @@ export function menuPoint(menu, row) {
 // result, and only on a row the panel has.
 export const menuHasRow = (game, row) => game.state.phase === 'start' && !game.result && row < menuRows(game.menu).length;
 
-// Starts a match from the menu or the final screen: `mode` 'play' (yours against the computer) or 'watch' (the
-// computer against itself, nobody's), at that mode's style and quarter length, with that style's sliders. `game` is
-// { state, menu, ... }.
-export function startFromMenu(game, keyboard, newMatch, mode = 'play') {
-  // A new match when the last one is over, or when the one waiting is not of the size the menu now shows.
-  if (game.state.phase === 'final' || game.state.size !== game.menu.size) game.state = newMatch(game.menu.size);
+// Starts a match from the menu or the final screen, between the teams Team Select has (see matchTeams): `mode` 'play'
+// (yours against the computer) or 'watch' (the computer against itself, nobody's), as Team Select's side has it unless
+// given, at that mode's style and quarter length, with that style's sliders. `game` is { state, menu, ... };
+// `newMatch(size, teams)` makes a match. Returns the mode.
+export function startFromMenu(game, keyboard, newMatch, mode = null) {
+  const pick = matchTeams(game.menu.select);
+  mode ??= pick.mode;
+  // A new match when the last one is over, or when the one waiting is not of the size or the teams the menu now shows.
+  const same = (game.state.ids ?? [0, 1]).join() === pick.teams.join();
+  if (game.state.phase === 'final' || game.state.size !== game.menu.size || !same) game.state = newMatch(game.menu.size, pick.teams);
   const { style, minutes } = game.menu[mode];
   game.state.humans = mode === 'watch' ? [] : [0];
-  game.state.home = game.menu.home;
+  game.state.home = pick.home;
   setLength(game.state, minutes);
   setStyle(game.state, style, game.menu.sliders[style]);
   startMatch(game.state);
   game.state.autoSubs[0] = mode === 'watch' || game.menu.autoSubs;
   game.state.difficulty = game.menu.difficulty;
   keyboard.drop();   // a key still held stays unseen in the match, through the jump ball, until it is let go
+  return mode;
 }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MENU, createMenu, menuRows, menuKey, menuPoint, menuHasRow, resultKey, startFromMenu } from '../src/menu.js';
+import { MENU, createMenu, matchTeams, menuRows, menuKey, menuPoint, menuHasRow, resultKey, startFromMenu } from '../src/menu.js';
 import { createKeyboard } from '../src/input.js';
 import { createMatch } from '../src/sim/state.js';
 import { aiIntents } from '../src/sim/ai.js';
@@ -14,9 +14,9 @@ const key = (type, code) => Object.assign(new Event(type, { cancelable: true }),
 
 const at = name => MENU.main.indexOf(name);   // where an entry is on the main list
 
-test('the main list is Play, Watch, Simulate, Mode, Home, Teams, Controls, Settings, with the bar on Play, the mode on 3 on 3 and the Waves at home', () => {
+test('the main list is Exhibition, Simulate, Mode, Teams, Controls, Settings, with the bar on Exhibition, the mode on 3 on 3, and you playing the Waves at home', () => {
   const m = createMenu();
-  assert.deepEqual([m.panel, m.row, m.autoSubs, m.size, m.home, menuRows(m)], ['main', 0, true, 3, 0, ['play', 'watch', 'simulate', 'mode', 'home', 'teams', 'controls', 'settings']]);
+  assert.deepEqual([m.panel, m.row, m.autoSubs, m.size, m.select, menuRows(m)], ['main', 0, true, 3, { away: 1, home: 0, side: 'home' }, ['exhibition', 'simulate', 'mode', 'teams', 'controls', 'settings']]);
   assert.deepEqual(MENU.settings, ['quality', 'autoSubs', 'camera', 'difficulty', 'styles', 'commentary', 'replays', 'sound', 'keys']);
   assert.equal(MENU.settings.length, 9);   // the page has nine rows for them
 });
@@ -30,18 +30,23 @@ test('Settings has Game styles in place of Quarter, and the Game styles panel ha
 test('the bar moves down and up by arrows or W and S, and wraps at both ends', () => {
   const m = createMenu();
   keys(m, 'ArrowDown', 'KeyS'); assert.equal(m.row, 2);
-  keys(m, 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown'); assert.equal(m.row, 7);
+  keys(m, 'ArrowDown', 'ArrowDown', 'ArrowDown'); assert.equal(m.row, 5);
   keys(m, 'ArrowDown'); assert.equal(m.row, 0);
-  keys(m, 'ArrowUp'); assert.equal(m.row, 7);
-  keys(m, 'KeyW'); assert.equal(m.row, 6);
-  assert.deepEqual(keys(m, 'KeyX', 'ArrowLeft'), [null, null]); assert.equal(m.row, 6);
+  keys(m, 'ArrowUp'); assert.equal(m.row, 5);
+  keys(m, 'KeyW'); assert.equal(m.row, 4);
+  assert.deepEqual(keys(m, 'KeyX', 'ArrowLeft'), [null, null]); assert.equal(m.row, 4);
 });
 
-test('Enter or Space on Play, Watch or Simulate asks for it and changes nothing', () => {
-  for (const code of ['Enter', 'Space']) for (const what of ['play', 'watch', 'simulate']) {
-    const m = createMenu(); m.row = at(what);
-    assert.equal(menuKey(m, code), what);
-    assert.deepEqual([m.panel, m.row], ['main', at(what)]);
+test('Enter or Space on Simulate asks for it and changes nothing; on Exhibition they open Team Select, and Esc goes back', () => {
+  for (const code of ['Enter', 'Space']) {
+    const m = createMenu(); m.row = at('simulate');
+    assert.equal(menuKey(m, code), 'simulate');
+    assert.deepEqual([m.panel, m.row], ['main', at('simulate')]);
+    const e = createMenu(); e.row = at('exhibition');
+    assert.equal(menuKey(e, code), null);
+    assert.deepEqual([e.panel, menuRows(e)], ['teamSelect', []]);
+    assert.equal(menuKey(e, 'Escape'), null);
+    assert.deepEqual([e.panel, e.row], ['main', at('exhibition')]);
   }
 });
 
@@ -97,7 +102,7 @@ test('pointing with the mouse selects a row the panel has, and no other', () => 
 
 test('the mouse acts on a row only before the match, and only on a row the panel shown has', () => {
   const game = { state: createMatch(7), menu: createMenu() };
-  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7, 8].map(row => menuHasRow(game, row)), [true, true, true, true, true, true, true, true, false]);
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(row => menuHasRow(game, row)), [true, true, true, true, true, true, false]);
   game.menu.row = at('settings'); menuKey(game.menu, 'Enter');                          // Settings: a row for each setting
   assert.deepEqual([0, MENU.settings.length - 1, MENU.settings.length].map(row => menuHasRow(game, row)), [true, true, false]);
   menuKey(game.menu, 'Escape'); game.menu.row = at('teams'); menuKey(game.menu, 'Enter'); // Teams: none
@@ -279,13 +284,39 @@ test('on a simulated game\'s result Enter simulates another and Esc goes back to
 
 test('Simulate\'s quarters start on 12', () => assert.equal(createMenu().simulate.minutes, 12));
 
-test('Enter on Home puts the other team at home and asks for its arena; a match started then is at home there', () => {
+test('Team Select: ← → move your controller between away, the middle and home; ↑ ↓ change the team on your side', () => {
   const m = createMenu();
-  m.row = at('home');
-  assert.equal(menuKey(m, 'Enter'), 'home'); assert.equal(m.home, 1);
-  const game = { state: createMatch(7), menu: m };
-  startFromMenu(game, createKeyboard(new EventTarget()), () => createMatch(8));
-  assert.equal(game.state.home, 1);
-  assert.equal(menuKey(m, 'Space'), 'home'); assert.equal(m.home, 0);
-  assert.equal(createMenu({ ...DEFAULT_PREFS, home: 1 }).home, 1, 'it starts as it was saved');
+  m.panel = 'teamSelect';
+  assert.deepEqual(keys(m, 'ArrowLeft'), ['select']); assert.equal(m.select.side, 'none');
+  assert.deepEqual(keys(m, 'KeyA', 'ArrowLeft'), ['select', null]); assert.equal(m.select.side, 'away');   // no further than away
+  assert.deepEqual(keys(m, 'ArrowRight', 'KeyD', 'ArrowRight'), ['select', 'select', null]); assert.equal(m.select.side, 'home');
+  // With two teams, the other team is the only one to change to: the two change places.
+  assert.deepEqual(keys(m, 'ArrowDown'), ['select']); assert.deepEqual([m.select.home, m.select.away], [1, 0]);
+  keys(m, 'ArrowLeft', 'ArrowLeft', 'KeyW');   // away, and up: the away team changes
+  assert.deepEqual([m.select.away, m.select.home, m.select.side], [1, 0, 'away']);
+  // In the middle, ↑ ↓ change the away team.
+  keys(m, 'ArrowRight', 'ArrowUp');
+  assert.deepEqual([m.select.away, m.select.home, m.select.side], [0, 1, 'none']);
+  // R: two different teams, at random.
+  assert.equal(menuKey(m, 'KeyR', undefined, () => 0.99), 'select');
+  assert.notEqual(m.select.away, m.select.home);
+  assert.deepEqual(keys(m, 'Enter', 'Space'), ['exhibition', 'exhibition']);
+});
+
+test('a choice makes its match: your team first, at home or away; watching, the visitors first, and nobody\'s', () => {
+  assert.deepEqual(matchTeams({ away: 1, home: 0, side: 'home' }), { teams: [0, 1], home: 0, mode: 'play' });
+  assert.deepEqual(matchTeams({ away: 1, home: 0, side: 'away' }), { teams: [1, 0], home: 1, mode: 'play' });
+  assert.deepEqual(matchTeams({ away: 0, home: 1, side: 'none' }), { teams: [0, 1], home: 1, mode: 'watch' });
+});
+
+test('Exhibition starts between the chosen teams: playing the Scorpions away gives them the first side; watching, nobody plays', () => {
+  const { game, keyboard } = onMenu();
+  Object.assign(game.menu.select, { away: 1, home: 0, side: 'away' });
+  assert.equal(startFromMenu(game, keyboard, (size, teams) => createMatch(8, size, teams)), 'play');
+  assert.deepEqual([game.state.ids, game.state.home, game.state.humans, game.state.teams[0].name], [[1, 0], 1, [0], 'Red Rock Scorpions']);
+  game.state.phase = 'final';
+  game.menu.select.side = 'none';
+  assert.equal(startFromMenu(game, keyboard, (size, teams) => createMatch(9, size, teams)), 'watch');
+  assert.deepEqual([game.state.ids, game.state.home, game.state.humans, game.state.style], [[1, 0], 1, [], 'sim']);
+  assert.deepEqual(createMenu({ ...DEFAULT_PREFS, select: { away: 0, home: 1, side: 'none' } }).select, { away: 0, home: 1, side: 'none' }, 'it starts as it was saved');
 });

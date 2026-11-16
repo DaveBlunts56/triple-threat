@@ -12,7 +12,8 @@ import { createHud, easeFrame } from './render/hud.js';
 import { createQuality, autoQuality, stepQuality } from './render/quality.js';
 import { createKeyboard, steer } from './input.js';
 import { createPauseMenu, inPlay, pauseKey, pauseHasRow, pausePoint, quitToMenu, setPaused } from './pause.js';
-import { createMenu, menuKey, menuPoint, menuHasRow, resultKey, startFromMenu } from './menu.js';
+import { createMenu, matchTeams, menuKey, menuPoint, menuHasRow, resultKey, startFromMenu } from './menu.js';
+import { createStudio } from './render/studio.js';
 import { createPlayList, playListKey } from './playlist.js';
 import { createLife, stepLife } from './render/life.js';
 import { actionOf, createKeys, savedKeys } from './keys.js';
@@ -27,15 +28,17 @@ import { SOUNDS, assetUrl, soundPath } from './render/assets.js';
 import { clear as clearReplays, createRecorder, decode, due, frameAt, mark, record, settle, skip as skipReplay, start as startReplay } from './replay.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
-const newMatch = size => createMatch(Date.now() % 1e6, size);   // size: 3 or 5 a side; three when not said
-const MENU_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyS', 'KeyA', 'KeyD', 'Enter', 'Space', 'Escape', 'Backspace']);
-const MENU_ONCE = new Set(['Enter', 'Space', 'Escape', 'Backspace']);   // a held one counts once; the bar keys may repeat
+const newMatch = (size, teams = [0, 1]) => createMatch(Date.now() % 1e6, size, teams);   // size: 3 or 5 a side (three when not said); teams by id
+const MENU_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyR', 'Enter', 'Space', 'Escape', 'Backspace']);   // R: Team Select's random teams
+const MENU_ONCE = new Set(['Enter', 'Space', 'Escape', 'Backspace', 'KeyR']);   // a held one counts once; the bar keys may repeat
 
-const view = await createScene(document.getElementById('court'), readPrefs(storageOf()).home);   // in the saved home side's arena
+const chosen = matchTeams(readPrefs(storageOf()).select);   // the teams Team Select had last time
+const view = await createScene(document.getElementById('court'), chosen.teams, chosen.home);
 if (view) {
   // The generated players. If their files are missing or broken the match is still playable, with capsules.
   const people = await loadPeople(view.camera).catch(error => { console.warn('Players could not be loaded; using capsules.', error); return null; });
   const actors = createActors(view.scene, people);
+  const studio = createStudio(view.renderer, people, view.scene.environment);   // Team Select's picture
   const hud = createHud(document);
   // What was saved the last time, and the keys as they were left. Both are kept up to date and saved at every change.
   const storage = storageOf(), prefs = readPrefs(storage);
@@ -47,7 +50,7 @@ if (view) {
   // meter: the shot meter and where its top is on the page, or null. menu: the start menu. pauseMenu: the pause menu.
   // camera: '2k', behind the team with the ball, or 'broadcast', the sideline view. mode: the match on is 'play' (yours)
   // or 'watch' (nobody's). result: a simulated game shown over the menu, or null.
-  const game = { state: newMatch(), paused: false, pick: null, fps: 60, quality: quality.level, camera: prefs.camera, meter: null, menu: createMenu(prefs),
+  const game = { state: newMatch(prefs.size, chosen.teams), paused: false, pick: null, fps: 60, quality: quality.level, camera: prefs.camera, meter: null, menu: createMenu(prefs),
     pauseMenu: createPauseMenu(), playList: createPlayList(), keys, prefs, show: {}, mode: 'play', result: null };
   globalThis.game = game;   // handle for poking at the match from the browser console
 
@@ -81,10 +84,10 @@ if (view) {
   // Keeps what the menus and the keys have just changed for the next time. `chose`: the quality was stepped by hand,
   // which is the only way a level is remembered; one the game fell to by itself is not.
   const remember = (chose = false) => {
-    const { size, home, difficulty, autoSubs, play, watch, simulate, sliders } = game.menu;
+    const { size, select, difficulty, autoSubs, play, watch, simulate, sliders } = game.menu;
     // The camera chosen in Play is the one kept: Watch starts on the broadcast view without changing it.
     const camera = game.mode === 'watch' ? prefs.camera : game.camera;
-    Object.assign(prefs, { size, home, difficulty, autoSubs, camera, keys: savedKeys(keys), play: { ...play }, watch: { ...watch }, simulate: { ...simulate },
+    Object.assign(prefs, { size, select: { ...select }, difficulty, autoSubs, camera, keys: savedKeys(keys), play: { ...play }, watch: { ...watch }, simulate: { ...simulate },
       sliders: { arcade: { ...sliders.arcade }, sim: { ...sliders.sim } } });
     if (chose) prefs.quality = quality.level;
     writePrefs(storage, prefs);
@@ -99,15 +102,16 @@ if (view) {
   // Starts play, from the menu or the final screen. startFromMenu drops the keys held then, which relies on the
   // keyboard's own keydown listener (createKeyboard, above) being registered before the one below, so the key that
   // chose Play is already held when it is dropped.
-  // Play is yours against the computer, on your camera; Watch is the computer against itself, from the sideline.
-  const start = mode => {
-    game.mode = mode;
-    startFromMenu(game, keyboard, newMatch, mode);
-    view.setHome(game.state.home);
-    game.camera = mode === 'watch' ? 'broadcast' : prefs.camera;
+  // Between the teams Team Select has: yours against the computer ('play'), on your camera, with your controller on a
+  // side; the computer against itself ('watch'), from the sideline, with it in the middle. In the home team's arena.
+  const start = () => {
+    game.mode = startFromMenu(game, keyboard, newMatch);
+    view.setTeams(game.state.ids, game.state.home);
+    game.camera = game.mode === 'watch' ? 'broadcast' : prefs.camera;
     view.setCamera(game.camera);
   };
-  const play = () => start('play');
+  // A match waiting to begin between the teams Team Select has, for the menu (its Teams panel shows them).
+  const waiting = size => newMatch(size, matchTeams(game.menu.select).teams);
   // Simulate: a whole game by the fast engine, Simulation with its sliders, at Simulate's quarters and the menu's mode.
   const simulate = () => {
     game.result = quickMatch({ seed: Date.now() % 1e6, size: game.menu.size, minutes: game.menu.simulate.minutes, style: 'sim', sliders: game.menu.sliders.sim });
@@ -115,10 +119,9 @@ if (view) {
   // A key on the start menu, or a click on a row (as Enter).
   const onMenu = code => {
     const asked = menuKey(game.menu, code, keys);
-    if (asked === 'play') play();
-    else if (asked === 'watch') start('watch');
+    if (asked === 'exhibition') start();
+    else if (asked === 'select') game.state = waiting(game.menu.size);
     else if (asked === 'simulate') simulate();
-    else if (asked === 'home') view.setHome(game.menu.home);   // its arena built now, ready for the match
     else if (asked === 'quality') stepQualityByHand();
     else if (asked === 'camera') switchCamera();
     else if (asked === 'commentary') stepCommentary();
@@ -139,7 +142,7 @@ if (view) {
     else if (asked === 'replays') stepReplays();
     else if (asked === 'sound') stepSound();
     else if (asked === 'quit') {
-      quitToMenu(game, keyboard, newMatch);
+      quitToMenu(game, keyboard, waiting);
       if (game.mode === 'watch') { game.mode = 'play'; game.camera = prefs.camera; view.setCamera(game.camera); }   // back to your own camera
     }
     remember();
@@ -192,7 +195,7 @@ if (view) {
     }
     if (yours && action === 'timeout' && !e.repeat && inPlay(game.state)) callTimeout(game.state, 0);   // a timeout, when the rules allow one
     if (e.code === 'Escape' && !e.repeat) pause(true);
-    if (e.code === 'Enter' && game.state.phase === 'final') start(game.mode);   // the same again: Play, or Watch
+    if (e.code === 'Enter' && game.state.phase === 'final') start();   // the same again: the same teams, played or watched
   });
   // The menu's rows: moving the pointer over a row moves the bar there, a click chooses. mousemove, not mouseenter,
   // which also fires when a row appears under a pointer that is not moving.
@@ -284,7 +287,8 @@ if (view) {
     if (shown) view.replay(shown.ball, attackSign(replays.playing ? (replays.playing.kind === 'block' ? 1 - replays.playing.team : replays.playing.team) : shown.possession), replaySide);
     else view.follow(state.ball, attackSign(state.possession));
     view.watch(state);
-    view.render();
+    if (state.phase === 'start' && game.menu.panel === 'teamSelect' && !game.result) studio.render(game.menu.select, elapsed);   // the two teams' stars
+    else view.render();
     // Where the feet of the player you control are on the page, for his name; nothing before and after a match.
     const me = drawn.players[drawn.controlled];
     game.feet = inPlay(state) && !shown ? view.toScreen(me.x, 0, me.z) : null;
@@ -294,7 +298,7 @@ if (view) {
     game.meter = m && { ...m, head: view.toScreen(m.x, SHOT_METER.high, m.z) };
     game.missing = view.missing;
     hud.update(state, view.backend, game);
-    hud.show(shown ? null : state.phase === 'start' ? (game.result ? 'result' : 'start') : state.phase === 'final' ? 'final' : game.paused ? 'pause' : null);   // the final screen waits for a last replay
+    hud.show(shown ? null : state.phase === 'start' ? (game.result ? 'result' : game.menu.panel === 'teamSelect' ? 'select' : 'start') : state.phase === 'final' ? 'final' : game.paused ? 'pause' : null);   // the final screen waits for a last replay
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

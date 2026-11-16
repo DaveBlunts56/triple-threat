@@ -4,14 +4,16 @@
 import { QUALITY } from './render/quality.js';
 import { DIFFICULTY, MATCH } from './sim/tuning.js';
 import { SLIDERS, STYLE_NAMES, defaultSliders } from './sim/styles.js';
+import { TEAMS } from './sim/teams.js';
 
 export const PREFS_KEY = 'tripleThreat.settings.v1';
 
-// quality: null means the game chooses its own level. home: the team at home, whose arena a match is in. keys: { action: key }, what differs from the default keys.
+// quality: null means the game chooses its own level. select: Team Select's choice (see menu.js's createMenu): the away
+// and home teams by id and your controller's side. keys: { action: key }, what differs from the default keys.
 // play, watch: the style and quarter length each starts at (Play on Arcade's 3 minutes, as before; Watch on
 // Simulation's 12). simulate: Simulate's quarter length (it is always Simulation). sliders: each style's nine.
 const f = Object.freeze;
-export const DEFAULT_PREFS = f({ quality: null, camera: '2k', difficulty: 'allstar', size: 3, home: 0,
+export const DEFAULT_PREFS = f({ quality: null, camera: '2k', difficulty: 'allstar', size: 3, select: f({ away: 1, home: 0, side: 'home' }),
   autoSubs: true, commentary: 'voice', replays: true, sound: 'full', keys: f({}),
   play: f({ style: 'arcade', minutes: 3 }), watch: f({ style: 'sim', minutes: 12 }), simulate: f({ minutes: 12 }),
   sliders: f({ arcade: f(defaultSliders()), sim: f(defaultSliders()) }) });
@@ -25,7 +27,8 @@ const VALID = {
   camera: oneOf(['2k', 'broadcast']),
   difficulty: oneOf(DIFFICULTY.order),
   size: oneOf([3, 5]),
-  home: oneOf([0, 1]),
+  select: value => isObject(value) && [value.away, value.home].every(id => Number.isInteger(id) && id >= 0 && id < TEAMS.length)
+    && value.away !== value.home && ['away', 'home', 'none'].includes(value.side),
   autoSubs: flag, replays: flag,
   commentary: oneOf(['voice', 'captions', 'off']),
   sound: oneOf(['full', 'quiet', 'off']),
@@ -40,7 +43,7 @@ const GROUPS = {
 const sliderValue = value => Number.isInteger(value) && value >= 0 && value <= 100;
 
 // The defaults, as a fresh set the caller may change.
-const fresh = () => ({ ...DEFAULT_PREFS, keys: {}, play: { ...DEFAULT_PREFS.play }, watch: { ...DEFAULT_PREFS.watch }, simulate: { ...DEFAULT_PREFS.simulate },
+const fresh = () => ({ ...DEFAULT_PREFS, keys: {}, select: { ...DEFAULT_PREFS.select }, play: { ...DEFAULT_PREFS.play }, watch: { ...DEFAULT_PREFS.watch }, simulate: { ...DEFAULT_PREFS.simulate },
   sliders: { arcade: { ...DEFAULT_PREFS.sliders.arcade }, sim: { ...DEFAULT_PREFS.sliders.sim } } });
 
 // The browser's storage, or null where there is none or even asking for it throws (some browsers, for a file opened
@@ -54,7 +57,7 @@ export function readPrefs(storage) {
   let saved = null;
   try { saved = JSON.parse(storage?.getItem(PREFS_KEY) ?? 'null'); } catch { /* not there, not readable, or not JSON */ }
   if (!isObject(saved)) return prefs;
-  for (const key of Object.keys(VALID)) if (key in saved && VALID[key](saved[key])) prefs[key] = key === 'keys' ? { ...saved.keys } : saved[key];
+  for (const key of Object.keys(VALID)) if (key in saved && VALID[key](saved[key])) prefs[key] = key === 'keys' || key === 'select' ? { ...saved[key] } : saved[key];
   if (GROUPS.play.minutes(saved.minutes)) prefs.play.minutes = saved.minutes;
   for (const [group, checks] of Object.entries(GROUPS)) if (isObject(saved[group]))
     for (const [key, ok] of Object.entries(checks)) if (key in saved[group] && ok(saved[group][key])) prefs[group][key] = saved[group][key];

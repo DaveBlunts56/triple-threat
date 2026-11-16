@@ -4,15 +4,28 @@
 // A team: its name and abbreviation, the keys of its playbook, its defence and its coach, and eight players in roster
 // order (the first three start a three-a-side match, the first five a five-a-side one). A player: name, number,
 // position, role, the eight ratings, and, if he is unlike his role, his own `tendencies` and `iq` (see tendencies.js).
+// And how the team looks, which the simulation never reads: its city and nickname (its name is the two together); its
+// colour (its kit, its fans' shirts), and if it likes, a brighter one for the page's edges (`bar`) and a pale one for
+// words (`ink`), both mixed from its colour when not given; its mark (`logo`: in a 40-unit square, a disc, its rim,
+// and paths each filled or stroked, as an SVG path); and its arena (a key of render/arenas.js's ARENAS). A team's place in TEAMS is
+// its id: its players' 3D models are named by it (player-<id>-<number> in assets/players.glb).
 const f = Object.freeze;
 
 // Ratings in the order inside, mid, three, handle, speed, defence, rebound, stamina (see ratings.js).
 const KEYS = ['inside', 'mid', 'three', 'handle', 'speed', 'defence', 'rebound', 'stamina'];
 const player = (name, number, position, role, ratings, own = {}) => f({ name, number, position, role, ratings: f(Object.fromEntries(KEYS.map((k, i) => [k, ratings[i]]))), ...own });
 
+// A team's nickname ('Waves'): its own, or the last word of its name for a team that gives none (a test's).
+export const nicknameOf = team => team.nickname ?? team.name.split(' ').pop();
+
 export const TEAMS = f([
   f({
     name: 'Harbor City Waves', abbr: 'WAV', playbook: 'paceSpace', defence: 'switchAll', coach: 'steady',
+    city: 'Harbor City', nickname: 'Waves', colour: '#2f6fe0', bar: '#4f97ff', ink: '#a9c8ff', arena: 'tidewater',
+    logo: f({ disc: '#1d4fb8', rim: '#e6ecf5', paths: f([
+      f({ d: 'M5 24c4-7 9-7 13 0s9 7 17-2v6c-7 7-13 6-17 0s-8-5-13 2z', fill: '#ffffff' }),
+      f({ d: 'M8 17c3-5 7-5 10 0s7 5 13-1', stroke: '#9cc4ff', width: 2.4 }),
+    ]) }),
     players: f([
       player('Jalen Cross', 4, 'PG', 'Playmaker', [78, 88, 84, 94, 90, 72, 48, 84]),
       player('Theo Marsh', 7, 'SF', 'Slasher', [90, 70, 58, 80, 88, 74, 64, 78]),
@@ -26,6 +39,13 @@ export const TEAMS = f([
   }),
   f({
     name: 'Red Rock Scorpions', abbr: 'SCO', playbook: 'insideOut', defence: 'dropBig', coach: 'aggressive',
+    city: 'Red Rock', nickname: 'Scorpions', colour: '#d83a3a', bar: '#ff5a5a', ink: '#ffb0b0', arena: 'redrock',
+    logo: f({ disc: '#8f1717', rim: '#f1e2e2', paths: f([
+      f({ d: 'M13 29c-5-5-5-13 1-17 5-3 12-1 13 4', stroke: '#ffffff', width: 3.2 }),
+      f({ d: 'M27 16l4-6-1 8z', fill: '#ffffff' }),
+      f({ d: 'M19.2 29a3.2 3.2 0 1 1-6.4 0a3.2 3.2 0 1 1 6.4 0z', fill: '#ffffff' }),
+      f({ d: 'M19 28l7 2M19 30l6 4', stroke: '#ffffff', width: 2 }),
+    ]) }),
     players: f([
       player('Kai Mercer', 5, 'PG', 'Shot creator', [83, 94, 90, 92, 86, 58, 62, 78]),
       player('Luca Reyes', 8, 'SF', 'Two-way wing', [78, 72, 84, 60, 80, 88, 66, 80]),

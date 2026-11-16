@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { periodLabel, clockText, createHud, callText, rosterLine, subNote, easeFrame, menuText, keysText, controlsLines, hintLine,
+import { periodLabel, clockText, createHud, callText, teamColours, rosterLine, subNote, easeFrame, menuText, keysText, controlsLines, hintLine,
   BOX_HEAD, boxRow, boxTotal, lineupRow, periodLines, halfLines, potgLine, RESULT_HEAD, advancedLines } from '../src/render/hud.js';
 import { DEFAULT_PREFS } from '../src/prefs.js';
 import { DEFAULT_KEYS, KEY_ROWS, bind, createKeys } from '../src/keys.js';
@@ -10,6 +10,7 @@ import { createPauseMenu, pauseKey } from '../src/pause.js';
 import { MENU, createMenu, menuKey } from '../src/menu.js';
 import { quickMatch } from '../src/sim/quick/engine.js';
 import { surname } from '../src/sim/state.js';
+import { TEAMS } from '../src/sim/teams.js';
 
 const keys = (menu, ...codes) => codes.forEach(code => menuKey(menu, code));
 
@@ -214,16 +215,28 @@ test('the start menu shows its rows with the bar on the selected one, and announ
   const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
   const show = () => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
   show();
-  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(i => e[`menuRow${i}`].textContent), ['Play', 'Watch', 'Simulate', 'Mode: 3 on 3', 'Home: Waves', 'Teams', 'Controls', 'Settings']);
-  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(i => e[`menuRow${i}`].ariaSelected), ['true', 'false', 'false', 'false', 'false', 'false', 'false', 'false']);
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map(i => e[`menuRow${i}`].textContent), ['Exhibition', 'Simulate', 'Mode: 3 on 3', 'Teams', 'Controls', 'Settings']);
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map(i => e[`menuRow${i}`].ariaSelected), ['true', 'false', 'false', 'false', 'false', 'false']);
   assert.deepEqual([e.menuTeams.hidden, e.menuControls.hidden, e.menuHint.textContent, e.announce.textContent],
-    [true, true, '↑ ↓ choose · Enter select', 'Play']);
-  keys(menu, 'ArrowDown', 'ArrowDown', 'ArrowDown'); show();
-  assert.deepEqual([e.menuRow0.ariaSelected, e.menuRow3.ariaSelected, e.announce.textContent], ['false', 'true', 'Mode: 3 on 3']);
+    [true, true, '↑ ↓ choose · Enter select', 'Exhibition']);
+  keys(menu, 'ArrowDown', 'ArrowDown'); show();
+  assert.deepEqual([e.menuRow0.ariaSelected, e.menuRow2.ariaSelected, e.announce.textContent], ['false', 'true', 'Mode: 3 on 3']);
   menuKey(menu, 'Enter'); show();                                                       // the mode changes, and says so
-  assert.deepEqual([e.menuRow3.textContent, e.announce.textContent], ['Mode: 5 on 5', 'Mode: 5 on 5']);
-  keys(menu, 'ArrowDown'); menuKey(menu, 'Enter'); show();                               // the side at home changes, and says so
-  assert.deepEqual([e.menuRow4.textContent, e.announce.textContent], ['Home: Scorpions', 'Home: Scorpions']);
+  assert.deepEqual([e.menuRow2.textContent, e.announce.textContent], ['Mode: 5 on 5', 'Mode: 5 on 5']);
+});
+
+test('Team Select shows each side\'s city, nickname and overall in its colours, where your controller is, and says the choice', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
+  const show = () => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
+  menuKey(menu, 'Enter'); show();
+  assert.deepEqual([e.selCity0.textContent, e.selName0.textContent, e.selCity1.textContent, e.selName1.textContent],
+    ['Red Rock', 'Scorpions', 'Harbor City', 'Waves']);
+  assert.match(e.selOvr0.textContent, /^OVR \d\d$/);
+  assert.deepEqual([e.selName1.style.color, e.selTeam0.style.borderColor, e.selectPads.className, e.selectWatch.hidden], ['#a9c8ff', '#ff5a5a', 'pads at-home', true]);
+  assert.equal(e.announce.textContent, 'Away: Red Rock Scorpions. Home: Harbor City Waves. You play Harbor City Waves.');
+  keys(menu, 'ArrowLeft'); show();
+  assert.deepEqual([e.selectPads.className, e.selectWatch.hidden, e.announce.textContent], ['pads at-none', false, 'Away: Red Rock Scorpions. Home: Harbor City Waves. You watch.']);
+  assert.ok(!readFileSync(new URL('../index.html', import.meta.url), 'utf8').match(/id="screenSelect"[^>]*>/)[0].includes('aria-live'));
 });
 
 test('the Teams panel lists both teams by overall, name and role, with each team\'s star marked', () => {
@@ -448,7 +461,17 @@ test('the page has the scorebug: a logo, a crest, a name, fouls, timeouts and a 
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   for (const id of ['hud', 'quarter', 'gameClock', 'shotClock', ...[0, 1].flatMap(t => [`bugTeam${t}`, `abbr${t}`, `fouls${t}`, `timeouts${t}`, `score${t}`])]) assert.match(html, new RegExp(`id="${id}"`), id);
   assert.match(html, /class="bugLogo"/);
-  assert.equal((html.match(/<svg viewBox="0 0 40 40"/g) ?? []).length, 2, 'a crest for each team');
+  assert.equal((html.match(/<svg id="bugMark[01]" viewBox="0 0 40 40"/g) ?? []).length, 2, 'a crest for each team');
+});
+
+test('each side\'s crest and colours are its team\'s: with the Scorpions first, theirs are on the left', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(1, 3, [1, 0]), e = doc.els;
+  hud.update(s, 'webgl2');
+  assert.match(e.bugMark0.innerHTML, /#8f1717/);
+  assert.match(e.bugMark1.innerHTML, /#1d4fb8/);
+  assert.deepEqual([e.abbr0.textContent, e.abbr1.textContent], ['SCO', 'WAV']);
+  assert.deepEqual(teamColours(TEAMS[1]), { kit: '#d83a3a', bar: '#ff5a5a', ink: '#ffb0b0' });
+  assert.deepEqual(teamColours({ colour: '#000000' }), { kit: '#000000', bar: '#404040', ink: '#999999' }, 'mixed toward white when not given');
 });
 
 test('under a player there is a star if he is his team\'s star, a flame if he is hot and an ice cube if he is cold; nothing under anyone else, or outside play', () => {

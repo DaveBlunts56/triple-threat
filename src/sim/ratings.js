@@ -9,6 +9,9 @@ export { KEYS, lift, drop, overall };
 // The rating `key` of whoever is now in `player`'s place on the court.
 export const rated = (state, player, key) => personOf(state, player).ratings[key];
 
+// A team's overall: the mean of its first five players' (its starting five), to the nearest whole number.
+export const teamOverall = players => Math.round(players.slice(0, 5).reduce((sum, p) => sum + overall(p), 0) / Math.min(5, players.length));
+
 // The roster row of `team`'s star: its player with the highest overall, the first of them if two are level.
 export const starOf = (state, team) => state.rosters[team].reduce((best, person, row, all) => (overall(person) > overall(all[best]) ? row : best), 0);
 

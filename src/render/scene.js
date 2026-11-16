@@ -44,9 +44,9 @@ function paintNet() {
   return texture;
 }
 
-// Builds the renderer, court, hoops, lights and camera, in the arena of team `home`. Resolves to null (after telling
-// the player) if nothing can draw.
-export async function createScene(canvas, home = 0) {
+// Builds the renderer, court, hoops, lights and camera, for teams `ids` (the match's, by id) with side `home` (0 or 1)
+// at home. Resolves to null (after telling the player) if nothing can draw.
+export async function createScene(canvas, ids = [0, 1], home = 0) {
   // WebGL 2 where the game prefers it (see prefersWebGL) or the browser has nothing else; WebGPU otherwise.
   const chosen = prefersWebGL(window.navigator.userAgent, window.location.hash);
   const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, forceWebGL: chosen });
@@ -62,9 +62,9 @@ export async function createScene(canvas, home = 0) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0b0d12);
 
-  const floor = await createFloor(scene, arenaOf(home));
-  let arena = createArena(scene, arenaOf(home)), builtFor = home;
-  const sideline = createSideline(scene), refs = createRefs(scene);
+  const floor = await createFloor(scene, arenaOf(ids[home]));
+  let arena = createArena(scene, arenaOf(ids[home]), ids[1 - home]), builtFor = `${ids[home]}-${ids[1 - home]}`;
+  const sideline = createSideline(scene, ids), refs = createRefs(scene);
   // The nets' picture as its colour and its see-through, unlit, both sides drawn, and not written to the depth buffer.
   const netLook = new THREE.MeshBasicMaterial({ map: paintNet(), transparent: true, side: THREE.DoubleSide, depthWrite: false });
   const hoops = [createHoop(1, netLook), createHoop(-1, netLook)];
@@ -121,15 +121,18 @@ export async function createScene(canvas, home = 0) {
   const point = new THREE.Vector3();
 
   return {
-    scene, camera, backend, setQuality,
-    // The arena of team `to`, the side at home: built afresh, in place of the one there, when it is another.
-    setHome(to) {
-      if (to === builtFor) return;
-      builtFor = to;
+    scene, camera, backend, renderer, setQuality,
+    // A match's teams, `ids`, with side `home` at home: the home team's arena, built afresh in place of the one there
+    // when the home team or its visitor is another (its crowd wears both teams' colours), and the benches dressed.
+    setTeams(ids, home) {
+      sideline.setTeams(ids);
+      const want = `${ids[home]}-${ids[1 - home]}`;
+      if (want === builtFor) return;
+      builtFor = want;
       arena.dispose();
-      arena = createArena(scene, arenaOf(to));
+      arena = createArena(scene, arenaOf(ids[home]), ids[1 - home]);
       arena.setQuality(drawnAt);
-      floor.dress(arenaOf(to));
+      floor.dress(arenaOf(ids[home]));
     },
     // The match, for the arena's scoreboard and the hoops' clocks, lights and rims.
     watch(state) { arena.show(state); for (const h of hoops) h.show(state); },
@@ -138,7 +141,7 @@ export async function createScene(canvas, home = 0) {
     live(state, life, real) {
       clock += real; shake = life.shake;
       refs.live(state, real);   // by real time, so that they move as smoothly as the picture is drawn
-      arena.live(life, clock);
+      arena.live(life, clock, state.home ?? 0);
       sideline.live(state.ball, life, clock);
     },
     // Draws the frame. Nothing moves while it is drawn, so the scene's matrices are worked out once here, not again by

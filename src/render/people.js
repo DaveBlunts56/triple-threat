@@ -1,14 +1,16 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { BALL, MOVES, ROSTER } from '../sim/tuning.js';
+import { BALL, MOVES } from '../sim/tuning.js';
+import { TEAMS } from '../sim/teams.js';
+import { clone as cloneRig } from 'three/addons/utils/SkeletonUtils.js';
 import { onFloor } from '../sim/state.js';
 import { assetUrl } from './assets.js';
 import { MOTION, legMotion, armMotion, legLook, newMarks, noteChanges, drawnFacing, wholeBody } from './motion.js';
 import { BALL_IN_HAND, ballHands, crossFrom, dribbleSpot, moveSpot } from './hands.js';
 import { checkGaits, checkMotions, checkFacts, personName, courtPeople, sized, missingPeople, checkHands } from './checks.js';
 import { easeFacing, leanOf, lookTarget, headTurn, easeHead } from './bearing.js';
-import { createAnimator } from './animator.js';
+import { createAnimator, poseClip } from './animator.js';
 import { createFace, faceWants } from './face.js';
 import { createSweat } from './sweat.js';
 import { ATLAS, KIT, atlasPart, atlasRect, atlasUV, gearColour, kitOps, heightOps, kitColours, paintKit, normalFromHeight } from './kit.js';
@@ -234,7 +236,7 @@ export async function loadPeople(camera) {
     const hands = { left: model.getObjectByName('mixamorigLeftHand'), right: model.getObjectByName('mixamorigRightHand') };
     checkHands(model.name, hands);   // so a broken file falls back to capsules at load, not on the first possession
     // arms: the arm motion he was given on the last frame, or null when his arms followed his legs.
-    return { model, hands, near, far, wet, drawnAs: 'near', face: createFace(skin, team * 100 + number), animator: createAnimator(model, clips, facts, scale, index), gaits: sized(facts.gaits, scale), last: 'idle', arms: null };
+    return { model, scale, hands, near, far, wet, drawnAs: 'near', face: createFace(skin, team * 100 + number), animator: createAnimator(model, clips, facts, scale, index), gaits: sized(facts.gaits, scale), last: 'idle', arms: null };
   }
   // Shows his `which` model ('near' or 'far') and hides the other.
   const wear = (he, which) => {
@@ -246,9 +248,9 @@ export async function loadPeople(camera) {
   let level = 'high';   // the quality level the players are dressed for
   const sweat = createSweat();
   const people = {};
-  ROSTER.numbers.forEach((numbers, team) => numbers.forEach((number, row) => {
-    const name = personName(team, number);
-    people[name] = person(roots.find(root => root.name === name), team, number, team * numbers.length + row);
+  TEAMS.forEach((team, id) => team.players.forEach(({ number }, row) => {
+    const name = personName(id, number);
+    people[name] = person(roots.find(root => root.name === name), id, number, id * team.players.length + row);
   }));
   await Promise.all(pending);
 
@@ -268,6 +270,17 @@ export async function loadPeople(camera) {
 
   return {
     models,
+    // A copy of the player numbered `number` of team `id` (its place in TEAMS), dressed as he is and standing in the
+    // idle motion, for a picture of him off the court (see studio.js). Returns { model, mixer }: the copy, and what
+    // moves it, to be moved on each frame. The copy shares his geometry and his pictures.
+    portrait(id, number) {
+      const he = people[personName(id, number)], model = cloneRig(he.model);
+      model.traverse(part => { if (part.isMesh) part.visible = part.name !== 'far'; });
+      model.position.set(0, 0, 0); model.rotation.set(0, 0, 0);
+      const mixer = new THREE.AnimationMixer(model);
+      mixer.clipAction(poseClip(clips.idle, he.scale)).play();
+      return { model, mixer };
+    },
     // level: one of QUALITY.order. The bench changes too, so a substitute comes on in the right pictures.
     setQuality(now) {
       level = now;

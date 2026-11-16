@@ -1,22 +1,12 @@
 // The teams' arenas: each team's home, as its building, its court and its banners look. Plain data, no Three.js; the
 // building (building.js), the floor (floor.js) and the video board (videoboard.js) are made from it. All names are
 // invented.
+import { TEAMS } from '../sim/teams.js';
+
 const f = Object.freeze;
 
-// Each team's mark, as the scorebug draws it (index.html), in a 40-unit square: its disc, its rim, and its paths, each
-// filled or stroked.
-export const LOGOS = f([
-  f({ disc: '#1d4fb8', rim: '#e6ecf5', paths: f([
-    f({ d: 'M5 24c4-7 9-7 13 0s9 7 17-2v6c-7 7-13 6-17 0s-8-5-13 2z', fill: '#ffffff' }),
-    f({ d: 'M8 17c3-5 7-5 10 0s7 5 13-1', stroke: '#9cc4ff', width: 2.4 }),
-  ]) }),
-  f({ disc: '#8f1717', rim: '#f1e2e2', paths: f([
-    f({ d: 'M13 29c-5-5-5-13 1-17 5-3 12-1 13 4', stroke: '#ffffff', width: 3.2 }),
-    f({ d: 'M27 16l4-6-1 8z', fill: '#ffffff' }),
-    f({ d: 'M19.2 29a3.2 3.2 0 1 1-6.4 0a3.2 3.2 0 1 1 6.4 0z', fill: '#ffffff' }),
-    f({ d: 'M19 28l7 2M19 30l6 4', stroke: '#ffffff', width: 2 }),
-  ]) }),
-]);
+// Each team's mark (see sim/teams.js), by team id.
+export const LOGOS = Object.freeze(TEAMS.map(team => team.logo));
 
 // Draws team `team`'s mark on the 2D canvas context `g`, `size` pixels across, centred on (x, y). In the browser only
 // (it needs Path2D).
@@ -34,6 +24,13 @@ export function drawLogo(g, team, x, y, size) {
     if (p.stroke) { g.strokeStyle = p.stroke; g.lineWidth = p.width; g.stroke(path); }
   }
   g.restore();
+}
+
+// Team `team`'s mark as the inside of an SVG with a 0 0 40 40 view box, for the page.
+export function logoSvg(team) {
+  const logo = LOGOS[team];
+  const paths = logo.paths.map(p => `<path d="${p.d}" fill="${p.fill ?? 'none'}"${p.stroke ? ` stroke="${p.stroke}" stroke-width="${p.width}" stroke-linecap="round" stroke-linejoin="round"` : ''}/>`);
+  return `<circle cx="20" cy="20" r="18" fill="${logo.disc}" stroke="${logo.rim}" stroke-width="2"/>${paths.join('')}`;
 }
 
 // name, city: on the sidelines and the baselines. team: whose home it is. colour: the building's fascia, its accent
@@ -69,5 +66,5 @@ export const ARENAS = f({
   }),
 });
 
-// The arena a match is played in: the home side's (`home`, the team at home: 0 the Waves, 1 the Scorpions).
-export const arenaOf = (home = 0) => Object.values(ARENAS).find(arena => arena.team === home) ?? ARENAS.tidewater;
+// The arena a match is played in: the home team's (`home`, its id), or Tidewater for a team with none of its own yet.
+export const arenaOf = (home = 0) => ARENAS[TEAMS[home]?.arena] ?? ARENAS.tidewater;

@@ -1,5 +1,5 @@
 // Checks of the players' and the motions' files at load, and who is who among the people. No Three.js here.
-import { ROSTER } from '../sim/tuning.js';
+import { TEAMS } from '../sim/teams.js';
 import { LEG_CLIPS, ARM_CLIPS, GAITS, STRIDES } from './motion.js';
 
 // Throws unless `facts` (assets/motion.json) gives every gait and every guarding step a speed: without one a moving
@@ -43,8 +43,10 @@ export function checkHands(name, hands) {
 // The name of a person's model in assets/players.glb.
 export const personName = (team, number) => `player-${team}-${number}`;
 
-// The model name for each court player, in `state.players` order.
-export const courtPeople = state => state.players.map(p => personName(p.team, state.rosters[p.team][p.person].number));
+// The model name for each court player, in `state.players` order: by his team's id (state.ids), not its side.
+export const courtPeople = state => state.players.map(p => personName(sideId(state, p.team), state.rosters[p.team][p.person].number));
+// The id of the team on side `side` of the match (0 or 1).
+export const sideId = (state, side) => state.ids?.[side] ?? side;
 
 // Whether a track of a motion is kept at load: every turn of a bone, and where the hips are. The other bones' positions
 // and every scale never change, and would stamp the bone lengths of the player the motions were made on onto everyone.
@@ -57,5 +59,5 @@ export function sized(gaits, scale) {
 
 // Every person on a roster who has no model among `names`.
 export function missingPeople(names) {
-  return ROSTER.numbers.flatMap((numbers, team) => numbers.map(number => personName(team, number))).filter(name => !names.includes(name));
+  return TEAMS.flatMap((team, id) => team.players.map(p => personName(id, p.number))).filter(name => !names.includes(name));
 }

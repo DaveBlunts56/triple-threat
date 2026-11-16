@@ -1,6 +1,5 @@
 // Where things stand in the arena: the seats, the boards, the scorer's table and the hanging scoreboard, and what the
 // scoreboard says. Plain logic, no Three.js, so it can be tested without a browser.
-import { ROSTER } from '../sim/tuning.js';
 import { periodWord } from './hud.js';
 
 const f = Object.freeze;
@@ -128,5 +127,5 @@ export function blocks(box, from, to) {
 
 // What the hanging scoreboard says: each team's abbreviation and points, and the period.
 export const scoreLines = state => ({
-  home: `${ROSTER.abbr[0]} ${state.score[0]}`, away: `${ROSTER.abbr[1]} ${state.score[1]}`, period: periodWord(state.quarter),
+  home: `${state.teams[0].abbr} ${state.score[0]}`, away: `${state.teams[1].abbr} ${state.score[1]}`, period: periodWord(state.quarter),
 });

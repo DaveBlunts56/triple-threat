@@ -1,7 +1,7 @@
 // The fans: who sits where, whose side they are on, what they wear and carry, how they cheer, and the crowd's mood
 // eased from moment to moment. Plain logic, no Three.js, so it can be tested without a browser. The fans are drawn,
 // and moved, by fans.js.
-import { ROSTER } from '../sim/tuning.js';
+import { TEAMS, nicknameOf } from '../sim/teams.js';
 import { KIT } from './kit.js';
 
 const f = Object.freeze;
@@ -13,9 +13,9 @@ const GREYS = f(['#8c8c8c', '#d6d6d0']);
 const SHIRTS = f(['#e9ecef', '#2a2d33', '#5b6570', '#8c8f96', '#6a5a4a', '#3e4c5e', '#7b2d3a', '#2d5a7b', '#d9c9a3', '#46613a', '#c26a2a', '#f0e6c8']);
 const PANTS = f(['#2c3d5a', '#22252c', '#7d6e55', '#141518', '#55585e', '#3a4f70']);
 const SUITS = f(['#20232b', '#2c3440', '#3a2f2a']);
-export const PALETTE = f([...SKINS, ...HAIRS, ...GREYS, ...SHIRTS, ...PANTS, ...SUITS, KIT.team[0], KIT.team[1], '#f4f4f2']);
+export const PALETTE = f([...SKINS, ...HAIRS, ...GREYS, ...SHIRTS, ...PANTS, ...SUITS, ...KIT.team, '#f4f4f2']);
 const at = (list, i) => PALETTE.indexOf(list[i]);
-const TEAMS = f([PALETTE.indexOf(KIT.team[0]), PALETTE.indexOf(KIT.team[1])]);
+const COLOURS = f(KIT.team.map(colour => PALETTE.indexOf(colour)));   // each team's colour's place in PALETTE, by id
 export const WHITE = PALETTE.length - 1;
 
 // How a fan cheers (style), what is on their head (hair) and what they carry (prop). A courtside fan only claps, and
@@ -42,12 +42,12 @@ export const CROWD = f({
 // and how far ahead of their seat they stand, their feet on the step in front.
 export const REACH = f({ up: 2.4, ahead: 0.45 });
 
-// The words on the fans' signs with team `home` at home, each with the team whose colour it is in: home fans hold one
-// of the first three, away fans the last.
-const nickname = team => ROSTER.teams[team].split(' ').pop().toUpperCase();
-export const signsFor = (home = 0) => [
+// The words on the fans' signs with team `home` at home against team `away` (ids), each with the team whose colour
+// it is in: home fans hold one of the first three, away fans the last.
+const nickname = team => nicknameOf(TEAMS[team]).toUpperCase();
+export const signsFor = (home = 0, away = 1 - home) => [
   { words: 'DEFENSE!', team: home }, { words: `GO ${nickname(home)}!`, team: home }, { words: '#1 FAN', team: home },
-  { words: `GO ${nickname(1 - home)}!`, team: 1 - home },
+  { words: `GO ${nickname(away)}!`, team: away },
 ];
 
 // A small seeded generator for fan `i`: the same fan every time, not Math.random.
@@ -59,12 +59,12 @@ function dice(i) {
 const among = (shares, r) => { let sum = 0; for (let k = 0; k < shares.length; k++) { sum += shares[k]; if (r < sum) return k; } return shares.length; };
 
 // One fan for a seat ({ x, y, z, facing }): `i` makes them who they are, `upper` puts them on the upper deck,
-// `courtside` on the floor, and `home` is the team at home, whose colours the home fans wear. Returns the seat with
+// `courtside` on the floor; `home` and `away` are the teams' ids, whose colours their fans wear. Returns the seat with
 // { turn, width, height, rise, dim, side (0 home, 1 away, 2 neither), end (the end they sit behind, +1 or -1, or 0),
 // style, seed, skin, shirt, pants, hair, upper, fore, prop colour (all places in PALETTE), hairStyle, prop, sign (its
-// place in signsFor(home)) }.
-export function dressFan(seat, i, { upper = false, courtside = false, home = 0 } = {}) {
-  const team = [TEAMS[home], TEAMS[1 - home]];   // the home side's colour, the away side's
+// place in signsFor(home, away)) }.
+export function dressFan(seat, i, { upper = false, courtside = false, home = 0, away = 1 - home } = {}) {
+  const team = [COLOURS[home], COLOURS[away]];   // the home side's colour, the away side's
   const r = dice(i), kid = !courtside && r() < CROWD.kid, elder = !kid && r() < CROWD.elder;
   const side = courtside ? (r() < CROWD.courtsideHome ? 0 : 2) : among(CROWD.side, r());
   const pick = list => at(list, Math.floor(r() * list.length));
@@ -98,14 +98,14 @@ export function dressFan(seat, i, { upper = false, courtside = false, home = 0 }
 
 // The whole crowd: the courtside fans first (always shown), then the stands' in `stands` order (see layout.js's
 // shown: the first so many fill the stands evenly). `upperFrom`: the height from which a seat is on the upper deck.
-// `home`: the team at home.
-export function dressCrowd(stands, courtside, upperFrom, home = 0) {
-  return [...courtside.map((seat, i) => dressFan(seat, 100000 + i, { courtside: true, home })),
-    ...stands.map((seat, i) => dressFan(seat, i, { upper: seat.y >= upperFrom, home }))];
+// `home`, `away`: the teams' ids.
+export function dressCrowd(stands, courtside, upperFrom, home = 0, away = 1 - home) {
+  return [...courtside.map((seat, i) => dressFan(seat, 100000 + i, { courtside: true, home, away })),
+    ...stands.map((seat, i) => dressFan(seat, i, { upper: seat.y >= upperFrom, home, away }))];
 }
 
-// The crowd's mood as the fans show it, with team `home` at home: how far each side's fans are on their feet (home,
-// away), the home fans' boos
+// The crowd's mood as the fans show it, with side `home` (0 or 1, the match's state.home) at home: how far each
+// side's fans are on their feet (home, away), the home fans' boos
 // and groans, and the waving at a free-throw shooter behind `end` (+1 or -1). Each eases toward what the crowd's mood
 // (life.js) says, `rise` a second going up and `fall` coming down, so that a crowd rises together and sits back down
 // a few at a time rather than all in one frame.
