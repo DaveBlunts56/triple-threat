@@ -4,7 +4,8 @@
   "scripts": {
     "test": "node --test \"tests/*.test.js\"",
     "start": "python3 -m http.server 5173",
-    "single": "node tools/single-file.mjs"
+    "single": "node tools/single-file.mjs",
+    "site": "node tools/site.mjs"
   },
   "type": "module",
   "dependencies": {

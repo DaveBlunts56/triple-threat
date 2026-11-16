@@ -22,10 +22,10 @@ function resolveImport(from, name) {
   return prefix ? PREFIX[prefix] + name.slice(prefix.length) : BARE[name];
 }
 
-function build(root) {
+// Every module reachable from the game's entry in the project at `root`, each one after the modules it imports:
+// a Map of its path to its code, every import's name rewritten to "@@<path>". Also used by tools/site.mjs.
+export function graph(root) {
   root = resolve(root);
-
-  // Every module reachable from the entry, each one after the modules it imports.
   const modules = new Map(), visiting = new Set();
   function add(path) {
     if (modules.has(path)) return;
@@ -43,6 +43,12 @@ function build(root) {
     modules.set(path, code);
   }
   add('src/main.js');
+  return modules;
+}
+
+function build(root) {
+  root = resolve(root);
+  const modules = graph(root);
 
   // Self-check: every rewritten name points at a module that loads earlier.
   const seen = new Set();
