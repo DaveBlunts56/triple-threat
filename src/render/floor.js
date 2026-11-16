@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { reflector } from 'three/tsl';
 import { gaussianBlur } from 'three/addons/tsl/display/GaussianBlurNode.js';
-import { COURT, RIM, THREE_PT } from '../sim/tuning.js';
+import { COURT } from '../sim/tuning.js';
+import { MARKS, courtMarks } from './markings.js';
 import { FLOOR_FILES, assetUrl } from './assets.js';
 import { QUALITY } from './quality.js';
 
@@ -33,26 +34,21 @@ function paintCourt(wood) {
     g.clearRect(...court);
   }
 
-  g.strokeStyle = '#ffffff'; g.lineWidth = 0.06 * PX;
-  const line = (x1, z1, x2, z2) => { g.beginPath(); g.moveTo(X(x1), Z(z1)); g.lineTo(X(x2), Z(z2)); g.stroke(); };
-  const arc = (x, z, r, from, to) => { g.beginPath(); g.arc(X(x), Z(z), r * PX, from, to); g.stroke(); };
-
-  g.strokeRect(...court);
-  line(0, -COURT.halfWidth, 0, COURT.halfWidth);
-  arc(0, 0, 1.8, 0, 2 * Math.PI);
-
-  for (const s of [1, -1]) {
-    // Three-point line: an arc around the rim, straight in the corners.
-    const reach = Math.asin(THREE_PT.cornerZ / THREE_PT.radius);
-    const mid = s === 1 ? Math.PI : 0;                 // the arc bulges toward centre court
-    arc(s * RIM.x, 0, THREE_PT.radius, mid - reach, mid + reach);
-    const cornerX = s * (RIM.x - Math.sqrt(THREE_PT.radius ** 2 - THREE_PT.cornerZ ** 2));
-    for (const z of [-THREE_PT.cornerZ, THREE_PT.cornerZ]) line(s * COURT.halfLength, z, cornerX, z);
-    // Key and free-throw circle.
-    const keyX = s * (COURT.halfLength - 5.8);
-    g.strokeRect(Math.min(X(keyX), X(s * COURT.halfLength)), Z(-2.45), 5.8 * PX, 4.9 * PX);
-    arc(keyX, 0, 1.8, 0, 2 * Math.PI);
+  // The lines and blocks of an NBA floor (see markings.js), in white.
+  g.strokeStyle = g.fillStyle = '#ffffff'; g.lineWidth = MARKS.line * PX;
+  for (const mark of courtMarks()) {
+    g.beginPath();
+    if (mark.kind === 'block') {
+      const [[x1, z1], [x2, z2]] = [mark.from, mark.to];
+      g.fillRect(Math.min(X(x1), X(x2)), Math.min(Z(z1), Z(z2)), Math.abs(X(x2) - X(x1)), Math.abs(Z(z2) - Z(z1)));
+      continue;
+    }
+    g.setLineDash(mark.dashed ? [MARKS.dash * PX, MARKS.dash * PX] : []);
+    if (mark.kind === 'line') { g.moveTo(X(mark.from[0]), Z(mark.from[1])); g.lineTo(X(mark.to[0]), Z(mark.to[1])); }
+    else g.arc(X(mark.at[0]), Z(mark.at[1]), mark.r * PX, mark.from, mark.to);
+    g.stroke();
   }
+  g.setLineDash([]);
   const texture = new THREE.CanvasTexture(c);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
