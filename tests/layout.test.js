@@ -108,6 +108,16 @@ test('the home arena is the Waves\' Tidewater Arena, all of it invented, and bot
   assert.ok(look.banners.length >= 3);
 });
 
+test('the Scorpions\' home is Red Rock Pavilion: sandstone and rust, a sunset glow, a folded roof, their own court and banners', () => {
+  const look = arenaOf(1);
+  assert.equal(look, ARENAS.redrock);
+  assert.deepEqual([look.team, look.name, look.city, look.trusses], [1, 'RED ROCK PAVILION', 'RED ROCK', 'angle']);
+  assert.equal(arenaOf(0), ARENAS.tidewater);
+  assert.ok(look.banners.length >= 3 && look.banners.every(b => !/WAVES|HARBOR/.test(b.top)));
+  for (const key of Object.keys(ARENAS.tidewater.colour)) assert.ok(key in look.colour, key);
+  assert.notEqual(look.colour.lane, ARENAS.tidewater.colour.lane);
+});
+
 test('the video board says the teams, their points, the period and the clock', () => {
   const s = createMatch(); s.score = [61, 58]; s.quarter = 3; s.gameClock = 432.2;
   const words = boardWords(s);

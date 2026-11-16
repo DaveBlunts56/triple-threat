@@ -38,14 +38,15 @@ export function drawLogo(g, team, x, y, size) {
 
 // name, city: on the sidelines and the baselines. team: whose home it is. colour: the building's fascia, its accent
 // (the ribbon's frame, the railings' tops, the tunnel signs), the stands' concrete, the steel of the roof, the tint of
-// the railings' glass, the suites' glow, the roof's underside, and the court's lane and centre circle (`laneShade`: how
-// strongly the lane's colour stains the wood). trusses: the roof's shape, 'wave' or 'angle'. banners: what hangs from
-// the roof.
+// the railings' glass, the suites' glow, the roof's underside, the court's lane and centre circle (`laneShade`: how
+// strongly the lane's colour stains the wood), and the roof's lights ([r, g, b], brighter than white so they bloom
+// before LOOK.glow, see arena.js). trusses: the roof's shape, 'wave' (rolling) or 'angle' (folded into sharp ridges).
+// banners: what hangs from the roof.
 export const ARENAS = f({
   tidewater: f({
     name: 'TIDEWATER ARENA', city: 'HARBOR CITY', team: 0,
     colour: f({ fascia: '#0b2a52', accent: '#18a8a8', concrete: '#1b2232', steel: '#7d8794', glass: '#9fd4e6', warm: '#ffcf8a',
-      ceiling: '#05070c', lane: '#1d4fb8', laneShade: 0.9 }),
+      ceiling: '#05070c', lane: '#1d4fb8', laneShade: 0.9, lights: f([1, 0.97, 0.92]) }),
     trusses: 'wave',
     banners: f([
       f({ top: 'HARBOR CITY WAVES', big: '2014', bottom: 'CONFERENCE CHAMPIONS' }),
@@ -54,7 +55,19 @@ export const ARENAS = f({
       f({ top: 'WAVES LEGEND', big: '7', bottom: 'RETIRED' }),
     ]),
   }),
+  redrock: f({
+    name: 'RED ROCK PAVILION', city: 'RED ROCK', team: 1,
+    colour: f({ fascia: '#80492c', accent: '#ff8a2a', concrete: '#46332a', steel: '#9a7660', glass: '#ffb37a', warm: '#ff9a48',
+      ceiling: '#0d0605', lane: '#a3301e', laneShade: 0.85, lights: f([1, 0.84, 0.66]) }),
+    trusses: 'angle',
+    banners: f([
+      f({ top: 'RED ROCK SCORPIONS', big: '2016', bottom: 'CONFERENCE CHAMPIONS' }),
+      f({ top: 'RED ROCK SCORPIONS', big: '2009', bottom: 'DIVISION CHAMPIONS' }),
+      f({ top: 'RED ROCK SCORPIONS', big: '2019', bottom: 'DIVISION CHAMPIONS' }),
+      f({ top: 'SCORPIONS LEGEND', big: '23', bottom: 'RETIRED' }),
+    ]),
+  }),
 });
 
-// The arena a match is played in: the home side's. (Until the Scorpions' is built, every match is at Tidewater.)
-export const arenaOf = () => ARENAS.tidewater;
+// The arena a match is played in: the home side's (`home`, the team at home: 0 the Waves, 1 the Scorpions).
+export const arenaOf = (home = 0) => Object.values(ARENAS).find(arena => arena.team === home) ?? ARENAS.tidewater;

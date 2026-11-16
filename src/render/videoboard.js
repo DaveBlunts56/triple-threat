@@ -59,7 +59,7 @@ function paintStrip({ g, c }, words, look) {
 }
 
 // The board, added to `group`, in the arena's `look`. Returns { pieces, setQuality(level), show(state),
-// copy(renderer, camera, source) }. pieces: its core (`black`) and its ring of lights (`ring`, its pictures'
+// copy(renderer, camera, source), dispose() }. pieces: its core (`black`) and its ring of lights (`ring`, its pictures'
 // coordinates along `ribbon` metres of picture per metre), as geometry on the court, for the building to draw with its
 // own (see building.js). copy puts the frame just drawn (the scene pass's picture, `source`, a texture node) on the
 // screens, when the level shows a live game and the board is in the camera's view.
@@ -118,5 +118,8 @@ export function createVideoBoard(group, look, ribbon) {
       quad.render(renderer);
       renderer.setRenderTarget(before);
     },
+    // Lets go of what the board keeps beyond its meshes: its live picture, the quad that copies into it, and the look its
+    // screens are not wearing.
+    dispose() { feed.dispose(); quad?.material.dispose(); feedLook.dispose(); screenLook.dispose(); },
   };
 }

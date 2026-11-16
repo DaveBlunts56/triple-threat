@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { attribute, uniform, uniformArray, vec2, vec3, int, sin, cos, abs, mix, step, smoothstep, max, floor, mod, exp2,
   positionGeometry, uv, varying, texture } from 'three/tsl';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { PALETTE, SIGNS, WHITE, STYLE, createMood, stepMood } from './crowd.js';
+import { PALETTE, WHITE, STYLE, signsFor, createMood, stepMood } from './crowd.js';
 import { KIT } from './kit.js';
 
 const f = Object.freeze;
@@ -78,12 +78,12 @@ function simpleBody() {
   return mergeVertices(mergeGeometries(parts));
 }
 
-// The fans' signs: SIGNS's words, two by two on one picture, each in its team's colour.
-function signPicture() {
+// The fans' signs (see crowd.js's signsFor), two by two on one picture, each in its team's colour.
+function signPicture(home) {
   const c = document.createElement('canvas'), w = 256, h = 164;
   c.width = 2 * w; c.height = 2 * h;
   const g = c.getContext('2d');
-  SIGNS.forEach((sign, k) => {
+  signsFor(home).forEach((sign, k) => {
     const x = (k % 2) * w, y = (1 - Math.floor(k / 2)) * h;   // the first row of signs at the bottom of the picture
     g.fillStyle = '#f4f4f2'; g.fillRect(x, y, w, h);
     g.fillStyle = KIT.team[sign.team]; g.fillRect(x + 8, y + 8, w - 16, h - 16);
@@ -183,10 +183,10 @@ function fanLook(mood, signs) {
   return material;
 }
 
-// The fans, `crowd` (see crowd.js's dressCrowd: the courtside fans first), added to `group`. Returns { seats,
-// setQuality(level), live(life, now, count) }: how many fans there are, the body the level draws, and the crowd's mood
-// at `now` seconds, with the first `count` fans in their seats.
-export function createFans(group, crowd) {
+// The fans, `crowd` (see crowd.js's dressCrowd: the courtside fans first), added to `group`, with team `home` at home.
+// Returns { seats, setQuality(level), live(life, now, count), dispose() }: how many fans there are, the body the level
+// draws, the crowd's mood at `now` seconds with the first `count` fans in their seats, and letting go of their signs.
+export function createFans(group, crowd, home = 0) {
   const n = crowd.length, data = () => new Float32Array(n * 4);
   const columns = { fanSeat: data(), fanBody: data(), fanMood: data(), fanPaint: data(), fanGear: data() };
   crowd.forEach((fan, i) => {
@@ -198,7 +198,7 @@ export function createFans(group, crowd) {
   });
   const shared = Object.fromEntries(Object.entries(columns).map(([name, array]) => [name, new THREE.InstancedBufferAttribute(array, 4)]));
   const mood = { time: uniform(0), home: uniform(0), away: uniform(0), boo: uniform(0), groan: uniform(0), wave: uniform(0), end: uniform(0) };
-  const material = fanLook(mood, signPicture());
+  const signs = signPicture(home), material = fanLook(mood, signs);
   const batch = geometry => {
     const g = new THREE.InstancedBufferGeometry().copy(geometry);
     for (const [name, attr] of Object.entries(shared)) g.setAttribute(name, attr);
@@ -214,9 +214,10 @@ export function createFans(group, crowd) {
   let last = null;
   return {
     seats: n,
+    dispose() { signs.dispose(); },
     setQuality(level) { simple.visible = RIG.simple.includes(level); full.visible = !simple.visible; },
     live(life, time, count) {
-      stepMood(now, life, last === null ? 0 : Math.max(0, time - last));
+      stepMood(now, life, last === null ? 0 : Math.max(0, time - last), home);
       last = time;
       full.geometry.instanceCount = simple.geometry.instanceCount = Math.min(n, count);
       mood.time.value = time;

@@ -14,9 +14,9 @@ const key = (type, code) => Object.assign(new Event(type, { cancelable: true }),
 
 const at = name => MENU.main.indexOf(name);   // where an entry is on the main list
 
-test('the main list is Play, Watch, Simulate, Mode, Teams, Controls, Settings, with the bar on Play and the mode on 3 on 3', () => {
+test('the main list is Play, Watch, Simulate, Mode, Home, Teams, Controls, Settings, with the bar on Play, the mode on 3 on 3 and the Waves at home', () => {
   const m = createMenu();
-  assert.deepEqual([m.panel, m.row, m.autoSubs, m.size, menuRows(m)], ['main', 0, true, 3, ['play', 'watch', 'simulate', 'mode', 'teams', 'controls', 'settings']]);
+  assert.deepEqual([m.panel, m.row, m.autoSubs, m.size, m.home, menuRows(m)], ['main', 0, true, 3, 0, ['play', 'watch', 'simulate', 'mode', 'home', 'teams', 'controls', 'settings']]);
   assert.deepEqual(MENU.settings, ['quality', 'autoSubs', 'camera', 'difficulty', 'styles', 'commentary', 'replays', 'sound', 'keys']);
   assert.equal(MENU.settings.length, 9);   // the page has nine rows for them
 });
@@ -30,11 +30,11 @@ test('Settings has Game styles in place of Quarter, and the Game styles panel ha
 test('the bar moves down and up by arrows or W and S, and wraps at both ends', () => {
   const m = createMenu();
   keys(m, 'ArrowDown', 'KeyS'); assert.equal(m.row, 2);
-  keys(m, 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown'); assert.equal(m.row, 6);
+  keys(m, 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown'); assert.equal(m.row, 7);
   keys(m, 'ArrowDown'); assert.equal(m.row, 0);
-  keys(m, 'ArrowUp'); assert.equal(m.row, 6);
-  keys(m, 'KeyW'); assert.equal(m.row, 5);
-  assert.deepEqual(keys(m, 'KeyX', 'ArrowLeft'), [null, null]); assert.equal(m.row, 5);
+  keys(m, 'ArrowUp'); assert.equal(m.row, 7);
+  keys(m, 'KeyW'); assert.equal(m.row, 6);
+  assert.deepEqual(keys(m, 'KeyX', 'ArrowLeft'), [null, null]); assert.equal(m.row, 6);
 });
 
 test('Enter or Space on Play, Watch or Simulate asks for it and changes nothing', () => {
@@ -91,13 +91,13 @@ test('in Settings, Enter on Quality asks for the quality switch and Enter on Aut
 test('pointing with the mouse selects a row the panel has, and no other', () => {
   const m = createMenu();
   menuPoint(m, at('teams')); assert.equal(m.row, at('teams'));
-  menuPoint(m, 7); menuPoint(m, -1); assert.equal(m.row, at('teams'));
+  menuPoint(m, 8); menuPoint(m, -1); assert.equal(m.row, at('teams'));
   menuKey(m, 'Enter'); menuPoint(m, 1); assert.equal(m.row, 0);                          // Teams has no rows
 });
 
 test('the mouse acts on a row only before the match, and only on a row the panel shown has', () => {
   const game = { state: createMatch(7), menu: createMenu() };
-  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(row => menuHasRow(game, row)), [true, true, true, true, true, true, true, false]);
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7, 8].map(row => menuHasRow(game, row)), [true, true, true, true, true, true, true, true, false]);
   game.menu.row = at('settings'); menuKey(game.menu, 'Enter');                          // Settings: a row for each setting
   assert.deepEqual([0, MENU.settings.length - 1, MENU.settings.length].map(row => menuHasRow(game, row)), [true, true, false]);
   menuKey(game.menu, 'Escape'); game.menu.row = at('teams'); menuKey(game.menu, 'Enter'); // Teams: none
@@ -278,3 +278,14 @@ test('on a simulated game\'s result Enter simulates another and Esc goes back to
 });
 
 test('Simulate\'s quarters start on 12', () => assert.equal(createMenu().simulate.minutes, 12));
+
+test('Enter on Home puts the other team at home and asks for its arena; a match started then is at home there', () => {
+  const m = createMenu();
+  m.row = at('home');
+  assert.equal(menuKey(m, 'Enter'), 'home'); assert.equal(m.home, 1);
+  const game = { state: createMatch(7), menu: m };
+  startFromMenu(game, createKeyboard(new EventTarget()), () => createMatch(8));
+  assert.equal(game.state.home, 1);
+  assert.equal(menuKey(m, 'Space'), 'home'); assert.equal(m.home, 0);
+  assert.equal(createMenu({ ...DEFAULT_PREFS, home: 1 }).home, 1, 'it starts as it was saved');
+});

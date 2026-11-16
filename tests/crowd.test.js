@@ -2,7 +2,7 @@
 // show it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PALETTE, STYLE, PROP, HAIR, CROWD, SIGNS, REACH, MOOD, dressCrowd, createMood, stepMood } from '../src/render/crowd.js';
+import { PALETTE, STYLE, PROP, HAIR, CROWD, REACH, MOOD, signsFor, dressCrowd, createMood, stepMood } from '../src/render/crowd.js';
 import { ARENA, seats, upperSeats, shown, blocks } from '../src/render/layout.js';
 import { courtsideSeats } from '../src/render/sideline.js';
 import { COURT, ROSTER } from '../src/sim/tuning.js';
@@ -45,7 +45,7 @@ test('the stands are mostly home fans, some away and some neither, in their colo
   for (const fan of fans) {
     for (const k of ['skin', 'shirt', 'pants', 'hair', 'upper', 'fore', 'propColour']) assert.ok(fan[k] >= 0 && fan[k] < PALETTE.length, k);
     assert.equal(fan.style === STYLE.sign, fan.prop === PROP.sign);
-    assert.equal(SIGNS[fan.sign].team, fan.side === 1 ? 1 : 0, 'each side holds its own team\'s signs');
+    assert.equal(signsFor(0)[fan.sign].team, fan.side === 1 ? 1 : 0, 'each side holds its own team\'s signs');
     assert.equal(fan.rise, fan.y >= ARENA.upper.height - 0.1 ? CROWD.rise.upper : CROWD.rise.lower);
     assert.equal(fan.end, Math.abs(Math.sin(fan.facing)) > 0.5 ? Math.sign(fan.x) : 0);
   }
@@ -53,8 +53,20 @@ test('the stands are mostly home fans, some away and some neither, in their colo
   assert.ok(fans.some(f => f.height < 0.8) && fans.some(f => f.width > 1.1), 'children, and bigger builds');
 });
 
-test('the signs cheer the two teams by name', () => {
-  for (const name of ROSTER.teams) assert.ok(SIGNS.some(s => s.words.includes(name.split(' ').pop().toUpperCase())), name);
+test('the signs cheer the two teams by name, the home side\'s on the home fans\' signs', () => {
+  for (const home of [0, 1]) {
+    const signs = signsFor(home), nick = team => ROSTER.teams[team].split(' ').pop().toUpperCase();
+    assert.deepEqual(signs.map(s => s.team), [home, home, home, 1 - home]);
+    assert.ok(signs[1].words.includes(nick(home)) && signs[3].words.includes(nick(1 - home)));
+  }
+});
+
+test('with the Scorpions at home, the home fans wear their red and the away fans the Waves\' blue; the people are the same', () => {
+  const theirs = dressCrowd(stands, courtside, ARENA.upper.height - 0.1, 1).slice(courtside.length), ours = crowd.slice(courtside.length);
+  const team = KIT.team.map(colour => PALETTE.indexOf(colour));
+  assert.ok(share(theirs.filter(f => f.side === 0), f => f.shirt === team[1]) > 0.6);
+  assert.ok(share(theirs.filter(f => f.side === 1), f => f.shirt === team[0]) > 0.6);
+  assert.ok(theirs.every((f, i) => f.skin === ours[i].skin && f.side === ours[i].side && f.prop === ours[i].prop));
 });
 
 test('a standing fan, arms and sign raised, never comes between the camera and the court', () => {
@@ -89,4 +101,8 @@ test('the crowd rises together over a moment and sits back down, rather than in 
   assert.ok(mood.wave > 0 && mood.end === 1);
   life.boo = 2.6; life.groan = 1.5; for (let i = 0; i < 120; i++) stepMood(mood, life, dt);
   assert.ok(mood.boo === 1 && mood.groan === 1);
+  // With the Scorpions at home, their fans' cheers are the home crowd's.
+  const theirs = createMood(), basket = { cheer: [0, 3], boo: 0, groan: 0, distract: 0 };
+  for (let i = 0; i < 60; i++) stepMood(theirs, basket, dt, 1);
+  assert.ok(theirs.home > 0.5 && theirs.away === 0);
 });

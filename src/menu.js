@@ -7,19 +7,20 @@ import { DEFAULT_PREFS } from './prefs.js';
 
 const SLIDER_ROWS = Object.freeze([...SLIDERS.map(s => s.key), 'reset']);
 export const MENU = Object.freeze({
-  main: ['play', 'watch', 'simulate', 'mode', 'teams', 'controls', 'settings'],
+  main: ['play', 'watch', 'simulate', 'mode', 'home', 'teams', 'controls', 'settings'],
   settings: ['quality', 'autoSubs', 'camera', 'difficulty', 'styles', 'commentary', 'replays', 'sound', 'keys'],
   styles: ['playStyle', 'playMinutes', 'watchStyle', 'watchMinutes', 'simulateMinutes', 'arcadeSliders', 'simSliders'],
   arcadeSliders: SLIDER_ROWS, simSliders: SLIDER_ROWS,
   keys: KEY_ROWS,
 });
 
-// size: the mode chosen: 3 for 3 on 3, 5 for 5 on 5. difficulty: the level chosen, one of DIFFICULTY.order. play,
-// watch: the style and quarter length each starts at; simulate: Simulate's quarter length; sliders: each style's nine
+// size: the mode chosen: 3 for 3 on 3, 5 for 5 on 5. home: the team at home (0 the Waves, yours; 1 the Scorpions),
+// whose arena the match is in. difficulty: the level chosen, one of DIFFICULTY.order. play, watch: the style and
+// quarter length each starts at; simulate: Simulate's quarter length; sliders: each style's nine
 // (see prefs.js). listening: on the Keys panel, the next key pressed goes on the highlighted action. trail: the panels
 // a panel inside Settings was opened from, with their rows, for Esc. Every choice starts as `prefs` has it: what was
 // saved the last time.
-export const createMenu = (prefs = DEFAULT_PREFS) => ({ panel: 'main', row: 0, autoSubs: prefs.autoSubs, size: prefs.size,
+export const createMenu = (prefs = DEFAULT_PREFS) => ({ panel: 'main', row: 0, autoSubs: prefs.autoSubs, size: prefs.size, home: prefs.home,
   difficulty: prefs.difficulty, play: { ...prefs.play }, watch: { ...prefs.watch }, simulate: { ...prefs.simulate },
   sliders: { arcade: { ...prefs.sliders.arcade }, sim: { ...prefs.sliders.sim } }, from: 0, trail: [], listening: false });
 
@@ -48,9 +49,9 @@ function open(menu, panel) {
   Object.assign(menu, { panel, row: 0 });
 }
 
-// One key on the menu. Returns 'play', 'watch', 'simulate', 'quality', 'camera', 'commentary' or 'keys' (the keys
-// were changed) when the page has something to do, else null. `keys` is the table the Keys panel changes. On the Game
-// styles panel and a slider panel ← and → step a choice, and move a slider by 5.
+// One key on the menu. Returns 'play', 'watch', 'simulate', 'home' (the side at home changed), 'quality', 'camera',
+// 'commentary' or 'keys' (the keys were changed) when the page has something to do, else null. `keys` is the table
+// the Keys panel changes. On the Game styles panel and a slider panel ← and → step a choice, and move a slider by 5.
 export function menuKey(menu, code, keys = { ...DEFAULT_KEYS }) {
   if (menu.panel === 'keys') {
     const did = keysPanelKey(menu, code, keys);
@@ -68,6 +69,7 @@ export function menuKey(menu, code, keys = { ...DEFAULT_KEYS }) {
     if (menu.panel === 'main') {
       if (choice === 'play' || choice === 'watch' || choice === 'simulate') return choice;
       if (choice === 'mode') { menu.size = menu.size === 3 ? 5 : 3; return null; }
+      if (choice === 'home') { menu.home = 1 - menu.home; return 'home'; }
       menu.from = menu.row; menu.panel = choice; menu.row = 0;
     } else if (menu.panel === 'styles') {
       if (SLIDER_PANELS[choice]) open(menu, choice); else stepStyleRow(menu, choice, 1);
@@ -106,6 +108,7 @@ export function startFromMenu(game, keyboard, newMatch, mode = 'play') {
   if (game.state.phase === 'final' || game.state.size !== game.menu.size) game.state = newMatch(game.menu.size);
   const { style, minutes } = game.menu[mode];
   game.state.humans = mode === 'watch' ? [] : [0];
+  game.state.home = game.menu.home;
   setLength(game.state, minutes);
   setStyle(game.state, style, game.menu.sliders[style]);
   startMatch(game.state);

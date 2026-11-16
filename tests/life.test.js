@@ -175,3 +175,19 @@ test('a big moment for the home team brings the home crowd to its feet as a thre
   stepLife(other, s, 1, [{ kind: 'made', moment: false, team: 1 }]);   // a plain basket is no moment
   assert.equal(other.groan, 0);
 });
+
+test('with the Scorpions at home the crowd is theirs: it boos fouls on them, waves at a Waves shooter, cheers their big moments', () => {
+  const call = (kind, team) => ({ kind, team, ball: 1 - team, number: null, shots: 0 });
+  const away = () => { const s = live(1, 5); s.home = 1; return s; };
+  const mood = c => { const s = away(), life = createLife(); stepLife(life, s, DT); s.call = c; stepLife(life, s, DT); return life; };
+  assert.ok(mood(call('block', 1)).boo > 0);
+  assert.deepEqual([mood(call('block', 0)).boo, mood(call('block', 0)).cheer[1] > 0], [0, true]);
+  const at = shooter => { const s = away(), life = createLife(); s.freeThrow = newFreeThrow(shooter, 2); setupFreeThrow(s); return stepLife(life, s, DT); };
+  assert.deepEqual([at(0).distract, at(0).shake], [1, LIFE.shake]);   // the Waves shoot at the hoop at +x
+  assert.deepEqual([at(5).distract, at(5).shake], [0, 0]);
+  const big = createLife(), s = away();
+  stepLife(big, s, DT, [{ kind: 'block', moment: true, team: 1 }]);
+  assert.ok(big.cheer[1] >= LIFE.cheerThree - 0.02 && big.groan === 0);
+  stepLife(big, s, DT, [{ kind: 'deep', moment: true, team: 0 }]);
+  assert.equal(big.groan, LIFE.groan);
+});

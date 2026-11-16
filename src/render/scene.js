@@ -44,8 +44,9 @@ function paintNet() {
   return texture;
 }
 
-// Builds the renderer, court, hoops, lights and camera. Resolves to null (after telling the player) if nothing can draw.
-export async function createScene(canvas) {
+// Builds the renderer, court, hoops, lights and camera, in the arena of team `home`. Resolves to null (after telling
+// the player) if nothing can draw.
+export async function createScene(canvas, home = 0) {
   // WebGL 2 where the game prefers it (see prefersWebGL) or the browser has nothing else; WebGPU otherwise.
   const chosen = prefersWebGL(window.navigator.userAgent, window.location.hash);
   const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, forceWebGL: chosen });
@@ -61,8 +62,8 @@ export async function createScene(canvas) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0b0d12);
 
-  const floor = await createFloor(scene, arenaOf());
-  const arena = createArena(scene);
+  const floor = await createFloor(scene, arenaOf(home));
+  let arena = createArena(scene, arenaOf(home)), builtFor = home;
   const sideline = createSideline(scene), refs = createRefs(scene);
   // The nets' picture as its colour and its see-through, unlit, both sides drawn, and not written to the depth buffer.
   const netLook = new THREE.MeshBasicMaterial({ map: paintNet(), transparent: true, side: THREE.DoubleSide, depthWrite: false });
@@ -121,6 +122,15 @@ export async function createScene(canvas) {
 
   return {
     scene, camera, backend, setQuality,
+    // The arena of team `to`, the side at home: built afresh, in place of the one there, when it is another.
+    setHome(to) {
+      if (to === builtFor) return;
+      builtFor = to;
+      arena.dispose();
+      arena = createArena(scene, arenaOf(to));
+      arena.setQuality(drawnAt);
+      floor.dress(arenaOf(to));
+    },
     // The match, for the arena's scoreboard and the hoops' clocks, lights and rims.
     watch(state) { arena.show(state); for (const h of hoops) h.show(state); },
     // The people round the court, moved on by `real` seconds: the referees, the crowd, the boards, the cameras and

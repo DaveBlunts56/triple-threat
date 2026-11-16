@@ -124,6 +124,10 @@ test('the home crowd cheers its baskets, louder for a three and loudest for a bi
   assert.deepEqual(names(frameCues(ears, s, [{ kind: 'made', moment: false, team: 1, points: 2 }], life)), ['groan']);
   assert.deepEqual(names(frameCues(ears, s, [{ kind: 'block', moment: true, team: 1 }], life)), ['groan']);
   assert.deepEqual(names(frameCues(ears, s, [{ kind: 'rebound', moment: false, team: 0 }], life)), []);
+  // With the Scorpions at home, the crowd is theirs.
+  s.home = 1;
+  assert.deepEqual(names(frameCues(ears, s, [{ kind: 'made', moment: false, team: 1, points: 2 }], life)), ['cheer']);
+  assert.deepEqual(names(frameCues(ears, s, [{ kind: 'deep', moment: true, team: 0 }], life)), ['groan']);
 });
 
 test('a call against the home team is booed, once', () => {

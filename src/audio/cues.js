@@ -85,9 +85,10 @@ export function listen(ears, state, events) {
 // watcher heard this frame; `life` is the crowd's mood (see render/life.js).
 // Returns { shots: [{ name, gain, rate }], bed: 0 to 1, distract: 0 to 1 }.
 export function frameCues(ears, state, heard, life) {
+  const home = state.home ?? 0;
   for (const h of heard) {
-    if (h.moment || (h.kind === 'made' && h.finish === 'dunk')) cue(ears, h.team === 0 ? 'cheerBig' : 'groan', h.team === 0 ? 1 : 0.9);       // the home crowd, for and against: a big moment, or a dunk
-    else if (h.kind === 'made') cue(ears, h.team === 0 ? 'cheer' : 'groan', h.team === 0 ? (h.points === 3 ? 0.8 : 0.6) : 0.5);
+    if (h.moment || (h.kind === 'made' && h.finish === 'dunk')) cue(ears, h.team === home ? 'cheerBig' : 'groan', h.team === home ? 1 : 0.9);       // the home crowd, for and against: a big moment, or a dunk
+    else if (h.kind === 'made') cue(ears, h.team === home ? 'cheer' : 'groan', h.team === home ? (h.points === 3 ? 0.8 : 0.6) : 0.5);
   }
   if (life.boo > ears.boo + 0.5) cue(ears, 'boo', 0.8);   // a call against the home team
   ears.boo = life.boo;
@@ -97,6 +98,6 @@ export function frameCues(ears, state, heard, life) {
   // The murmur: louder the closer the game and the later it is, thinner once fans have gone home, up while they cheer.
   const closeness = 1 - Math.min(1, Math.abs(state.score[0] - state.score[1]) / 12);
   const played = Math.min(1, ((state.quarter - 1) * state.quarterLength + (state.quarterLength - state.gameClock)) / (4 * state.quarterLength));
-  const bed = CUE.bed + CUE.bedClose * closeness * played - CUE.bedLeft * Math.min(1, life.left / 0.45) + (life.cheer[0] > 0 ? 0.15 : 0);
+  const bed = CUE.bed + CUE.bedClose * closeness * played - CUE.bedLeft * Math.min(1, life.left / 0.45) + (life.cheer[home] > 0 ? 0.15 : 0);
   return { shots, bed: Math.min(1, Math.max(0.05, bed)), distract: life.distract ? CUE.distract : 0 };
 }

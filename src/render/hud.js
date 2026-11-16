@@ -145,6 +145,7 @@ export function menuText(menu, row, quality, camera = '2k', prefs = DEFAULT_PREF
   }
   if (choice === 'autoSubs') return `Automatic substitutions: ${menu.autoSubs ? 'On' : 'Off'}`;
   if (choice === 'mode') return MODE_WORDS[menu.size];
+  if (choice === 'home') return `Home: ${ROSTER.teams[menu.home].split(' ').pop()}`;
   return MENU_WORDS[choice];
 }
 

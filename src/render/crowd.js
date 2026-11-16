@@ -15,7 +15,7 @@ const PANTS = f(['#2c3d5a', '#22252c', '#7d6e55', '#141518', '#55585e', '#3a4f70
 const SUITS = f(['#20232b', '#2c3440', '#3a2f2a']);
 export const PALETTE = f([...SKINS, ...HAIRS, ...GREYS, ...SHIRTS, ...PANTS, ...SUITS, KIT.team[0], KIT.team[1], '#f4f4f2']);
 const at = (list, i) => PALETTE.indexOf(list[i]);
-const TEAM = f([PALETTE.indexOf(KIT.team[0]), PALETTE.indexOf(KIT.team[1])]);
+const TEAMS = f([PALETTE.indexOf(KIT.team[0]), PALETTE.indexOf(KIT.team[1])]);
 export const WHITE = PALETTE.length - 1;
 
 // How a fan cheers (style), what is on their head (hair) and what they carry (prop). A courtside fan only claps, and
@@ -42,13 +42,13 @@ export const CROWD = f({
 // and how far ahead of their seat they stand, their feet on the step in front.
 export const REACH = f({ up: 2.4, ahead: 0.45 });
 
-// The words on the fans' signs: home fans hold one of the first three, away fans the last.
-export const SIGNS = f([
-  f({ words: 'DEFENSE!', team: 0 }),
-  f({ words: `GO ${ROSTER.teams[0].split(' ').pop().toUpperCase()}!`, team: 0 }),
-  f({ words: '#1 FAN', team: 0 }),
-  f({ words: `GO ${ROSTER.teams[1].split(' ').pop().toUpperCase()}!`, team: 1 }),
-]);
+// The words on the fans' signs with team `home` at home, each with the team whose colour it is in: home fans hold one
+// of the first three, away fans the last.
+const nickname = team => ROSTER.teams[team].split(' ').pop().toUpperCase();
+export const signsFor = (home = 0) => [
+  { words: 'DEFENSE!', team: home }, { words: `GO ${nickname(home)}!`, team: home }, { words: '#1 FAN', team: home },
+  { words: `GO ${nickname(1 - home)}!`, team: 1 - home },
+];
 
 // A small seeded generator for fan `i`: the same fan every time, not Math.random.
 function dice(i) {
@@ -59,10 +59,12 @@ function dice(i) {
 const among = (shares, r) => { let sum = 0; for (let k = 0; k < shares.length; k++) { sum += shares[k]; if (r < sum) return k; } return shares.length; };
 
 // One fan for a seat ({ x, y, z, facing }): `i` makes them who they are, `upper` puts them on the upper deck,
-// `courtside` on the floor. Returns the seat with { turn, width, height, rise, dim, side (0 home, 1 away, 2 neither),
-// end (the end they sit behind, +1 or -1, or 0), style, seed, skin, shirt, pants, hair, upper, fore, prop colour (all
-// places in PALETTE), hairStyle, prop, sign }.
-export function dressFan(seat, i, { upper = false, courtside = false } = {}) {
+// `courtside` on the floor, and `home` is the team at home, whose colours the home fans wear. Returns the seat with
+// { turn, width, height, rise, dim, side (0 home, 1 away, 2 neither), end (the end they sit behind, +1 or -1, or 0),
+// style, seed, skin, shirt, pants, hair, upper, fore, prop colour (all places in PALETTE), hairStyle, prop, sign (its
+// place in signsFor(home)) }.
+export function dressFan(seat, i, { upper = false, courtside = false, home = 0 } = {}) {
+  const team = [TEAMS[home], TEAMS[1 - home]];   // the home side's colour, the away side's
   const r = dice(i), kid = !courtside && r() < CROWD.kid, elder = !kid && r() < CROWD.elder;
   const side = courtside ? (r() < CROWD.courtsideHome ? 0 : 2) : among(CROWD.side, r());
   const pick = list => at(list, Math.floor(r() * list.length));
@@ -71,16 +73,16 @@ export function dressFan(seat, i, { upper = false, courtside = false } = {}) {
   // some in long sleeves. Courtside, a suit as often as not.
   const wear = r();
   let shirt = pick(SHIRTS), upperArm = shirt, fore = skin;
-  if (side < 2 && wear < CROWD.jersey) { shirt = TEAM[side]; upperArm = skin; }
-  else if (side < 2 && wear < CROWD.jersey + CROWD.tee) { shirt = upperArm = TEAM[side]; }
+  if (side < 2 && wear < CROWD.jersey) { shirt = team[side]; upperArm = skin; }
+  else if (side < 2 && wear < CROWD.jersey + CROWD.tee) { shirt = upperArm = team[side]; }
   else if (courtside && wear < 0.5) { shirt = upperArm = fore = pick(SUITS); }
   else if (r() < CROWD.sleeves) fore = shirt;
   const pants = courtside && fore === shirt ? shirt : pick(PANTS);
   let hairStyle = among(CROWD.hair, r());
   if (courtside && hairStyle === HAIR.cap) hairStyle = HAIR.short;
-  const hair = hairStyle === HAIR.cap ? (side < 2 && r() < 0.7 ? TEAM[side] : pick(SHIRTS)) : elder ? pick(GREYS) : pick(HAIRS);
+  const hair = hairStyle === HAIR.cap ? (side < 2 && r() < 0.7 ? team[side] : pick(SHIRTS)) : elder ? pick(GREYS) : pick(HAIRS);
   const prop = side < 2 && !courtside ? [PROP.finger, PROP.towel, PROP.sign, PROP.none][among(CROWD.props, r())] : PROP.none;
-  const propColour = prop === PROP.towel && r() < 0.5 ? WHITE : TEAM[Math.min(side, 1)];
+  const propColour = prop === PROP.towel && r() < 0.5 ? WHITE : team[Math.min(side, 1)];
   const style = courtside ? STYLE.courtside : prop === PROP.sign ? STYLE.sign : prop !== PROP.none ? STYLE.wave
     : [STYLE.clap, STYLE.armsUp, STYLE.fistPump][Math.min(2, among(CROWD.cheer, r()))];
   const sign = side === 1 ? 3 : Math.floor(r() * 3);
@@ -96,21 +98,23 @@ export function dressFan(seat, i, { upper = false, courtside = false } = {}) {
 
 // The whole crowd: the courtside fans first (always shown), then the stands' in `stands` order (see layout.js's
 // shown: the first so many fill the stands evenly). `upperFrom`: the height from which a seat is on the upper deck.
-export function dressCrowd(stands, courtside, upperFrom) {
-  return [...courtside.map((seat, i) => dressFan(seat, 100000 + i, { courtside: true })),
-    ...stands.map((seat, i) => dressFan(seat, i, { upper: seat.y >= upperFrom }))];
+// `home`: the team at home.
+export function dressCrowd(stands, courtside, upperFrom, home = 0) {
+  return [...courtside.map((seat, i) => dressFan(seat, 100000 + i, { courtside: true, home })),
+    ...stands.map((seat, i) => dressFan(seat, i, { upper: seat.y >= upperFrom, home }))];
 }
 
-// The crowd's mood as the fans show it: how far each team's fans are on their feet (home, away), the home fans' boos
+// The crowd's mood as the fans show it, with team `home` at home: how far each side's fans are on their feet (home,
+// away), the home fans' boos
 // and groans, and the waving at a free-throw shooter behind `end` (+1 or -1). Each eases toward what the crowd's mood
 // (life.js) says, `rise` a second going up and `fall` coming down, so that a crowd rises together and sits back down
 // a few at a time rather than all in one frame.
 export const MOOD = f({ rise: 1.4, fall: 1.4 });
 export const createMood = () => ({ home: 0, away: 0, boo: 0, groan: 0, wave: 0, end: 0 });
-export function stepMood(mood, life, dt) {
+export function stepMood(mood, life, dt, home = 0) {
   const ease = (v, to) => v + Math.max(-MOOD.fall * dt, Math.min(MOOD.rise * dt, to - v));
-  mood.home = ease(mood.home, Math.min(1, life.cheer[0]));
-  mood.away = ease(mood.away, Math.min(1, life.cheer[1]));
+  mood.home = ease(mood.home, Math.min(1, life.cheer[home]));
+  mood.away = ease(mood.away, Math.min(1, life.cheer[1 - home]));
   mood.boo = ease(mood.boo, Math.min(1, life.boo));
   mood.groan = ease(mood.groan, Math.min(1, life.groan));
   if (life.distract !== 0) mood.end = life.distract;

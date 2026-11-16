@@ -191,3 +191,27 @@ Every measurement is the NBA's, in metres:
     and fewer triangles (411,000 against 460,000).
   - Medium and High draw more triangles: about 1.0 million against 0.62 on Medium, 3.2 million against 1.6 on High
     (the floor's mirror draws the crowd again). Their JavaScript a frame is the same or less.
+
+## Stage 4 as built (2026-11-16)
+
+- **Choosing the home side:** a new entry on the main menu, "Home: Waves" or "Home: Scorpions", switched with
+  Enter and saved with the other settings. You still play the Waves; with the Scorpions at home you play away, at
+  Red Rock Pavilion. Play, Watch and replays are all in the home side's arena. A match keeps its home side in
+  `state.home`; nothing in the play reads it.
+- **Red Rock Pavilion** (arenas.js), the same building as Tidewater's in other colours and shapes:
+  - sandstone walls, rust-red stands and steel, sunset-orange trim, ribbon frames and suite glow;
+  - warmer roof lights;
+  - a roof of trusses folded into straight-sided ridges in place of Tidewater's waves;
+  - the Scorpions' banners (two division titles, a conference title, a retired 23).
+- **The court:** the lanes and centre circle in rust red, the Scorpions' mark at centre court, "RED ROCK" on the
+  baselines and "RED ROCK PAVILION" on the sidelines.
+- **The crowd is the home side's:**
+  - the home fans wear the home team's colour and hold its signs ("GO SCORPIONS!"), the visitors' fans the other;
+  - they boo fouls on the home team and cheer its baskets;
+  - the fans behind the hoop wave at the visiting free-throw shooter, whichever team that is;
+  - the crowd's sounds follow suit.
+- **Changing arenas:** when the home side changes, the arena is taken down and the other built in its place, its
+  floor repainted. That takes about 20–25 ms to build here, and the first frame after it about a quarter of a
+  second while its pictures load. Memory stays level over repeated swaps.
+- **Cost:** Low draws the same in both arenas, within a draw call, and the same triangles. Its JavaScript a frame
+  measured 1.8–2.1 ms in each, back to back.

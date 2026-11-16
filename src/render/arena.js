@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ARENA, seats, upperSeats, shown, boards } from './layout.js';
 import { ROSTER } from '../sim/tuning.js';
-import { arenaOf } from './arenas.js';
 import { BUILDING, createBuilding } from './building.js';
 import { createVideoBoard } from './videoboard.js';
 import { QUALITY } from './quality.js';
@@ -53,12 +52,13 @@ function steps() {
   return blocks;
 }
 
-// The home side's arena, added to `scene`: the stands and their crowd, the building round them (building.js), the lit
-// boards, the scorer's table, the video board (videoboard.js), and a dark shell with the roof's lights. Returns
-// { setQuality(level), show(state), live(life, now), feed(renderer, camera, picture) }: how full the stands are at a
-// quality level, the match for the video board to show, the crowd's mood, and the frame just drawn for its screens.
-export function createArena(scene) {
-  const hall = new THREE.Group(), look = arenaOf(), R = ARENA.roof;
+// The home side's arena (`look`, see arenas.js), added to `scene`: the stands and their crowd, the building round them
+// (building.js), the lit boards, the scorer's table, the video board (videoboard.js), and a dark shell with the roof's
+// lights. Returns { setQuality(level), show(state), live(life, now), feed(renderer, camera, picture), dispose() }: how
+// full the stands are at a quality level, the match for the video board to show, the crowd's mood, the frame just
+// drawn for its screens, and taking it all down again (for another arena).
+export function createArena(scene, look) {
+  const hall = new THREE.Group(), R = ARENA.roof;
   // The dark shell round everything, its top the roof's underside.
   const shell = new THREE.Mesh(new THREE.BoxGeometry(2 * R.hallX, R.y, 2 * R.hallZ),
     new THREE.MeshStandardMaterial({ color: look.colour.ceiling, roughness: 1, side: THREE.BackSide }));
@@ -66,7 +66,7 @@ export function createArena(scene) {
   // The video board's core and ring, and the stands' steps, are drawn with the building's own (see building.js).
   const board = createVideoBoard(hall, look, BUILDING.ribbon / 2048);
   const building = createBuilding(hall, look, ROSTER.teams[look.team], { concrete: steps(), black: board.pieces.black, ring: board.pieces.ring });
-  const lit = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.97, 0.92).multiplyScalar(LOOK.glow) });
+  const lit = new THREE.MeshBasicMaterial({ color: new THREE.Color(...look.colour.lights).multiplyScalar(LOOK.glow) });
   // The roof's lights are one mesh: twelve separate ones would each be drawn again in the floor's mirror.
   const panels = [];
   for (const x of LOOK.panels.xs) for (const z of LOOK.panels.zs) {
@@ -79,7 +79,8 @@ export function createArena(scene) {
   hall.add(shell);
   // The fans: the courtside seats always filled, then the stands, the first so many of them in a fixed shuffled order.
   const stands = shown([...seats(), ...upperSeats()], 1);
-  const fans = createFans(hall, dressCrowd(stands, courtsideSeats(), ARENA.upper.height - 0.1)), courtside = fans.seats - stands.length;
+  const fans = createFans(hall, dressCrowd(stands, courtsideSeats(), ARENA.upper.height - 0.1, look.team), look.team);
+  const courtside = fans.seats - stands.length;
 
   // The boards and the table carry words. (The video board's faces are its own: see videoboard.js.)
   // The boards along the far side and behind the baselines show advertisements, each changing in its turn; the
@@ -120,5 +121,16 @@ export function createArena(scene) {
     },
     // The match, for the video board.
     show(state) { board.show(state); },
+    dispose() {
+      scene.remove(hall);
+      const done = new Set();
+      const free = thing => { if (thing && !done.has(thing)) { done.add(thing); thing.dispose(); } };
+      hall.traverse(part => {
+        free(part.geometry);
+        for (const material of [part.material ?? []].flat()) { free(material.map); free(material); }
+      });
+      for (const picture of adPictures) free(picture);
+      board.dispose(); fans.dispose();
+    },
   };
 }

@@ -111,17 +111,18 @@ function shrunk(picture, size) {
 }
 
 // The hall's floor, added to `scene`: scanned wood under the court's paint, dressed for the home arena (`look`, see
-// arenas.js). Resolves to { setQuality(level) }, which
-// gives the wood the pictures of a quality level (one of QUALITY.order). If the wood's pictures cannot be loaded the
-// floor is the painted one the game had before, and the game plays on.
+// arenas.js). Resolves to { setQuality(level), dress(look) }: the wood's pictures for a quality level (one of
+// QUALITY.order), and the paint of another arena. If the wood's pictures cannot be loaded the floor is the painted one
+// the game had before, and the game plays on.
 export async function createFloor(scene, look) {
   let pictures;
   try {
     pictures = await Promise.all([wood(FLOOR_FILES.colour, true), wood(FLOOR_FILES.bumps), wood(FLOOR_FILES.gloss)]);
   } catch (error) {
     console.warn('The floor\'s wood could not be loaded; using the painted floor.', error);
-    scene.add(sheet(new THREE.MeshStandardMaterial({ map: paintCourt(true, look), roughness: 0.55 })));
-    return { setQuality: () => null };
+    const painted = new THREE.MeshStandardMaterial({ map: paintCourt(true, look), roughness: 0.55 });
+    scene.add(sheet(painted));
+    return { setQuality: () => null, dress: to => { painted.map.dispose(); painted.map = paintCourt(true, to); painted.needsUpdate = true; } };
   }
   // Each picture at each size a level asks for: the full ones as they came, the smaller ones made here.
   const sizes = new Map([[FLOOR.full, pictures]]);
@@ -135,6 +136,8 @@ export async function createFloor(scene, look) {
   scene.add(boards, sheet(paint, FLOOR.lift));
   let mirror = null, smear = null;   // the floor's reflection of the game, on the levels that have one, and its blur
   return {
+    // The court's paint for the arena `to`.
+    dress(to) { paint.map.dispose(); paint.map = paintCourt(false, to); paint.needsUpdate = true; },
     // The wood's pictures and the mirror of a level. Returns the words for what could not be done here, or null.
     setQuality(level) {
       [planks.map, planks.normalMap, planks.roughnessMap] = sizes.get(QUALITY[level].floor);

@@ -31,7 +31,7 @@ const newMatch = size => createMatch(Date.now() % 1e6, size);   // size: 3 or 5 
 const MENU_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyS', 'KeyA', 'KeyD', 'Enter', 'Space', 'Escape', 'Backspace']);
 const MENU_ONCE = new Set(['Enter', 'Space', 'Escape', 'Backspace']);   // a held one counts once; the bar keys may repeat
 
-const view = await createScene(document.getElementById('court'));
+const view = await createScene(document.getElementById('court'), readPrefs(storageOf()).home);   // in the saved home side's arena
 if (view) {
   // The generated players. If their files are missing or broken the match is still playable, with capsules.
   const people = await loadPeople(view.camera).catch(error => { console.warn('Players could not be loaded; using capsules.', error); return null; });
@@ -81,10 +81,10 @@ if (view) {
   // Keeps what the menus and the keys have just changed for the next time. `chose`: the quality was stepped by hand,
   // which is the only way a level is remembered; one the game fell to by itself is not.
   const remember = (chose = false) => {
-    const { size, difficulty, autoSubs, play, watch, simulate, sliders } = game.menu;
+    const { size, home, difficulty, autoSubs, play, watch, simulate, sliders } = game.menu;
     // The camera chosen in Play is the one kept: Watch starts on the broadcast view without changing it.
     const camera = game.mode === 'watch' ? prefs.camera : game.camera;
-    Object.assign(prefs, { size, difficulty, autoSubs, camera, keys: savedKeys(keys), play: { ...play }, watch: { ...watch }, simulate: { ...simulate },
+    Object.assign(prefs, { size, home, difficulty, autoSubs, camera, keys: savedKeys(keys), play: { ...play }, watch: { ...watch }, simulate: { ...simulate },
       sliders: { arcade: { ...sliders.arcade }, sim: { ...sliders.sim } } });
     if (chose) prefs.quality = quality.level;
     writePrefs(storage, prefs);
@@ -103,6 +103,7 @@ if (view) {
   const start = mode => {
     game.mode = mode;
     startFromMenu(game, keyboard, newMatch, mode);
+    view.setHome(game.state.home);
     game.camera = mode === 'watch' ? 'broadcast' : prefs.camera;
     view.setCamera(game.camera);
   };
@@ -117,6 +118,7 @@ if (view) {
     if (asked === 'play') play();
     else if (asked === 'watch') start('watch');
     else if (asked === 'simulate') simulate();
+    else if (asked === 'home') view.setHome(game.menu.home);   // its arena built now, ready for the match
     else if (asked === 'quality') stepQualityByHand();
     else if (asked === 'camera') switchCamera();
     else if (asked === 'commentary') stepCommentary();

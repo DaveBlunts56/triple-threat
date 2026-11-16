@@ -146,11 +146,12 @@ export function spot(g, [u0, v0, u1, v1]) {
   return g;
 }
 
-// The roof's trusses, across the hall at every `every` metres along it, and the height of a chord at (x, z): level for
-// an 'angle' roof's, rolling for a 'wave' roof's.
+// The roof's trusses, across the hall at every `every` metres along it, and the height of a chord at (x, z): rolling
+// for a 'wave' roof's, folded into straight-sided ridges for an 'angle' roof's.
 function chordAt(look, x, z, base) {
   const t = BUILDING.truss;
-  return base + (look.trusses === 'wave' ? t.wave * Math.sin((2 * Math.PI * z) / t.length + x / 9) : 0);
+  if (look.trusses === 'angle') { const u = z / t.length + 0.25; return base + t.wave * (1 - 4 * Math.abs(u - Math.floor(u) - 0.5)); }
+  return base + t.wave * Math.sin((2 * Math.PI * z) / t.length + x / 9);
 }
 
 // Builds the arena in `look` (see arenas.js) into `group`. `team`: the home team's full name. `extra`: pieces made
