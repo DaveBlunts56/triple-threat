@@ -11,8 +11,34 @@ test('with no storage, or nothing saved, the settings are the defaults', () => {
 });
 
 test('saved settings come back, and what was not saved is the default', () => {
-  const prefs = readPrefs(box('{"difficulty":"legend","camera":"broadcast","minutes":8,"size":5,"quality":"low"}'));
-  assert.deepEqual(prefs, { ...plainDefaults, difficulty: 'legend', camera: 'broadcast', minutes: 8, size: 5, quality: 'low' });
+  const prefs = readPrefs(box('{"difficulty":"legend","camera":"broadcast","size":5,"quality":"low","watch":{"style":"arcade","minutes":5}}'));
+  assert.deepEqual(prefs, { ...plainDefaults, difficulty: 'legend', camera: 'broadcast', size: 5, quality: 'low', watch: { style: 'arcade', minutes: 5 } });
+});
+
+test('Play, Watch and Simulate start where the spec says: Play on Arcade\'s 3 minutes, Watch on Simulation\'s 12, Simulate on 12', () => {
+  assert.deepEqual([DEFAULT_PREFS.play, DEFAULT_PREFS.watch, DEFAULT_PREFS.simulate], [{ style: 'arcade', minutes: 3 }, { style: 'sim', minutes: 12 }, { minutes: 12 }]);
+});
+
+test('an old saved quarter length becomes Play\'s, unless Play\'s own was saved', () => {
+  assert.equal(readPrefs(box('{"minutes":8}')).play.minutes, 8);
+  assert.equal(readPrefs(box('{"minutes":8,"play":{"minutes":12}}')).play.minutes, 12);
+  assert.equal('minutes' in readPrefs(box('{"minutes":8}')), false);
+});
+
+test('a bad saved value in a group, or a slider, is dropped on its own', () => {
+  const prefs = readPrefs(box(JSON.stringify({ play: { style: 'sideways', minutes: 5 }, simulate: { minutes: 7 },
+    sliders: { sim: { pace: 70, shooting: 101, fouls: 12.5, fatigue: -5 }, arcade: { pace: 'fast', rebounding: 0 } } })));
+  assert.deepEqual([prefs.play, prefs.simulate], [{ style: 'arcade', minutes: 5 }, { minutes: 12 }]);
+  assert.deepEqual(prefs.sliders.sim, { ...DEFAULT_PREFS.sliders.sim, pace: 70 });
+  assert.deepEqual(prefs.sliders.arcade, { ...DEFAULT_PREFS.sliders.arcade, rebounding: 0 });
+});
+
+test('each style\'s sliders are saved apart', () => {
+  const b = box(null), prefs = readPrefs(null);
+  prefs.sliders.sim.pace = 80;
+  writePrefs(b, prefs);
+  const back = readPrefs(box(b.saved[1]));
+  assert.deepEqual([back.sliders.sim.pace, back.sliders.arcade.pace], [80, 50]);
 });
 
 test('something saved that is not a set of settings is ignored', () => {
@@ -42,7 +68,7 @@ test('what is written is read back the same', () => {
 
 test('reading never hands out the defaults themselves', () => {
   const prefs = readPrefs(null);
-  prefs.keys.cross = 'KeyH'; prefs.size = 5;
+  prefs.keys.cross = 'KeyH'; prefs.size = 5; prefs.play.minutes = 8; prefs.sliders.sim.pace = 10;
   assert.deepEqual(readPrefs(null), plainDefaults);
 });
 

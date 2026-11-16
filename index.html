@@ -164,6 +164,20 @@
   #boxScore th { color: #aeb6bf; font-weight: 700; padding: 0 .7vmin; }
   #boxScore td { padding: 0 .7vmin; text-align: right; white-space: nowrap; }
   #boxScore td:first-child { text-align: left; }
+  /* A simulated game's result: what was played, the score by period, both full box scores and the team advanced stats. */
+  #simResult { z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 1.2vmin; padding-top: 3vh;
+    background: rgba(6, 10, 16, .92); overflow: auto; }
+  #simResult[hidden] { display: none; }
+  #simResult h1 { font: 800 min(40px, 4.4vh)/1.1 system-ui, sans-serif; margin: 0; letter-spacing: .06em; text-transform: uppercase; color: #ffd257; }
+  #simResult p { margin: 0; font: 600 1.7vmin/1.4 system-ui, sans-serif; color: #d6dbe0; }
+  #simResult .score { font: 800 2.3vmin/1.4 system-ui, sans-serif; color: #fff; font-variant-numeric: tabular-nums; }
+  #simResult .tables { display: flex; flex-wrap: wrap; gap: 2.4vmin; justify-content: center; }
+  #simResult table { border-collapse: collapse; font: 600 1.45vmin/1.45 system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  #simResult caption { font: 800 1.8vmin/1.6 system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #ffd257; text-align: left; }
+  #simResult th { color: #aeb6bf; font-weight: 700; padding: 0 .6vmin; }
+  #simResult td { padding: 0 .6vmin; text-align: right; white-space: nowrap; }
+  #simResult td:first-child { text-align: left; }
+  #simResult tr.total td { color: #ffd257; border-top: 1px solid rgba(255, 255, 255, .25); }
   #boxScore tr.total td { border-top: 1px solid #6f7781; color: #ffd257; }
   #finalPotg { font-weight: 800; letter-spacing: .06em; color: #ffd257; }
   @media (prefers-reduced-motion: reduce) { #banner { animation: none; } }
@@ -257,10 +271,15 @@
                  text-shadow: 0 2px 0 rgba(0, 20, 60, .7), 0 0 10px rgba(0, 20, 60, .6); }
   #menuList li[aria-selected="true"] { background: linear-gradient(90deg, transparent, #1f9dff 12%, #7ad6ff 50%, #1f9dff 88%, transparent);
                                        box-shadow: 0 0 26px 4px rgba(70, 185, 255, .85); text-shadow: 0 2px 0 rgba(0, 40, 110, .8); }
-  /* Five entries on the main list, one of them saying its value: a little smaller than four were, to sit inside the disc. */
-  #menuList.main li { font-size: calc(var(--d) * .066); margin: calc(var(--d) * .008) 0; padding: calc(var(--d) * .013) 0; white-space: nowrap; }
+  /* Seven entries on the main list, one of them saying its value: smaller than five were, to sit inside the disc. */
+  #menuList.main li { font-size: calc(var(--d) * .052); margin: calc(var(--d) * .005) 0; padding: calc(var(--d) * .01) 0; white-space: nowrap; }
   /* The settings: up to nine rows, each saying its value, so they are smaller and closer. */
-  #menuList.settings li { font-size: calc(var(--d) * .036); margin: calc(var(--d) * .004) 0; padding: calc(var(--d) * .009) 0; white-space: nowrap; }
+  #menuList.settings li, #menuList.styles li { font-size: calc(var(--d) * .036); margin: calc(var(--d) * .004) 0; padding: calc(var(--d) * .009) 0; white-space: nowrap; }
+  /* A slider panel: nine sliders and Reset, each slider's row filled as far as its value goes (the page sets the width). */
+  #menuList.arcadeSliders li, #menuList.simSliders li { font-size: calc(var(--d) * .032); margin: calc(var(--d) * .003) 0; padding: calc(var(--d) * .008) 0; white-space: nowrap;
+    background: linear-gradient(90deg, rgba(122, 214, 255, .5), rgba(31, 157, 255, .5)) no-repeat left center / 0% 100%; }
+  #menuList.arcadeSliders li[aria-selected="true"], #menuList.simSliders li[aria-selected="true"] {
+    background: linear-gradient(90deg, rgba(255, 210, 87, .8), rgba(255, 160, 40, .8)) no-repeat left center / 0% 100%; }
   /* Teams and Controls: smaller words, inside the disc. */
   #menuTeams { font-size: calc(var(--d) * .0235); }   /* overall, name and role for eight a side, two teams across the disc */
   #menuControls { font-size: calc(var(--d) * .03); }
@@ -334,14 +353,15 @@
       <h1>Triple Threat</h1>
       <ul id="menuList" class="main" role="listbox" aria-label="Menu">
         <li id="menuRow0" role="option" aria-selected="true">Play</li>
-        <li id="menuRow1" role="option" aria-selected="false">Mode: 3 on 3</li>
-        <li id="menuRow2" role="option" aria-selected="false">Teams</li>
-        <li id="menuRow3" role="option" aria-selected="false">Controls</li>
-        <li id="menuRow4" role="option" aria-selected="false">Settings</li>
-        <li id="menuRow5" role="option" aria-selected="false" hidden></li>
-        <li id="menuRow6" role="option" aria-selected="false" hidden></li>
+        <li id="menuRow1" role="option" aria-selected="false">Watch</li>
+        <li id="menuRow2" role="option" aria-selected="false">Simulate</li>
+        <li id="menuRow3" role="option" aria-selected="false">Mode: 3 on 3</li>
+        <li id="menuRow4" role="option" aria-selected="false">Teams</li>
+        <li id="menuRow5" role="option" aria-selected="false">Controls</li>
+        <li id="menuRow6" role="option" aria-selected="false">Settings</li>
         <li id="menuRow7" role="option" aria-selected="false" hidden></li>
         <li id="menuRow8" role="option" aria-selected="false" hidden></li>
+        <li id="menuRow9" role="option" aria-selected="false" hidden></li>
       </ul>
       <div id="menuTeams" hidden>
         <div><h2 id="teamName0" class="home"></h2><ol>
@@ -472,6 +492,51 @@
 </div>
 <!-- The Keys panel: over the start menu or the pause menu, whichever opened it. -->
 <ul id="keyRows" role="listbox" aria-label="Keys" hidden><li id="keyRow0" role="option"></li><li id="keyRow1" role="option"></li><li id="keyRow2" role="option"></li><li id="keyRow3" role="option"></li><li id="keyRow4" role="option"></li><li id="keyRow5" role="option"></li><li id="keyRow6" role="option"></li><li id="keyRow7" role="option"></li><li id="keyRow8" role="option"></li><li id="keyRow9" role="option"></li><li id="keyRow10" role="option"></li><li id="keyRow11" role="option"></li><li id="keyRow12" role="option"></li><li id="keyRow13" role="option"></li><li id="keyRow14" role="option"></li><li id="keyRow15" role="option"></li><li id="keyRow16" role="option"></li><li id="keyRow17" role="option"></li><li id="keyRow18" role="option"></li><li id="keyRow19" role="option"></li></ul>
+<!-- A simulated game's result (Simulate): over the menu, until Enter simulates another or Esc goes back. -->
+<section class="screen" id="simResult" hidden>
+  <h1>Simulated</h1>
+  <p id="simTitle"></p>
+  <p class="score" id="simScore0"></p>
+  <p class="score" id="simScore1"></p>
+  <div class="tables">
+  <table><caption id="simTeam0"></caption>
+    <tr><th></th><th>MIN</th><th>PTS</th><th>FG</th><th>3P</th><th>FT</th><th>OREB</th><th>DREB</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TOV</th><th>PF</th><th>+/-</th></tr>
+    <tr><td id="simBox0r0c0"></td><td id="simBox0r0c1"></td><td id="simBox0r0c2"></td><td id="simBox0r0c3"></td><td id="simBox0r0c4"></td><td id="simBox0r0c5"></td><td id="simBox0r0c6"></td><td id="simBox0r0c7"></td><td id="simBox0r0c8"></td><td id="simBox0r0c9"></td><td id="simBox0r0c10"></td><td id="simBox0r0c11"></td><td id="simBox0r0c12"></td><td id="simBox0r0c13"></td><td id="simBox0r0c14"></td></tr>
+    <tr><td id="simBox0r1c0"></td><td id="simBox0r1c1"></td><td id="simBox0r1c2"></td><td id="simBox0r1c3"></td><td id="simBox0r1c4"></td><td id="simBox0r1c5"></td><td id="simBox0r1c6"></td><td id="simBox0r1c7"></td><td id="simBox0r1c8"></td><td id="simBox0r1c9"></td><td id="simBox0r1c10"></td><td id="simBox0r1c11"></td><td id="simBox0r1c12"></td><td id="simBox0r1c13"></td><td id="simBox0r1c14"></td></tr>
+    <tr><td id="simBox0r2c0"></td><td id="simBox0r2c1"></td><td id="simBox0r2c2"></td><td id="simBox0r2c3"></td><td id="simBox0r2c4"></td><td id="simBox0r2c5"></td><td id="simBox0r2c6"></td><td id="simBox0r2c7"></td><td id="simBox0r2c8"></td><td id="simBox0r2c9"></td><td id="simBox0r2c10"></td><td id="simBox0r2c11"></td><td id="simBox0r2c12"></td><td id="simBox0r2c13"></td><td id="simBox0r2c14"></td></tr>
+    <tr><td id="simBox0r3c0"></td><td id="simBox0r3c1"></td><td id="simBox0r3c2"></td><td id="simBox0r3c3"></td><td id="simBox0r3c4"></td><td id="simBox0r3c5"></td><td id="simBox0r3c6"></td><td id="simBox0r3c7"></td><td id="simBox0r3c8"></td><td id="simBox0r3c9"></td><td id="simBox0r3c10"></td><td id="simBox0r3c11"></td><td id="simBox0r3c12"></td><td id="simBox0r3c13"></td><td id="simBox0r3c14"></td></tr>
+    <tr><td id="simBox0r4c0"></td><td id="simBox0r4c1"></td><td id="simBox0r4c2"></td><td id="simBox0r4c3"></td><td id="simBox0r4c4"></td><td id="simBox0r4c5"></td><td id="simBox0r4c6"></td><td id="simBox0r4c7"></td><td id="simBox0r4c8"></td><td id="simBox0r4c9"></td><td id="simBox0r4c10"></td><td id="simBox0r4c11"></td><td id="simBox0r4c12"></td><td id="simBox0r4c13"></td><td id="simBox0r4c14"></td></tr>
+    <tr><td id="simBox0r5c0"></td><td id="simBox0r5c1"></td><td id="simBox0r5c2"></td><td id="simBox0r5c3"></td><td id="simBox0r5c4"></td><td id="simBox0r5c5"></td><td id="simBox0r5c6"></td><td id="simBox0r5c7"></td><td id="simBox0r5c8"></td><td id="simBox0r5c9"></td><td id="simBox0r5c10"></td><td id="simBox0r5c11"></td><td id="simBox0r5c12"></td><td id="simBox0r5c13"></td><td id="simBox0r5c14"></td></tr>
+    <tr><td id="simBox0r6c0"></td><td id="simBox0r6c1"></td><td id="simBox0r6c2"></td><td id="simBox0r6c3"></td><td id="simBox0r6c4"></td><td id="simBox0r6c5"></td><td id="simBox0r6c6"></td><td id="simBox0r6c7"></td><td id="simBox0r6c8"></td><td id="simBox0r6c9"></td><td id="simBox0r6c10"></td><td id="simBox0r6c11"></td><td id="simBox0r6c12"></td><td id="simBox0r6c13"></td><td id="simBox0r6c14"></td></tr>
+    <tr><td id="simBox0r7c0"></td><td id="simBox0r7c1"></td><td id="simBox0r7c2"></td><td id="simBox0r7c3"></td><td id="simBox0r7c4"></td><td id="simBox0r7c5"></td><td id="simBox0r7c6"></td><td id="simBox0r7c7"></td><td id="simBox0r7c8"></td><td id="simBox0r7c9"></td><td id="simBox0r7c10"></td><td id="simBox0r7c11"></td><td id="simBox0r7c12"></td><td id="simBox0r7c13"></td><td id="simBox0r7c14"></td></tr>
+    <tr class="total"><td id="simBox0r8c0"></td><td id="simBox0r8c1"></td><td id="simBox0r8c2"></td><td id="simBox0r8c3"></td><td id="simBox0r8c4"></td><td id="simBox0r8c5"></td><td id="simBox0r8c6"></td><td id="simBox0r8c7"></td><td id="simBox0r8c8"></td><td id="simBox0r8c9"></td><td id="simBox0r8c10"></td><td id="simBox0r8c11"></td><td id="simBox0r8c12"></td><td id="simBox0r8c13"></td><td id="simBox0r8c14"></td></tr>
+  </table>
+  <table><caption id="simTeam1"></caption>
+    <tr><th></th><th>MIN</th><th>PTS</th><th>FG</th><th>3P</th><th>FT</th><th>OREB</th><th>DREB</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TOV</th><th>PF</th><th>+/-</th></tr>
+    <tr><td id="simBox1r0c0"></td><td id="simBox1r0c1"></td><td id="simBox1r0c2"></td><td id="simBox1r0c3"></td><td id="simBox1r0c4"></td><td id="simBox1r0c5"></td><td id="simBox1r0c6"></td><td id="simBox1r0c7"></td><td id="simBox1r0c8"></td><td id="simBox1r0c9"></td><td id="simBox1r0c10"></td><td id="simBox1r0c11"></td><td id="simBox1r0c12"></td><td id="simBox1r0c13"></td><td id="simBox1r0c14"></td></tr>
+    <tr><td id="simBox1r1c0"></td><td id="simBox1r1c1"></td><td id="simBox1r1c2"></td><td id="simBox1r1c3"></td><td id="simBox1r1c4"></td><td id="simBox1r1c5"></td><td id="simBox1r1c6"></td><td id="simBox1r1c7"></td><td id="simBox1r1c8"></td><td id="simBox1r1c9"></td><td id="simBox1r1c10"></td><td id="simBox1r1c11"></td><td id="simBox1r1c12"></td><td id="simBox1r1c13"></td><td id="simBox1r1c14"></td></tr>
+    <tr><td id="simBox1r2c0"></td><td id="simBox1r2c1"></td><td id="simBox1r2c2"></td><td id="simBox1r2c3"></td><td id="simBox1r2c4"></td><td id="simBox1r2c5"></td><td id="simBox1r2c6"></td><td id="simBox1r2c7"></td><td id="simBox1r2c8"></td><td id="simBox1r2c9"></td><td id="simBox1r2c10"></td><td id="simBox1r2c11"></td><td id="simBox1r2c12"></td><td id="simBox1r2c13"></td><td id="simBox1r2c14"></td></tr>
+    <tr><td id="simBox1r3c0"></td><td id="simBox1r3c1"></td><td id="simBox1r3c2"></td><td id="simBox1r3c3"></td><td id="simBox1r3c4"></td><td id="simBox1r3c5"></td><td id="simBox1r3c6"></td><td id="simBox1r3c7"></td><td id="simBox1r3c8"></td><td id="simBox1r3c9"></td><td id="simBox1r3c10"></td><td id="simBox1r3c11"></td><td id="simBox1r3c12"></td><td id="simBox1r3c13"></td><td id="simBox1r3c14"></td></tr>
+    <tr><td id="simBox1r4c0"></td><td id="simBox1r4c1"></td><td id="simBox1r4c2"></td><td id="simBox1r4c3"></td><td id="simBox1r4c4"></td><td id="simBox1r4c5"></td><td id="simBox1r4c6"></td><td id="simBox1r4c7"></td><td id="simBox1r4c8"></td><td id="simBox1r4c9"></td><td id="simBox1r4c10"></td><td id="simBox1r4c11"></td><td id="simBox1r4c12"></td><td id="simBox1r4c13"></td><td id="simBox1r4c14"></td></tr>
+    <tr><td id="simBox1r5c0"></td><td id="simBox1r5c1"></td><td id="simBox1r5c2"></td><td id="simBox1r5c3"></td><td id="simBox1r5c4"></td><td id="simBox1r5c5"></td><td id="simBox1r5c6"></td><td id="simBox1r5c7"></td><td id="simBox1r5c8"></td><td id="simBox1r5c9"></td><td id="simBox1r5c10"></td><td id="simBox1r5c11"></td><td id="simBox1r5c12"></td><td id="simBox1r5c13"></td><td id="simBox1r5c14"></td></tr>
+    <tr><td id="simBox1r6c0"></td><td id="simBox1r6c1"></td><td id="simBox1r6c2"></td><td id="simBox1r6c3"></td><td id="simBox1r6c4"></td><td id="simBox1r6c5"></td><td id="simBox1r6c6"></td><td id="simBox1r6c7"></td><td id="simBox1r6c8"></td><td id="simBox1r6c9"></td><td id="simBox1r6c10"></td><td id="simBox1r6c11"></td><td id="simBox1r6c12"></td><td id="simBox1r6c13"></td><td id="simBox1r6c14"></td></tr>
+    <tr><td id="simBox1r7c0"></td><td id="simBox1r7c1"></td><td id="simBox1r7c2"></td><td id="simBox1r7c3"></td><td id="simBox1r7c4"></td><td id="simBox1r7c5"></td><td id="simBox1r7c6"></td><td id="simBox1r7c7"></td><td id="simBox1r7c8"></td><td id="simBox1r7c9"></td><td id="simBox1r7c10"></td><td id="simBox1r7c11"></td><td id="simBox1r7c12"></td><td id="simBox1r7c13"></td><td id="simBox1r7c14"></td></tr>
+    <tr class="total"><td id="simBox1r8c0"></td><td id="simBox1r8c1"></td><td id="simBox1r8c2"></td><td id="simBox1r8c3"></td><td id="simBox1r8c4"></td><td id="simBox1r8c5"></td><td id="simBox1r8c6"></td><td id="simBox1r8c7"></td><td id="simBox1r8c8"></td><td id="simBox1r8c9"></td><td id="simBox1r8c10"></td><td id="simBox1r8c11"></td><td id="simBox1r8c12"></td><td id="simBox1r8c13"></td><td id="simBox1r8c14"></td></tr>
+  </table>
+  <table><caption>Team</caption>
+    <tr><th></th><th id="simAdvHead0"></th><th id="simAdvHead1"></th></tr>
+    <tr><td id="simAdv0c0"></td><td id="simAdv0c1"></td><td id="simAdv0c2"></td></tr>
+    <tr><td id="simAdv1c0"></td><td id="simAdv1c1"></td><td id="simAdv1c2"></td></tr>
+    <tr><td id="simAdv2c0"></td><td id="simAdv2c1"></td><td id="simAdv2c2"></td></tr>
+    <tr><td id="simAdv3c0"></td><td id="simAdv3c1"></td><td id="simAdv3c2"></td></tr>
+    <tr><td id="simAdv4c0"></td><td id="simAdv4c1"></td><td id="simAdv4c2"></td></tr>
+    <tr><td id="simAdv5c0"></td><td id="simAdv5c1"></td><td id="simAdv5c2"></td></tr>
+    <tr><td id="simAdv6c0"></td><td id="simAdv6c1"></td><td id="simAdv6c2"></td></tr>
+    <tr><td id="simAdv7c0"></td><td id="simAdv7c1"></td><td id="simAdv7c2"></td></tr>
+  </table>
+  </div>
+  <p>Enter simulate another · Esc back</p>
+</section>
 <section class="screen" id="screenFinal" hidden>
   <h1 id="finalTitle">Final</h1>
   <p id="finalScore"></p>

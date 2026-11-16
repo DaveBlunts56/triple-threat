@@ -8,6 +8,7 @@ const ROWS = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit
 // The rows of each panel of the pause menu that has rows. Substitutions, the box score and Controls have none.
 export const PAUSE = Object.freeze({
   main: Object.freeze(['resume', 'subs', 'box', 'controls', 'settings', 'quit']),
+  watch: Object.freeze(['resume', 'box', 'settings', 'quit']),   // the main list in Watch: nobody's team to change, no keys to read
   settings: Object.freeze(['quality', 'autoSubs', 'camera', 'difficulty', 'commentary', 'replays', 'sound', 'keys']),
   keys: KEY_ROWS,
   quit: Object.freeze(['stay', 'leave']),
@@ -17,17 +18,17 @@ export const inPlay = state => state.phase !== 'start' && state.phase !== 'final
 
 // panel: 'main', 'subs', 'controls', 'settings', 'keys' or 'quit'. row: the highlighted row of the panel shown.
 // from: the row of the main list that opened the panel. listening: on the Keys panel, the next key pressed goes on
-// the highlighted action.
-export const createPauseMenu = () => ({ panel: 'main', row: 0, from: 0, listening: false });
+// the highlighted action. watching: a match nobody plays, whose main list is Watch's.
+export const createPauseMenu = (watching = false) => ({ panel: 'main', row: 0, from: 0, listening: false, watching });
 
-export const pauseRows = menu => PAUSE[menu.panel] ?? [];
+export const pauseRows = menu => (menu.panel === 'main' && menu.watching ? PAUSE.watch : PAUSE[menu.panel] ?? []);
 
 // Pauses or resumes. `game` is { state, paused, pick, pauseMenu, menu }; pick is the roster row chosen first in
 // Substitutions. Pausing always starts from the top of the list.
 export function setPaused(game, keyboard, on) {
   game.paused = on && inPlay(game.state);
   game.pick = null;
-  game.pauseMenu = createPauseMenu();
+  game.pauseMenu = createPauseMenu(!(game.state.humans ?? [0]).includes(0));
   keyboard.intent();   // forget keys tapped on the pause screen, so they do not act when play resumes
   if (!on) keyboard.drop(['Space']);   // Space chooses on the pause menu: still held, it must not shoot as play resumes
 }

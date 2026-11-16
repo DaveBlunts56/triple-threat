@@ -2,12 +2,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { periodLabel, clockText, createHud, callText, rosterLine, subNote, easeFrame, menuText, keysText, controlsLines, hintLine,
-  BOX_HEAD, boxRow, boxTotal, lineupRow, periodLines, halfLines, potgLine } from '../src/render/hud.js';
+  BOX_HEAD, boxRow, boxTotal, lineupRow, periodLines, halfLines, potgLine, RESULT_HEAD, advancedLines } from '../src/render/hud.js';
 import { DEFAULT_PREFS } from '../src/prefs.js';
 import { DEFAULT_KEYS, KEY_ROWS, bind, createKeys } from '../src/keys.js';
 import { createMatch } from '../src/sim/state.js';
 import { createPauseMenu, pauseKey } from '../src/pause.js';
 import { MENU, createMenu, menuKey } from '../src/menu.js';
+import { quickMatch } from '../src/sim/quick/engine.js';
+import { surname } from '../src/sim/state.js';
+
+const keys = (menu, ...codes) => codes.forEach(code => menuKey(menu, code));
 
 test('periods are Q1-Q4 then OT1, OT2', () => {
   assert.deepEqual([1, 4, 5, 6].map(periodLabel), ['Q1', 'Q4', 'OT1', 'OT2']);
@@ -210,14 +214,14 @@ test('the start menu shows its rows with the bar on the selected one, and announ
   const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
   const show = () => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
   show();
-  assert.deepEqual([0, 1, 2, 3, 4].map(i => e[`menuRow${i}`].textContent), ['Play', 'Mode: 3 on 3', 'Teams', 'Controls', 'Settings']);
-  assert.deepEqual([0, 1, 2, 3, 4].map(i => e[`menuRow${i}`].ariaSelected), ['true', 'false', 'false', 'false', 'false']);
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(i => e[`menuRow${i}`].textContent), ['Play', 'Watch', 'Simulate', 'Mode: 3 on 3', 'Teams', 'Controls', 'Settings']);
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(i => e[`menuRow${i}`].ariaSelected), ['true', 'false', 'false', 'false', 'false', 'false', 'false']);
   assert.deepEqual([e.menuTeams.hidden, e.menuControls.hidden, e.menuHint.textContent, e.announce.textContent],
     [true, true, '↑ ↓ choose · Enter select', 'Play']);
-  menuKey(menu, 'ArrowDown'); show();
-  assert.deepEqual([e.menuRow0.ariaSelected, e.menuRow1.ariaSelected, e.announce.textContent], ['false', 'true', 'Mode: 3 on 3']);
+  keys(menu, 'ArrowDown', 'ArrowDown', 'ArrowDown'); show();
+  assert.deepEqual([e.menuRow0.ariaSelected, e.menuRow3.ariaSelected, e.announce.textContent], ['false', 'true', 'Mode: 3 on 3']);
   menuKey(menu, 'Enter'); show();                                                       // the mode changes, and says so
-  assert.deepEqual([e.menuRow1.textContent, e.announce.textContent], ['Mode: 5 on 5', 'Mode: 5 on 5']);
+  assert.deepEqual([e.menuRow3.textContent, e.announce.textContent], ['Mode: 5 on 5', 'Mode: 5 on 5']);
 });
 
 test('the Teams panel lists both teams by overall, name and role, with each team\'s star marked', () => {
@@ -225,13 +229,13 @@ test('the Teams panel lists both teams by overall, name and role, with each team
   let said = '', writes = 0;                                                            // the live region counts what is written to it
   e.announce = { hidden: false, style: {}, get textContent() { return said; }, set textContent(v) { said = v; writes++; } };
   const show = () => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
-  menuKey(menu, 'ArrowDown'); menuKey(menu, 'ArrowDown'); show();
+  menu.row = MENU.main.indexOf('teams'); show();
   assert.equal(e.announce.textContent, 'Teams');
   const moved = writes;
   menuKey(menu, 'Enter'); show();
   assert.deepEqual([e.menuTeams.hidden, e.menuControls.hidden, e.menuHint.textContent, e.announce.textContent], [false, true, 'Esc back', 'Teams']);
   assert.equal(writes, moved + 1, 'opening the panel is announced, though in the same words as the bar');
-  assert.ok([0, 1, 2, 3, 4].every(i => e[`menuRow${i}`].hidden));
+  assert.ok([0, 1, 2, 3, 4, 5, 6].every(i => e[`menuRow${i}`].hidden));
   assert.deepEqual([e.teamName0.textContent, e.teamName1.textContent], ['Harbor City Waves', 'Red Rock Scorpions']);
   assert.deepEqual([e.teamPlayer00.textContent, e.teamPlayer04.textContent, e.teamPlayer12.textContent, e.teamPlayer07.textContent, e.teamPlayer15.textContent],
     ['88 · Jalen Cross ★ · Playmaker', '80 · Andre Volkov · Stretch big', '83 · Viktor Lund · Post scorer', '76 · Idris Kane · Rebounder', '78 · Rafael Ortiz · Lockdown guard']);
@@ -246,9 +250,9 @@ test('the Teams panel lists both teams by overall, name and role, with each team
 test('the Settings panel shows each setting with its value, and a change is announced', () => {
   const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
   const show = quality => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality });
-  menu.row = 4; menuKey(menu, 'Enter'); show('high');
+  menu.row = MENU.main.indexOf('settings'); menuKey(menu, 'Enter'); show('high');
   assert.deepEqual([e.menuRow0.textContent, e.menuRow1.textContent, e.menuRow2.textContent, e.menuRow3.textContent, e.menuRow4.textContent, e.menuHint.textContent],
-    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', 'Quarter length: 3 minutes', '↑ ↓ choose · Enter change · Esc back']);
+    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', 'Game styles ▸', '↑ ↓ choose · Enter change · Esc back']);
   hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high', camera: 'broadcast' });
   assert.equal(e.menuRow2.textContent, 'Camera: Broadcast');
   show('low');
@@ -493,7 +497,7 @@ test('the page shows the Keys panel over the menu that opened it, and the change
   const show = () => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high', keys });
   show();
   assert.equal(e.keyRows.hidden, true);
-  menu.row = 4; menuKey(menu, 'Enter', keys); menu.row = MENU.settings.indexOf('keys'); menuKey(menu, 'Enter', keys); show();
+  menu.row = MENU.main.indexOf('settings'); menuKey(menu, 'Enter', keys); menu.row = MENU.settings.indexOf('keys'); menuKey(menu, 'Enter', keys); show();
   assert.deepEqual([e.keyRows.hidden, e.menuList.hidden, e.keyRow0.textContent, e.keyRow0.ariaSelected, e.keyRow19.textContent, e.announce.textContent],
     [false, true, 'Move up: W', 'true', 'Reset all keys', 'Move up: W']);
   menuKey(menu, 'Enter', keys); show();
@@ -624,4 +628,51 @@ test('the Sound row says Full, Quiet or Off', () => {
   const menu = createMenu(); menu.panel = 'settings';
   const row = MENU.settings.indexOf('sound');
   assert.deepEqual(['full', 'quiet', 'off'].map(sound => menuText(menu, row, 'high', '2k', { ...DEFAULT_PREFS, sound })), ['Sound: Full', 'Sound: Quiet', 'Sound: Off']);
+});
+
+// ---------- Watch, Game styles and Simulate (plan Tasks 6.2 to 6.4) ----------
+
+test('the Game styles panel and a slider panel say their values, and a slider row is filled as far as its value', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
+  const show = () => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
+  menu.row = MENU.main.indexOf('settings'); menuKey(menu, 'Enter'); menu.row = MENU.settings.indexOf('styles'); menuKey(menu, 'Enter'); show();
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(i => e[`menuRow${i}`].textContent), ['Play style: Arcade', 'Play quarters: 3 minutes', 'Watch style: Simulation',
+    'Watch quarters: 12 minutes', 'Simulate quarters: 12 minutes', 'Arcade sliders ▸', 'Simulation sliders ▸']);
+  menu.row = 6; menuKey(menu, 'Enter'); menuKey(menu, 'ArrowRight'); show();
+  assert.deepEqual([e.menuRow0.textContent, e.menuRow0.style.backgroundSize, e.menuRow9.textContent, e.menuRow9.style.backgroundSize, e.menuList.className],
+    ['Pace: 55', '55% 100%', 'Reset to 50', '0% 100%', 'simSliders']);
+  assert.match(e.menuHint.textContent, /← → move by 5/);
+});
+
+test('with no human there is no name under a player and no meter', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els;
+  s.phase = 'live';
+  const meter = { x: 0, z: 0, head: { x: 100, y: 100 }, band: [0.4, 0.6], fill: 0.5, frozen: null, green: false };
+  hud.update(s, 'webgl2', { paused: false, pick: null, feet: { x: 10, y: 20 }, meter });
+  assert.deepEqual([e.nameTag.hidden, e.shotMeter.hidden], [false, false]);
+  s.humans = [];
+  hud.update(s, 'webgl2', { paused: false, pick: null, feet: { x: 10, y: 20 }, meter });
+  assert.deepEqual([e.nameTag.hidden, e.shotMeter.hidden], [true, true]);
+});
+
+test('the result screen shows what was played, the score by period, both full box scores and the team advanced stats', () => {
+  const doc = fakeDoc(), hud = createHud(doc), e = doc.els, result = quickMatch({ seed: 4 });
+  hud.update(createMatch(), 'webgl2', { paused: false, pick: null, result });
+  assert.equal(e.simTitle.textContent, 'Simulation · 12-minute quarters · 5 on 5');
+  assert.match(e.simScore0.textContent, new RegExp(`${result.score[0]}$`));
+  assert.equal(RESULT_HEAD.length, 15);
+  assert.deepEqual(RESULT_HEAD.slice(6, 8), ['OREB', 'DREB']);
+  const total = [0, 1].map(t => Number(e[`simBox${t}r8c2`].textContent));
+  assert.deepEqual(total, result.score);                                                // the team rows add up to the score
+  assert.equal(e.simBox0r0c0.textContent, surname(result.rosters[0][0]));
+  assert.deepEqual([e.simAdv0c0.textContent, e.simAdv2c0.textContent], ['Pace', 'eFG%']);
+  assert.match(e.simAdv0c1.textContent, /^\d+\.\d$/);
+  assert.equal(advancedLines(result).length, 8);
+});
+
+test('the page has the result screen\'s every cell, and ten menu rows for a slider panel', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  for (const id of ['simResult', 'simTitle', 'simScore0', 'simScore1', 'simTeam0', 'simTeam1', 'menuRow9',
+    ...[0, 1].flatMap(t => Array.from({ length: 9 * 15 }, (_, i) => `simBox${t}r${Math.floor(i / 15)}c${i % 15}`)),
+    ...Array.from({ length: 24 }, (_, i) => `simAdv${Math.floor(i / 3)}c${i % 3}`)]) assert.match(html, new RegExp(`id="${id}"`), id);
 });

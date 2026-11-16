@@ -200,3 +200,15 @@ test('pausing again while the Keys panel waited for a key leaves nothing waiting
   setPaused(game, keyboard, false); setPaused(game, keyboard, true);
   assert.deepEqual([game.pauseMenu.panel, game.pauseMenu.listening], ['main', false]);
 });
+
+test('in Watch the pause menu is Resume, Box score, Settings, Quit: no substitutions, and no style to change', async () => {
+  const { createMatch } = await import('../src/sim/state.js');
+  const { setPaused, pauseRows, PAUSE } = await import('../src/pause.js');
+  const state = createMatch(1); state.phase = 'live'; state.humans = [];
+  const game = { state, paused: false, pick: null, menu: null, pauseMenu: null };
+  setPaused(game, { intent() {}, drop() {} }, true);
+  assert.deepEqual(pauseRows(game.pauseMenu), ['resume', 'box', 'settings', 'quit']);
+  state.humans = [0]; setPaused(game, { intent() {}, drop() {} }, true);
+  assert.deepEqual(pauseRows(game.pauseMenu), PAUSE.main);
+  for (const panel of Object.values(PAUSE)) assert.ok(!panel.includes('styles') && !panel.includes('quarter'));
+});

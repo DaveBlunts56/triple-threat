@@ -64,11 +64,14 @@ test('in a longer match a player fouls out later and the bonus comes later', asy
   assert.equal(recordFoul(s, { kind: 'reach', by: 0, on: 5 }).shots, 2, 'the fifth was not');
 });
 
-test('the start menu\'s quarter length is the match\'s: Play makes a match of that length', async () => {
+test('Play\'s quarter length on the menu is the match\'s: Play makes a match of that length, and Watch of its own', async () => {
   const { createMatch: make } = await import('../src/sim/state.js');
   const { createMenu, startFromMenu } = await import('../src/menu.js');
   const game = { state: make(1, 3), menu: createMenu() };
-  game.menu.minutes = 8;
+  game.menu.play.minutes = 8;
   startFromMenu(game, { drop() {} }, size => make(2, size));
   assert.deepEqual([game.state.quarterLength, game.state.gameClock, game.state.foulLimit], [480, 480, 5]);
+  game.state.phase = 'final'; game.menu.watch.minutes = 5;
+  startFromMenu(game, { drop() {} }, size => make(3, size), 'watch');
+  assert.deepEqual([game.state.quarterLength, game.state.gameClock, game.state.foulLimit], [300, 300, 4]);
 });

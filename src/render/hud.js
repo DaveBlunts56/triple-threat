@@ -1,4 +1,4 @@
-import { CLOCK, DIFFICULTY, ROSTER, TIMEOUT } from '../sim/tuning.js';
+import { CLOCK, DIFFICULTY, ROSTER } from '../sim/tuning.js';
 import { ACTION_WORDS, DEFAULT_KEYS, KEY_ROWS, keyLabel } from '../keys.js';
 import { personOf, surname } from '../sim/state.js';
 import { onCourt } from '../sim/roster.js';
@@ -10,6 +10,8 @@ import { playOn } from '../sim/plays.js';
 import { QUALITY } from './quality.js';
 import { playerOfGame, teamLine as teamStats } from '../sim/stats.js';
 import { DEFAULT_PREFS } from '../prefs.js';
+import { SLIDERS, STYLE_LABEL, styled } from '../sim/styles.js';
+import { efg, ftRate, orbPct, pace, rating, threeRate, tovPct, ts } from '../sim/advanced.js';
 
 const FPS_EASE = 0.05;   // how fast the frame-rate readout follows the real rate: steady enough to read
 
@@ -69,12 +71,16 @@ const pixels = value => `${Math.round(value)}px`;
 const share = value => `${Math.round(value * 1000) / 10}%`;
 
 // The start menu: the words of each entry, what the hint line says in each panel, and the two teams' lines.
-const MENU_WORDS = { play: 'Play', teams: 'Teams', controls: 'Controls', settings: 'Settings', keys: 'Keys' };
+const MENU_WORDS = { play: 'Play', watch: 'Watch', simulate: 'Simulate', teams: 'Teams', controls: 'Controls', settings: 'Settings', keys: 'Keys',
+  styles: 'Game styles ▸', arcadeSliders: 'Arcade sliders ▸', simSliders: 'Simulation sliders ▸', reset: 'Reset to 50' };
 const MODE_WORDS = { 3: 'Mode: 3 on 3', 5: 'Mode: 5 on 5' };
+const SLIDER_HINT = '↑ ↓ choose · ← → move by 5 · Enter on Reset · Esc back';
 const MENU_HINTS = { main: '↑ ↓ choose · Enter select', settings: '↑ ↓ choose · Enter change · Esc back', teams: 'Esc back', controls: 'Esc back',
-  keys: '↑ ↓ choose · Enter change · Esc back' };
+  keys: '↑ ↓ choose · Enter change · Esc back', styles: '↑ ↓ choose · ← → or Enter change · Esc back', arcadeSliders: SLIDER_HINT, simSliders: SLIDER_HINT };
+const SLIDER_PANELS = { arcadeSliders: 'arcade', simSliders: 'sim' };
+const SLIDER_LABEL = Object.fromEntries(SLIDERS.map(sl => [sl.key, sl.label]));
 const LISTENING_HINT = 'Press the new key · Esc to leave it as it was';
-const MENU_SLOTS = 9;   // menuRow0 to menuRow8 on the page
+const MENU_SLOTS = 10;   // menuRow0 to menuRow9 on the page
 const CONTROL_SLOTS = 11;   // ctlK0/ctlW0 to ctlK10/ctlW10 on the start menu, pctlK0/pctlW0 and on in the pause menu
 
 // The words of row `row` of the Keys panel: what the key does and the key, or that it is waiting for one.
@@ -130,7 +136,13 @@ export function menuText(menu, row, quality, camera = '2k', prefs = DEFAULT_PREF
   const choice = menuRows(menu)[row], kept = pageRowText(choice, quality, camera, prefs, hasVoice);
   if (kept !== undefined) return kept;
   if (choice === 'difficulty') return `Difficulty: ${DIFFICULTY.label[menu.difficulty]}`;
-  if (choice === 'quarter') return `Quarter length: ${menu.minutes} minutes`;
+  const slid = SLIDER_PANELS[menu.panel];
+  if (slid && choice !== 'reset') return `${SLIDER_LABEL[choice]}: ${menu.sliders[slid][choice]}`;
+  if (choice === 'playStyle' || choice === 'watchStyle') return `${choice === 'playStyle' ? 'Play' : 'Watch'} style: ${STYLE_LABEL[menu[choice.slice(0, -5)].style]}`;
+  if (choice === 'playMinutes' || choice === 'watchMinutes' || choice === 'simulateMinutes') {
+    const mode = choice.slice(0, -7);
+    return `${mode[0].toUpperCase()}${mode.slice(1)} quarters: ${menu[mode].minutes} minutes`;
+  }
   if (choice === 'autoSubs') return `Automatic substitutions: ${menu.autoSubs ? 'On' : 'Off'}`;
   if (choice === 'mode') return MODE_WORDS[menu.size];
   return MENU_WORDS[choice];
@@ -168,6 +180,33 @@ export const boxRow = (state, team, row) => { const person = state.rosters[team]
 // His team's totals. A team's plus-minus is its margin, which the score already says: left empty.
 export const boxTotal = (state, team) => boxCells('TEAM', state.rosters[team].reduce((sum, person) => sum + person.secs, 0), teamStats(state, team),
   state.rosters[team].reduce((sum, person) => sum + person.fouls, 0), '');
+
+// ---------- the result of a simulated game ----------
+
+export const RESULT_HEAD = Object.freeze(['', 'MIN', 'PTS', 'FG', '3P', 'FT', 'OREB', 'DREB', 'REB', 'AST', 'STL', 'BLK', 'TOV', 'PF', '+/-']);
+const resultCells = (name, secs, s, fouls, pm) => [name, clockOf(secs), String(s.pts), `${s.fgm}/${s.fga}`, `${s.tpm}/${s.tpa}`, `${s.ftm}/${s.fta}`,
+  String(s.orb), String(s.reb - s.orb), String(s.reb), String(s.ast), String(s.stl), String(s.blk), String(s.tov), String(fouls), pm];
+// One player's row, as RESULT_HEAD has the columns, and his team's totals (its plus-minus left empty: the score says it).
+export const resultRow = (state, team, row) => { const p = state.rosters[team][row]; return resultCells(surname(p), p.secs, p.stats, p.fouls, signed(p.pm)); };
+export const resultTotal = (state, team) => resultCells('TEAM', state.rosters[team].reduce((sum, p) => sum + p.secs, 0), teamStats(state, team),
+  state.rosters[team].reduce((sum, p) => sum + p.fouls, 0), '');
+// What was simulated: the style, the quarter length and the mode.
+export const resultTitle = state => `${STYLE_LABEL[state.style]} · ${state.quarterLength / 60}-minute quarters · ${state.size} on ${state.size}`;
+// Each team's points by period and its total.
+export const resultScore = (state, team) => `${ROSTER.teams[team]}  ${state.byQuarter[team].join(' · ')}  —  ${state.score[team]}`;
+const pct = value => `${(100 * value).toFixed(1)}%`;
+// The team advanced stats, each [what, the home team's, the visitors'].
+export function advancedLines(state) {
+  const a = teamStats(state, 0), b = teamStats(state, 1), secs = state.rosters[0].reduce((sum, p) => sum + p.secs, 0) / state.size;
+  const both = (what, f) => [what, f(a, b, 0), f(b, a, 1)];
+  return [
+    both('Pace', (x, y, t) => pace(state.possessions[t], secs).toFixed(1)),
+    both('Offensive rating', (x, y, t) => rating(x.pts, state.possessions[t]).toFixed(1)),
+    both('eFG%', x => pct(efg(x))), both('TS%', x => pct(ts(x))), both('Turnover %', x => `${tovPct(x).toFixed(1)}%`),
+    both('Offensive rebound %', (x, y) => pct(orbPct(x, y))), both('Free-throw rate', x => ftRate(x).toFixed(3)), both('Three-point rate', x => threeRate(x).toFixed(3)),
+  ];
+}
+const RESULT_ROWS = 9;   // simBox{t}r0 to r8 on the page: eight players and the team
 
 // A starter's line on the line-ups panel: position, name (the team's star marked), what he is for, and his overall.
 export function lineupRow(state, team, slot) {
@@ -208,7 +247,7 @@ export const periodWord = quarter => (quarter <= CLOCK.quarters ? ['1ST', '2ND',
 
 const SHOT_LOW = 5;   // seconds on the shot clock from which it flashes
 const BACKEND_NAMES = { webgpu: 'WebGPU', webgl2: 'WebGL 2 (WebGPU not available)', webgl2chosen: 'WebGL 2' };
-const SCREENS = { start: 'screenStart', pause: 'screenPause', final: 'screenFinal' };
+const SCREENS = { start: 'screenStart', pause: 'screenPause', final: 'screenFinal', result: 'simResult' };
 
 // The scoreboard and the start / pause / final screens. Plain HTML over the canvas.
 export function createHud(doc) {
@@ -223,7 +262,7 @@ export function createHud(doc) {
   const style = (id, key, value) => { if (changed(`${id}.${key}`, value)) el(id).style[key] = value; };
   const classed = (id, name) => { if (changed(`${id}.class`, name)) el(id).className = name; };
   const selected = (id, on) => { if (changed(`${id}.selected`, on)) el(id).ariaSelected = String(on); };
-  let screen, lastCall = null, lastScore, lastPanel, lastPause;
+  let screen, lastCall = null, lastScore, lastPanel, lastPause, lastResult = null;
   const bug = { score: [null, null], pops: [0, 0], shines: 0 };   // what the scorebug last showed, for its animations
 
   return {
@@ -243,15 +282,16 @@ export function createHud(doc) {
         set(`abbr${team}`, ROSTER.abbr[team]);
         set(`fouls${team}`, `Fouls ${state.teamFouls[team]}`);
         classed(`fouls${team}`, state.teamFouls[team] >= state.bonus ? 'fouls bonus' : 'fouls');
-        set(`timeouts${team}`, '●'.repeat(state.timeouts[team]) + '○'.repeat(Math.max(0, TIMEOUT.each - state.timeouts[team])));
+        set(`timeouts${team}`, '●'.repeat(state.timeouts[team]) + '○'.repeat(Math.max(0, styled(state, 'timeout.each') - state.timeouts[team])));
         classed(`bugTeam${team}`, `bugTeam ${side}${live && state.possession === team ? ' has' : ''}`);
       }
       classed('hud', bug.shines ? (bug.shines % 2 ? 'shineA' : 'shineB') : '');
       classed('shotClock', live && state.shotClock <= SHOT_LOW ? 'low' : '');
       set('who', whoText(state));
       // His surname under the player you control, at the place on the page the game says his feet are.
-      hide('nameTag', !ui.feet);
-      if (ui.feet) {
+      const human = (state.humans ?? [0]).includes(0);   // with nobody playing there is nobody's name, and no meter
+      hide('nameTag', !ui.feet || !human);
+      if (ui.feet && human) {
         set('nameTag', surname(personOf(state, state.players[state.controlled])));
         style('nameTag', 'left', pixels(ui.feet.x));
         style('nameTag', 'top', pixels(ui.feet.y));
@@ -288,6 +328,9 @@ export function createHud(doc) {
         for (let row = 0; row < MENU_SLOTS; row++) {
           hide(`menuRow${row}`, row >= rows.length);
           if (row < rows.length && menu.panel !== 'keys') set(`menuRow${row}`, menuText(menu, row, ui.quality, ui.camera, ui.prefs, ui.hasVoice));
+          // On a slider panel each slider's row is filled as far as its value goes.
+          const slid = SLIDER_PANELS[menu.panel], value = slid && row < rows.length && rows[row] !== 'reset' ? menu.sliders[slid][rows[row]] : 0;
+          style(`menuRow${row}`, 'backgroundSize', `${value}% 100%`);
           selected(`menuRow${row}`, row === menu.row && row < rows.length);
         }
         hide('menuTeams', menu.panel !== 'teams');
@@ -377,6 +420,24 @@ export function createHud(doc) {
         set('betweenTitle', show.panel === 'half' ? 'HALF-TIME' : `END OF ${periodWord(state.quarter)}`);
         for (let i = 0; i < BETWEEN_SLOTS; i++) { hide(`betweenLine${i}`, i >= lines.length); if (i < lines.length) set(`betweenLine${i}`, lines[i]); }
       }
+      // A simulated game's result (`ui.result`, a finished match), written out once for each new one.
+      const result = ui.result ?? null;
+      if (result && result !== lastResult) {
+        set('simTitle', resultTitle(result));
+        for (const team of [0, 1]) {
+          set(`simScore${team}`, resultScore(result, team));
+          set(`simTeam${team}`, ROSTER.teams[team]);
+          set(`simAdvHead${team}`, ROSTER.abbr[team]);
+          for (let row = 0; row < RESULT_ROWS; row++) {
+            const n = result.rosters[team].length;
+            const cells = row < n ? resultRow(result, team, row) : row === n ? resultTotal(result, team) : RESULT_HEAD.map(() => '');
+            cells.forEach((cell, col) => set(`simBox${team}r${row}c${col}`, cell));
+          }
+        }
+        advancedLines(result).forEach((line, row) => line.forEach((cell, col) => set(`simAdv${row}c${col}`, cell)));
+      }
+      lastResult = result;
+
       // The box score: in the pause menu, and when the match is over.
       const box = (state.phase === 'final' && !show.replay) || pause?.panel === 'box';   // a last replay plays before the final screen
       hide('boxScore', !box);
@@ -423,7 +484,7 @@ export function createHud(doc) {
 
       // The shot meter: an upright bar beside the shooter, its top at `head`; the page sizes it. The fill climbs to the
       // band; once frozen, a tick or a word says how the release went.
-      const m = ui.meter;
+      const m = human ? ui.meter : null;
       hide('shotMeter', !m);
       if (m) {
         style('shotMeter', 'left', pixels(m.head.x));
