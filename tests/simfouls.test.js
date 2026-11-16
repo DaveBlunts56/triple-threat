@@ -1,7 +1,7 @@
 // Simulation's fouls and turnovers, each impossible in Arcade (plan Task 4.4).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { setStyle } from '../src/sim/styles.js';
+import { STYLES, setStyle } from '../src/sim/styles.js';
 import { judgeContacts } from '../src/sim/fouls.js';
 import { emptyEvents } from '../src/sim/state.js';
 import { giveBall, passBall } from '../src/sim/players.js';
@@ -49,7 +49,7 @@ test('an illegal screen: a screener still moving into the defender, in Simulatio
     return { s, events };
   };
   const sim = calls('sim', 400, screen, 'illegalScreen');
-  assert.ok(sim > 30 && sim < 100, `${sim} of 400`);
+  assert.ok(Math.abs(sim / 400 - STYLES.sim['foul.illegalScreen']) < 0.04 && sim > 0, `${sim} of 400`);
   assert.equal(calls('arcade', 400, screen, 'illegalScreen'), 0);
   // A set screener is no foul.
   const set = seed => { const r = screen(seed); Object.assign(r.s.players[r.s.plays[0].ids.big], { vx: 0, vz: 0, setT: 1 }); return r; };
@@ -64,15 +64,17 @@ test('contact on a drive: a finish with a defender on him draws shooting fouls i
     return { s, events };
   };
   const sim = calls('sim', 400, drive, 'shooting');
-  assert.ok(Math.abs(sim / 400 - 0.25) < 0.07, `${sim} of 400`);
+  assert.ok(Math.abs(sim / 400 - STYLES.sim['foul.drive']) < 0.07, `${sim} of 400`);
   assert.equal(calls('arcade', 400, drive, 'shooting'), 0);
 });
 
 test('a pass caught with a defender right on the catcher is sometimes fumbled in Simulation, and the other team\'s pick-up is his turnover; never in Arcade', () => {
+  // The mechanism at a rate high enough to see in 300 catches (Simulation's own is lower: see styles.js).
+  const tables = { ...STYLES, sim: { ...STYLES.sim, 'fumble.rate': 0.03 } };
   const fumbled = style => {
     let n = 0, tov = 0;
     for (let seed = 1; seed <= 300; seed++) {
-      const s = live(seed, 5); setStyle(s, style);
+      const s = live(seed, 5); setStyle(s, style, undefined, tables);
       for (const p of s.players) at(s, p.id, -10, (p.id - 5) * 1.2);   // everyone else out of the way
       at(s, 0, 4, 0); at(s, 1, 7, 0); at(s, 6, 7.6, 0.4);   // the receiver (1) with his man on him
       passBall(s, s.players[0], { moveX: 1, moveZ: 0 });

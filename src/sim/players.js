@@ -155,7 +155,7 @@ export function isThree(x, z, sign) {
 function letGo(state, player, mode) {
   const { ball } = state;
   ball.holder = null; ball.mode = mode; ball.target = null;
-  ball.noPickupId = player.id; ball.noPickupT = PASS.noPickup;
+  ball.noPickupId = player.id; ball.noPickupT = PASS.noPickup + (mode === 'shot' ? styled(state, 'board.selfWait') : 0);   // a shooter is still landing
   state.lastTouch = player.team;
   player.shooting = false; player.fading = false; player.finish = null;
 }

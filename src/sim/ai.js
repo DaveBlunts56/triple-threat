@@ -373,15 +373,24 @@ function planFreeBall(state, p) {
   const shot = ball.mode === 'shot' && ball.shooter !== null, ours = shot && state.players[ball.shooter].team === p.team;
   // How many of the team that shot go to the glass is its playbook's choice (two for a team like any other; a team
   // that gets back sends one, one that crashes three), and who goes is who rebounds and likes to.
-  const crash = playbookOf(state, p.team).crash, crashers = Math.min(team.length - 1, Math.max(1, Math.round((2 * crash) / 0.4)));
+  const crash = playbookOf(state, p.team).crash, crashers = Math.min(team.length - 1, Math.max(1, Math.round(((2 * crash) / 0.4) * styled(state, 'board.crash'))));
   const pull = m => rated(state, m, 'rebound') * (0.5 + personOf(state, m).tend.crash);
   const order = ours ? (a, b) => pull(b) - pull(a) || dist(a, focus) - dist(b, focus) : (a, b) => dist(a, focus) - dist(b, focus);
-  const chasers = [...team].sort(order).slice(0, !shot ? 2 : ours ? crashers : AI.boards);
+  const chasers = [...team].sort(order).slice(0, !shot ? 2 : ours ? crashers : styled(state, 'board.defence'));
   if (!chasers.includes(p)) {
     const back = state.players.filter(m => m.team === p.team && !chasers.includes(m)).sort((a, b) => a.z - b.z);
     return goTo(ai, { x: -sign * AI.safetyX, z: (back.indexOf(p) - (back.length - 1) / 2) * AI.safetyGap }, true);
   }
 
+  // Held by a box-out (where the style has one hold): while the shot is in the air and his man is boxing him out, an
+  // offensive rebounder cannot get past him to the rim; he works behind him until the ball comes off.
+  if (ours && styled(state, 'board.boxHold') && state.shot && state.time - state.shot.at < AI.boxFor) {
+    const boxer = state.players.find(o => o.team !== p.team && o.man === p.id), rim = rimCentre(sign);
+    if (boxer && dist(boxer, p) < 1.3) {
+      const far = dist(boxer, rim) || 1;
+      return goTo(ai, { x: boxer.x - ((rim.x - boxer.x) / far) * 0.6, z: boxer.z - ((rim.z - boxer.z) / far) * 0.6 }, true);
+    }
+  }
   goTo(ai, ball, true); ai.chase = true;
   if (dist(p, ball) < AI.reboundDist && ball.y < AI.reboundHeight && ball.y > PLAYER.reach && ball.vy < 0) ai.action = 'jump';
 }

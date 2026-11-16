@@ -13,7 +13,7 @@ const f = Object.freeze;
 // that stays above 0), or 'word' (a choice, never scaled). Ranges ([low, high]) are scaled end by end.
 export const KINDS = f({
   'ai.patience': 'positive', 'play.startAt': 'positive', 'ai.contestDelay': 'positive', 'ai.stealRate': 'chance', 'ai.farAway': 'positive',
-  'player.accel': 'positive', 'player.brake': 'positive', 'decide.earlyThree': 'positive', 'decide.earlyRoom': 'positive',
+  'player.accel': 'positive', 'player.brake': 'positive', 'decide.earlyThree': 'positive', 'decide.earlyRoom': 'positive', 'board.boxHold': 'word', 'board.selfWait': 'word', 'board.defence': 'word', 'board.crash': 'positive',
   'steal.front': 'chance', 'steal.back': 'chance', 'pass.intercept': 'positive',
   'foul.reachFront': 'chance', 'foul.reachBack': 'chance', 'foul.shooting': 'chance', 'foul.charge': 'chance', 'foul.block': 'chance',
   'foul.looseBall': 'chance', 'foul.illegalScreen': 'chance', 'foul.drive': 'chance', 'fumble.rate': 'chance',
@@ -32,7 +32,7 @@ export const KINDS = f({
 // Arcade: the game as it was, read from tuning.js.
 const ARCADE = f({
   'ai.patience': AI.patience, 'play.startAt': PLAY.startAt, 'ai.contestDelay': AI.contestDelay, 'ai.stealRate': AI.stealRate, 'ai.farAway': AI.farAway,
-  'player.accel': PLAYER.accel, 'player.brake': PLAYER.accel, 'decide.earlyThree': AI.earlyThree, 'decide.earlyRoom': AI.roomFor,
+  'player.accel': PLAYER.accel, 'player.brake': PLAYER.accel, 'decide.earlyThree': AI.earlyThree, 'decide.earlyRoom': AI.roomFor, 'board.boxHold': false, 'board.selfWait': 0, 'board.defence': AI.boards, 'board.crash': 1,
   'steal.front': STEAL.frontChance, 'steal.back': STEAL.backChance, 'pass.intercept': PASS.interceptRadius,
   'foul.reachFront': FOUL.reachFront, 'foul.reachBack': FOUL.reachBack, 'foul.shooting': FOUL.shooting, 'foul.charge': FOUL.charge, 'foul.block': FOUL.block,
   'foul.looseBall': 0, 'foul.illegalScreen': 0, 'foul.drive': 0, 'fumble.rate': 0,
@@ -50,23 +50,23 @@ const ARCADE = f({
 
 // Simulation: NBA-like. Its own numbers, written out (Stage 4 tunes them).
 const SIM = f({
-  'ai.patience': f([9, 15]), 'play.startAt': 5, 'ai.contestDelay': 0.3, 'ai.stealRate': 0.01, 'ai.farAway': 6,
-  'player.accel': 14, 'player.brake': 28, 'decide.earlyThree': 88, 'decide.earlyRoom': 3,
-  'steal.front': 0.25, 'steal.back': 0.08, 'pass.intercept': 0.4,
-  'foul.reachFront': 0.12, 'foul.reachBack': 0.3, 'foul.shooting': 0.25, 'foul.charge': 0.6, 'foul.block': 0.15,
-  'foul.looseBall': 0.02, 'foul.illegalScreen': 0.15, 'foul.drive': 0.25, 'fumble.rate': 0.02,
+  'ai.patience': f([18, 23]), 'play.startAt': 11, 'ai.contestDelay': 0.3, 'ai.stealRate': 0.006, 'ai.farAway': 6,
+  'player.accel': 14, 'player.brake': 28, 'decide.earlyThree': 80, 'decide.earlyRoom': 2, 'board.boxHold': true, 'board.selfWait': 1.2, 'board.defence': 4, 'board.crash': 0.4,
+  'steal.front': 0.25, 'steal.back': 0.08, 'pass.intercept': 0.22,
+  'foul.reachFront': 0.12, 'foul.reachBack': 0.3, 'foul.shooting': 1, 'foul.charge': 0.6, 'foul.block': 0.15,
+  'foul.looseBall': 0.02, 'foul.illegalScreen': 0.05, 'foul.drive': 0.9, 'fumble.rate': 0.005,
   // Sized for 12-minute quarters: a starter tires over 8-12 minutes of play, and a man on the bench is ready again
   // after about 4.
   'stamina.sprint': 0.003, 'stamina.run': 0.0008, 'stamina.jump': 0.004, 'stamina.rest': 0.0015, 'stamina.bench': 0.0015,
   'stamina.subOut': 0.35, 'stamina.subIn': 0.7,
   'timeout.each': 7, 'timeout.rest': 0.12,
-  'shot.make': 1, 'board.offence': 1,
+  'shot.make': 1, 'board.offence': 0.25,
   // The chance of an open shot from each zone, before the defender, his rating, tiredness and timing (see shooting.js).
-  'shot.curve': f({ rim: 0.70, close: 0.52, mid: 0.46, corner3: 0.42, arc3: 0.39 }), 'shot.green': 'boost', 'shot.boost': 0.5, 'ft.model': 'touch',
+  'shot.curve': f({ rim: 0.95, close: 0.66, mid: 0.44, corner3: 0.38, arc3: 0.35 }), 'shot.green': 'boost', 'shot.boost': 0.5, 'ft.model': 'touch',
   'decide.temperature': 0.3, 'iq.offence': 1, 'iq.defence': 1, 'coach.adapt': 1, 'coach.rotation': 'plan',
-  'decide.possession': 1.0, 'decide.usage': 0.5, 'decide.diet': 0.6, 'decide.drive': 0.2,
+  'decide.possession': 1.6, 'decide.usage': 0.5, 'decide.diet': 0.6, 'decide.drive': 0.2,
   'decide.pass': 0.15, 'decide.floor': 60, 'decide.misread': 0.25, 'decide.foulDraw': 0.15, 'decide.stale': 0.08, 'decide.rhythm': 0.15,
-  'decide.scout': 0.5, 'decide.watch': 0.15, 'decide.watchDelay': 0.5, 'decide.fly': 0.5, 'decide.spread': 0.5, 'react.iq': 1, 'decide.threes': 0.6,
+  'decide.scout': 0.5, 'decide.watch': 0.15, 'decide.watchDelay': 0.5, 'decide.fly': 0.5, 'decide.spread': 0.5, 'react.iq': 1, 'decide.threes': 1,
   'rules.overtimeShare': 5 / 12, 'rules.orebClock': 14, 'rules.lastTwo': true, 'form.sd': 0.05, 'move.pacing': 'gaits',
 });
 
@@ -84,7 +84,7 @@ export const SLIDERS = f([
   f({ key: 'defIQ', label: 'Defensive IQ', scales: f({ 'ai.contestDelay': -1, 'iq.defence': 1 }) }),
   f({ key: 'security', label: 'Ball security', scales: f({ 'steal.front': -1, 'steal.back': -1, 'pass.intercept': -1, 'fumble.rate': -1 }) }),
   f({ key: 'fouls', label: 'Foul frequency', scales: f({ 'foul.reachFront': 1, 'foul.reachBack': 1, 'foul.shooting': 1, 'foul.charge': 1, 'foul.block': 1, 'foul.looseBall': 1, 'foul.illegalScreen': 1, 'foul.drive': 1 }) }),
-  f({ key: 'rebounding', label: 'Rebounding', scales: f({ 'board.offence': 1 }) }),
+  f({ key: 'rebounding', label: 'Rebounding', scales: f({ 'board.offence': 1, 'board.crash': 1 }) }),
   f({ key: 'fatigue', label: 'Fatigue', scales: f({ 'stamina.sprint': 1, 'stamina.run': 1, 'stamina.jump': 1, 'stamina.rest': -1, 'stamina.bench': -1 }) }),
 ]);
 

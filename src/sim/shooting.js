@@ -77,8 +77,8 @@ export function expectedShot({ value, chance, green = 0, rule = 'sure', boost = 
 }
 
 // A computer shooter's free throw. 'flat': the game's own, the same for everyone. 'touch': his own, from his feel for a
-// jump shot (the mean of his mid-range and three ratings): 78% for a 75, about 0.6 points a rating either way.
-export const touchOf = person => Math.min(0.93, Math.max(0.55, 0.78 + ((person.ratings.mid + person.ratings.three) / 2 - 75) * 0.006));
+// jump shot (the mean of his mid-range and three ratings): 80% for a 75, about 0.6 points a rating either way.
+export const touchOf = person => Math.min(0.94, Math.max(0.55, 0.8 + ((person.ratings.mid + person.ratings.three) / 2 - 75) * 0.006));
 export function freeThrowChance(model, person) {
   return model === 'touch' && person ? touchOf(person) : FT.aiChance;
 }
