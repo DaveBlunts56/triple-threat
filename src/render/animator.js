@@ -69,6 +69,10 @@ function part(clip, keep, scale) {
   return new THREE.AnimationClip(clip.name, clip.duration, tracks);
 }
 
+// The whole of `clip`, for a person `scale` times the size of the one the motions were made on: to pose a copy of him
+// with one motion (see people.js's portrait).
+export const poseClip = (clip, scale) => part(clip, () => true, scale);
+
 // The animator of the person whose rig is `model`. `clips` is every motion of assets/motion.glb by name, `facts` is
 // assets/motion.json, `scale` is his size against the person the motions were made on, and `index` (0 to 9) tells
 // him from the other nine. Every leg motion is split in two, so that the arms can follow the legs or leave them;

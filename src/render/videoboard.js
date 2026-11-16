@@ -6,7 +6,6 @@ import * as THREE from 'three';
 import { uv } from 'three/tsl';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ARENA, scoreLines } from './layout.js';
-import { ROSTER } from '../sim/tuning.js';
 import { clockText, periodWord } from './hud.js';
 import { drawLogo } from './arenas.js';
 
@@ -17,10 +16,11 @@ const f = Object.freeze;
 // (The ring's picture is the building's scrolling one: see building.js.)
 export const BOARD_LOOK = f({ live: f(['high', 'ultra']), feed: f([512, 294]), ring: 0.55, strip: 0.75, glow: 1.25 });
 
-// What the board says: the two teams' marks, names and points, the period and the clock. `bottom`: the strip's line.
+// What the board says: the two teams' marks (`ids`), names and points, the period and the clock. `bottom`: the strip's
+// line.
 export const boardWords = state => {
   const lines = scoreLines(state);
-  return { home: ROSTER.abbr[0], away: ROSTER.abbr[1], score: [state.score[0], state.score[1]], period: lines.period,
+  return { home: state.teams[0].abbr, away: state.teams[1].abbr, ids: [...(state.ids ?? [0, 1])], score: [state.score[0], state.score[1]], period: lines.period,
     clock: clockText(Math.max(0, state.gameClock)), bottom: `${lines.home}   ${lines.away}   ${periodWord(state.quarter)} ${clockText(Math.max(0, state.gameClock))}` };
 };
 
@@ -42,7 +42,7 @@ function paintScreen({ g, c }, words, look) {
   g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillStyle = '#c9d6e6'; g.font = '700 22px "Arial Narrow", Arial, sans-serif'; g.fillText(look.name, w / 2, 30);
   for (const [team, x] of [[0, w * 0.22], [1, w * 0.78]]) {
-    drawLogo(g, team, x, h * 0.36, 78);
+    drawLogo(g, words.ids[team], x, h * 0.36, 78);
     g.fillStyle = '#ffffff'; g.font = '800 30px "Arial Narrow", Arial, sans-serif'; g.fillText(team ? words.away : words.home, x, h * 0.6);
     g.font = '900 64px "Arial Narrow", Arial, sans-serif'; g.fillText(String(words.score[team]), x, h * 0.8);
   }

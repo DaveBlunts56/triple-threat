@@ -17,15 +17,15 @@ const anyone = (i, extra = {}) => ({ shirt: pick(TOPS, i, 1), trousers: pick(LEG
 // A row of places `gap` apart from `from` to `to`.
 const row = (from, to) => Array.from({ length: Math.floor((to - from) / SEAT.gap) + 1 }, (_, i) => from + i * SEAT.gap);
 
-// Where everyone sits: { x, z, facing, look, chair }: the benches and the table on the far side, and the seats at the
-// far side's ends.
-export function sidelinePeople() {
+// Where everyone sits: { x, z, facing, look, chair, bench }: the benches (`bench`: in their team's colours) and the
+// table on the far side, and the seats at the far side's ends. `ids`: the match's teams, the first on the left bench.
+export function sidelinePeople(ids = [0, 1]) {
   const all = [];
-  const seat = (x, z, facing, look, chair = SEAT.chair) => all.push({ x, z, facing, look: look(all.length), chair });
+  const seat = (x, z, facing, look, chair = SEAT.chair, bench = false) => all.push({ x, z, facing, look: look(all.length), chair, bench });
   const suit = i => anyone(i, { shirt: pick(['#20232b', '#2c3440', '#3a2f2a'], i, 5), trousers: '#1b1d23' });
   for (const [team, way] of [[0, -1], [1, 1]]) {
-    const colour = KIT.team[team], bench = i => anyone(i, { shirt: colour, trousers: colour, shoes: '#e8e8ea' });
-    row(4.2, 10.6).forEach((x, i) => seat(way * x, -9.05, 0, i < 2 ? suit : i < 7 ? bench : i2 => anyone(i2, { shirt: '#e9ecef' }), colour));
+    const colour = KIT.team[ids[team]], bench = i => anyone(i, { shirt: colour, trousers: colour, shoes: '#e8e8ea' });
+    row(4.2, 10.6).forEach((x, i) => seat(way * x, -9.05, 0, i < 2 ? suit : i < 7 ? bench : i2 => anyone(i2, { shirt: '#e9ecef' }), colour, true));
     for (const x of row(11.4, 13.4)) seat(way * x, -9.05, 0, anyone);
   }
   for (const x of [-2.4, -1.2, 0, 1.2, 2.4]) seat(x, -9.85, 0, suit);                      // the table: three commentators and two officials
@@ -46,9 +46,10 @@ export const photographers = () => [1, -1].flatMap(side => [-6.2, -5, -3.8, 3.8,
 // The camera crews, standing: beside each hoop and at the near corners.
 export const cameraCrews = () => [[15.3, -2.3], [-15.3, 2.3], [13.9, 9.0], [-13.9, 9.0]].map(([x, z]) => ({ x, z, facing: Math.atan2(-x, -z) }));
 
-// Adds them to `scene`. Returns { live(ball, life, now) }: the cameras follow `ball` and the flashes fire as the
-// crowd's mood (`life`) asks, `now` being the time in seconds.
-export function createSideline(scene) {
+// Adds them to `scene`, the benches in the colours of the teams `ids`. Returns { live(ball, life, now), setTeams(ids) }:
+// the cameras follow `ball` and the flashes fire as the crowd's mood (`life`) asks, `now` being the time in seconds;
+// and the benches dressed for other teams.
+export function createSideline(scene, ids = [0, 1]) {
   const parts = [], ahead = (p, far) => [p.x + Math.sin(p.facing) * far, p.z + Math.cos(p.facing) * far];
   const chair = p => {
     parts.push(bakedBox(p.chair ?? SEAT.chair, 0.46, 0.06, 0.44, p.x, SEAT.high, p.z, p.facing));
@@ -56,7 +57,7 @@ export function createSideline(scene) {
     parts.push(bakedBox(p.chair ?? SEAT.chair, 0.46, 0.5, 0.05, bx, SEAT.high + 0.27, bz, p.facing));
   };
   courtsideSeats().forEach(chair);
-  sidelinePeople().forEach((p, i) => {
+  sidelinePeople(ids).filter(p => !p.bench).forEach(p => {
     parts.push(bakedFigure(p.look, SEATED, p.x, 0, p.z, p.facing));
     chair(p);
     if (p.z < -9.5) {   // at the table: a headset, and a screen in front of him
@@ -78,6 +79,19 @@ export function createSideline(scene) {
   const people = bakedMesh(parts);
   people.receiveShadow = true;
   scene.add(people);
+  // The benches: one mesh of their own, made again for other teams.
+  let benches = null, dressedFor = '';
+  const setTeams = to => {
+    if (to.join() === dressedFor) return;
+    dressedFor = to.join();
+    if (benches) { scene.remove(benches); benches.geometry.dispose(); benches.material.dispose(); }
+    parts.length = 0;
+    sidelinePeople(to).filter(p => p.bench).forEach(p => { parts.push(bakedFigure(p.look, SEATED, p.x, 0, p.z, p.facing)); chair(p); });
+    benches = bakedMesh(parts);
+    benches.receiveShadow = true;
+    scene.add(benches);
+  };
+  setTeams(ids);
 
   // The cameras on their stands turn to the ball.
   const dark = new THREE.MeshStandardMaterial({ color: 0x1a1c21, roughness: 0.6 });
@@ -105,6 +119,7 @@ export function createSideline(scene) {
   show(0);
 
   return {
+    setTeams,
     live(ball, life, now) {
       for (const camera of cameras) camera.rotation.y = Math.atan2(ball.x - camera.position.x, ball.z - camera.position.z);
       const lit = until.some(t => t > now - 0.1);

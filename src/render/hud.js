@@ -2,12 +2,14 @@ import { CLOCK, DIFFICULTY, ROSTER } from '../sim/tuning.js';
 import { ACTION_WORDS, DEFAULT_KEYS, KEY_ROWS, keyLabel } from '../keys.js';
 import { personOf, surname } from '../sim/state.js';
 import { onCourt } from '../sim/roster.js';
-import { heatOf, overall, starOf } from '../sim/ratings.js';
+import { heatOf, overall, starOf, teamOverall } from '../sim/ratings.js';
 import { menuRows } from '../menu.js';
 import { pauseRows } from '../pause.js';
 import { playListRows } from '../playlist.js';
 import { playOn } from '../sim/plays.js';
 import { QUALITY } from './quality.js';
+import { TEAMS, nicknameOf } from '../sim/teams.js';
+import { logoSvg } from './arenas.js';
 import { playerOfGame, teamLine as teamStats } from '../sim/stats.js';
 import { DEFAULT_PREFS } from '../prefs.js';
 import { SLIDERS, STYLE_LABEL, styled } from '../sim/styles.js';
@@ -36,9 +38,10 @@ const CALLS = {
 };
 const SHOTS = ['', 'One shot', 'Two shots', 'Three shots'];
 
-// The whistle as a sentence: what was called, on whom, and what follows. You are team 0.
-export function callText(call) {
-  if (call.kind === 'timeout') return `Timeout, ${ROSTER.teams[call.team]}. ${call.ball === 0 ? 'Your ball' : "Opponent's ball"}`;
+// The whistle as a sentence: what was called, on whom, and what follows. You are team 0. `state`: the match, for the
+// team that called a timeout (the default teams without it).
+export function callText(call, state = null) {
+  if (call.kind === 'timeout') return `Timeout, ${state ? state.teams[call.team].name : ROSTER.teams[call.team]}. ${call.ball === 0 ? 'Your ball' : "Opponent's ball"}`;
   const who = call.name ? `${surname(call)} (${call.number})` : call.number;
   const what = CALLS[call.kind] + (call.number === null ? '' : ` on ${who}`);
   return `${what}. ${call.shots ? SHOTS[call.shots] : call.ball === 0 ? 'Your ball' : "Opponent's ball"}`;
@@ -71,11 +74,11 @@ const pixels = value => `${Math.round(value)}px`;
 const share = value => `${Math.round(value * 1000) / 10}%`;
 
 // The start menu: the words of each entry, what the hint line says in each panel, and the two teams' lines.
-const MENU_WORDS = { play: 'Play', watch: 'Watch', simulate: 'Simulate', teams: 'Teams', controls: 'Controls', settings: 'Settings', keys: 'Keys',
+const MENU_WORDS = { exhibition: 'Exhibition', teamSelect: 'Team select', simulate: 'Simulate', teams: 'Teams', controls: 'Controls', settings: 'Settings', keys: 'Keys',
   styles: 'Game styles ▸', arcadeSliders: 'Arcade sliders ▸', simSliders: 'Simulation sliders ▸', reset: 'Reset to 50' };
 const MODE_WORDS = { 3: 'Mode: 3 on 3', 5: 'Mode: 5 on 5' };
 const SLIDER_HINT = '← → move by 5 · Esc back';   // short, to fit the disc
-const MENU_HINTS = { main: '↑ ↓ choose · Enter select', settings: '↑ ↓ choose · Enter change · Esc back', teams: 'Esc back', controls: 'Esc back',
+const MENU_HINTS = { main: '↑ ↓ choose · Enter select', teamSelect: '← → your side · ↑ ↓ change team · R random · Enter play · Esc back', settings: '↑ ↓ choose · Enter change · Esc back', teams: 'Esc back', controls: 'Esc back',
   keys: '↑ ↓ choose · Enter change · Esc back', styles: '← → change · Enter open · Esc back', arcadeSliders: SLIDER_HINT, simSliders: SLIDER_HINT };
 const SLIDER_PANELS = { arcadeSliders: 'arcade', simSliders: 'sim' };
 const SLIDER_LABEL = Object.fromEntries(SLIDERS.map(sl => [sl.key, sl.label]));
@@ -145,7 +148,6 @@ export function menuText(menu, row, quality, camera = '2k', prefs = DEFAULT_PREF
   }
   if (choice === 'autoSubs') return `Automatic substitutions: ${menu.autoSubs ? 'On' : 'Off'}`;
   if (choice === 'mode') return MODE_WORDS[menu.size];
-  if (choice === 'home') return `Home: ${ROSTER.teams[menu.home].split(' ').pop()}`;
   return MENU_WORDS[choice];
 }
 
@@ -194,7 +196,7 @@ export const resultTotal = (state, team) => resultCells('TEAM', state.rosters[te
 // What was simulated: the style, the quarter length and the mode.
 export const resultTitle = state => `${STYLE_LABEL[state.style]} · ${state.quarterLength / 60}-minute quarters · ${state.size} on ${state.size}`;
 // Each team's points by period and its total.
-export const resultScore = (state, team) => `${ROSTER.teams[team]}  ${state.byQuarter[team].join(' · ')}  —  ${state.score[team]}`;
+export const resultScore = (state, team) => `${state.teams[team].name}  ${state.byQuarter[team].join(' · ')}  —  ${state.score[team]}`;
 const pct = value => `${(100 * value).toFixed(1)}%`;
 // The team advanced stats, each [what, the home team's, the visitors'].
 export function advancedLines(state) {
@@ -222,7 +224,7 @@ const leader = (state, team) => { const best = state.rosters[team].reduce((a, b)
 
 // Between periods: each team's points by period and its total, then each team's leading scorer.
 export function periodLines(state) {
-  const byPeriod = team => `${ROSTER.abbr[team]}  ${state.byQuarter[team].map(points => String(points)).join(' · ')}  —  ${state.score[team]}`;
+  const byPeriod = team => `${state.teams[team].abbr}  ${state.byQuarter[team].map(points => String(points)).join(' · ')}  —  ${state.score[team]}`;
   return [byPeriod(0), byPeriod(1), leader(state, 0), leader(state, 1)];
 }
 
@@ -248,7 +250,18 @@ export const periodWord = quarter => (quarter <= CLOCK.quarters ? ['1ST', '2ND',
 
 const SHOT_LOW = 5;   // seconds on the shot clock from which it flashes
 const BACKEND_NAMES = { webgpu: 'WebGPU', webgl2: 'WebGL 2 (WebGPU not available)', webgl2chosen: 'WebGL 2' };
-const SCREENS = { start: 'screenStart', pause: 'screenPause', final: 'screenFinal', result: 'simResult' };
+const SCREENS = { start: 'screenStart', select: 'screenSelect', pause: 'screenPause', final: 'screenFinal', result: 'simResult' };
+
+// Team Select's choice (see menu.js) in words, for screen readers: the two teams, and which you play or that you watch.
+export function selectText({ away, home, side }) {
+  const you = side === 'none' ? 'You watch' : `You play ${TEAMS[side === 'home' ? home : away].name}`;
+  return `Away: ${TEAMS[away].name}. Home: ${TEAMS[home].name}. ${you}.`;
+}
+
+// The colours the page shows team `team` in: its kit's (`kit`), a brighter one for edges and bars (`bar`) and a pale
+// one for words on the dark panels (`ink`), each the team's own if it gives them, else mixed from its kit's toward white.
+const lighter = (hex, by) => `#${hex.slice(1).match(/../g).map(h => Math.round(parseInt(h, 16) + (255 - parseInt(h, 16)) * by).toString(16).padStart(2, '0')).join('')}`;
+export const teamColours = team => ({ kit: team.colour, bar: team.bar ?? lighter(team.colour, 0.25), ink: team.ink ?? lighter(team.colour, 0.6) });
 
 // The scoreboard and the start / pause / final screens. Plain HTML over the canvas.
 export function createHud(doc) {
@@ -274,13 +287,20 @@ export function createHud(doc) {
       // The scorebug. A score that goes up pops and a shine sweeps the strip; the team with the ball has a lit edge;
       // a team in the bonus has its fouls lit; the shot clock flashes in its last seconds.
       const live = state.phase !== 'start' && state.phase !== 'final';
+      // Each side's colours and mark, from its team (see teamColours), when the teams change.
+      const ids = state.ids ?? [0, 1];
+      if (changed('teamIds', ids.join())) ids.forEach((id, side) => {
+        const colours = teamColours(TEAMS[id] ?? TEAMS[side]);
+        for (const [key, value] of Object.entries(colours)) doc.documentElement?.style.setProperty(`--${key}${side}`, value);
+        el(`bugMark${side}`).innerHTML = logoSvg(TEAMS[id] ? id : side);
+      });
       for (const team of [0, 1]) {
         if (bug.score[team] !== null && state.score[team] > bug.score[team]) { bug.pops[team]++; bug.shines++; }
         bug.score[team] = state.score[team];
         const side = team === 0 ? 'home' : 'away';
         set(`score${team}`, String(state.score[team]));
         classed(`score${team}`, `score ${side}${bug.pops[team] ? (bug.pops[team] % 2 ? ' popA' : ' popB') : ''}`);
-        set(`abbr${team}`, ROSTER.abbr[team]);
+        set(`abbr${team}`, state.teams[team].abbr);
         set(`fouls${team}`, `Fouls ${state.teamFouls[team]}`);
         classed(`fouls${team}`, state.teamFouls[team] >= state.bonus ? 'fouls bonus' : 'fouls');
         set(`timeouts${team}`, '●'.repeat(state.timeouts[team]) + '○'.repeat(Math.max(0, styled(state, 'timeout.each') - state.timeouts[team])));
@@ -335,11 +355,23 @@ export function createHud(doc) {
           style(`menuRow${row}`, 'backgroundSize', `${value}% 100%`);
           selected(`menuRow${row}`, row === menu.row && row < rows.length);
         }
+        // Team Select: each side's team, city over nickname, its overall, in its colours; your controller's place.
+        if (menu.panel === 'teamSelect') {
+          const { away, home, side } = menu.select;
+          [away, home].forEach((id, i) => {
+            const team = TEAMS[id], colours = teamColours(team);
+            set(`selCity${i}`, team.city ?? ''); set(`selName${i}`, nicknameOf(team)); set(`selOvr${i}`, `OVR ${teamOverall(team.players)}`);
+            style(`selName${i}`, 'color', colours.ink); style(`selTeam${i}`, 'borderColor', colours.bar);
+          });
+          classed('selectPads', `pads at-${side}`);
+          hide('selectWatch', side !== 'none');
+          set('selectHint', MENU_HINTS.teamSelect);
+        }
         hide('menuTeams', menu.panel !== 'teams');
         hide('menuControls', menu.panel !== 'controls');
         set('menuHint', menu.listening ? LISTENING_HINT : MENU_HINTS[menu.panel]);
         state.rosters.forEach((roster, team) => {
-          set(`teamName${team}`, ROSTER.teams[team]);
+          set(`teamName${team}`, state.teams[team].name);
           roster.forEach((_, row) => set(`teamPlayer${team}${row}`, teamLine(state, team, row)));
         });
       }
@@ -365,7 +397,7 @@ export function createHud(doc) {
         hide('pbOtHead', !extra);
         for (const team of [0, 1]) {
           const periods = state.byQuarter[team];
-          set(`pbAbbr${team}`, ROSTER.abbr[team]);
+          set(`pbAbbr${team}`, state.teams[team].abbr);
           for (let q = 0; q < CLOCK.quarters; q++) {
             set(`pbQ${team}${q}`, q < state.quarter ? String(periods[q] ?? 0) : '–');
             classed(`pbQ${team}${q}`, q === state.quarter - 1 ? 'live' : '');
@@ -413,7 +445,7 @@ export function createHud(doc) {
       if (show.caption) set('caption', show.caption);
       hide('lineups', show.panel !== 'lineups');
       if (show.panel === 'lineups') for (const team of [0, 1]) {
-        set(`lineupTeam${team}`, ROSTER.teams[team]);
+        set(`lineupTeam${team}`, state.teams[team].name);
         for (let slot = 0; slot < LINEUP_SLOTS; slot++) { hide(`lineup${team}${slot}`, slot >= state.size); if (slot < state.size) set(`lineup${team}${slot}`, lineupRow(state, team, slot)); }
       }
       const between = show.panel === 'period' || show.panel === 'half';
@@ -429,8 +461,8 @@ export function createHud(doc) {
         set('simTitle', resultTitle(result));
         for (const team of [0, 1]) {
           set(`simScore${team}`, resultScore(result, team));
-          set(`simTeam${team}`, ROSTER.teams[team]);
-          set(`simAdvHead${team}`, ROSTER.abbr[team]);
+          set(`simTeam${team}`, result.teams[team].name);
+          set(`simAdvHead${team}`, result.teams[team].abbr);
           for (let row = 0; row < RESULT_ROWS; row++) {
             const n = result.rosters[team].length;
             const cells = row < n ? resultRow(result, team, row) : row === n ? resultTotal(result, team) : RESULT_HEAD.map(() => '');
@@ -445,7 +477,7 @@ export function createHud(doc) {
       const box = (state.phase === 'final' && !show.replay) || pause?.panel === 'box';   // a last replay plays before the final screen
       hide('boxScore', !box);
       if (box) for (const team of [0, 1]) {
-        set(`boxTeam${team}`, ROSTER.teams[team]);
+        set(`boxTeam${team}`, state.teams[team].name);
         for (let row = 0; row <= state.rosters[team].length; row++) {
           const cells = row < state.rosters[team].length ? boxRow(state, team, row) : boxTotal(state, team);
           cells.forEach((cell, col) => set(`box${team}r${row}c${col}`, cell));
@@ -465,12 +497,13 @@ export function createHud(doc) {
 
       // The whistle: a banner during the stoppage. Screen readers hear a new call, or else a change of score.
       const banner = state.phase === 'dead' && state.call !== null && !show.replay;   // not over a replay
-      if (banner) set('call', callText(state.call));
+      if (banner) set('call', callText(state.call, state));
       hide('call', !banner);
       // Your team and the other in Play; with nobody playing, the two teams by name.
-      const score = human ? `You ${state.score[0]}, opponent ${state.score[1]}` : `${ROSTER.teams[0]} ${state.score[0]}, ${ROSTER.teams[1]} ${state.score[1]}`;
-      if (state.call && state.call !== lastCall) set('announce', callText(state.call));
+      const score = human ? `You ${state.score[0]}, opponent ${state.score[1]}` : `${state.teams[0].name} ${state.score[0]}, ${state.teams[1].name} ${state.score[1]}`;
+      if (state.call && state.call !== lastCall) set('announce', callText(state.call, state));
       else if (keysPanel) set('announce', keysText(keys, keysPanel.row, keysPanel));
+      else if (menu?.panel === 'teamSelect') set('announce', selectText(menu.select));
       else if (menu) set('announce', menuRows(menu).length ? menuText(menu, menu.row, ui.quality, ui.camera, ui.prefs, ui.hasVoice) : MENU_WORDS[menu.panel]);
       else if (pause) set('announce', pauseRows(pause).length ? pauseText(state, pause, pause.row, ui.quality, ui.camera, ui.prefs, ui.hasVoice) : PAUSE_WORDS[pause.panel]);
       else if (score !== lastScore) set('announce', score);
@@ -515,7 +548,7 @@ export function createHud(doc) {
         set('finalPotg', potgLine(state));
       }
     },
-    // name: 'start', 'pause', 'final' or null for none.
+    // name: 'start', 'select' (Team Select), 'pause', 'final', 'result' or null for none.
     show(name) {
       if (name === screen) return;
       screen = name;

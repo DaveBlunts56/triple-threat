@@ -1,6 +1,6 @@
 // Watching the match for what a broadcast would mark: the big moments, and the plain happenings a commentator calls.
 // It only reads the match; nothing here changes it.
-import { CLOCK, ROSTER } from '../sim/tuning.js';
+import { CLOCK } from '../sim/tuning.js';
 import { attackSign } from '../sim/state.js';
 import { rimCentre } from '../sim/ball.js';
 import { playOn } from '../sim/plays.js';
@@ -129,5 +129,3 @@ export function slowFor(state) {
   const wins = late(state, info.clock, MOMENT.winnerClock) && mine <= theirs && mine + info.value > theirs;
   return info.clock <= MOMENT.buzzer || wins ? MOMENT.slow : 1;
 }
-
-export const teamName = team => ROSTER.teams[team];

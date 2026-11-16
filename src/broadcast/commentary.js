@@ -1,6 +1,6 @@
 // The commentator: a line for what the watcher heard, in several wordings, and the rule for which line is said when.
 // It makes words only; the page shows them and the browser's voice speaks them.
-import { ROSTER } from '../sim/tuning.js';
+import { nicknameOf } from '../sim/teams.js';
 import { teamLine } from '../sim/stats.js';
 
 const VIOLATIONS = { travel: 'Travelling', doubleDribble: 'Double dribble', backcourt: 'Backcourt violation', eightSeconds: 'Eight seconds',
@@ -60,10 +60,10 @@ const CALLS = ['foul', 'violation', 'out', 'timeout', 'periodEnd', 'freeThrow'];
 export const rankOf = happening => (happening.star ? RANK.star : happening.moment ? RANK.moment
   : CALLS.includes(happening.kind) ? RANK.call : happening.kind === 'made' ? RANK.score : RANK.plain);
 
-const short = team => ROSTER.teams[team].split(' ').pop();   // 'Waves'
-const scoreWords = score => {
+const short = (state, team) => nicknameOf(state.teams[team]);   // 'Waves'
+const scoreWords = (state, score) => {
   const ahead = score[0] === score[1] ? null : score[0] > score[1] ? 0 : 1;
-  return ahead === null ? `${score[0]} all` : `${short(ahead)} ${score[ahead]}, ${short(1 - ahead)} ${score[1 - ahead]}`;
+  return ahead === null ? `${score[0]} all` : `${short(state, ahead)} ${score[ahead]}, ${short(state, 1 - ahead)} ${score[1 - ahead]}`;
 };
 
 // last: the wording last used for each kind. rank, until: the line being said, and the real time it is over.
@@ -79,7 +79,7 @@ function worded(booth, key, facts) {
 
 // The line for something the watcher heard (see watchStep).
 export function lineFor(booth, h, state) {
-  const facts = { name: h.name, team: h.team === null ? '' : short(h.team), other: h.team === null ? '' : short(1 - h.team), n: h.n, off: h.off, play: h.play };
+  const facts = { name: h.name, team: h.team === null ? '' : short(state, h.team), other: h.team === null ? '' : short(state, 1 - h.team), n: h.n, off: h.off, play: h.play };
   let key = h.kind;
   if (h.kind === 'made') { key = h.points === 3 ? 'made3' : h.finish === 'dunk' ? (h.flair === 'windmill' ? 'windmill' : 'dunk') : h.finish === 'layup' ? 'layup' : h.assist ? 'madeAssist' : 'made2'; facts.off = h.assist; }
   else if (h.kind === 'rebound') key = h.own ? 'reboundOff' : 'rebound';
@@ -90,7 +90,7 @@ export function lineFor(booth, h, state) {
   else if (h.kind === 'periodEnd') {
     const level = h.score[0] === h.score[1];
     key = h.final ? 'final' : h.quarter === 2 ? 'half' : h.quarter >= 4 && level ? 'overtime' : 'periodEnd';
-    facts.what = ORDINAL[h.quarter - 1] ?? 'overtime'; facts.score = scoreWords(h.score);
+    facts.what = ORDINAL[h.quarter - 1] ?? 'overtime'; facts.score = scoreWords(state, h.score);
   }
   return worded(booth, key, facts);
 }
@@ -119,10 +119,10 @@ export function quietLine(booth, state, now) {
       if (best.person.stats.pts >= 6) facts = { name: best.person.name.split(' ').pop(), pts: best.person.stats.pts };
     } else if (key === 'statShooting') {
       const team = state.possession, line = teamLine(state, team);
-      if (line.fga >= 8) facts = { team: short(team), n: Math.round((100 * line.fgm) / line.fga) };
+      if (line.fga >= 8) facts = { team: short(state, team), n: Math.round((100 * line.fgm) / line.fga) };
     } else if (key === 'statRun') {
       const team = state.run[0] > state.run[1] ? 0 : 1;
-      if (state.run[team] >= 6) facts = { team: short(team), n: state.run[team] };
+      if (state.run[team] >= 6) facts = { team: short(state, team), n: state.run[team] };
     }
     if (facts) { booth.stat = (booth.stat + i + 1) % order.length; return worded(booth, key, facts); }
   }

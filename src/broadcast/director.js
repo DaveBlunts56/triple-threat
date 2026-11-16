@@ -1,6 +1,6 @@
 // What the broadcast puts on the screen: a banner for a big moment, a small card above the scorebug, who celebrates,
 // and the panels between play. It works from what the watcher heard and from the match; it changes neither.
-import { ROSTER } from '../sim/tuning.js';
+import { nicknameOf } from '../sim/teams.js';
 
 // Seconds each stays up. lineups: the panel before the tip. period, half: the panels between periods. The match
 // waits while a panel is up, and any key takes it down.
@@ -12,7 +12,7 @@ export const BANNER_WORDS = Object.freeze({ ankle: 'ANKLE-BREAKER', block: 'BLOC
   run: '{n}-0 RUN', comeback: 'COMEBACK', perfect: 'PERFECT RELEASE' });
 const BASKETS = ['ankle', 'andOne', 'buzzer', 'poster', 'stealScore', 'deep', 'clutch', 'heatingUp', 'onFire', 'perfect'];   // moments that are a basket
 
-const short = team => ROSTER.teams[team].split(' ').pop();
+const short = (state, team) => nicknameOf(state.teams[team]);
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
 export const createDirector = () => ({ banner: null, lower: null, cheer: null, lineupsUntil: null, betweenUntil: null, phase: 'start' });
@@ -26,7 +26,7 @@ export function direct(d, heard, state, now) {
       // A new moment takes the banner unless a bigger one is still up.
       if (!d.banner || now >= d.banner.until || h.rank <= d.banner.rank) {
         const words = h.kind === 'block' && h.chase ? 'CHASE-DOWN BLOCK' : BANNER_WORDS[h.kind].replace('{n}', h.n);
-        d.banner = { words, name: h.name ?? short(h.team), team: h.team, rank: h.rank, until: now + SHOW.banner };
+        d.banner = { words, name: h.name ?? short(state, h.team), team: h.team, rank: h.rank, until: now + SHOW.banner };
       }
       const sc = state.last.score;
       if (BASKETS.includes(h.kind) && sc && state.players[sc.by]) {
@@ -54,7 +54,7 @@ function lowerFor(h, state) {
   const lineOf = s => `${s.pts} PTS · ${s.fgm}/${s.fga} FG · ${s.tpm}/${s.tpa} 3PT`;
   if (h.kind === 'freeThrow') return { title: h.name, lines: [`Free throws ${stats.ftm}/${stats.fta}`] };
   if (h.kind === 'sub') return { title: `IN ${h.name}`, lines: [`OUT ${h.off}`] };
-  if (h.kind === 'timeout') return { title: `TIMEOUT ${short(h.team)}`, lines: [`${ROSTER.abbr[0]} ${h.left[0]} left · ${ROSTER.abbr[1]} ${h.left[1]} left`] };
+  if (h.kind === 'timeout') return { title: `TIMEOUT ${short(state, h.team)}`, lines: [`${state.teams[0].abbr} ${h.left[0]} left · ${state.teams[1].abbr} ${h.left[1]} left`] };
   if (h.kind === 'heatingUp' || h.kind === 'onFire') return { title: h.name, lines: [lineOf(stats)] };
   if (h.kind === 'made' && stats.pts >= 10 && Math.floor(stats.pts / 10) > Math.floor((stats.pts - h.points) / 10)) return { title: h.name, lines: [lineOf(stats)] };
   return null;

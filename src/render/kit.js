@@ -1,7 +1,7 @@
 // What is painted on a jersey and a pair of shorts, and the painting, in the manner of early-2000s basketball kit: the
 // team's name arched over a big outlined number, side panels piped in white. No Three.js here, so it can be tested
 // without a browser.
-import { ROSTER } from '../sim/tuning.js';
+import { TEAMS } from '../sim/teams.js';
 
 const f = Object.freeze;
 
@@ -10,7 +10,7 @@ const f = Object.freeze;
 // along the top; trim, the bindings, waistband and hems, with their inner (stitched) edge at the bottom.
 // sides: where the front panel meets the back, as [x, width] shares of the picture's width: the side panels of a
 // jersey and the stripes of the shorts are painted there, as wide as `sides` says for each.
-// size: pixels along each side of a garment's picture. team: the colour each team wears. trim: the bindings and the
+// size: pixels along each side of a garment's picture. team: the colour each team wears (by team id). trim: the bindings and the
 // numbers. shade: how much darker than the team's colour a jersey's side panels are. font: {px} stands for the height
 // of a number in pixels. digit: the widest one digit is painted, as a share of its height: the cloth stretches the
 // picture sideways, so a digit this narrow has its natural shape on the player. chest, back: the middle of the number
@@ -23,7 +23,7 @@ const f = Object.freeze;
 export const KIT = f({
   layout: f({ main: f([0, 0.8]), trim: f([0.82, 0.9]) }),
   sides: f({ at: f([0.02, 0.48, 0.52, 0.98]), jersey: 0.025, shorts: 0.04 }),
-  size: 512, team: f(['#2f6fe0', '#d83a3a']), trim: '#ffffff', shade: 0.7, font: 'bold {px}px system-ui, sans-serif', digit: 0.45,
+  size: 512, team: f(TEAMS.map(t => t.colour)), trim: '#ffffff', shade: 0.7, font: 'bold {px}px system-ui, sans-serif', digit: 0.45,
   chest: f({ at: f([0.25, 0.47]), height: 0.22 }),
   back: f({ at: f([0.75, 0.36]), height: 0.30 }),
   name: f({ at: f([0.25, 0.28]), height: 0.075, arch: 0.6, spacing: 1.15, widest: 0.22 }),
@@ -84,7 +84,7 @@ const piping = sides => sides.map(([x, top, w, h]) => {
 // The lettering of a jersey for `team` and `number`, in `fill` with an `outline`: the team's name (the last word of its
 // name) arched across the chest, each letter turned to the arch, and the number on the chest and on the back.
 function lettering(team, number, fill, outline) {
-  const word = ROSTER.teams[team].split(' ').pop().toUpperCase(), { at: [x, y], arch, spacing, widest } = KIT.name;
+  const word = TEAMS[team].nickname.toUpperCase(), { at: [x, y], arch, spacing, widest } = KIT.name;
   const fit = Math.min(1, widest / (KIT.name.height * KIT.digit * (spacing * (word.length - 1) + 1)));
   const height = KIT.name.height * fit, step = height * KIT.digit * spacing, radius = (step * word.length) / arch;
   const letters = [...word].map((text, k) => {
