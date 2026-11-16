@@ -300,3 +300,51 @@ test('a cutter whose man is watching the ball cuts; one who is well guarded most
   const watched = cuts(0.98), watcher = cuts(0.35);
   assert.ok(watcher > watched + 10, `against a ball-watcher he cut ${watcher} times of 60, against a sharp man ${watched}`);
 });
+
+// ---------- Cutting for three (offball.js) ----------
+
+import { setStyle, STYLES } from '../src/sim/styles.js';
+import { ARC, THREE_PT } from '../src/sim/tuning.js';
+const rimOf = () => ({ x: RIM.x, z: 0 });
+const onArc = spot => isThree(spot.x, spot.z, 1);
+const openBy = (s, spot) => Math.min(...s.players.filter(o => o.team === 1).map(o => apart(o, spot)));
+
+// The Waves' sharpshooter (Okoro, Three 94) on the right wing with his man on him, the ball-side corner empty, the
+// slasher out of the way at the top left. Returns the match and the shooter.
+function wing(style, seed = 1) {
+  const s = settled(5, 0); setStyle(s, style); s.seed = seed * 7919 + 1;
+  const shooter = s.players.find(p => p.team === 0 && s.rosters[0][p.person].name.endsWith('Okoro'));
+  const slasher = s.players.find(p => p.team === 0 && s.rosters[0][p.person].name.endsWith('Marsh'));
+  at(s, shooter.id, 7.6, 5.4); at(s, slasher.id, 5.2, -4);
+  guard(s, 1.0);
+  return { s, shooter };
+}
+
+test('when a team-mate drives, a good shooter near the arc drifts to an open spot on it, where the style has it; in Arcade he does not', () => {
+  for (const style of ['sim', 'arcade']) {
+    const { s, shooter } = wing(style);
+    at(s, 0, 8.5, 0.5); Object.assign(s.players[0], { vx: 5, vz: 0 });   // the handler going at the rim
+    const mine = s.players.find(o => o.man === shooter.id); at(s, mine.id, RIM.x - 2.2, 1.6);   // his man helps
+    const spot = offBallSpot(s, shooter);
+    if (style === 'sim') {
+      assert.equal(spot?.why, 'drift', JSON.stringify(spot));
+      assert.ok(onArc(spot) && openBy(s, spot) >= ARC.openAt, JSON.stringify(spot));
+      assert.ok(Math.abs(spot.z) > THREE_PT.cornerZ, 'to the corner, the open spot near him');
+    } else assert.notEqual(spot?.why, 'drift');
+  }
+});
+
+test('a good shooter with his man on him sometimes cuts for three: to an open spot on the arc, and keeps it as his place', () => {
+  let cuts = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const { s, shooter } = wing('sim', seed);
+    s.time = 3; shooter.ai.placeAt = 0;   // his own moment
+    const spot = offBallSpot(s, shooter);
+    if (spot?.why === 'three') {
+      cuts++;
+      assert.ok(onArc(spot) && openBy(s, spot) >= ARC.openAt, JSON.stringify(spot));
+      assert.equal(offBallSpot(s, shooter).why, 'three', 'he keeps going there');
+    }
+  }
+  assert.ok(cuts > 0 && cuts < 40, `${cuts} cuts for three in 40`);
+});

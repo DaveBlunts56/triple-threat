@@ -58,6 +58,10 @@ export const STEAL = f({ reach: 1.2, frontChance: 0.25, backChance: 0.08, cooldo
 // assist. chasePace, chaseBehind: a block is a chase-down when the blocker is running at the hoop this fast (m/s) and
 // is no nearer to it than this much short of the shooter (metres).
 export const STAT = f({ assist: 3, chasePace: 4, chaseBehind: 0.5 });
+// An assist, beyond STAT.assist's seconds: quick: seconds from the catch within which a basket is assisted however far
+// he took the ball (a cutter or a roller finishing on the run); carry: after that, metres he may have taken it from
+// where he caught it (further, and he made the shot himself).
+export const ASSIST = f({ quick: 2.4, carry: 3 });
 
 // The ball handler's moves (see moves.js). time: seconds a move lasts. push: metres it carries him. keep: the share of
 // his speed he keeps through it. steal: what a reach's chance is multiplied by while it lasts. hidden: a reach from the
@@ -176,6 +180,10 @@ export const READ = f({ wide: 2.5, onCatch: 0.25, crowd: 2 });
 // ball is this far up the court. breakWide, breakTrail: the lanes run on it: wide of the ball, and behind it.
 export const OFF = f({ shooterAt: 80, apart: 2.5, sideHold: 1.5, every: f([2.5, 5]), cutGap: 2.4, cutFrom: 4.5, cutWidth: 0.9, cutFor: 1.6, rimAt: 11,
   giveAndGo: 0.8, drivePace: 2.5, clear: 2.2, clearTo: 3, breakUntil: 6, breakWide: 6, breakTrail: 4 });
+// Cutting for three (see offball.js). threeAt: the Three a man needs to go looking for one. openAt: metres from the
+// nearest defender a spot on the arc must be to count as open. driftReach: how far a shooter goes to one when a
+// team-mate drives; relocateReach: how far at his own moments.
+export const ARC = f({ threeAt: 75, openAt: 2.5, driftReach: 4.5, relocateReach: 6.5 });
 
 // Plays. wait: seconds after a play ends before the coach calls another. minClock: the least shot clock a play is
 // started with. startX: how far past the centre line the ball must be. screenGap: metres between a screener and the

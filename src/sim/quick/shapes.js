@@ -8,7 +8,7 @@ const f = Object.freeze;
 export const QUICK = f({
   // Seconds: an inbound brought up into the front court (divided by the team's pace), and one beat of the offence.
   bringUp: f([3, 5.5]),
-  beat: f([1.52, 2.8]),
+  beat: f([1.58, 2.9]),
   // The share of possessions begun live (a defensive rebound, a steal) that are pushed, by how they began, and the
   // seconds a push takes before its shot.
   push: f({ dreb: 0.16, steal: 0.5 }),
@@ -25,7 +25,10 @@ export const QUICK = f({
   // where a man with the ball who may pass has about 1.2 team-mates he can pass to.
   passLane: 0.55,
   // How much of a man's jump-shot diet that is not mid-range is threes (the rest of a jumper is mid-range).
-  threeShare: 0.97,
+  threeShare: 1.05,
+  // The share of a jump-shooter's threes taken from the corner (the 3D game's, now that shooters fill and square up
+  // in the corners).
+  cornerShare: 0.35,
   // How strongly the ball starts with the team's best ball handler: the power of his handle and IQ in the draw. Measured
   // from the 3D game, where who has the ball as it crosses half court is spread nearly evenly (its best handler about a
   // quarter of the time he is on court): in proportion.
@@ -49,15 +52,15 @@ export const QUICK = f({
   block: f({ rim: 0.112, close: 0.066, mid: 0.018, corner3: 0.007, arc3: 0.007 }),
   // Shooting fouls, by zone: the share of shots on which a defender's contact is there to be called (the style's
   // chances then decide: foul.drive for a finish, foul.shooting for any shot).
-  contact: f({ drive: f({ rim: 0.4, close: 0.18 }), air: f({ rim: 0.08, close: 0.05, mid: 0.025, corner3: 0.012, arc3: 0.012 }) }),
+  contact: f({ drive: f({ rim: 0.37, close: 0.18 }), post: 0.1, air: f({ rim: 0.08, close: 0.05, mid: 0.025, corner3: 0.012, arc3: 0.012 }) }),
   // A beat's chance of losing the ball, before the handler's handle, his IQ and the defence: a bad pass, a strip on a
   // drive, a fumble. And the share of those that are steals.
-  turnover: f({ pass: 0.08, drive: 0.102, hold: 0.036, stolen: 0.55 }),
+  turnover: f({ pass: 0.088, drive: 0.112, hold: 0.04, stolen: 0.55 }),
   // Fouls away from a shot, a possession: on the ball (a reach or a block), and in the scramble for a rebound.
   reach: 0.043, looseBall: 0.02,
   // The share of baskets assisted, by how the scorer got the ball: off a catch he shot, a pass that put him at the rim,
   // a drive or post move of his own after a catch.
-  assist: f({ catch: 0.85, feed: 0.85, drive: 0.45, post: 0.25 }),
+  assist: f({ catch: 0.78, feed: 0.78, drive: 0.3, post: 0.25 }),
   // How a possession's seconds are spent, for tiredness: sprinting, running, standing (the 3D game's own shares).
   effort: f({ sprint: 0.29, run: 0.49, rest: 0.22 }),
 });

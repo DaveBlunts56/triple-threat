@@ -115,7 +115,7 @@ function finish(state, team, ended) {
   // A shot. (Where it came from and where it was taken, for whoever watches.)
   const from = ((state.shotFrom ??= [{}, {}])[team][`${ended.from ?? 'other'} ${ended.look.zone}`] ??= 0);
   state.shotFrom[team][`${ended.from ?? 'other'} ${ended.look.zone}`] = from + 1;
-  const { look } = ended, shooter = look.shooter, result = shoot(state, look, { drive: !!ended.drive });
+  const { look } = ended, shooter = look.shooter, result = shoot(state, look, { drive: !!ended.drive, post: ended.from === 'post' });
   if (result.result === 'made' && ended.fed && rand(state) < QUICK.assist[ended.fed.how]) note(state, ended.fed.by, 'ast');
   if (result.fouled) {
     // A fouled shot that missed is not a field-goal attempt (the rules' count): the attempt shoot() noted is taken back.

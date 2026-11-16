@@ -1,7 +1,8 @@
 // What a player of the team with the ball does when he does not have it and no play gives him a part: a place that
 // suits what he is, taken up in his own time, and the moves he makes from it: a cut, getting out of the way of a
 // drive, running a lane on a fast break. The rules never read any of this: it only says where he should go.
-import { AI, OFF, RIM, isHuman } from './tuning.js';
+import { AI, ARC, OFF, RIM, isHuman } from './tuning.js';
+import { styled } from './styles.js';
 import { attackSign, personOf, rand } from './state.js';
 import { choose } from './choose.js';
 import { rated } from './ratings.js';
@@ -52,6 +53,29 @@ export function places(state, team) {
   return given;
 }
 
+// The spots on the arc a shooter may go to: both corners, both wings above the break, the top. `team` attacking.
+function arcSpots(state, team) {
+  const sign = attackSign(team), S = sideOf(state, team);
+  return [[11.6, 6.95], [11.6, -6.95], [7.4, 5.6], [7.4, -5.6], [5.4, 0]].map(([along, across]) => ({ x: sign * along, z: across * S }));
+}
+
+// The most open spot on the arc within `reach` metres of `player`, away from his own team-mates and the ball, and not
+// where he stands: the one furthest from any defender, if that is at least ARC.openAt. Null if none is.
+function openSpot(state, player, reach) {
+  let best = null, room = ARC.openAt;
+  for (const spot of arcSpots(state, player.team)) {
+    const far = dist(spot, player);
+    if (far > reach || far < 1.2) continue;
+    if (state.players.some(m => m.team === player.team && m !== player && dist(m, spot) < OFF.apart)) continue;
+    const open = Math.min(...state.players.filter(o => o.team !== player.team).map(o => dist(o, spot)));
+    if (open > room) { room = open; best = spot; }
+  }
+  return best;
+}
+
+// Whether `player` shoots threes well enough to go looking for one.
+const threeMan = (state, player) => rated(state, player, 'three') >= ARC.threeAt;
+
 // Whether the handler is going at the hoop: moving toward it at some pace, from anywhere on the court.
 function driving(holder, hoop) {
   const far = dist(holder, hoop) || 1, speed = Math.hypot(holder.vx, holder.vz);
@@ -88,6 +112,11 @@ export function offBallSpot(state, player) {
       const way = (player.x - holder.x) * -lz + (player.z - holder.z) * lx >= 0 ? 1 : -1;
       return { x: player.x + (-lz / long) * way * OFF.clearTo, z: player.z + (lx / long) * way * OFF.clearTo, sprint: true, why: 'clear' };
     }
+    // A shooter near the arc drifts or lifts to the open spot on it, for the pass back out (where the style has it).
+    if (styled(state, 'off.drift') && threeMan(state, player)) {
+      const spot = openSpot(state, player, ARC.driftReach);
+      if (spot) return { ...spot, sprint: true, why: 'drift' };
+    }
   }
 
   // A fast break: the handler is ahead of every defender. The two quickest run wide of him and ahead; the rest trail.
@@ -102,25 +131,34 @@ export function offBallSpot(state, player) {
   if (ai.place === undefined || state.time >= ai.placeAt) {
     ai.place = places(state, team).get(player.id);
     ai.placeAt = state.time + OFF.every[0] + rand(state) * (OFF.every[1] - OFF.every[0]) + (ai.placeAt === undefined ? player.slot * 0.6 : 0);
-    // At such a moment he may cut instead, if nobody else is cutting and his way to the rim is clear. It is a choice
-    // (see choose.js): a cut is worth more the further his man is beaten, the more that man watches the ball instead
-    // of him, if he has just passed, and the more he likes to attack; staying is worth the possession going on.
+    // At such a moment he may cut instead: to the rim, or, a shooter, to an open spot on the arc. It is a choice (see
+    // choose.js): a cut is worth more the further his man is beaten, the more that man watches the ball instead of him,
+    // if he has just passed, and the more he likes to attack; staying is worth the possession going on.
     const passed = ai.passedAt !== undefined && state.time - ai.passedAt < OFF.giveAndGo;
-    if (mine && !state.cut[team] && !driving(holder, hoop) && wayClear(state, player, hoop)) {
+    if (mine && !driving(holder, hoop)) {
       const defender = guardOf(state, player), watching = 1 - (personOf(state, defender).iq ?? 0.7);
       const tend = personOf(state, player).tend;
       const kind = kindOf(state, player), lost = beaten(state, player, hoop);
-      const cut = 0.7 + (lost ? 0.5 : 0) + 0.6 * watching + (passed ? 0.5 : 0) + (kind === 'slasher' ? 0.15 : 0) + 0.2 * (tend.drive - 0.5);
+      const options = [];
+      // A cut to the rim, if nobody else is cutting and his way there is clear.
+      if (!state.cut[team] && wayClear(state, player, hoop))
+        options.push({ key: 'cut', value: 0.7 + (lost ? 0.5 : 0) + 0.6 * watching + (passed ? 0.5 : 0) + (kind === 'slasher' ? 0.15 : 0) + 0.2 * (tend.drive - 0.5) });
+      // A cut for three: a man who shoots them, with his man on him, gets to an open spot on the arc (where the style
+      // has it). Worth more the better he shoots them, the closer his man is, and the more that man watches the ball.
+      const spot = threeMan(state, player) ? openSpot(state, player, ARC.relocateReach) : null;
+      const near = dist(defender, player) < OFF.cutGap;
+      if (spot) options.push({ key: 'three', spot, value: styled(state, 'off.threeCut') * (0.8 + (rated(state, player, 'three') - ARC.threeAt) / 30 + (near ? 0.35 : 0) + 0.5 * watching + (passed ? 0.3 : 0)) });
       // A shooter spotted up where he shoots from is worth something where he is, more with his man off him.
-      const stay = kind === 'shooter' ? 1.35 + (lost ? 0.3 : 0) : 1;
-      const go = choose(state, [{ key: 'cut', value: cut }, { key: 'stay', value: stay }], personOf(state, player).iq);
+      options.push({ key: 'stay', value: kind === 'shooter' ? 1.35 + (lost ? 0.3 : 0) : 1 });
+      const go = options.length > 1 ? choose(state, options, personOf(state, player).iq) : options[0];
       if (go.key === 'cut') {
         state.cut[team] = { id: player.id, until: state.time + OFF.cutFor };
         return { x: sign * OFF.rimAt, z: 0.6 * Math.sign(player.z || 1), sprint: true, why: 'cut' };
       }
+      if (go.key === 'three') ai.place = { ...go.spot, sprint: true, why: 'three' };   // his place until his next moment
     }
   }
-  return ai.place ? { ...ai.place, sprint: false, why: 'place' } : null;
+  return ai.place ? { sprint: false, why: 'place', ...ai.place } : null;
 }
 
 // Whoever has just passed looks at once for the ball back: his next moment to move is now.

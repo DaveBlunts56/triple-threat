@@ -121,3 +121,55 @@ test('players play their roles: slashers attack the rim, shooters and creators s
   assert.ok(pool(['Playmaker'], 'ast', 'secs') > pool(['Rim protector', 'Post scorer', 'Glass cleaner', 'Stretch big'], 'ast', 'secs'), 'assists a second');
   assert.ok(pool(['Shot creator', 'Post scorer', 'Playmaker'], 'fga', 'secs') > pool(['Lockdown wing', 'Lockdown guard', 'Rebounder', 'Glass cleaner'], 'fga', 'secs'), 'shots a second');
 });
+
+// ---------- Corner threes, reading closeouts, and stars (the tuning after the build) ----------
+
+import { setStyle } from '../src/sim/styles.js';
+import { shotValue } from '../src/sim/ai.js';
+import { STAR_AT, starPull } from '../src/sim/choose.js';
+import { overall } from '../src/sim/overall.js';
+
+// Team 0's sharpshooter (Okoro) has just caught it in the right corner; his man is `gap` metres off toward the hoop;
+// everyone else is far away.
+function corner(style, gap) {
+  const s = createMatch(1, 5); setStyle(s, style); s.humans = []; s.phase = 'live'; s.playWait = [Infinity, Infinity]; s.tempo = { clock: Infinity, wait: 0 };
+  s.players.forEach((p, i) => put(s, p.id, -9 + i, p.team === 0 ? -6 : 6));
+  const me = s.players.find(p => p.team === 0 && s.rosters[0][p.person].name.endsWith('Okoro'));
+  put(s, me.id, 11.6, 6.95);
+  const man = s.players.find(o => o.man === me.id); put(s, man.id, 11.6, 6.95 - gap);
+  giveBall(s, me);
+  return { s, me, man };
+}
+
+test('caught open in the corner, a shooter squares up there instead of dribbling out; closed out on, he moves on', () => {
+  for (const style of ['sim', 'arcade']) {
+    const open = corner(style, 3.2); aiIntents(open.s, DT);
+    assert.deepEqual([open.me.ai.targetX, open.me.ai.targetZ], [open.me.x, open.me.z], style);
+    const tight = corner(style, 1.2); aiIntents(tight.s, DT);
+    assert.notDeepEqual([tight.me.ai.targetX, tight.me.ai.targetZ], [tight.me.x, tight.me.z], style);
+  }
+});
+
+test('a shooter reads a closeout in Simulation: his man sprinting at him makes the shot worth less than his man standing there; Arcade does not read it', () => {
+  for (const style of ['sim', 'arcade']) {
+    const { s, me, man } = corner(style, 2.6);
+    const standing = shotValue(s, me);
+    Object.assign(man, { vx: 0, vz: 6 });   // straight at him
+    const running = shotValue(s, me);
+    if (style === 'sim') assert.ok(running < standing - 0.05, `${standing.toFixed(3)} -> ${running.toFixed(3)}`);
+    else assert.equal(running, standing);
+  }
+});
+
+test('team-mates look for a star (83 or better): more for one who has had little of the ball, less for one who has had plenty; nothing for the rest', () => {
+  const s = createMatch(1, 5); setStyle(s, 'sim');
+  const [cross, marsh] = [s.rosters[0][0], s.rosters[0][1]];
+  assert.ok(overall(cross) >= STAR_AT && overall(marsh) < STAR_AT);
+  const fresh = starPull(s, cross, 0);
+  assert.ok(fresh > 0 && starPull(s, marsh, 0) < fresh, 'a star more than a player below');
+  for (const p of s.rosters[0]) p.stats.fga = 4;
+  cross.stats.fga = 25;   // he has had most of the ball
+  assert.ok(starPull(s, cross, 0) < fresh, 'less once he has had plenty');
+  cross.stats.fga = 0;    // and none of it
+  assert.ok(starPull(s, cross, 0) > fresh, 'more while he has had none');
+});

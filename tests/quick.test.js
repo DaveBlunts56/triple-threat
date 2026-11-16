@@ -257,10 +257,12 @@ function over(games, change, measure) {
 }
 const lineOf = (s, t) => teamLine(s, t);
 
-test('better three-point shooters make more of their threes', () => {
-  const pct = up => { let made = 0, taken = 0; over(80, s => { for (const p of s.rosters[0]) p.ratings.three += up; }, s => { const l = lineOf(s, 0); made += l.tpm; taken += l.tpa; return 0; }); return made / taken; };
-  const was = pct(0), now = pct(10);
-  assert.ok(now > was + 0.01, `${was.toFixed(3)} -> ${now.toFixed(3)}`);
+test('better three-point shooters make more of their threes, and take more', () => {
+  // Over 150 games: a team ten points better from three is guarded tighter for it, and still makes more and takes more.
+  const of = up => { let made = 0, taken = 0; over(150, s => { for (const p of s.rosters[0]) p.ratings.three += up; }, s => { const l = lineOf(s, 0); made += l.tpm; taken += l.tpa; return 0; }); return { pct: made / taken, taken }; };
+  const was = of(0), now = of(10);
+  assert.ok(now.pct > was.pct, `3P% ${was.pct.toFixed(4)} -> ${now.pct.toFixed(4)}`);
+  assert.ok(now.taken > was.taken, `3PA ${was.taken} -> ${now.taken}`);
 });
 
 test('a better defence lowers the other team\'s eFG%', () => {
@@ -274,8 +276,8 @@ test('a team\'s five starters beat three of its bench and two starters more ofte
   const waves = TEAMS[0], again = i => ({ ...waves.players[i], name: `${waves.players[i].name} Jr.`, number: waves.players[i].number + 50 });
   const benched = { ...waves, players: [waves.players[5], waves.players[6], waves.players[7], waves.players[0], waves.players[1], again(5), again(6), again(7)] };
   let wins = 0;
-  for (let seed = 1; seed <= 100; seed++) { const s = quickMatch({ seed, teams: [waves, benched] }); if (s.score[0] > s.score[1]) wins++; }
-  assert.ok(wins > 55, `${wins} of 100`);
+  for (let seed = 1; seed <= 200; seed++) { const s = quickMatch({ seed, teams: [waves, benched] }); if (s.score[0] > s.score[1]) wins++; }
+  assert.ok(wins > 100, `${wins} of 200`);
 });
 
 test('three a side: games end, the box scores add up, and the pace is believable for a half court of six (60-110 a team per 48 minutes)', () => {

@@ -41,6 +41,27 @@ test('over whole Simulation matches the rotation plays starters 30-38 minutes, t
   assert.ok(perTeam >= 15 && perTeam <= 40, `${perTeam.toFixed(1)} substitutions a team`);
 });
 
+test('corner threes are a real part of Simulation\'s shot mix: 6-20% of shots (shooters fill the corners, square up there when open, and drift to them on drives)', () => {
+  assert.ok(table.corner3.mean >= 0.06 && table.corner3.mean <= 0.2, `${(100 * table.corner3.mean).toFixed(1)}% of shots`);
+});
+
+test('in the 3D game, stars (83 or better) use more than 20% of their team\'s plays while on court (USG%, over the eight matches)', async () => {
+  const { usg } = await import('../src/sim/advanced.js');
+  const { overall } = await import('../src/sim/overall.js');
+  const { STAR_AT } = await import('../src/sim/choose.js');
+  const short = [];
+  for (const t of [0, 1]) {
+    const rows = records[0].people[t].map(p => ({ name: p.name, star: overall({ ratings: p.ratings }) >= STAR_AT, line: {}, secs: 0 })), team = {};
+    let teamSecs = 0;
+    for (const r of records) {
+      r.people[t].forEach((p, i) => { for (const k of Object.keys(p.line)) { rows[i].line[k] = (rows[i].line[k] ?? 0) + p.line[k]; team[k] = (team[k] ?? 0) + p.line[k]; } rows[i].secs += p.secs; teamSecs += p.secs; });
+      team.tov += r.teamTov[t];
+    }
+    for (const row of rows.filter(x => x.star)) { const rate = usg(row.line, row.secs, team, teamSecs); if (rate <= 20) short.push(`${row.name} ${rate.toFixed(1)}%`); }
+  }
+  assert.deepEqual(short, []);
+});
+
 // The fast engine's 400 games, per team per 48 minutes, as summarise has the 3D game's.
 function fastTable(games) {
   const rows = [];

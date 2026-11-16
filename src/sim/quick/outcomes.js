@@ -40,7 +40,7 @@ function streak(person, made) { person.streak = made ? Math.max(person.streak, 0
 // Takes the shot of `l` (a look). Returns 'made', 'missed' or 'blocked', and whether a shooting foul came with it:
 // { result, fouled, by }. The box score is noted here: the attempt, the make, the block, the points (not the free
 // throws, which engine.js shoots).
-export function shoot(state, l, { drive = false } = {}) {
+export function shoot(state, l, { drive = false, post = false } = {}) {
   const person = personOf(state, l.shooter), three = isThreeZone(l.zone), team = l.shooter.team;
   note(state, l.shooter, 'fga'); if (three) note(state, l.shooter, 'tpa');
   const zones = (state.shotZones ??= [{}, {}])[team];   // for whoever watches: each team's shots by zone
@@ -51,8 +51,9 @@ export function shoot(state, l, { drive = false } = {}) {
     note(state, l.defender, 'blk'); streak(person, false);
     return { result: 'blocked', fouled: false, by: l.defender };
   }
-  // Contact: on a finish where the style calls contact on a drive, and on any shot an airborne defender reaches.
-  const contact = (drive ? (QUICK.contact.drive[l.zone] ?? 0) * styled(state, 'foul.drive') : 0)
+  // Contact: on a finish where the style calls contact on a drive, on a post move (a man backing his defender down),
+  // and on any shot an airborne defender reaches.
+  const contact = (drive ? (QUICK.contact.drive[l.zone] ?? 0) * styled(state, 'foul.drive') : 0) + (post ? QUICK.contact.post * styled(state, 'foul.drive') : 0)
     + (QUICK.contact.air[l.zone] ?? 0) * styled(state, 'foul.shooting') * (l.gap < 1 ? 1.5 : 0.7);
   const fouled = rand(state) < contact;
   // A foul on the shot makes it harder; a green release is drawn first, then its chance, as the 3D game draws them.

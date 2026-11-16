@@ -5,13 +5,13 @@
 import { AI, CLOCK, LATE, PLAY } from '../tuning.js';
 import { personOf, rand } from '../state.js';
 import { styled } from '../styles.js';
-import { choose, sharpness } from '../choose.js';
+import { STAR_AT, choose, sharpness, starPull } from '../choose.js';
 import { cast, playsFor, suits } from '../plays.js';
 import { easeOf, focusOf, lastShot, playWeight, playbookOf, running } from '../coach.js';
 import { schemeOf } from '../matchups.js';
 import { needOf, situation } from '../late.js';
 import { starOf } from '../ratings.js';
-import { drop, lift } from '../overall.js';
+import { drop, lift, overall } from '../overall.js';
 import { QUICK, KIND, within } from './shapes.js';
 import { isThreeZone, look, playFor } from './outcomes.js';
 
@@ -38,9 +38,9 @@ function attention(state, m, onBall) {
 // break), or 'mid' (now and then a short one, 'close', off his own dribble). A pull-up or a catch; the rim is a drive's
 // or a feed's. `catching`: where he would catch a pass, never close (a man near the rim is fed there: a roll or a cut).
 function jumper(state, p, catching = false) {
-  if (situation(state, p.team).three) return rand(state) < 0.22 ? 'corner3' : 'arc3';   // down three late: only a three ties
+  if (situation(state, p.team).three) return rand(state) < QUICK.cornerShare ? 'corner3' : 'arc3';   // down three late: only a three ties
   const { diet } = person(state, p).tend, three = Math.min(0.95, (QUICK.threeShare * diet.three) / (diet.three + diet.mid));
-  if (rand(state) < three) return rand(state) < 0.22 ? 'corner3' : 'arc3';
+  if (rand(state) < three) return rand(state) < QUICK.cornerShare ? 'corner3' : 'arc3';
   return rand(state) < 0.04 && !catching ? 'close' : 'mid';
 }
 
@@ -51,7 +51,7 @@ function leaning(state, p, zone) {
   const tend = person(state, p).tend, key = zone === 'rim' || zone === 'close' ? 'rim' : isThreeZone(zone) ? 'three' : 'mid';
   return styled(state, 'decide.usage') * (tend.usage - 0.5) + styled(state, 'decide.diet') * (tend.diet[key] - 1 / 3)
     + (isThreeZone(zone) ? styled(state, 'decide.threes') * (playbookOf(state, p.team).threes - 1) + styled(state, 'decide.threeBase') : 0)
-    + (zone === 'rim' || zone === 'close' ? styled(state, 'decide.rimBase') : 0) + needOf(state, p.team, zone);
+    + (zone === 'rim' || zone === 'close' ? styled(state, 'decide.rimBase') : 0) - (zone === 'mid' ? styled(state, 'decide.midCost') : 0) + needOf(state, p.team, zone);
 }
 
 // The coach's play for `team` now, as stepPlays calls it: a play the match has, weighted by how it suits the floor,
@@ -139,18 +139,20 @@ export function playPossession(state, team, begun) {
     const pullGap = within(r, gapRange) * attention(state, h, !fed?.fresh) + (pick ? QUICK.scheme[scheme.screen]?.pullUp ?? 0 : 0);
     const own = look(state, h, zone, pullGap, d);
     const open = pullGap >= QUICK.open && person(state, h).ratings[isThreeZone(zone) ? 'three' : 'mid'] >= AI.callAt;
-    const mayNow = !early || open || (isThreeZone(zone) && person(state, h).ratings.three >= styled(state, 'decide.earlyThree') && pullGap > styled(state, 'decide.earlyRoom'));
+    // A star has the green light (where the style gives it), as in the 3D game.
+    const green = styled(state, 'decide.starLight') && overall(person(state, h)) >= STAR_AT && elapsed >= styled(state, 'decide.starFrom');
+    const mayNow = !early || open || green || (isThreeZone(zone) && person(state, h).ratings.three >= styled(state, 'decide.earlyThree') && pullGap > styled(state, 'decide.earlyRoom'));
     if ((mayNow || forced) && !milking && !holding && person(state, h).ratings[isThreeZone(zone) ? 'three' : 'mid'] >= styled(state, 'decide.floor'))
       options.push({ key: 'shoot', value: own.ep + leaning(state, h, zone) + (fed?.fresh ? styled(state, 'decide.rhythm') : 0), look: own });
     // A drive, if a lane opens: his speed and handle against his man's defence and speed, and the help behind.
     const edge = ((person(state, h).ratings.speed + person(state, h).ratings.handle) - (person(state, d).ratings.speed + person(state, d).ratings.defence)) / 80;
     const lane = Math.min(QUICK.lane[1], Math.max(QUICK.lane[0], QUICK.laneBase + 2 * styled(state, 'decide.rimBase') + edge - 0.25 * (scheme.help - 0.5) + (pick && scheme.screen === 'switch' ? 0.15 : 0)));
-    if ((!early || ran) && !milking && !holding && rand(state) < lane) {
+    if ((!early || ran || green) && !milking && !holding && rand(state) < lane) {
       const rim = look(state, h, 'rim', within(r, QUICK.gap.rim), d);
       options.push({ key: 'drive', value: rim.ep + styled(state, 'decide.foulDraw') - 0.1 + styled(state, 'decide.rimBase') + styled(state, 'decide.drive') * (person(state, h).tend.drive - 0.5) + needOf(state, team, 'rim'), look: rim });
     }
     // A post move, for a man who posts up, with his man on his back.
-    if (!early && person(state, h).tend.post >= 0.5 && !milking && !holding) {
+    if ((!early || green) && person(state, h).tend.post >= 0.5 && !milking && !holding) {
       const post = look(state, h, 'mid', within(r, QUICK.gap.post), d, { fading: true, far: QUICK.postFar });
       options.push({ key: 'post', value: post.ep + leaning(state, h, 'close') + 0.08, look: post });   // (leaning: a post move is a two)
     }
@@ -170,7 +172,7 @@ export function playPossession(state, team, begun) {
       const theirs = look(state, m, mz, Math.max(0.3, mg), guardOf(state, m), { far: mfar });
       const want = play && play.kind === 'post' && play.ids.big === m.id && beat <= 2;
       const value = Math.max(theirs.ep + leaning(state, m, mz), keep) - 0.04 - 0.08 * Math.max(0, 8 - state.shotClock)
-        + styled(state, 'decide.pass') * (person(state, h).tend.passFirst - 0.5) + (want ? 0.5 : 0) + (m.person === star ? 0.1 : 0);
+        + styled(state, 'decide.pass') * (person(state, h).tend.passFirst - 0.5) + (want ? 0.5 : 0) + (m.person === star ? 0.1 : 0) + starPull(state, person(state, m), m.team);
       options.push({ key: 'pass', value, to: m, look: theirs, feed: mz === 'rim' || mz === 'close' });
     }
     if (!forced) options.push({ key: 'hold', value: keep + (milking || holding ? 0.6 : 0) });

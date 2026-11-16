@@ -592,3 +592,23 @@ None of them changes play.
 - Watch also hides the controlled player's ring, his matchup mark, his box by the scorebug and the key line under the court.
 - The result screen's keys are `resultKey` in `menu.js`.
 - Frame times could not be measured in the hidden browser pane (they swung from 3 to 131 ms a frame within seconds). They are bounded instead by the simulation's cost: 8.2 µs a step in Arcade (+4.9% on main's) and 8.7 in Simulation, under 0.01 ms of a frame. The renderer is unchanged except for the ring in Watch.
+
+## Tuning: threes and usage (2026-11-16)
+
+After the merge, three things the owner saw in play: nobody cut for three, corner threes were almost never taken, and the stars took too small a share of the plays.
+
+**Cutting for three.** `offball.js` gives a shooter (Three 75 or better, `ARC.threeAt`) a third choice at his moments, beside cutting to the rim and staying: going to the most open spot on the arc (corners, wings, top) within `ARC.relocateReach`, at least `ARC.openAt` from the nearest defender and apart from his team-mates. When a team-mate drives, he drifts to one within `ARC.driftReach` (`off.drift`: Simulation only). A shooter catching in the corner with room squares up there instead of walking up to the top (`decide.squareUp`), and an open three on the catch is kept less (`decide.openKeep`). In Simulation a defender reads a closeout running at the shooter (`decide.readClose`) and a helper stays home on a corner shooter (`decide.stayHome`).
+
+**Stars.** A star is a player whose overall is 83 or better (`STAR_AT` in `choose.js`). A pass to one is worth more the further his share of the team's plays is under 20% (`starPull`, `decide.stars`). In Simulation a star past `decide.starFrom` seconds of the clock has a green light (he may shoot, drive or post before the play is run), and a handler with a step on his man attacks (`decide.attack`). The fast engine does the same (`starPull`, and the green light past `starFrom`).
+
+**Assists.** A basket is assisted only when it comes within `ASSIST.quick` seconds of the catch, or the scorer took the ball no more than `ASSIST.carry` metres from where he caught it.
+
+**Arcade.** It keeps cutting for three, the corner square-up and the pass to a star; the drift, the green light, the attack, the closeout read and staying home are Simulation's only. Its band against the Stage 0 baseline holds: 5v5 points +0.6%, PPP -8.6%, possession length -2.2%; 3v3 points -1.3%, PPP +6.1%, length +5.7%.
+
+**Measured** (50 3D Simulation matches, per 48 minutes): pace 96.6, points 116.4, FGA 84.9, FG% .507, 3PA 36.0, 3P% .377, FTA 22.5, TOV 15.7, assists 26.1. Shots: rim .307, close .041, mid .248, corner three .143 (was .005), arc three .260. Season USG% of the 83s and better: Cross 31.4, Stone 21.9, Okoro 33.4, Mercer 27.5, Lund 29.2, Hale 28.4. The fast engine meets section 11's bands, and every star's USG% is over 20% in both engines (tested).
+
+**Known gaps:**
+- Marsh and Reyes (82) are not stars by this line and take 10-15% of the plays in the 3D game.
+- FG% .507 is above the target (.47).
+- Corner threes are about 35% of the threes (real about 25%).
+- The identity test measures the crash directly (men at the rim half a second after a shot) over 16 matches, as the offensive-rebound gap over 16 matches is too noisy to hold at five points.

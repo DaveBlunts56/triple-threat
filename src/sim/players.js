@@ -1,4 +1,4 @@
-import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FINISH, FOUL, MOVES, PASS, PLAYER, RIM, SHOT, STAT, STEAL, THREE_PT, RATE, DRIVE, cpuLevelOf, isHuman, levelOf } from './tuning.js';
+import { ASSIST, BALL, BLOCK, BOARD, CLOCK, COURT, DT, FINISH, FOUL, MOVES, PASS, PLAYER, RIM, SHOT, STAT, STEAL, THREE_PT, RATE, DRIVE, cpuLevelOf, isHuman, levelOf } from './tuning.js';
 import { attackSign, onFloor as grounded, personOf, rand } from './state.js';
 import { speedFactor, spend } from './stamina.js';
 import { rimCentre, solveShot, stepBall } from './ball.js';
@@ -221,6 +221,12 @@ function streak(state, player, made) {
   person.streak = made ? Math.max(person.streak, 0) + 1 : Math.min(person.streak, 0) - 1;
 }
 
+// Whether the pass that found him leads straight to his shot, as a scorer credits an assist: soon enough after the catch
+// (STAT.assist), and without his having beaten his man with the ball since: no dribble move, and either a quick finish
+// (ASSIST.quick seconds: a cutter or a roller on the run) or no further than ASSIST.carry metres from his catch.
+const assisted = (player, now) => !!player.fed && now - player.fed.at <= STAT.assist && !((player.moved ?? -Infinity) > player.fed.at)
+  && (now - player.fed.at <= ASSIST.quick || player.fed.x === undefined || Math.hypot(player.x - player.fed.x, player.z - player.fed.z) <= ASSIST.carry);
+
 // What a shot is, for the box score and for whoever watches it go in: noted as an attempt, and returned as the record
 // the basket will be remembered by.
 function shotInfo(state, player, green) {
@@ -229,7 +235,7 @@ function shotInfo(state, player, green) {
   note(state, player, 'fga'); if (three) note(state, player, 'tpa');
   return { id: player.id, team: player.team, row: player.person, value: three ? 3 : 2, at: state.time, clock: state.gameClock,
     x: player.x, z: player.z, far: dist(player, hoop), gap, green, finish: player.finish, flair: player.finish === 'dunk' ? player.flair : null,
-    assist: player.fed && state.time - player.fed.at <= STAT.assist ? player.fed.row : null };
+    assist: assisted(player, state.time) ? player.fed.row : null };
 }
 
 // The nearest opponent in the air and close enough to have made contact, for the rules to judge: his id, or null.
@@ -437,7 +443,7 @@ export function giveBall(state, player) {
   const fumbler = state.players[state.fumbledBy];
   if (fumbler && fumbler.team !== player.team && ball.mode !== 'pass') note(state, fumbler, 'tov');
   state.fumbledBy = null;
-  player.fed = passer && passer.team === player.team && passer !== player ? { row: passer.person, at: state.time } : null;
+  player.fed = passer && passer.team === player.team && passer !== player ? { row: passer.person, at: state.time, x: player.x, z: player.z } : null;
   ball.holder = player.id; ball.mode = 'held'; ball.target = null;
   ball.shooter = null; ball.shotValue = 0;
   player.held = false; player.steps = 0;   // a live dribble

@@ -133,3 +133,21 @@ test('the shot mix: three-point rate, free-throw rate, shots at the rim, assiste
     ...outside('possession length (s)', secs / count, [13.5, 15.5]),
   ], []);
 });
+
+test('stars (83 or better) and superstars use more than 20% of their team\'s plays while on court (USG%, over the season)', async () => {
+  const { STAR_AT } = await import('../src/sim/choose.js');
+  const { overall } = await import('../src/sim/overall.js');
+  const short = [];
+  for (const t of [0, 1]) {
+    const rows = games[0].rosters[t].map(p => ({ name: p.name, star: overall(p) >= STAR_AT, line: {}, secs: 0 })), team = {};
+    let teamSecs = 0;
+    for (const s of games) {
+      const tl = teamLine(s, t);
+      for (const k of Object.keys(tl)) team[k] = (team[k] ?? 0) + tl[k];
+      teamSecs += 5 * secsOf(s);
+      s.rosters[t].forEach((p, i) => { for (const k of Object.keys(p.stats)) rows[i].line[k] = (rows[i].line[k] ?? 0) + p.stats[k]; rows[i].secs += p.secs; });
+    }
+    for (const r of rows.filter(r => r.star)) { const rate = usg(r.line, r.secs, team, teamSecs); if (rate <= 20) short.push(`${r.name} ${rate.toFixed(1)}%`); }
+  }
+  assert.deepEqual(short, []);
+});
