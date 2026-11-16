@@ -7,6 +7,8 @@ import { emptyEvents } from '../src/sim/state.js';
 import { giveBall, passBall } from '../src/sim/players.js';
 import { step } from '../src/sim/step.js';
 import { DT, FOUL } from '../src/sim/tuning.js';
+import { callPlay, stepPlays } from '../src/sim/plays.js';
+import { guardOf } from '../src/sim/matchups.js';
 import { live, at, idle, run } from './helpers.js';
 
 // Over `n` seeds, how often `make(seed)`'s step is judged a foul of `kind`.
@@ -37,17 +39,20 @@ test('a loose-ball foul in the scramble for a rebound, in Simulation; never in A
 });
 
 test('an illegal screen: a screener still moving into the defender, in Simulation; never in Arcade', () => {
+  // Team 0 runs a pick and roll: its big, still moving, runs into the defender of the ball handler (player 0).
   const screen = seed => {
-    const s = live(seed, 5);   // team 0 has the ball (player 0)
-    at(s, 2, 6, 2); Object.assign(s.players[2], { vx: 2, vz: 0 }); at(s, 5, 6.5, 2);
-    const events = emptyEvents(); events.contacts = [[2, 5]];
+    const s = live(seed, 5);
+    callPlay(s, 0, 'pickRoll'); stepPlays(s, DT);
+    const big = s.players[s.plays[0].ids.big], d = guardOf(s, s.players[0]);
+    at(s, big.id, 6, 2); Object.assign(big, { vx: 2, vz: 0 }); at(s, d.id, 6.5, 2);
+    const events = emptyEvents(); events.contacts = [[big.id, d.id]];
     return { s, events };
   };
   const sim = calls('sim', 400, screen, 'illegalScreen');
-  assert.ok(sim > 6 && sim < 50, `${sim} of 400`);
+  assert.ok(sim > 30 && sim < 100, `${sim} of 400`);
   assert.equal(calls('arcade', 400, screen, 'illegalScreen'), 0);
   // A set screener is no foul.
-  const set = seed => { const r = screen(seed); Object.assign(r.s.players[2], { vx: 0, vz: 0, setT: 1 }); return r; };
+  const set = seed => { const r = screen(seed); Object.assign(r.s.players[r.s.plays[0].ids.big], { vx: 0, vz: 0, setT: 1 }); return r; };
   assert.equal(calls('sim', 200, set, 'illegalScreen'), 0);
 });
 

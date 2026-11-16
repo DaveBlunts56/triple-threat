@@ -1,6 +1,8 @@
 import { FOUL } from './tuning.js';
 import { onFloor, personOf, rand } from './state.js';
 import { styled } from './styles.js';
+import { screenerOn } from './plays.js';
+import { manOf } from './matchups.js';
 
 // Decides whether any of this step's contacts is a foul. Returns the first one found: { kind, by, on } (player ids).
 export function judgeContacts(state, events, dt) {
@@ -38,6 +40,8 @@ export function judgeContacts(state, events, dt) {
     const holder = state.players[state.ball.holder];
     if (!holder || styled(state, 'foul.illegalScreen') <= 0) continue;
     const [screener, defender] = a.team === holder.team ? [a, b] : [b, a];
+    // Only a screen: the man of a play setting it, into the ball handler's defender, still moving.
+    if (screenerOn(state, holder.team) !== screener.id || manOf(state, defender) !== holder) continue;
     if (screener === holder || screener.inbounder || Math.hypot(screener.vx, screener.vz) <= FOUL.setSpeed) continue;
     screener.foulCooldown = defender.foulCooldown = FOUL.cooldown;
     if (rand(state) < styled(state, 'foul.illegalScreen')) return { kind: 'illegalScreen', by: screener.id, on: defender.id };

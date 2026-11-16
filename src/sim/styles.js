@@ -54,8 +54,10 @@ const SIM = f({
   'player.accel': 14, 'player.brake': 28,
   'steal.front': 0.25, 'steal.back': 0.08, 'pass.intercept': 0.4,
   'foul.reachFront': 0.12, 'foul.reachBack': 0.3, 'foul.shooting': 0.25, 'foul.charge': 0.6, 'foul.block': 0.15,
-  'foul.looseBall': 0.06, 'foul.illegalScreen': 0.05, 'foul.drive': 0.25, 'fumble.rate': 0.02,
-  'stamina.sprint': 0.025, 'stamina.run': 0.006, 'stamina.jump': 0.015, 'stamina.rest': 0.02, 'stamina.bench': 0.03,
+  'foul.looseBall': 0.02, 'foul.illegalScreen': 0.15, 'foul.drive': 0.25, 'fumble.rate': 0.02,
+  // Sized for 12-minute quarters: a starter tires over 8-12 minutes of play, and a man on the bench is ready again
+  // after about 4.
+  'stamina.sprint': 0.003, 'stamina.run': 0.0008, 'stamina.jump': 0.004, 'stamina.rest': 0.0015, 'stamina.bench': 0.0015,
   'stamina.subOut': 0.35, 'stamina.subIn': 0.7,
   'timeout.each': 7, 'timeout.rest': 0.12,
   'shot.make': 1, 'board.offence': 1,

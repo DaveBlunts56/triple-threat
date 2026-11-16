@@ -86,35 +86,61 @@ export function rotationPlan(state, team) {
 }
 const overallOf = person => { const r = Object.values(person.ratings).sort((a, b) => b - a).slice(0, 5); return r.reduce((a, b) => a + b, 0) / 5; };
 
-// Seconds of a stint before a coach wants a man rested, per 12-minute quarter: a starter about 8, anyone else 6.
-const STINT = Object.freeze({ starter: 8 * 60, bench: 6 * 60 });
+// How far apart two players are in size, by position.
+const SIZE = Object.freeze({ PG: 1, SG: 2, SF: 3, PF: 4, C: 5 });
 
-// One stoppage's substitutions for `team` by its coach's rotation: who must sit (foul trouble, too tired, a stint
-// played, his starters out of a blowout) and who comes on for him (the rested man furthest below his minutes, a
-// starter to begin a half or close a close game).
+// When in each half a starter rests: minutes into the half, by his place in the order, staggered so that two or three
+// starters are always on; he rests for his share of the half's minutes he is not meant to play.
+const REST_FROM = Object.freeze([8, 9.5, 8.5, 9, 8.75]);
+
+// Whether starter `row` is in his rest now, by the coach's plan: from REST_FROM minutes into each half (scaled to the
+// quarter's length) for half the minutes he is not meant to play. Never in overtime.
+function resting(state, row, plan) {
+  if (row >= REST_FROM.length || state.quarter > 4) return false;
+  const into = ((state.quarter - 1) % 2) * state.quarterLength + (state.quarterLength - state.gameClock);
+  const from = REST_FROM[row] * 60 * (state.quarterLength / 720), length = Math.max(0, (4 * state.quarterLength - plan[row]) / 2);
+  return into >= from && into < from + length;
+}
+
+// One stoppage's substitutions for `team` by its coach's rotation. He works out the five he wants on: his starters,
+// unless one is resting by the plan, in foul trouble or spent (or it is a blowout's last minutes, when the bench
+// finishes); then the bench, the best fit for each place left (the same size, rested, furthest below his minutes).
+// A close finish and the start of each half are for the starters. Then he makes only the swaps that takes.
 function rotate(state, team, players) {
-  const roster = state.rosters[team], scale = state.quarterLength / 720, plan = rotationPlan(state, team);
+  const roster = state.rosters[team], plan = rotationPlan(state, team), scale = state.quarterLength / 720;
   const starter = row => row < state.size;
   const last = state.quarter >= 4, left = state.gameClock, lead = state.score[team] - state.score[1 - team];
   const late = last && left <= 300 * scale, garbage = late && Math.abs(lead) >= 20, closing = late && !garbage && Math.abs(lead) < 10;
-  const halfStart = (state.phase === 'quarterEnd' && state.quarter === 2) || (state.quarter === 3 && left >= state.quarterLength - 1);
-  const rested = row => roster[row].energy >= styled(state, 'stamina.subIn');
-  const usable = row => !foulTrouble(state, roster[row]) || closing;
-  // How much a bench man is wanted now: a starter at a half's start or in a close finish, a reserve in a blowout,
-  // otherwise whoever is furthest below his minutes; never one in foul trouble unless the game is on the line.
-  const want = row => (garbage ? (starter(row) ? -1e6 : 0) : (closing || halfStart) && starter(row) ? 1e6 : 0) + (plan[row] - roster[row].secs) + 100 * roster[row].energy;
+  const fresh = (row, onNow) => roster[row].energy >= (onNow ? styled(state, 'stamina.subOut') : 0.5);
+  const fouled = row => roster[row].fouls >= state.foulLimit;
+  const onNow = new Set(players.map(p => p.person));
+  const shooter = state.freeThrow?.shooter, fixed = new Set(state.players.filter(p => p.team === team && (p.id === shooter || roster[p.person].manual)).map(p => p.person));
+  // Who he wants: the starters who may play, then the bench by fit for the places left.
+  const want = new Set(fixed);
+  const may = row => closing || (!garbage && !resting(state, row, plan) && !foulTrouble(state, roster[row]) && fresh(row, onNow.has(row)));
+  for (let row = 0; row < state.size && want.size < state.size; row++) if (!want.has(row) && !fouled(row) && may(row)) want.add(row);
+  // The places left, filled from the bench (a starter who may not play only if nobody else can): the best fit for
+  // each, by size, freshness and how far he is below his minutes.
+  const size = row => SIZE[roster[row].position] ?? 3;
+  const places = [...Array(state.size).keys()].filter(row => !want.has(row));   // the starters' places to fill, by their size
+  for (const place of places) {
+    if (want.size >= state.size) break;
+    const left = [...Array(roster.length).keys()].filter(row => !want.has(row) && !fouled(row));
+    const bench = left.filter(row => !starter(row) && fresh(row, onNow.has(row)));
+    // With nobody fresh for the place, whoever is on now stays on: no swapping one tired man for another.
+    const staying = left.filter(row => onNow.has(row) && !(garbage && starter(row)));
+    const choices = bench.length ? bench : staying.length ? staying : left;
+    if (!choices.length) break;
+    // A man already on is kept over one about as good: no swapping for its own sake.
+    const score = row => -90 * Math.abs(size(row) - size(place)) + (plan[row] - roster[row].secs) + 100 * roster[row].energy - (foulTrouble(state, roster[row]) ? 600 : 0) + (onNow.has(row) ? 150 : 0);
+    want.add(choices.reduce((a, b) => (score(b) > score(a) ? b : a)));
+  }
+  // The swaps: each man on who is not wanted comes off for a wanted man of his size who is not on.
   for (const p of players) {
-    const person = roster[p.person];
-    if (person.manual) continue;   // your own choice stands until you take him off or he fouls out
-    const stint = person.secs - (person.onAt ?? 0);
-    const sit = (foulTrouble(state, person) && !closing) || person.energy < styled(state, 'stamina.subOut')
-      || (garbage && starter(p.person)) || ((closing || halfStart) && !starter(p.person))
-      || (!closing && stint >= (starter(p.person) ? STINT.starter : STINT.bench) * scale);
-    if (!sit) continue;
-    const options = benchOf(state, team).filter(row => rested(row) && usable(row) && !(garbage && starter(row)));
-    if (!options.length) continue;
-    const best = options.reduce((a, b) => (want(b) > want(a) ? b : a));
-    // A tired or troubled man always goes; a man whose stint is up only for someone the coach wants more.
-    if (foulTrouble(state, person) || person.energy < styled(state, 'stamina.subOut') || want(best) > want(p.person) - 60) substitute(state, p.id, best);
+    if (want.has(p.person)) continue;
+    const coming = [...want].filter(row => !onNow.has(row) && benchOf(state, team).includes(row));
+    if (!coming.length) break;
+    const best = coming.reduce((a, b) => (Math.abs(size(b) - size(p.person)) < Math.abs(size(a) - size(p.person)) ? b : a));
+    if (substitute(state, p.id, best)) { onNow.delete(p.person); onNow.add(best); }
   }
 }
