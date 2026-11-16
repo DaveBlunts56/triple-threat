@@ -1,5 +1,5 @@
-import { AI, BALL, CLOCK, COURT, DT, FINISH, FT, LATE, MOVES, PASS, PLAY, PLAYER, READ, SHOT, STEAL, TIP, VIOLATION, levelOf } from './tuning.js';
-import { SHOT_BEST, SHOT_LANDS, gatherOf, shotBest, shotLands, zoneOf } from './players.js';
+import { AI, BALL, CLOCK, COURT, DT, FINISH, FT, LATE, MOVES, PASS, PLAY, PLAYER, READ, SHOT, STEAL, THREE_PT, TIP, VIOLATION, LEVEL_IQ, levelOf } from './tuning.js';
+import { SHOT_BEST, SHOT_LANDS, gatherOf, isThree, shotBest, shotLands, zoneOf } from './players.js';
 import { canDunk, finishFor } from './finish.js';
 import { lift, drop, rated, starOf, heatOf } from './ratings.js';
 import { ftChance } from './freethrow.js';
@@ -12,6 +12,8 @@ import { offBallSpot, passed } from './offball.js';
 import { KINDS } from './moves.js';
 import { styled } from './styles.js';
 import { gambleOf, tightness } from './coach.js';
+import { choose } from './choose.js';
+import { contestShare, distanceChance, expectedShot, greenShare, levelFor, rangeShare, shotChance, skillOf, timingShare, windowHalf, zoneFor } from './shooting.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const nearestTo = (list, point) => list.reduce((a, b) => (dist(b, point) < dist(a, point) ? b : a));
@@ -131,7 +133,7 @@ function planWithBall(state, p) {
   // A move, when it is the right one, he may make it (not within AI.moveEvery of his last), and the level lets him:
   // the number is drawn last, so a player with no move to make draws none.
   const tight = nearestTo(opponents(state, p), p), gap = dist(tight, p);
-  const role = personOf(state, p).role;
+  const person = personOf(state, p), role = person.role, tend = person.tend;
   const moves = right => {
     if (!right || state.time - Math.max(p.moved, ai.triedAt ?? -Infinity) < AI.moveEvery) return false;
     ai.triedAt = state.time;   // one chance at a time: a level that seldom moves does not get there by asking again
@@ -141,78 +143,192 @@ function planWithBall(state, p) {
   // first. A team behind late in the game has no time for that.
   // Once the screen of a play has been used the offence has been run, however early it is.
   const wait = patience(state), early = !sit.hurry && CLOCK.shot - state.shotClock < wait && !playRan(state, p.team);
-  // Nobody between him and the hoop: take it all the way in, don't pull up for a jump shot. Early on that is only
-  // for a fast break, with every defender well behind him: otherwise he walks the ball up.
+  // Nobody between him and the hoop, every defender well behind him: a fast break, run whenever it comes.
   const ahead = opponents(state, p).every(o => dist(o, hoop) > toHoop + AI.breakLead);
   // A handler who has just beaten his man with a move goes too, early or not: that is what the move was for.
   const beat = state.time - p.moved < AI.beatFor;
-  if (laneClear(state, p) && (!early || ahead || beat)) {
-    // Close enough for his two steps, he finishes; until then he runs at the rim.
-    const kind = canDunk(state, p) ? 'dunk' : 'layup';
-    if (settled && driving() && toHoop >= FINISH.takeoff[kind] + 0.3) return finish();
-    return goTo(ai, { x: sign * AI.driveX, z: 0 }, true);
-  }
-  if (open && ai.heldT >= READ.onCatch) return shoot();
   // His play has not formed yet: he keeps the ball rather than shoot from outside or pass. So does a team ahead late
   // in the game, until the shot clock is nearly out. A team behind late waits for nothing.
   const waits = (!sit.hurry && playHolds(state, p)) || milking;
   const reaches = m => m && m !== p && legal(m) && dist(m, p) <= AI.passRange && laneClear(state, p, m, untouchable, PLAY.feedWidth);
-  // The room a player needs to shoot from where he stands: the better he shoots from there the less it is, so a shot
-  // creator shoots over a defender and a sharpshooter needs only a step.
-  const roomOf = m => AI.openDist * drop(rated(state, m, zoneOf(m)), AI.roomGap);
-  // The man the play is for gets the ball if it can reach him, open or not, before the handler looks for his own
-  // shot: a post man is fed with his defender on him.
-  const wanted = playTarget(state, p);
-  if (settled && !waits && reaches(wanted)) return passTo(ai, p, wanted);
-  // He takes the open shots he is good at. Early in the shot clock only a great shooter with room takes a three.
-  const mayNow = !early || (zone === 'three' && skill >= AI.earlyThree && room > AI.roomFor);
-  // Near the hoop with a defender on him, a post scorer fades over him, unless somebody has been left wide open.
-  if (moves(settled && !waits && !early && toHoop <= MOVES.fade.within && gap <= AI.fadeNear
-    && (rated(state, p, 'inside') >= AI.fadeAt || role === 'Post scorer'))) return guarded() ? undefined : shoot('fade');
-  // A defender too close for the jump shot he is good at: a shooter steps back from him, and then shoots. The same.
-  if (moves(settled && !waits && mayNow && zone !== 'inside' && gap <= AI.stepNear && toHoop <= AI.shootRange - MOVES.stepBack.push
-    && skill >= AI.shootAt && (skill >= AI.stepAt || role === 'Shot creator' || role === 'Sharpshooter'))) {
-    if (guarded()) return;
-    ai.action = 'stepBack'; ai.stepped = state.time; ai.soon = MOVES.stepBack.time + DT;
-    return;
-  }
-  if (settled && !waits && mayNow && skill >= AI.shootAt && room > roomOf(p) && toHoop <= AI.shootRange) return shoot();
+  const star = state.players.find(m => m.team === p.team && m.person === starOf(state, p.team));
 
   // Running out of time to cross half court: stop looking for a pass and bring it up.
   if (state.backcourtT > AI.hurryAt && !state.frontcourt) return goTo(ai, { x: sign * AI.topX, z: 0 }, true);
+  // With the game on the line the ball goes to the star, if it can reach him.
+  if (settled && sit.clutch && star !== p && reaches(star)) { passTo(ai, p, star); state.tempo.fed = true; return; }
 
-  // A good handler with a defender up on him, between him and the hoop, makes a move to get by. With the defender
-  // within reach of the ball, or just after he has reached, he keeps it safe: between the legs, or behind the back at
-  // a run. With a little room he crosses over. He looks again as the move ends.
-  // He need not wait for the offence to be run, only for it to be set (AI.moveFrom seconds into the shot clock).
-  if (moves(settled && !waits && CLOCK.shot - state.shotClock >= AI.moveFrom && state.frontcourt && rated(state, p, 'handle') >= AI.moveAt && gap <= AI.moveNear && dist(tight, hoop) < toHoop)) {
-    ai.action = tight.stealCooldown > 0 || gap <= STEAL.reach ? (Math.hypot(p.vx, p.vz) < 3 ? 'legs' : 'back') : 'cross';
-    ai.soon = MOVES[ai.action].time + DT;
-    return;
+  // ---- The choice. Everything open to him, each worth so many expected points (see shotValue below), adjusted for
+  // what kind of player he is, the clock and the score; he takes one as his IQ allows (see choose.js). ----
+  const options = [];
+  const add = (key, value, extra = {}) => options.push({ key, value, ...extra });
+  const keep = holdValue(state);   // what keeping the possession going is worth now
+  // The team's rules come first, and the choice is made within them. Early in the shot clock no shot from outside and
+  // no drive at a set defence: not unless it is a fast break, he has just beaten his man, he is wide open on the catch,
+  // or he is a great shooter with room for an early three. While his play forms, or his team uses the clock, no shot
+  // from outside and no pass: he may still take a clear lane to the rim.
+  const caught = open && ai.heldT >= READ.onCatch;
+  const mayNow = !early || ahead || beat || caught || (zone === 'three' && skill >= AI.earlyThree && room > AI.roomFor);
+  const shooterBias = leaning(state, p, zone);
+  // Shoot from here: once he has gathered the ball, or at once if it found him wide open.
+  // Just after a catch the look is as good as it will get, before his man recovers: a shot in rhythm is worth more.
+  const rhythm = ai.from != null && ai.heldT < AI.passAfter ? styled(state, 'decide.rhythm') : 0;
+  if ((settled || caught) && mayNow && !waits && toHoop <= AI.shootRange && skill >= styled(state, 'decide.floor')) add('shoot', shotValue(state, p, { closing: RISE }) + shooterBias + rhythm);
+  // Take it to the rim, along a clear lane.
+  if (laneClear(state, p) && (!early || ahead || beat)) add('drive', rimValue(state, p) + styled(state, 'decide.drive') * (tend.drive - 0.5));
+  // Pass to each team-mate a pass may go to: what he would make of it. Early in the shot clock the ball is moved round
+  // the outside, not thrown in to a man near the hoop. With nobody on him he only passes the ball nearer the hoop.
+  const pressured = !isOpen(state, p), wanted = playTarget(state, p);
+  for (const m of mates(state, p)) {
+    if (!legal(m) || back(m) || dist(m, p) > AI.passRange) continue;
+    const want = m === wanted;
+    if (waits || !(settled && (mayPass || dist(m, hoop) < AI.layupDist || want))) continue;
+    if (!want && ((early && dist(m, hoop) < AI.insideDist) || !(pressured || dist(m, hoop) < toHoop))) continue;
+    // A lane he can see is not clear he does not throw into: unless he does not see the defender in it, which a
+    // poor decision-maker sometimes does not (and the defender then picks it off, as passes are picked off).
+    const clear = laneClear(state, p, m, untouchable, want ? PLAY.feedWidth : AI.laneWidth);
+    if (!clear && rand(state) >= styled(state, 'decide.misread') * (1 - iqOf(state, p))) continue;
+    const them = personOf(state, m), heat = heatOf(them);
+    const value = passValue(state, p, m, keep) + styled(state, 'decide.pass') * (tend.passFirst - 0.5) + (want ? 0.5 : 0)
+      + (m === star ? 0.1 : 0) + (heat === 'hot' ? 0.06 : heat === 'cold' ? -0.06 : 0);
+    add('pass', value, { to: m.id });
   }
+  // A move to get by a defender up on him, between him and the hoop. With the defender within reach of the ball, or
+  // just after he has reached, he keeps it safe: between the legs, or behind the back at a run. With a little room he
+  // crosses over. He need not wait for the offence to be run, only for it to be set.
+  if (settled && !waits && CLOCK.shot - state.shotClock >= AI.moveFrom && state.frontcourt && rated(state, p, 'handle') >= AI.moveAt && gap <= AI.moveNear && dist(tight, hoop) < toHoop)
+    add('move', keep + 0.1 + (rated(state, p, 'handle') - rated(state, tight, 'defence')) / 100 + styled(state, 'decide.drive') * (tend.drive - 0.5));
+  // Near the hoop with a defender on him, a post scorer fades over him.
+  if (settled && !waits && !early && toHoop <= MOVES.fade.within && gap <= AI.fadeNear && (rated(state, p, 'inside') >= AI.fadeAt || role === 'Post scorer'))
+    add('fade', shotValue(state, p, { fading: true, closing: RISE }) + shooterBias);
+  // A defender too close for the jump shot he is good at: a shooter steps back from him, and then shoots.
+  if (settled && !waits && mayNow && zone !== 'inside' && gap <= AI.stepNear && toHoop <= AI.shootRange - MOVES.stepBack.push
+    && skill >= AI.shootAt && (skill >= AI.stepAt || role === 'Shot creator' || role === 'Sharpshooter')) {
+    const out = MOVES.stepBack.push / (toHoop || 1), at = { x: p.x + (p.x - hoop.x) * out, z: p.z + (p.z - hoop.z) * out };
+    add('step', shotValue(state, p, { at, closing: RISE - 1 }) + shooterBias);
+  }
+  // A post scorer with his man on his back backs him down toward the rim.
+  if (settled && !waits && tend.post >= 0.5 && toHoop > 2.6 && toHoop <= 6 && zone !== 'three' && gap <= 1.6)
+    add('post', shotValue(state, p, { fading: true }) + 0.08 + styled(state, 'decide.drive') * (tend.post - 0.5));
+  // Keep it: wait for the play, the screen or the clock, or bring it up. Held long without a purpose the ball goes
+  // stale, and the defence settles: worth less the longer he has had it, unless his play is still forming.
+  add('hold', keep - (waits ? 0 : styled(state, 'decide.stale') * Math.max(0, ai.heldT - 1.5)));
 
-  // With nobody on him he only passes to move the ball nearer the hoop; otherwise he brings it up himself.
-  const pressured = !isOpen(state, p);
-  // A team-mate is open for a pass when he has the room he needs for his own shot, or is simply open. Early in the
-  // shot clock the ball is moved round the outside, not thrown in to a man near the hoop: that pass is made once the
-  // offence has been run.
-  const free = m => space(state, m) > Math.min(AI.openDist, roomOf(m));
-  const freeMen = mates(state, p).filter(m => free(m) && legal(m) && !back(m) && (mayPass || dist(m, hoop) < AI.layupDist) && dist(m, p) <= AI.passRange
-    && (pressured || dist(m, hoop) < toHoop) && !(early && dist(m, hoop) < AI.insideDist) && laneClear(state, p, m, untouchable));
-  const star = state.players.find(m => m.team === p.team && m.person === starOf(state, p.team));
-  // Of the open men the pass leans to the star and to a hot hand, and away from a cold one.
-  const pull = m => (m === star ? AI.lean : 1) * ({ hot: AI.lean, cold: AI.shy }[heatOf(personOf(state, m))] ?? 1);
-  const best = () => freeMen.reduce((a, b) => (dist(b, hoop) / pull(b) < dist(a, hoop) / pull(a) ? b : a));
-  // With the game on the line the ball goes to the star, if it can reach him. And once the offence has been run, a
-  // handler with no shot of his own often gives it to the star to make one.
-  // (Once in a possession: after that the star is expected to make something of it.)
-  const feed = !waits && !early && mayPass && !state.tempo.fed && !back(star ?? p) && rand(state) < AI.goTo;
-  if (settled && reaches(star) && (sit.clutch || feed)) { passTo(ai, p, star); state.tempo.fed = true; }
-  // Usually to the best of the open men, sometimes to another, so that he is not read.
-  else if (settled && !waits && freeMen.length) passTo(ai, p, freeMen.length > 1 && rand(state) < AI.vary ? freeMen[Math.floor(rand(state) * freeMen.length)] : best());
+  const pick = choose(state, options, iqOf(state, p), 'offence');
+  ai.chose = pick.key; ai.options = options;   // what he chose and from what, for whoever watches (the tests)
+  switch (pick.key) {
+    case 'shoot': return shoot();
+    case 'drive': {
+      // Close enough for his two steps, he finishes; until then he runs at the rim.
+      const kind = canDunk(state, p) ? 'dunk' : 'layup';
+      if (settled && driving() && toHoop >= FINISH.takeoff[kind] + 0.3) return finish();
+      return goTo(ai, { x: sign * AI.driveX, z: 0 }, true);
+    }
+    case 'pass': if (pick.to === star?.id) state.tempo.fed = true; return passTo(ai, p, state.players[pick.to]);
+    case 'move':
+      if (!moves(true)) break;
+      ai.action = tight.stealCooldown > 0 || gap <= STEAL.reach ? (Math.hypot(p.vx, p.vz) < 3 ? 'legs' : 'back') : 'cross';
+      ai.soon = MOVES[ai.action].time + DT;
+      return;
+    case 'fade': if (moves(true)) return shoot('fade'); break;
+    case 'step':
+      if (!moves(true)) break;
+      ai.action = 'stepBack'; ai.stepped = state.time; ai.soon = MOVES.stepBack.time + DT;
+      return;
+    case 'post': {
+      const far = toHoop || 1;
+      return goTo(ai, { x: p.x + ((hoop.x - p.x) / far) * 1.2, z: p.z + ((hoop.z - p.z) / far) * 1.2 });
+    }
+    default: break;
+  }
   // Nothing on: in a play he takes it where the play says; otherwise to the top, which his team-mates leave to him.
-  else goTo(ai, playSpot(state, p) ?? { x: sign * AI.topX, z: 0 });
+  goTo(ai, playSpot(state, p) ?? { x: sign * AI.topX, z: 0 });
 }
+
+// ---------- what a shot is worth: the shot model's expected points, as a computer shooter takes it ----------
+
+// Metres a defender makes up while a shooter gathers and rises: a shot is judged by the gap it will be let go over,
+// not the one he sees as he decides.
+const RISE = 0.6;
+
+// How well `p` decides: his own IQ, and in Play, for the computer's team, sharper or duller as the level says.
+function iqOf(state, p) {
+  const humans = state.humans ?? [0], iq = personOf(state, p).iq;
+  if (!humans.length || humans.includes(p.team)) return iq;
+  return Math.min(0.99, Math.max(0.2, iq + (LEVEL_IQ[state.difficulty] ?? 0)));
+}
+
+const timingCache = new Map();
+// The share of a shot's chance a computer's release keeps on average, his releases spread evenly within `jitter` of
+// the best moment, as `shoot` draws them.
+function meanTiming(jitter, worst) {
+  const key = `${jitter}|${worst}`;
+  if (!timingCache.has(key)) {
+    let sum = 0;
+    for (let i = 0; i <= 8; i++) {
+      const at = Math.min(Math.max(SHOT_BEST - jitter + (2 * jitter * i) / 8, SHOT.gather + DT), SHOT_LANDS - 3 * DT);
+      sum += timingShare(at, worst, SHOT_BEST, SHOT_LANDS);
+    }
+    timingCache.set(key, sum / 9);
+  }
+  return timingCache.get(key);
+}
+
+// How a computer shooter of `team` shoots: his release spread, the share a bad release keeps, and the level's make and
+// green-window factors (team 0's computer players shoot on your level's numbers, as makeChance has them).
+function shooterLevel(state, team) {
+  const level = levelOf(state);
+  return team === 1 ? { jitter: level.jitter, worst: SHOT.worstTiming, make: level.cpuMake, green: level.cpuGreen }
+    : { jitter: AI.releaseJitter, worst: level.timing, make: level.make, green: level.green };
+}
+
+// What a jump shot by `m` from `at` (his own place unless said) is worth in expected points: its value times its
+// chance, a green release counted as the style counts it, with his nearest defender as far off as he is less
+// `closing` (the ground a defender makes up while a pass is in the air). `fading`: a post fade.
+export function shotValue(state, m, { at = m, closing = 0, fading = false } = {}) {
+  const sign = attackSign(m.team), hoop = rimCentre(sign), far = dist(at, hoop);
+  let nearest = null, gap = Infinity;
+  for (const o of state.players) if (o.team !== m.team) { const d = dist(o, at); if (d < gap) { gap = d; nearest = o; } }
+  gap = Math.max(0.2, gap - closing);
+  const three = isThree(at.x, at.z, sign), corner = Math.abs(at.z) > THREE_PT.cornerZ;
+  const zone = three ? 'three' : far < SHOT.insideDist ? 'inside' : 'mid';
+  const person = personOf(state, m), rating = person.ratings[zone], heat = heatOf(person), lv = shooterLevel(state, m.team);
+  const contest = contestShare({ gap, defence: rated(state, nearest, 'defence'), fading });
+  const base = distanceChance(styled(state, 'shot.curve'), far, zoneFor(far, three, corner, null));
+  const chance = shotChance({ base, timing: meanTiming(lv.jitter, lv.worst), contest, energy: person.energy, levelMake: lv.make,
+    skill: skillOf(rating, heat), fading, make: styled(state, 'shot.make') });
+  const range = rangeShare(far);
+  const half = windowHalf({ steps: levelFor(contest).steps, range, energy: person.energy, levelGreen: lv.green, rating, heat });
+  const green = greenShare(half, lv.jitter, range > 0 && sign * (at.x - hoop.x) <= 0);
+  return expectedShot({ value: three ? 3 : 2, chance, green, rule: styled(state, 'shot.green'), boost: styled(state, 'shot.boost') });
+}
+
+// What taking it all the way to the rim is worth: a finish a metre in front of it, contested by whoever is nearest that
+// spot, and something for the foul a drive draws; less a little for the steal or the charge it risks.
+function rimValue(state, p) {
+  const sign = attackSign(p.team), hoop = rimCentre(sign);
+  return shotValue(state, p, { at: { x: hoop.x - sign * 1, z: 0 } }) + (canDunk(state, p) ? 0.1 : 0) + styled(state, 'decide.foulDraw') - 0.1;
+}
+
+// What a pass to `m` is worth: the best he could make of it on the catch (a shot as his man closes, the rim if his
+// lane is clear), or the possession going on in his hands, less the moment the pass takes.
+// A shot is weighed as its taker likes it: more for a man who looks for his shot (usage), and for one shooting from
+// where he likes to (his diet), less for the others.
+function leaning(state, m, zone = zoneOf(m)) {
+  const tend = personOf(state, m).tend;
+  return styled(state, 'decide.usage') * (tend.usage - 0.5) + styled(state, 'decide.diet') * (tend.diet[zone === 'inside' ? 'rim' : zone] - 1 / 3);
+}
+
+// Late in the shot clock a pass also costs the receiver the time he needs to gather it and get a shot up.
+function passValue(state, p, m, keep) {
+  const closing = (dist(p, m) / PASS.speed) * 4 + 0.3 + RISE;
+  const drive = laneClear(state, m) ? rimValue(state, m) - 0.15 : 0;
+  return Math.max(shotValue(state, m, { closing }) + leaning(state, m), drive, keep) - 0.04 - 0.08 * Math.max(0, 8 - state.shotClock);
+}
+
+// What keeping the possession going is worth: the style's points for a possession, less and less as the shot clock runs
+// down and a shot must be got up whatever it is.
+const holdValue = state => styled(state, 'decide.possession') * Math.min(1, Math.max(0.2, (state.shotClock - 3) / 9));
 
 // Chasing a ball nobody holds. Two per team go for it, the rest get back on defence, side by side.
 function planFreeBall(state, p) {

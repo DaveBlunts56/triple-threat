@@ -125,18 +125,25 @@ test('behind late and within reach, the computer fouls the ball on purpose; not 
   assert.equal(fouled({ left: 100, score: [14, 10] }), false, 'early');
 });
 
+// Level, an open shot is one of his options and he often takes it (see choose.js); ahead, he never does until the shot
+// clock is nearly out, and then he does.
 test('ahead late the computer uses the clock: open and in range, it does not shoot until the shot clock is nearly out', () => {
-  const s = their({ left: 30, score: [10, 14] });
-  at(s, 0, 0, 6);                    // nobody near the handler
-  at(s, 2, -9, 0.3);                 // but his lane to the hoop is not clear
-  ai(s);
-  assert.equal(s.players[5].ai.action, null, 'he shot with the lead and the clock');
-  s.shotClock = LATE.milkClock - 0.5; s.players[5].ai.timer = 0; ai(s);
-  assert.equal(s.players[5].ai.action, 'shoot');
-  const level = their({ left: 30, score: [14, 14] });
-  at(level, 0, 0, 6); at(level, 2, -9, 0.3);
-  ai(level);
-  assert.equal(level.players[5].ai.action, 'shoot', 'level: he plays as usual');
+  let level = 0, late = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const s = their({ left: 30, score: [10, 14] }); s.seed = seed * 17;
+    at(s, 0, 0, 6);                    // nobody near the handler
+    at(s, 2, -9, 0.3);                 // but his lane to the hoop is not clear
+    ai(s);
+    assert.notEqual(s.players[5].ai.action, 'shoot', 'he shot with the lead and the clock');
+    s.shotClock = LATE.milkClock - 0.5; s.players[5].ai.timer = 0; ai(s);
+    if (s.players[5].ai.action === 'shoot') late++;
+    const even = their({ left: 30, score: [14, 14] }); even.seed = seed * 17;
+    at(even, 0, 0, 6); at(even, 2, -9, 0.3);
+    ai(even);
+    if (even.players[5].ai.action === 'shoot') level++;
+  }
+  assert.ok(late >= 36, `with the shot clock nearly out he shot ${late} times of 40`);
+  assert.ok(level >= 10, `level, he took the open shot ${level} times of 40`);
 });
 
 test('in the last minute of a close game everyone hustles: the computer\'s players sprint to their places', () => {

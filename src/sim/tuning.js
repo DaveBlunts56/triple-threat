@@ -209,6 +209,10 @@ export const DIFFICULTY = f({
     legend: f({ green: 0.2, make: 0.08, sweep: 1.5, timing: 0.3, jitter: 0.06, cpuGreen: 1.35, cpuMake: 1.18, interval: 0.2, steal: 1.5, adapt: 1, moves: 1 }),
   }),
 });
+// How much sharper (or duller) the computer's team decides at each level, added to each of its players' IQ in Play (see
+// choose.js). Your team-mates, and a match nobody plays, are unchanged. Kept apart from DIFFICULTY so that the levels'
+// own numbers stay what they were.
+export const LEVEL_IQ = f({ rookie: -0.2, starter: -0.1, allstar: 0, superstar: 0.08, legend: 0.15 });
 // What the match's level changes: see DIFFICULTY.levels.
 export const levelOf = state => DIFFICULTY.levels[state.difficulty] ?? DIFFICULTY.levels.allstar;
 

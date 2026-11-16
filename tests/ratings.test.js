@@ -251,13 +251,21 @@ function floor({ early = false } = {}) {
 }
 const plan = s => { s.players.forEach(p => { p.ai.timer = 0; }); return aiIntents(s, DT); };
 
+// A choice is drawn (see choose.js): over many seeds the poor shooter mostly passes the three up and the sharpshooter
+// mostly takes it; with the shot clock short the poor shooter always takes it.
 test('a poor three-point shooter passes up an open three that a sharpshooter takes; with the shot clock short he takes it', () => {
-  const open = three => { const s = set(floor(), 0, { three }); at(s, 0, RIM.x - 7.2, 0); at(s, 5, RIM.x - 3, 0.2); return s; };   // open behind the line, his lane not clear
-  const poor = open(50), good = open(90);
-  plan(poor); plan(good);
-  assert.deepEqual([poor.players[0].ai.action, good.players[0].ai.action], [null, 'shoot']);
-  poor.shotClock = AI.panicClock - 0.5; plan(poor);
-  assert.equal(poor.players[0].ai.action, 'shoot');
+  const open = (three, seed) => { const s = set(floor(), 0, { three }); s.seed = seed * 13; at(s, 0, RIM.x - 7.2, 0); at(s, 5, RIM.x - 3, 0.2); return s; };   // open behind the line, his lane not clear
+  let poorShot = 0, goodShot = 0, short = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const poor = open(50, seed), good = open(90, seed);
+    plan(poor); plan(good);
+    if (poor.players[0].ai.action === 'shoot') poorShot++;
+    if (good.players[0].ai.action === 'shoot') goodShot++;
+    poor.shotClock = AI.panicClock - 0.5; plan(poor);
+    if (poor.players[0].ai.action === 'shoot') short++;
+  }
+  assert.ok(poorShot <= 10 && goodShot >= 30, `poor ${poorShot}, good ${goodShot} of 40`);
+  assert.equal(short, 40);
 });
 
 test('early in the shot clock only a great shooter with room takes the three', () => {

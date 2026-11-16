@@ -402,26 +402,34 @@ function handler(out, gap, { seed = 1, level = 'legend', id = 3, defender = 0 } 
 const rate = (s, id, key, value) => { s.rosters[s.players[id].team][s.players[id].person].ratings[key] = value; };
 const role = (s, id, value) => { s.rosters[s.players[id].team][s.players[id].person].role = value; };
 
+// In the scenes of the moves the handler is a poor shooter from out there, so that a move, not his own shot, is the
+// right thing to do (on Legend a guarded jump shot would often be worth more: see choose.js).
+const noShot = s => { rate(s, 3, 'mid', 40); rate(s, 3, 'three', 40); return s; };
+
 test('a good handler makes a dribble move on a defender who is up on him; an ordinary one never does', () => {
-  const s = handler(6.2, 1.4); rate(s, 3, 'handle', 90);              // out of the defender's reach: he crosses over
-  assert.ok(run(s, 1, [3], st => st.players[3].move !== null));
-  assert.equal(s.players[3].move.kind, 'cross');
-  const t = handler(6.2, 1.4);
+  // A choice is drawn (see choose.js): over 40 seeds he nearly always makes it, and out of reach it is a crossover.
+  let moved = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const s = noShot(handler(6.2, 1.4, { seed })); rate(s, 3, 'handle', 90);              // out of the defender's reach: he crosses over
+    if (run(s, 1, [3], st => st.players[3].move !== null)) { moved++; assert.equal(s.players[3].move.kind, 'cross'); }
+  }
+  assert.ok(moved >= 36, `${moved} of 40`);
+  const t = noShot(handler(6.2, 1.4));
   assert.equal(run(t, 3, [3], st => st.players[3].move !== null), false);
-  const early = handler(6.2, 1.4); rate(early, 3, 'handle', 90); early.shotClock = 22;   // the offence is not set yet
+  const early = noShot(handler(6.2, 1.4)); rate(early, 3, 'handle', 90); early.shotClock = 22;   // the offence is not set yet
   assert.equal(run(early, 1, [3], st => st.players[3].move !== null), false);
 });
 
 test('against a defender within reach, or one who has just reached, he goes between the legs standing and behind the back at a run', () => {
-  const near = handler(6.2, 1); rate(near, 3, 'handle', 90);
-  run(near, 1, [3], st => st.players[3].move !== null);
-  assert.equal(near.players[3].move?.kind, 'legs');
-  const s = handler(6.2, 1.4); rate(s, 3, 'handle', 90); s.players[0].stealCooldown = 0.9;
-  run(s, 1, [3], st => st.players[3].move !== null);
-  assert.equal(s.players[3].move?.kind, 'legs');
-  const t = handler(6.2, 1); rate(t, 3, 'handle', 90); t.players[0].stealCooldown = 0.9; t.players[3].vx = -4;
+  // Whenever he makes a move here (most seeds: see the test above), it is the safe one.
+  // His first decision only: a moment later he may have stepped away from the defender, or the defender be ready
+  // again, and out of reach he crosses over.
+  const kinds = make => { const seen = new Set(); for (let seed = 1; seed <= 20; seed++) { const s = make(seed); run(s, 0.05, [3], st => st.players[3].move !== null); if (s.players[3].move) seen.add(s.players[3].move.kind); } return [...seen]; };
+  assert.deepEqual(kinds(seed => { const s = noShot(handler(6.2, 1, { seed })); rate(s, 3, 'handle', 90); return s; }), ['legs']);
+  assert.deepEqual(kinds(seed => { const s = noShot(handler(6.2, 1.4, { seed })); rate(s, 3, 'handle', 90); s.players[0].stealCooldown = 0.9; return s; }), ['legs']);
+  const t = noShot(handler(6.2, 1)); rate(t, 3, 'handle', 90); t.players[0].stealCooldown = 0.9; t.players[3].vx = -4;
   run(t, 0.1, [3], st => st.players[3].move !== null);
-  assert.equal(t.players[3].move?.kind, 'back');
+  assert.ok(t.players[3].move === null || t.players[3].move.kind === 'back', 'at a run it is behind the back');
 });
 
 test('a shot creator crowded at mid-range steps back and then shoots; a big man who cannot shoot from there does not', () => {
@@ -443,17 +451,19 @@ test('a post scorer with a defender on him fades; with a clear lane to the rim h
   assert.equal(t.players[3].fading, false);
 });
 
-test('on Rookie the computer seldom makes the move it makes every time on Legend', () => {
+// A move is a choice like any other (see choose.js): a handler with no shot of his own (a poor shooter here) nearly
+// always makes it; the level then decides how often the move he has chosen is made.
+test('on Rookie the computer seldom makes the move it makes nearly every time on Legend', () => {
   const moved = level => {
     let n = 0;
     for (let seed = 1; seed <= 200; seed++) {
-      const s = handler(6.2, 1, { seed, level }); rate(s, 3, 'handle', 90);
+      const s = handler(6.2, 1, { seed, level }); rate(s, 3, 'handle', 90); rate(s, 3, 'mid', 40); rate(s, 3, 'three', 40);
       if (run(s, 1.5, [3], st => st.players[3].move !== null)) n++;
     }
     return n;
   };
   const legend = moved('legend'), rookie = moved('rookie');
-  assert.equal(legend, 200);
+  assert.ok(legend >= 180, `${legend} of 200 on Legend`);
   assert.ok(rookie < legend / 4 && rookie > 5, `${rookie} of 200 on Rookie`);
 });
 
@@ -536,15 +546,22 @@ test('crowded at the rim with a team-mate wide open, he kicks the ball out to hi
   assert.ok(run(nobody, 1, [3], st => st.players[3].shooting));
 });
 
-test('a post scorer about to fade, and a shooter about to step back, give the ball to a team-mate who is wide open instead', () => {
-  const post = handler(3.5, 0.8); rate(post, 3, 'inside', 88); role(post, 3, 'Post scorer'); post.players[3].ai.heldT = 2;
-  put(post, 4, -(RIM.x - 6.6), 3.2);
-  assert.ok(run(post, 1.5, [3], st => st.ball.holder === 4 || st.players[3].shooting));
-  assert.deepEqual([post.ball.holder, post.players[3].shooting], [4, false]);
-  const wing = handler(5, 1); rate(wing, 3, 'mid', 88); role(wing, 3, 'Shot creator'); wing.players[3].ai.heldT = 2;
-  put(wing, 4, -(RIM.x - 6.6), 3.2);
-  assert.ok(run(wing, 1.5, [3], st => st.ball.holder === 4 || st.players[3].move !== null));
-  assert.deepEqual([wing.ball.holder, wing.players[3].move], [4, null]);
+// The kick-out is worth more than the fade or the step-back (an open three against a contested two), so a sharp
+// handler makes it far more often than not; now and then he takes his own (see choose.js).
+test('a post scorer about to fade, and a shooter about to step back, mostly give the ball to a team-mate who is wide open instead', () => {
+  let post = 0, wing = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const p = handler(3.5, 0.8, { seed }); rate(p, 3, 'inside', 88); role(p, 3, 'Post scorer'); p.players[3].ai.heldT = 2;
+    put(p, 4, -(RIM.x - 6.6), 3.2);
+    assert.ok(run(p, 1.5, [3], st => st.ball.holder === 4 || st.players[3].shooting));
+    if (p.ball.holder === 4) post++;
+    const w = handler(5, 1, { seed }); rate(w, 3, 'mid', 88); role(w, 3, 'Shot creator'); w.players[3].ai.heldT = 2;
+    put(w, 4, -(RIM.x - 6.6), 3.2);
+    assert.ok(run(w, 1.5, [3], st => st.ball.holder === 4 || st.players[3].move !== null || st.players[3].shooting));
+    if (w.ball.holder === 4) wing++;
+  }
+  assert.ok(post >= 24, `the post scorer kicked it out ${post} times of 40`);
+  assert.ok(wing >= 24, `the shooter kicked it out ${wing} times of 40`);
 });
 
 test('walking the ball up against a defence that has not come out is not being open: before the offence is set only a pass that finds him brings the shot', () => {
