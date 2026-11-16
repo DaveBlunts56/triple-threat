@@ -57,6 +57,7 @@ function swap(state, a, b) {
   [a.man, b.man] = [b.man, a.man];
   a.switchWait = b.switchWait = MATCHUP.wait;
   state.switches++;
+  if (state.switchesBy) state.switchesBy[a.team]++;   // by the team that switched, for whoever watches
 }
 
 // Switching on a screen, from the pairs of players who ran into each other this step. A defender who runs into a set

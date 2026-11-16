@@ -53,9 +53,10 @@ const passTo = (ai, p, mate) => {
 // How many seconds into the shot clock the team with the ball waits before it will shoot from outside or drive at a
 // set defence: a patient possession or a quick one, drawn afresh each time the shot clock starts again. (A lay-up or
 // a fast break is taken whenever it comes.)
-function patience(state) {
+// A team that plays quickly (its playbook's pace above 1) waits less.
+function patience(state, team = state.possession) {
   const { tempo } = state;
-  if (state.shotClock > tempo.clock + 0.5) { const [early, late] = styled(state, 'ai.patience'); tempo.wait = early + rand(state) * (late - early); tempo.fed = false; }
+  if (state.shotClock > tempo.clock + 0.5) { const [early, late] = styled(state, 'ai.patience'); tempo.wait = (early + rand(state) * (late - early)) / playbookOf(state, team).pace; tempo.fed = false; }
   tempo.clock = state.shotClock;
   return tempo.wait;
 }
@@ -143,9 +144,10 @@ function planWithBall(state, p) {
   // Early in the shot clock he does not settle for a shot from outside or take on a set defence: the offence is run
   // first. A team behind late in the game has no time for that.
   // Once the screen of a play has been used the offence has been run, however early it is.
-  const wait = patience(state), early = !sit.hurry && CLOCK.shot - state.shotClock < wait && !playRan(state, p.team);
+  const wait = patience(state, p.team), early = !sit.hurry && CLOCK.shot - state.shotClock < wait && !playRan(state, p.team);
   // Nobody between him and the hoop, every defender well behind him: a fast break, run whenever it comes.
-  const ahead = opponents(state, p).every(o => dist(o, hoop) > toHoop + AI.breakLead);
+  // (A team that likes to run reads a break with less of a lead.)
+  const ahead = opponents(state, p).every(o => dist(o, hoop) > toHoop + AI.breakLead * Math.min(1.2, Math.max(0.6, 2 - playbookOf(state, p.team).run)));
   // A handler who has just beaten his man with a move goes too, early or not: that is what the move was for.
   const beat = state.time - p.moved < AI.beatFor;
   // His play has not formed yet: he keeps the ball rather than shoot from outside or pass. So does a team ahead late
@@ -318,9 +320,11 @@ function rimValue(state, p) {
 // lane is clear), or the possession going on in his hands, less the moment the pass takes.
 // A shot is weighed as its taker likes it: more for a man who looks for his shot (usage), and for one shooting from
 // where he likes to (his diet), less for the others.
+// His team's appetite for threes counts too.
 function leaning(state, m, zone = zoneOf(m)) {
   const tend = personOf(state, m).tend;
-  return styled(state, 'decide.usage') * (tend.usage - 0.5) + styled(state, 'decide.diet') * (tend.diet[zone === 'inside' ? 'rim' : zone] - 1 / 3);
+  return styled(state, 'decide.usage') * (tend.usage - 0.5) + styled(state, 'decide.diet') * (tend.diet[zone === 'inside' ? 'rim' : zone] - 1 / 3)
+    + (zone === 'three' ? styled(state, 'decide.threes') * (playbookOf(state, m.team).threes - 1) : 0);
 }
 
 // Late in the shot clock a pass also costs the receiver the time he needs to gather it and get a shot up.

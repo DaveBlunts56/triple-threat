@@ -144,6 +144,7 @@ export function createMatch(seed = 1, size = 3, teams = [0, 1]) {
     playCall: [null, null],   // the play asked for and not yet started, by its key
     playWait: [0, 0],         // seconds until each team's coach may call another
     switches: 0,   // how many times men have been changed, by a screen or when getting back
+    switchesBy: [0, 0],   // of those on a screen, by each team
     shot: null,   // how the last shot was let go, as the rules judged it; null from the next press until its release
     frontcourt: false, backcourtT: 0, inboundT: 0, controlTeam: null,
     players: Array.from({ length: 2 * size }, (_, id) => createPlayer(id, size)),
