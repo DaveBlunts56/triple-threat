@@ -24,6 +24,7 @@ export const KINDS = f({
   'decide.temperature': 'positive', 'iq.offence': 'positive', 'iq.defence': 'positive', 'coach.adapt': 'positive', 'coach.rotation': 'word',
   'decide.possession': 'positive', 'decide.usage': 'positive', 'decide.diet': 'positive', 'decide.drive': 'positive',
   'decide.pass': 'positive', 'decide.floor': 'positive', 'decide.misread': 'chance', 'decide.foulDraw': 'positive', 'decide.stale': 'positive', 'decide.rhythm': 'positive',
+  'decide.scout': 'positive', 'decide.watch': 'chance', 'decide.watchDelay': 'positive', 'decide.fly': 'chance', 'decide.spread': 'positive', 'react.iq': 'chance',
 });
 
 // Arcade: the game as it was, read from tuning.js.
@@ -40,6 +41,7 @@ const ARCADE = f({
   'decide.temperature': 0.3, 'iq.offence': 1, 'iq.defence': 1, 'coach.adapt': 1, 'coach.rotation': 'energy',
   'decide.possession': 1.0, 'decide.usage': 0.5, 'decide.diet': 0.6, 'decide.drive': 0.2,
   'decide.pass': 0.15, 'decide.floor': 60, 'decide.misread': 0.25, 'decide.foulDraw': 0.15, 'decide.stale': 0.08, 'decide.rhythm': 0.15,
+  'decide.scout': 0.5, 'decide.watch': 0.15, 'decide.watchDelay': 0.5, 'decide.fly': 0.5, 'decide.spread': 0.5, 'react.iq': 0,
 });
 
 // Simulation: NBA-like. Its own numbers, written out (Stage 4 tunes them).
@@ -56,6 +58,7 @@ const SIM = f({
   'decide.temperature': 0.3, 'iq.offence': 1, 'iq.defence': 1, 'coach.adapt': 1, 'coach.rotation': 'plan',
   'decide.possession': 1.0, 'decide.usage': 0.5, 'decide.diet': 0.6, 'decide.drive': 0.2,
   'decide.pass': 0.15, 'decide.floor': 60, 'decide.misread': 0.25, 'decide.foulDraw': 0.15, 'decide.stale': 0.08, 'decide.rhythm': 0.15,
+  'decide.scout': 0.5, 'decide.watch': 0.15, 'decide.watchDelay': 0.5, 'decide.fly': 0.5, 'decide.spread': 0.5, 'react.iq': 0,
 });
 
 export const STYLES = f({ arcade: ARCADE, sim: SIM });

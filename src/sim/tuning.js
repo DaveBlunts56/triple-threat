@@ -248,7 +248,10 @@ export const MATCHUP = f({ lost: 2, save: 6, wait: 2 });
 // screener's defender takes the man when he is this near him. dropAt: metres in front of the rim a dropping big sits.
 // changeEvery: possessions a coach lets pass between two changes of scheme. beaten: points per possession by which
 // the other team's pick-and-roll must beat its own average, over at least `seen` of them, for him to change.
-export const SCHEME = f({ switchReach: 2.5, dropAt: 3.5, changeEvery: 8, beaten: 0.25, seen: 5 });
+// doubleAt, doubleWithin, doubleFor: a post man with this Inside who has the ball this near the rim, for no longer than
+// this, is doubled; doubleGap: metres from him the second defender stands. flyPast: metres past the shooter a flying
+// closeout aims.
+export const SCHEME = f({ switchReach: 2.5, dropAt: 3.5, changeEvery: 8, beaten: 0.25, seen: 5, doubleAt: 85, doubleWithin: 4, doubleFor: 2.5, doubleGap: 0.9, flyPast: 0.4 });
 
 export const VIOLATION = f({ backcourt: 8, key: 3, inbound: 5, keyHalfWidth: 2.45, keyDepth: 5.8 });
 

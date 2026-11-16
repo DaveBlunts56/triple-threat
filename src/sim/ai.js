@@ -1,14 +1,15 @@
-import { AI, BALL, CLOCK, COURT, DT, FINISH, FT, LATE, MOVES, PASS, PLAY, PLAYER, READ, SHOT, STEAL, THREE_PT, TIP, VIOLATION, LEVEL_IQ, levelOf } from './tuning.js';
+import { AI, BALL, CLOCK, COURT, DT, FINISH, FT, LATE, MOVES, PASS, PLAY, PLAYER, READ, SHOT, STEAL, THREE_PT, TIP, VIOLATION, LEVEL_IQ, SCHEME, levelOf } from './tuning.js';
 import { SHOT_BEST, SHOT_LANDS, gatherOf, isThree, shotBest, shotLands, zoneOf } from './players.js';
 import { canDunk, finishFor } from './finish.js';
 import { lift, drop, rated, starOf, heatOf } from './ratings.js';
 import { ftChance } from './freethrow.js';
 import { attackSign, emptyIntent, isJumper, onFloor, personOf, rand } from './state.js';
 import { rimCentre } from './ball.js';
-import { manOf } from './matchups.js';
-import { playHolds, playRan, playSpot, playTarget } from './plays.js';
+import { manOf, schemeOf } from './matchups.js';
+import { playHolds, playRan, playSpot, playTarget, screenerOn } from './plays.js';
 import { situation } from './late.js';
 import { offBallSpot, passed } from './offball.js';
+import { OFF } from './tuning.js';
 import { KINDS } from './moves.js';
 import { styled } from './styles.js';
 import { gambleOf, tightness } from './coach.js';
@@ -251,6 +252,9 @@ function planWithBall(state, p) {
 // not the one he sees as he decides.
 const RISE = 0.6;
 
+// What his reaction to his man going up is multiplied by: in a style that reads it, the sharper the sooner.
+const reaction = (state, p) => 1 + styled(state, 'react.iq') * (1.25 - iqOf(state, p) - 0.5);
+
 // How well `p` decides: his own IQ, and in Play, for the computer's team, sharper or duller as the level says.
 function iqOf(state, p) {
   const humans = state.humans ?? [0], iq = personOf(state, p).iq;
@@ -402,6 +406,8 @@ function planOffBall(state, p) {
 
 // Whether `p` should leave his man to help: the ball handler, who is not his man, has a clear lane and is near the
 // hoop, and of the defenders off the ball `p` is the nearest to the hoop. Once he has come he stays a moment.
+// It is a choice: what the handler would make at the rim, weighed by how readily this defender helps, against what his
+// own man would make left open. A sharp defender weighs them well; a poor one sometimes stays when he should go.
 function helps(state, p, man, hoop) {
   const holder = state.players[state.ball.holder];
   if (!holder || holder.team === p.team || holder === man || holder.inbounder || state.phase !== 'live') return false;
@@ -409,7 +415,22 @@ function helps(state, p, man, hoop) {
   if (dist(holder, hoop) > AI.helpFrom || !laneClear(state, holder)) return false;
   const off = state.players.filter(m => m.team === p.team && manOf(state, m) !== holder);
   if (nearestTo(off, hoop) !== p) return false;
+  const eager = 0.6 + 0.8 * personOf(state, p).tend.help * schemeOf(state, p.team).help / 0.6;
+  const options = [{ key: 'help', value: rimValue(state, holder) * eager }, { key: 'stay', value: shotValue(state, man, { closing: -1 }) }];
+  if (choose(state, options, iqOf(state, p), 'defence').key !== 'help') return false;
   p.ai.helpUntil = state.time + AI.helpFor;
+  return true;
+}
+
+// A post scorer who has caught the ball deep draws a second defender, if his team's defence doubles the post: the
+// defender guarding the attacker nearest him who is no shooter (his man is the one left open, and the rest rotate).
+function doubles(state, p, man, hoop) {
+  const holder = state.players[state.ball.holder];
+  if (!holder || holder.team === p.team || holder === man || holder.inbounder || state.phase !== 'live' || !schemeOf(state, p.team).postDouble) return false;
+  if (rated(state, holder, 'inside') < SCHEME.doubleAt || dist(holder, hoop) > SCHEME.doubleWithin || (holder.ai.heldT ?? 0) > SCHEME.doubleFor) return false;
+  const open = state.players.filter(m => m.team === p.team && manOf(state, m) !== holder && rated(state, manOf(state, m), 'three') < OFF.shooterAt);
+  if (!open.length || nearestTo(open, holder) !== p) return false;
+  p.ai.helpUntil = state.time + 0.5;   // he has left his man: the others rotate to him (help the helper, below)
   return true;
 }
 
@@ -430,9 +451,12 @@ function planDefence(state, p) {
   const hasBall = state.ball.holder === man.id;
   // How far off his man he stands: closer to a good shooter and further from a poor one, and on the ball a step more
   // for a quick man.
-  const three = rated(state, man, 'three');
-  const usual = hasBall ? Math.min(Math.max(AI.onBallGap * drop(three, AI.shooterGap) * lift(rated(state, man, 'speed'), AI.quickGap), AI.gapRange[0]), AI.gapRange[1])
-    : AI.offBallGap * drop(three, AI.offShooterGap);
+  // Off the ball his scouting report counts too: tighter on a man who looks for his three, off one who never does.
+  // On the ball his team's pressure.
+  const three = rated(state, man, 'three'), scheme = schemeOf(state, p.team), iq = iqOf(state, p);
+  const report = Math.min(1.2, Math.max(0.85, 1 + styled(state, 'decide.scout') * (1 / 3 - personOf(state, man).tend.diet.three)));
+  const usual = hasBall ? Math.min(Math.max(AI.onBallGap * drop(three, AI.shooterGap) * lift(rated(state, man, 'speed'), AI.quickGap), AI.gapRange[0]), AI.gapRange[1]) / scheme.pressure
+    : AI.offBallGap * drop(three, AI.offShooterGap) * report;
   const gap = (hasBall && sit.press ? LATE.pressGap : usual) * tightness(state, p.team, hasBall);   // as his coach has adjusted it
   const d = dist(hoop, man) || 1;
   let guard = { x: man.x + ((hoop.x - man.x) / d) * gap, z: man.z + ((hoop.z - man.z) / d) * gap };
@@ -442,6 +466,11 @@ function planDefence(state, p) {
   if (!sit.press && Math.abs(hoop.x - guard.x) > Math.abs(hoop.x - line)) {
     const u = (line - man.x) / (hoop.x - man.x);
     guard = { x: line, z: man.z + (hoop.z - man.z) * u };
+  }
+  // Off the ball a defender who decides poorly watches the ball, and drifts toward it from his man.
+  if (theirs && !hasBall) {
+    const watch = styled(state, 'decide.watch') * (1 - iq);
+    guard = { x: guard.x + (state.ball.x - guard.x) * watch, z: guard.z + (state.ball.z - guard.z) * watch };
   }
   // Two passes from the ball he sags toward the lane, where he can help; one pass away he stays close.
   const away = theirs && !hasBall && dist(man, holder) > AI.onePass && dist(man, hoop) < AI.sagWithin;
@@ -460,17 +489,32 @@ function planDefence(state, p) {
   if (helps(state, p, man, hoop)) {
     const far = dist(holder, hoop) || 1;
     guard = { x: hoop.x + ((holder.x - hoop.x) / far) * AI.helpAt, z: hoop.z + ((holder.z - hoop.z) / far) * AI.helpAt };
+  } else if (doubles(state, p, man, hoop)) {
+    // The double: beside the post man, on the side of the man he has left, so that the easy pass back out is not there.
+    const toMan = dist(man, holder) || 1;
+    guard = { x: holder.x + ((man.x - holder.x) / toMan) * SCHEME.doubleGap, z: holder.z + ((man.z - holder.z) / toMan) * SCHEME.doubleGap };
+  }
+  // A dropping big: his man is setting the screen on the ball, and he sits back between the ball and the rim until
+  // the handler is past it, while the ball's defender goes over.
+  if (theirs && scheme.screen === 'drop' && screenerOn(state, holder.team) === man.id) {
+    const far = dist(holder, hoop) || 1;
+    guard = { x: hoop.x + ((holder.x - hoop.x) / far) * SCHEME.dropAt, z: hoop.z + ((holder.z - hoop.z) / far) * SCHEME.dropAt };
   }
   // To foul on purpose he goes straight at the ball.
   if (sit.foul && hasBall && !man.inbounder) guard = { x: man.x, z: man.z };
-  // Closing out: his man has just caught the ball, and he sprints at him with a hand up.
+  // Closing out: his man has just caught the ball, and he sprints at him with a hand up. A poor decision-maker may fly at
+  // him instead of arriving under control: he aims past him, and the shooter has a lane to drive.
   p.closing = theirs && hasBall && !man.inbounder && (man.ai.heldT ?? Infinity) < AI.closeFor && dist(p, guard) > AI.arrive;
+  if (p.closing && !ai.closingOut) ai.flying = rand(state) < styled(state, 'decide.fly') * (1 - iq);
+  ai.closingOut = p.closing;
+  if (p.closing && ai.flying) { const far = dist(p, man) || 1; guard = { x: man.x + ((man.x - p.x) / far) * SCHEME.flyPast, z: man.z + ((man.z - p.z) / far) * SCHEME.flyPast }; }
   goTo(ai, guard, p.closing || sit.hustle || sit.press || dist(p, guard) > styled(state, 'ai.farAway'));
 
   // A gather does not draw him off the floor: he goes up when his man does.
   if (shotJump(man) && dist(p, man) < AI.contestDist) ai.action = 'jump';
   else if (sit.foul && state.phase === 'live' && holder && holder.team !== p.team && !holder.inbounder && dist(p, holder) <= STEAL.reach) ai.action = 'foul';
-  else if (hasBall && !man.inbounder && p.stealCooldown <= 0 && dist(p, man) <= STEAL.reach && rand(state) < styled(state, 'ai.stealRate') * (p.team === 1 ? levelOf(state).steal : 1) * gambleOf(state, p, personOf(state, p))) ai.action = 'steal';
+  else if (hasBall && !man.inbounder && p.stealCooldown <= 0 && dist(p, man) <= STEAL.reach
+    && rand(state) < styled(state, 'ai.stealRate') * (p.team === 1 ? levelOf(state).steal : 1) * gambleOf(state, p, personOf(state, p)) * (0.5 + personOf(state, p).tend.gamble)) ai.action = 'steal';
 }
 
 function plan(state, p) {
@@ -565,13 +609,18 @@ export function aiIntents(state, dt) {
     p.ai.sawPass = ownPass;
     // His man going up for a shot: he reacts within the style's contest delay, not at his next decision.
     const up = shotJump(manOf(state, p));
-    if (up && !p.ai.sawJump) p.ai.timer = Math.min(p.ai.timer, rand(state) * styled(state, 'ai.contestDelay'));
+    if (up && !p.ai.sawJump) p.ai.timer = Math.min(p.ai.timer, rand(state) * styled(state, 'ai.contestDelay') * reaction(state, p));
     p.ai.sawJump = up;
+    // His man setting off on a cut: a defender watching the ball sees it late.
+    const cutting = state.cut[1 - p.team]?.id === p.man;
+    if (cutting && !p.ai.sawCut) p.ai.timer = Math.max(p.ai.timer, styled(state, 'decide.watchDelay') * (1 - iqOf(state, p)));
+    p.ai.sawCut = cutting;
     p.ai.heldT = has ? (p.ai.had ? p.ai.heldT + dt : 0) : 0;
     p.ai.had = has;
     if (p.ai.timer <= 0) {
       plan(state, p);
-      p.ai.timer = (p.team === 1 ? levelOf(state).interval : AI.interval) + rand(state) * AI.jitter;   // the computer's team thinks as fast as the level says
+      // The computer's team thinks as fast as the level says; within a team a sharp player looks again sooner.
+      p.ai.timer = (p.team === 1 ? levelOf(state).interval : AI.interval) * (1 + styled(state, 'decide.spread') * (0.7 - iqOf(state, p))) + rand(state) * AI.jitter;
       if (p.ai.soon !== undefined) { p.ai.timer = p.ai.soon; p.ai.soon = undefined; }   // he looks again as his move ends
     }
     return act(state, p);

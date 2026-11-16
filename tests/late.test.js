@@ -230,7 +230,7 @@ test('the computer\'s defence adapts to what you score with, by as much as the l
   const usual = gap('legend', [0, 0], 6);
   assert.ok(gap('legend', [1, 5], 6) < usual - 0.3, 'not tighter on shooters');
   assert.ok(gap('legend', [6, 0], 6) > usual + 0.3, 'not looser on a team scoring inside');
-  assert.ok(Math.abs(gap('rookie', [1, 5], 6) - usual) < 1e-9, 'Rookie adapts');
+  assert.ok(Math.abs(gap('rookie', [1, 5], 6) - gap('rookie', [0, 0], 6)) < 1e-9, 'Rookie adapts');   // (each level's defenders stand as their IQ has them)
   assert.ok(Math.abs(gap('legend', [1, 1], 6) - usual) < 1e-9, 'it adapts on too few baskets');
 });
 

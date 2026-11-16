@@ -285,3 +285,11 @@ export function playTarget(state, player) {
   const mate = want ? state.players[play.ids[want]] : null;
   return mate && mate !== player ? mate : null;
 }
+
+// The man setting the screen on the ball in `team`'s play, while that screen is still to come or has just been used
+// (within `after` seconds): his id, or null. For a defence that drops its big off him (see ai.js).
+export function screenerOn(state, team, after = 1.2) {
+  const play = state.plays[team], part = play && PLAYS[play.key].screener;
+  if (!part || (play.usedAt !== null && play.t - play.usedAt > after)) return null;
+  return play.ids[part] ?? null;
+}
