@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { pixelRatioFor, prefersWebGL } from './quality.js';
 import { createLight } from './light.js';
 import { createFloor } from './floor.js';
+import { arenaOf } from './arenas.js';
 import { createArena } from './arena.js';
 import { createSideline } from './sideline.js';
 import { createRefs } from './refs.js';
@@ -60,7 +61,7 @@ export async function createScene(canvas) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0b0d12);
 
-  const floor = await createFloor(scene);
+  const floor = await createFloor(scene, arenaOf());
   const arena = createArena(scene);
   const sideline = createSideline(scene), refs = createRefs(scene);
   // The nets' picture as its colour and its see-through, unlit, both sides drawn, and not written to the depth buffer.
@@ -137,6 +138,7 @@ export async function createScene(canvas) {
       scene.updateMatrixWorld();
       scene.matrixWorldAutoUpdate = false;
       try { post.render(); } finally { scene.matrixWorldAutoUpdate = true; }
+      arena.feed(renderer, camera, post.picture());   // the frame just drawn, onto the video board (High and Ultra)
     },
     missing: post.missing,   // the effects of the current level that this browser could not run, in words
     // Eases the camera toward the ball: along the sideline, or behind the team that has the ball, looking at the hoop

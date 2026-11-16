@@ -131,3 +131,31 @@ Every measurement is the NBA's, in metres:
   - Every stage measures Low against the stage before.
   - The building is drawn in as few draw calls as it can be.
   - The live video board renders the scene again, so it is only on High and Ultra.
+
+## Stage 2 as built (2026-11-16)
+
+- **The building** (building.js) goes round the lower stands as they were, so the broadcast camera's tested sightlines
+  hold:
+  - corner blocks with the teams' tunnels (the far corners) and exits (the near ones);
+  - the suites' windows;
+  - the LED ribbon;
+  - a 12-row upper deck behind a glass railing, with corner blocks;
+  - the walls behind it;
+  - handrails down the aisles cut through every stand;
+  - wave-shaped steel trusses, catwalks hung from them, and four banners over each end.
+- **The near side** behind the camera: its suites, ribbon and upper deck begin behind the camera (z 19.6). The wall
+  in front of them stays under its view.
+- **The video board** shows its own graphics on every level (both teams' marks, points, period and clock). On High
+  and Ultra it shows the live picture instead: the frame just drawn, copied small whenever the board is in view, so
+  it costs no second drawing of the scene. The score strip under the screens is on every level.
+- **The court:** the lanes and centre circle painted the Waves' blue, their mark at centre court, "HARBOR CITY"
+  along the baselines and "TIDEWATER ARENA" along the sidelines.
+- **Cost:**
+  - Everything flat and unlit (windows, banners, tunnels, signs, the board's core) is one mesh on one picture.
+  - What runs round (the ribbon and the board's ring) is another.
+  - The lower steps join the upper deck's concrete.
+  - The upper deck's fans are in the crowd's own two batches.
+  - Low draws 79 calls against Stage 1's 72. Its JavaScript a frame measured 1.33–1.46 ms against Stage 1's
+    1.41–1.99, on the same machine back to back.
+- **Not yet:** the upper deck's fans sit still until Stage 3 gives every fan their reactions. Every match is at
+  Tidewater until Stage 4 builds Red Rock Pavilion.
