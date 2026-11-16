@@ -7,15 +7,15 @@ import { attackSign, emptyIntent, isJumper, onFloor, personOf, rand } from './st
 import { rimCentre } from './ball.js';
 import { manOf, schemeOf } from './matchups.js';
 import { playHolds, playRan, playSpot, playTarget, screenerOn } from './plays.js';
-import { situation } from './late.js';
+import { needOf, situation } from './late.js';
 import { offBallSpot, passed } from './offball.js';
 import { OFF } from './tuning.js';
 import { KINDS } from './moves.js';
 import { styled } from './styles.js';
 import { speedFactor } from './stamina.js';
-import { gambleOf, playbookOf, tightness } from './coach.js';
-import { choose } from './choose.js';
-import { contestShare, distanceChance, expectedShot, greenShare, levelFor, rangeShare, shotChance, skillOf, timingShare, windowHalf, zoneFor } from './shooting.js';
+import { easeOf, focusOf, gambleOf, playbookOf, tightness } from './coach.js';
+import { choose, sharpness } from './choose.js';
+import { contestShare, distanceChance, expectedShot, greenShare, levelFor, meanTiming as sharedTiming, rangeShare, shotChance, skillOf, windowHalf, zoneFor } from './shooting.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const nearestTo = (list, point) => list.reduce((a, b) => (dist(b, point) < dist(a, point) ? b : a));
@@ -191,7 +191,7 @@ function planWithBall(state, p) {
     // A lane he can see is not clear he does not throw into: unless he does not see the defender in it, which a
     // poor decision-maker sometimes does not (and the defender then picks it off, as passes are picked off).
     const clear = laneClear(state, p, m, untouchable, want ? PLAY.feedWidth : AI.laneWidth);
-    if (!clear && rand(state) >= styled(state, 'decide.misread') * (1 - iqOf(state, p))) continue;
+    if (!clear && rand(state) >= styled(state, 'decide.misread') * (1 - sharpness(state, iqOf(state, p), 'offence'))) continue;
     const them = personOf(state, m), heat = heatOf(them);
     const value = passValue(state, p, m, keep) + styled(state, 'decide.pass') * (tend.passFirst - 0.5) + (want ? 0.5 : 0)
       + (m === star ? 0.1 : 0) + (heat === 'hot' ? 0.06 : heat === 'cold' ? -0.06 : 0);
@@ -213,10 +213,16 @@ function planWithBall(state, p) {
   }
   // A post scorer with his man on his back backs him down toward the rim.
   if (settled && !waits && tend.post >= 0.5 && toHoop > 2.6 && toHoop <= 6 && zone !== 'three' && gap <= 1.6)
-    add('post', shotValue(state, p, { fading: true }) + 0.08 + styled(state, 'decide.drive') * (tend.post - 0.5));
+    add('post', shotValue(state, p, { fading: true }) + 0.08 + styled(state, 'decide.drive') * (tend.post - 0.5) + needOf(state, p.team, 'mid'));
   // Keep it: wait for the play, the screen or the clock, or bring it up. Held long without a purpose the ball goes
   // stale, and the defence settles: worth less the longer he has had it, unless his play is still forming.
   add('hold', keep - (waits ? 0 : styled(state, 'decide.stale') * Math.max(0, ai.heldT - 1.5)));
+  // In the lane with the three-second count running out, he does not stay: he shoots, passes or fades from there, and
+  // with none of those on he takes the ball out of the lane.
+  if (p.keyT > AI.keyOut) {
+    for (let i = options.length - 1; i >= 0; i--) if (options[i].key === 'hold' || options[i].key === 'post' || options[i].key === 'move') options.splice(i, 1);
+    if (!options.length) return goTo(ai, { x: p.x, z: Math.sign(p.z || 1) * (VIOLATION.keyHalfWidth + 0.9) }, true);
+  }
 
   const pick = choose(state, options, iqOf(state, p), 'offence');
   ai.chose = pick.key; ai.options = options;   // what he chose and from what, for whoever watches (the tests)
@@ -265,21 +271,8 @@ function iqOf(state, p) {
   return Math.min(0.99, Math.max(0.2, iq + (LEVEL_IQ[state.difficulty] ?? 0)));
 }
 
-const timingCache = new Map();
-// The share of a shot's chance a computer's release keeps on average, his releases spread evenly within `jitter` of
-// the best moment, as `shoot` draws them.
-function meanTiming(jitter, worst) {
-  const key = `${jitter}|${worst}`;
-  if (!timingCache.has(key)) {
-    let sum = 0;
-    for (let i = 0; i <= 8; i++) {
-      const at = Math.min(Math.max(SHOT_BEST - jitter + (2 * jitter * i) / 8, SHOT.gather + DT), SHOT_LANDS - 3 * DT);
-      sum += timingShare(at, worst, SHOT_BEST, SHOT_LANDS);
-    }
-    timingCache.set(key, sum / 9);
-  }
-  return timingCache.get(key);
-}
+// The share of a shot's chance a computer's release keeps on average (see shooting.js).
+const meanTiming = (jitter, worst) => sharedTiming(jitter, worst, SHOT_BEST, SHOT_LANDS, SHOT.gather);
 
 // How a computer shooter of `team` shoots: his release spread, the share a bad release keeps, and the level's make and
 // green-window factors (team 0's computer players shoot on your level's numbers, as makeChance has them).
@@ -314,18 +307,19 @@ export function shotValue(state, m, { at = m, closing = 0, fading = false } = {}
 // spot, and something for the foul a drive draws; less a little for the steal or the charge it risks.
 function rimValue(state, p) {
   const sign = attackSign(p.team), hoop = rimCentre(sign);
-  return shotValue(state, p, { at: { x: hoop.x - sign * 1, z: 0 } }) + (canDunk(state, p) ? 0.1 : 0) + styled(state, 'decide.foulDraw') - 0.1;
+  return shotValue(state, p, { at: { x: hoop.x - sign * 1, z: 0 } }) + (canDunk(state, p) ? 0.1 : 0) + styled(state, 'decide.foulDraw') - 0.1 + styled(state, 'decide.rimBase') + needOf(state, p.team, 'rim');
 }
 
 // What a pass to `m` is worth: the best he could make of it on the catch (a shot as his man closes, the rim if his
 // lane is clear), or the possession going on in his hands, less the moment the pass takes.
 // A shot is weighed as its taker likes it: more for a man who looks for his shot (usage), and for one shooting from
 // where he likes to (his diet), less for the others.
-// His team's appetite for threes counts too.
+// His team's appetite for threes counts too, and the style's own (the modern game's).
 function leaning(state, m, zone = zoneOf(m)) {
   const tend = personOf(state, m).tend;
   return styled(state, 'decide.usage') * (tend.usage - 0.5) + styled(state, 'decide.diet') * (tend.diet[zone === 'inside' ? 'rim' : zone] - 1 / 3)
-    + (zone === 'three' ? styled(state, 'decide.threes') * (playbookOf(state, m.team).threes - 1) : 0);
+    + (zone === 'three' ? styled(state, 'decide.threes') * (playbookOf(state, m.team).threes - 1) + styled(state, 'decide.threeBase') : 0)
+    + (zone === 'inside' ? styled(state, 'decide.rimBase') : 0) + needOf(state, m.team, zone);
 }
 
 // Late in the shot clock a pass also costs the receiver the time he needs to gather it and get a shot up.
@@ -391,7 +385,10 @@ function planFreeBall(state, p) {
       return goTo(ai, { x: boxer.x - ((rim.x - boxer.x) / far) * 0.6, z: boxer.z - ((rim.z - boxer.z) / far) * 0.6 }, true);
     }
   }
-  goTo(ai, ball, true); ai.chase = true;
+  // Reading the carom (where the style has it): a loose ball is chased to where it will be when he gets there, as far
+  // ahead as the style's lead (seconds), not to where it is.
+  const lead = ball.mode === 'loose' ? Math.min(styled(state, 'board.lead'), dist(p, ball) / PLAYER.sprint) : 0;
+  goTo(ai, lead > 0 ? { x: ball.x + ball.vx * lead, z: ball.z + ball.vz * lead } : ball, true); ai.chase = true;
   if (dist(p, ball) < AI.reboundDist && ball.y < AI.reboundHeight && ball.y > PLAYER.reach && ball.vy < 0) ai.action = 'jump';
 }
 
@@ -475,7 +472,9 @@ function planDefence(state, p) {
   const report = Math.min(1.2, Math.max(0.85, 1 + styled(state, 'decide.scout') * (1 / 3 - personOf(state, man).tend.diet.three)));
   const usual = hasBall ? Math.min(Math.max(AI.onBallGap * drop(three, AI.shooterGap) * lift(rated(state, man, 'speed'), AI.quickGap), AI.gapRange[0]), AI.gapRange[1]) / scheme.pressure
     : AI.offBallGap * drop(three, AI.offShooterGap) * report;
-  const gap = (hasBall && sit.press ? LATE.pressGap : usual) * tightness(state, p.team, hasBall);   // as his coach has adjusted it
+  // As his coach has adjusted it: to what the other team scores with, to the score late (a big lead eases off), and to
+  // a man having a big night.
+  const gap = (hasBall && sit.press ? LATE.pressGap : usual) * tightness(state, p.team, hasBall) * easeOf(state, p.team) * focusOf(state, man);
   const d = dist(hoop, man) || 1;
   let guard = { x: man.x + ((hoop.x - man.x) / d) * gap, z: man.z + ((hoop.z - man.z) / d) * gap };
   // No full-court press: while their man is still up the court, wait for him on the pick-up line, between him and the
@@ -487,7 +486,7 @@ function planDefence(state, p) {
   }
   // Off the ball a defender who decides poorly watches the ball, and drifts toward it from his man.
   if (theirs && !hasBall) {
-    const watch = styled(state, 'decide.watch') * (1 - iq);
+    const watch = styled(state, 'decide.watch') * (1 - sharpness(state, iq, 'defence'));
     guard = { x: guard.x + (state.ball.x - guard.x) * watch, z: guard.z + (state.ball.z - guard.z) * watch };
   }
   // Two passes from the ball he sags toward the lane, where he can help; one pass away he stays close.

@@ -120,7 +120,7 @@ export function createMatch(seed = 1, size = 3, teams = [0, 1]) {
     teams: sidesOf(teams),   // the data of each side: playbook, defence, coach (see teams.js)
     subQueue: [], autoSubs: [true, true], teamFouls: [0, 0], lateFouls: [0, 0],
     stoppages: 0, planned: [-1, -1],   // how many times play has stopped; the stoppage each coach last planned his rotation at
-    call: null, freeThrow: null, pendingFoul: null, tipWinner: null,
+    call: null, freeThrow: null, pendingFoul: null, tipWinner: null, clockRuns: false,
     timeouts: [0, 0], lastTimeout: -Infinity,   // each team's timeouts left (set below, from the style); when the last was called
     run: [0, 0],              // each team's points since the other last scored
     made: [[0, 0], [0, 0]],   // each team's baskets from the floor: [twos, threes]

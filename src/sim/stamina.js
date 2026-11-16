@@ -11,8 +11,8 @@ const clamp01 = v => Math.min(1, Math.max(0, v));
 
 // Drains the players who are running, rests the ones standing and everyone on the bench.
 export function tire(state, intents, dt) {
-  const onCourt = new Set(), { styleTable: t } = state;
-  const [rest, sprint, run, bench] = [t['stamina.rest'], t['stamina.sprint'], t['stamina.run'], t['stamina.bench']];   // read once a step: this runs for everyone, every step
+  const onCourt = new Set(), t = state.styleTable;
+  const [rest, sprint, run, bench] = [t.get('stamina.rest'), t.get('stamina.sprint'), t.get('stamina.run'), t.get('stamina.bench')];   // read once a step: this runs for everyone, every step
   state.players.forEach((p, i) => {
     const person = personOf(state, p);
     onCourt.add(person);

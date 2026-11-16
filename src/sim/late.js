@@ -17,9 +17,17 @@ export function situation(state, team) {
     hurry: late && lead < 0,
     milk: late && lead > 0,
     press: late && lead < 0 && near,
-    foul: last && lead < 0 && near && left <= LATE.foulUnder && left > LATE.foulOver,
+    foul: last && lead < 0 && lead !== -3 && near && left <= LATE.foulUnder && left > LATE.foulOver,   // down three, it defends and looks for the tying three
     clutch: last && left <= LATE.clutch && Math.abs(lead) <= LATE.clutchLead,
+    three: last && left <= CLOCK.shot && lead === -3,   // down three with a shot clock's time left or less: only a three ties
   };
+}
+
+// What a shot from `zone` ('three', or any other) is worth to `team` beyond its expected points, as the score and the
+// clock make it: down three late, a three ties and a two does not.
+export function needOf(state, team, zone) {
+  if (!situation(state, team).three) return 0;
+  return zone === 'three' || zone === 'corner3' || zone === 'arc3' ? 1 : -1;
 }
 
 // Whether `team`'s coach wants a timeout now: the other team is on a run, or his five are tired, and he has the ball

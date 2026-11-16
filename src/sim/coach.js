@@ -41,7 +41,8 @@ function pppOf(memory) {
   return count ? points / count : 1;
 }
 export function memoryWeight(state, team, kind) {
-  const c = coachOf(state, team), all = pppOf(c.memory), [points, count] = c.memory[kind] ?? [0, 0];
+  const c = coachOf(state, team), [points, count] = c.memory[kind] ?? [0, 0];
+  const all = c.pppAll ?? (c.pppAll = pppOf(c.memory));   // until his memory changes (possessions.js clears it)
   const mine = (points + MEMORY.prior * all) / (count + MEMORY.prior);
   return Math.min(MEMORY.most, Math.max(MEMORY.least, Math.exp(MEMORY.pull * adaptOf(state, team) * (mine - all))));
 }
@@ -115,6 +116,23 @@ export function tightness(state, team, hasBall) {
   if (!adapt || made < AI.adaptAfter) return 1;
   const share = threes / made;
   return share >= 0.45 ? 1 - 0.3 * adapt : share <= 0.2 && !hasBall ? 1 + 0.35 * adapt : 1;
+}
+
+// Score effects: a team well ahead in the second half eases off on defence, as leading teams do (the margin of a
+// blowout comes back some). What its men's distance off theirs is multiplied by: 1, up to 1 + the style's coach.ease
+// at a lead of 28 or more, from a lead of 8.
+export function easeOf(state, team) {
+  const ease = styled(state, 'coach.ease');
+  if (!(ease > 0) || state.quarter < 3) return 1;
+  return 1 + ease * Math.min(1, Math.max(0, (state.score[team] - state.score[1 - team] - 8) / 20));
+}
+
+// A coach takes the ball out of the hands of a man having a big night: his defender plays him the closer the more he
+// has scored, from 15 points, by up to the style's coach.focus at 35. What his man's distance off him is multiplied by.
+export function focusOf(state, man) {
+  const focus = styled(state, 'coach.focus');
+  if (!(focus > 0)) return 1;
+  return 1 - focus * Math.min(1, Math.max(0, (state.rosters[man.team][man.person].stats.pts - 15) / 20));
 }
 
 // A defence in foul trouble reaches less: the team at its last foul before the bonus, or the man himself one foul from

@@ -35,19 +35,33 @@ export function matchFor(state, team) {
   const cost = (d, a) => Math.abs(size(d) - size(a))
     + Math.abs(person(d).ratings.speed - person(a).ratings.speed) / 15 + (d.slot === a.slot ? 0 : 0.01);
   const rest = defenders.filter(d => d !== stopper), open = attackers.filter(a => a !== threat);
+  // Every order of the rest, tried in the order `orders` gives them, over a table of costs worked out once.
+  const table = rest.map(d => open.map(a => cost(d, a)));
   let best = null, bestCost = Infinity;
-  for (const order of orders(open)) {
-    const c = rest.reduce((sum, d, i) => sum + cost(d, order[i]), 0);
+  for (const order of indexOrders(open.length)) {
+    let c = 0;
+    for (let i = 0; i < order.length; i++) c += table[i][order[i]];
     if (c < bestCost) { best = order; bestCost = c; }
   }
-  const match = new Map([[stopper.id, threat.id], ...rest.map((d, i) => [d.id, best[i].id])]);
+  const match = new Map([[stopper.id, threat.id], ...rest.map((d, i) => [d.id, open[best[i]].id])]);
   return defenders.map(d => match.get(d.id));
 }
 
-// Puts everyone back on his own man, as his coach matches them (see matchFor).
+// Every order of 0 .. n-1, as `orders` would give them, kept once worked out.
+const ORDERS = new Map();
+function indexOrders(n) {
+  if (!ORDERS.has(n)) ORDERS.set(n, [...orders([...Array(n).keys()])]);
+  return ORDERS.get(n);
+}
+
+// Puts everyone back on his own man, as his coach matches them (see matchFor). The matching is worked out again only
+// when who is on the floor, or who is hot, has changed since the last time.
 export function ownMen(state) {
+  state.matched ??= [null, null];
   for (const team of [0, 1]) {
-    const men = matchFor(state, team);
+    const key = state.players.map(p => `${p.person}${personOf(state, p).streak >= HEAT.after ? 'h' : ''}`).join(',');
+    if (state.matched[team]?.key !== key) state.matched[team] = { key, men: matchFor(state, team) };
+    const men = state.matched[team].men;
     state.players.filter(p => p.team === team).forEach((p, i) => { p.man = men[i]; p.switchWait = 0; });
   }
 }

@@ -18,7 +18,7 @@ export function handOver(state, team) {
     if (back.counted) { state.possessions[team]--; state.lengths[team][0] -= back.used; state.lengths[team][1]--; }
     state.owner = team; state.ownerClock = back.startClock; state.ownerQuarter = back.quarter; state.ownerScore = back.score;
     const c = state.coach?.[team];
-    if (back.remembered) { const m = c.memory[back.kind]; m[0] -= back.points; m[1]--; }
+    if (back.remembered) { const m = c.memory[back.kind]; m[0] -= back.points; m[1]--; c.pppAll = undefined; }
     if (c && back.kind !== 'none' && back.kind !== 'transition') c.kind = back.kind;
     state.lastEnded = null;
     return;
@@ -47,5 +47,5 @@ export function endPossession(state) {
   if (!counted) return;
   state.possessions[team]++;
   state.lengths[team][0] += used; state.lengths[team][1]++;
-  if (c) { const m = (c.memory[kind] ??= [0, 0]); m[0] += points; m[1]++; }
+  if (c) { const m = (c.memory[kind] ??= [0, 0]); m[0] += points; m[1]++; c.pppAll = undefined; }
 }

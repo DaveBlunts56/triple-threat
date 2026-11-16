@@ -53,7 +53,10 @@ export function shotChance({ base, timing, contest, energy, levelMake, skill, fa
 export const rangeShare = far => clamp(1 - (far - SHOT.greenFull) / (SHOT.greenNone - SHOT.greenFull), 0, 1);
 
 // The guarded level a contest share puts a shot at: { name, steps }.
-export const levelFor = contest => SHOT.levels.find(level => level.above <= contest);
+export function levelFor(contest) {
+  for (const level of SHOT.levels) if (level.above <= contest) return level;
+  return SHOT.levels[SHOT.levels.length - 1];
+}
 
 // Half the width of the green window, in seconds.
 export function windowHalf({ steps, range, energy, levelGreen, rating, heat }) {
@@ -77,8 +80,8 @@ export function expectedShot({ value, chance, green = 0, rule = 'sure', boost = 
 }
 
 // A computer shooter's free throw. 'flat': the game's own, the same for everyone. 'touch': his own, from his feel for a
-// jump shot (the mean of his mid-range and three ratings): 80% for a 75, about 0.6 points a rating either way.
-export const touchOf = person => Math.min(0.94, Math.max(0.55, 0.8 + ((person.ratings.mid + person.ratings.three) / 2 - 75) * 0.006));
+// jump shot (the mean of his mid-range and three ratings): 82% for a 75, about 0.6 points a rating either way.
+export const touchOf = person => Math.min(0.94, Math.max(0.55, 0.82 + ((person.ratings.mid + person.ratings.three) / 2 - 75) * 0.006));
 export function freeThrowChance(model, person) {
   return model === 'touch' && person ? touchOf(person) : FT.aiChance;
 }
@@ -89,4 +92,20 @@ export function formOf(rand, sd) {
   if (!(sd > 0)) return 1;
   const g = Math.sqrt(-2 * Math.log(Math.max(1e-12, rand()))) * Math.cos(2 * Math.PI * rand());
   return Math.min(1.15, Math.max(0.85, 1 + sd * g));
+}
+
+const timingCache = new Map();
+// The share of a shot's chance a computer's release keeps on average, his releases spread evenly within `jitter` of
+// the best moment `best` (and kept in the air: after `gather`, before `lands`), the worst share `worst` at the ends.
+export function meanTiming(jitter, worst, best, lands, gather) {
+  const key = `${jitter}|${worst}|${best}|${lands}|${gather}`;
+  if (!timingCache.has(key)) {
+    let sum = 0;
+    for (let i = 0; i <= 8; i++) {
+      const at = Math.min(Math.max(best - jitter + (2 * jitter * i) / 8, gather + DT), lands - 3 * DT);
+      sum += timingShare(at, worst, best, lands);
+    }
+    timingCache.set(key, sum / 9);
+  }
+  return timingCache.get(key);
 }

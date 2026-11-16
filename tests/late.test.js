@@ -4,7 +4,7 @@ import { createMatch, emptyIntent, personOf } from '../src/sim/state.js';
 import { giveBall, shotWindow, makeChance, SHOT_BEST } from '../src/sim/players.js';
 import { step } from '../src/sim/step.js';
 import { callTimeout, startMatch } from '../src/sim/rules.js';
-import { situation, wantsTimeout } from '../src/sim/late.js';
+import { needOf, situation, wantsTimeout } from '../src/sim/late.js';
 import { newFreeThrow, setupFreeThrow, stepFreeThrow } from '../src/sim/freethrow.js';
 import { aiIntents } from '../src/sim/ai.js';
 import { callText } from '../src/render/hud.js';
@@ -82,7 +82,7 @@ test('the computer\'s team decides faster on the hard levels; your team-mates do
 
 test('the situation: hustle in the last minute of a close game; hurry, press and fouling for the team behind; the clock for the team ahead', () => {
   const sit = (left, score, team = 0, quarter = CLOCK.quarters) => situation(scene({ left, score, quarter }), team);
-  assert.deepEqual(sit(120, [10, 12]), { lead: -2, clock: CLOCK.shot, hustle: false, hurry: false, milk: false, press: false, foul: false, clutch: false });
+  assert.deepEqual(sit(120, [10, 12]), { lead: -2, clock: CLOCK.shot, hustle: false, hurry: false, milk: false, press: false, foul: false, clutch: false, three: false });
   assert.equal(sit(50, [10, 12]).hustle, true);
   assert.equal(sit(50, [10, 30]).hustle, false, 'not in a blowout');
   assert.equal(sit(50, [10, 12], 0, 1).hustle, false, 'not in the first period');
@@ -93,7 +93,18 @@ test('the situation: hustle in the last minute of a close game; hurry, press and
   assert.equal(sit(40, [10, 14]).foul, false, 'too early to foul');
   assert.equal(sit(1, [10, 14]).foul, false, 'too late to foul');
   assert.equal(sit(20, [10, 24]).foul, false, 'too far behind to foul');
+  assert.equal(sit(20, [10, 13]).foul, false, 'down three: it defends, for the tying three');
+  assert.equal(sit(20, [10, 12]).foul, true, 'down two: it fouls, or the clock runs out');
   assert.equal(sit(20, [10, 10]).hurry, false, 'level: no hurry');
+  // Down exactly three with time for a shot or two, only a three ties: not down two or four, not ahead, not earlier.
+  assert.deepEqual([sit(20, [10, 13]).three, sit(20, [10, 12]).three, sit(20, [10, 14]).three, sit(20, [10, 13], 1).three, sit(30, [10, 13]).three], [true, false, false, false, false]);
+});
+
+test('down three late, a three is what the computer wants and a two is not', () => {
+  const s = scene({ left: 15, score: [10, 13] });
+  assert.ok(needOf(s, 0, 'three') > 0 && needOf(s, 0, 'mid') < 0 && needOf(s, 0, 'rim') < 0);
+  assert.equal(needOf(s, 1, 'three'), 0, 'the team ahead');
+  assert.equal(needOf(scene({ left: 15, score: [10, 12] }), 0, 'mid'), 0, 'down two: a two ties');
 });
 
 test('with the period running out the computer shoots before it ends, whatever the shot clock says', () => {

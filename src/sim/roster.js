@@ -1,5 +1,6 @@
 import { styled } from './styles.js';
 import { foulTrouble } from './coach.js';
+import { overall } from './overall.js';
 
 const courtPlayers = (state, team) => state.players.filter(p => p.team === team);
 const fouledOut = (state, person) => person.fouls >= state.foulLimit;
@@ -79,12 +80,14 @@ export function applySubs(state) {
 // (the first `size` rows) by how good they are around 35, then the bench in roster order. Scaled to the match's length,
 // in seconds. For three a side the court's minutes are shared the same way, by the same shares.
 export function rotationPlan(state, team) {
+  const key = `${state.quarterLength}|${state.rosters[team].map(p => p.name).join()}`;
+  if (state.plans?.[team]?.key === key) return state.plans[team].plan;   // the same for the whole match
   const roster = state.rosters[team], size = state.size, total = 4 * state.quarterLength * size;
-  const shares = roster.map((p, row) => (row < size ? 35 + (overallOf(p) - 84) / 3 : [25, 24, 16, 10, 8][row - size] ?? 6));
-  const sum = shares.reduce((a, b) => a + b, 0);
-  return shares.map(share => (share / sum) * total);
+  const shares = roster.map((p, row) => (row < size ? 35 + (overall(p) - 84) / 3 : [25, 24, 16, 10, 8][row - size] ?? 6));
+  const sum = shares.reduce((a, b) => a + b, 0), plan = shares.map(share => (share / sum) * total);
+  (state.plans ??= [null, null])[team] = { key, plan };
+  return plan;
 }
-const overallOf = person => { const r = Object.values(person.ratings).sort((a, b) => b - a).slice(0, 5); return r.reduce((a, b) => a + b, 0) / 5; };
 
 // How far apart two players are in size, by position.
 const SIZE = Object.freeze({ PG: 1, SG: 2, SF: 3, PF: 4, C: 5 });

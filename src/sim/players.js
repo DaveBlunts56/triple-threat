@@ -423,10 +423,10 @@ export function passBall(state, player, intent) {
 
 export function giveBall(state, player) {
   const { ball } = state;
-  // For the box score. A missed shot taken is a rebound. A pass caught by the other team is a steal, and by his own
+  // For the box score. A missed shot taken is a rebound (not one that was fouled: the whistle brings it back). A pass caught by the other team is a steal, and by his own
   // team is remembered, in case he scores off it.
   const passer = ball.mode === 'pass' ? state.players[state.passer] : null;
-  if (state.board && state.phase !== 'dead') { note(state, player, 'reb'); if (player.team === state.boardTeam) note(state, player, 'orb'); }
+  if (state.board && state.phase !== 'dead' && !state.pendingFoul) { note(state, player, 'reb'); if (player.team === state.boardTeam) note(state, player, 'orb'); }
   state.board = false;
   if (passer && passer.team !== player.team) {
     note(state, player, 'stl'); note(state, passer, 'tov');

@@ -41,6 +41,7 @@ const makeCall = (kind, team, extra = {}) => ({ kind, team, ball: 1 - team, numb
 // If the period clock has run out, the period ends instead of restarting, once any free throws are shot.
 function stopPlay(state, possession, spot, call = null) {
   deadBall(state);
+  state.clockRuns = false;   // a whistle stops the clock (a basket may set it running again: see livePlay)
   state.stoppages++;
   adjust(state, 0); adjust(state, 1);   // each coach looks at his defence at the whistle
   state.board = false;   // nothing to rebound once play has stopped
@@ -59,7 +60,9 @@ function callFoul(state, foul, shots) {
   const { number, name } = personOf(state, fouler);   // read now: he may be substituted during the stoppage
   const given = recordFoul(state, foul);
   const n = shots ?? given.shots;
-  if (given.ball !== fouler.team && state.possession === fouler.team && state.ball.holder !== null) note(state, fouler, 'tov');   // an offensive foul is a turnover
+  // An offensive foul is a turnover. (Not a shooting foul: its whistle can wait for the miss, which the fouler's team
+  // may have picked up by then.)
+  if (foul.kind !== 'shooting' && given.ball !== fouler.team && state.possession === fouler.team && state.ball.holder !== null) note(state, fouler, 'tov');
   if (n) state.freeThrow = newFreeThrow(foul.on, n);
   stopPlay(state, given.ball, sidelineSpot(state.ball), makeCall(foul.kind, fouler.team, { number, name, shots: n }));
   // After a defensive foul the offence has at least 14 seconds left to shoot.
@@ -78,6 +81,7 @@ function deadBall(state) {
 }
 
 function endPeriod(state) {
+  state.clockRuns = false;
   endPossession(state);
   state.stoppages++;
   deadBall(state);
@@ -181,6 +185,7 @@ export function callTimeout(state, team) {
   const live = state.phase === 'live' && holder?.team === team && !holder.shooting && onFloor(holder);
   if (state.timeouts[team] <= 0 || !(live || state.phase === 'dead' || state.phase === 'inbound')) return false;
   state.timeouts[team]--;
+  state.clockRuns = false;
   state.lastTimeout = state.time;
   state.ato = state.possession;   // the team with the ball runs what has worked when play starts again
   for (const person of state.rosters.flat()) person.energy = Math.min(1, person.energy + styled(state, 'timeout.rest'));
@@ -215,6 +220,12 @@ function checkOut(state, events) {
   if (!isOut(state, events)) return false;
   const holder = state.players[state.ball.holder];
   const loser = holder ? holder.team : state.lastTouch ?? state.possession;
+  // Lost out of bounds by the team that had it (not a miss, which is a team rebound): a turnover, the holder's, the
+  // passer's or the fumbler's, or else his team's.
+  if (loser === state.possession && !state.board) {
+    const by = holder ?? (state.ball.mode === 'pass' ? state.players[state.passer] : state.players[state.fumbledBy]);
+    if (by && by.team === loser) note(state, by, 'tov'); else state.teamStats[loser].tov++;
+  }
   stopPlay(state, 1 - loser, spotWhereOut(holder ?? state.ball), makeCall('out', loser));
   return true;
 }
@@ -265,10 +276,18 @@ function livePlay(state, events, dt) {
     if (fouledShot) return callFoul(state, fouledShot, 1);   // the basket counts, and one free throw
     stopPlay(state, 1 - team, underHoop(events.scored));
     state.shotClock = CLOCK.shot;
+    // Where the style has the pro rule, the game clock runs on after a basket, through the inbound, except in the
+    // last two minutes of the last quarter and of overtime.
+    state.clockRuns = state.phase === 'dead' && styled(state, 'rules.madeClock') && !(state.quarter >= CLOCK.quarters && state.gameClock <= 120);
     return;
   }
-  // A fouled shot that missed: the whistle waits until it has been touched, landed or left the court.
-  if (fouledShot && (ball.shooter === null || isOut(state, events))) return callFoul(state, fouledShot, fouledShot.shots);
+  // A fouled shot that missed: the whistle waits until it has been touched, landed or left the court. By the rules it
+  // is not a field-goal attempt, so the attempt noted when it went up is taken back.
+  if (fouledShot && (ball.shooter === null || isOut(state, events))) {
+    const shooter = state.players[fouledShot.on];
+    note(state, shooter, 'fga', -1); if (fouledShot.shots === 3) note(state, shooter, 'tpa', -1);
+    return callFoul(state, fouledShot, fouledShot.shots);
+  }
   trackCounters(state, dt);
   const violation = findViolation(state, events);
   if (violation) {
@@ -288,6 +307,17 @@ function livePlay(state, events, dt) {
   else if (state.shotClock <= 0 && !shotInAir) { state.teamStats[state.possession].tov++; stopPlay(state, 1 - state.possession, sidelineSpot(ball), makeCall('shotClock', state.possession)); }
 }
 
+// The game clock running through a dead ball and its inbound (state.clockRuns, after a basket): the minutes of the ten
+// on court with it. Returns false when it has run out and ended the period.
+function runOn(state, dt) {
+  const was = state.gameClock;
+  state.gameClock = Math.max(0, state.gameClock - dt);
+  for (const p of state.players) personOf(state, p).secs += was - state.gameClock;
+  if (state.gameClock > 0) return true;
+  endPeriod(state);
+  return false;
+}
+
 export function applyRules(state, events, dt, intents) {
   const { ball } = state;
   switch (state.phase) {
@@ -295,10 +325,11 @@ export function applyRules(state, events, dt, intents) {
       tipOff(state, events, dt, intents);
       break;
     case 'inbound': {
+      if (state.clockRuns && !runOn(state, dt)) break;
       const holder = state.players[ball.holder];
       if (holder && !holder.inbounder) {
         for (const p of state.players) p.inbounder = false;
-        state.phase = 'live';
+        state.phase = 'live'; state.clockRuns = false;
       } else if (holder) {
         state.inboundT += dt;
         if (state.inboundT > VIOLATION.inbound) stopPlay(state, 1 - state.possession, state.inboundSpot, makeCall('fiveSeconds', state.possession));
@@ -312,6 +343,7 @@ export function applyRules(state, events, dt, intents) {
       break;
     case 'dead':
       applySubs(state);
+      if (state.clockRuns && !runOn(state, dt)) break;
       state.phaseT -= dt;
       if (state.phaseT <= 0) (state.freeThrow ? setupFreeThrow : setupInbound)(state);
       break;

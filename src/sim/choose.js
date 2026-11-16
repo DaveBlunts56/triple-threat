@@ -8,6 +8,10 @@ import { styled } from './styles.js';
 // The spread of his choices, in expected points: the style's, wider the lower his IQ, narrower the higher the slider.
 export const temperature = (state, iq, side) => (styled(state, 'decide.temperature') * (1.25 - iq)) / styled(state, side === 'defence' ? 'iq.defence' : 'iq.offence');
 
+// His IQ as the side's IQ slider sharpens it, the same way it narrows his choices: 1.25 less what he lacks of that,
+// divided by the slider. At the slider's middle it is his IQ.
+export const sharpness = (state, iq, side) => 1.25 - (1.25 - iq) / styled(state, side === 'defence' ? 'iq.defence' : 'iq.offence');
+
 // `options`: [{ key, value, ... }], `value` in expected points, -Infinity for one not allowed. Returns the option
 // taken, or null when none is allowed. Draws one number from the match's dice when there is more than one to choose.
 export function choose(state, options, iq, side = 'offence') {

@@ -165,7 +165,7 @@ function context(state, play) {
 // Gives the play's parts to the team's players on the court, by what each is good at: the handler has the ball; of
 // the rest the best inside (inside and rebound together) is the big and the next is big2; of those left the better
 // three-point shooter is the shooter and the other the wing. Three a side has a big and a wing.
-function cast(state, holder) {
+export function cast(state, holder) {
   const r = (p, key) => rated(state, p, key), inside = p => r(p, 'inside') + r(p, 'rebound');
   const rest = state.players.filter(p => p.team === holder.team && p !== holder).sort((a, b) => inside(b) - inside(a) || a.slot - b.slot);
   const ids = { handler: holder.id, big: rest[0].id };
@@ -177,15 +177,16 @@ function cast(state, holder) {
 // How well a play suits who is on the floor for `team`, as a weight for the coach's pick: a post-up wants a post
 // scorer, Floppy a sharpshooter, a clear-out the star or a hot hand, the pick and rolls a handler, a pick and pop a
 // big who can shoot. 1 is a play like any other.
-export function suits(state, team, key) {
+export function suits(state, team, key, ids = null, star = null) {
   const holder = state.players[state.ball.holder];
   if (!holder || holder.team !== team) return 1;
-  const ids = cast(state, holder), r = (id, k) => rated(state, state.players[id], k);
+  ids ??= cast(state, holder);
+  const r = (id, k) => rated(state, state.players[id], k);
   const pick = r(holder.id, 'handle') >= SUIT.handle ? 2 : 1;
   switch (key) {
     case 'postUp': return r(ids.big, 'inside') >= SUIT.post ? 3 : 0.5;
     case 'floppy': return r(ids.shooter, 'three') >= SUIT.shooter ? 3 : 0.5;
-    case 'iso': return starOf(state, team) === holder.person || heatOf(personOf(state, holder)) === 'hot' ? 3 : 1;
+    case 'iso': return (star ?? starOf(state, team)) === holder.person || heatOf(personOf(state, holder)) === 'hot' ? 3 : 1;
     case 'pickPop': return pick * (r(ids.big, 'three') >= SUIT.pop ? 2 : 0.3);
     case 'pickRoll': case 'spain': case 'horns': return pick;
     default: return 1;
@@ -244,7 +245,7 @@ export function stepPlays(state, dt) {
       // The coach's pick: any play the match has, the likelier the better it suits who is on the floor, the more his
       // playbook calls it, the bigger the mismatch it hunts and the more it has scored (see coach.js).
       const ids = cast(state, state.players[state.ball.holder]);
-      const weights = list.map(play => suits(state, team, play) * playWeight(state, team, play, ids));
+      const weights = list.map(play => suits(state, team, play, ids) * playWeight(state, team, play, ids));
       let at = rand(state) * weights.reduce((sum, w) => sum + w, 0);
       key = list.find((_, i) => (at -= weights[i]) < 0) ?? list[list.length - 1];
     }

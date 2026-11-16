@@ -13,7 +13,7 @@ const f = Object.freeze;
 // that stays above 0), or 'word' (a choice, never scaled). Ranges ([low, high]) are scaled end by end.
 export const KINDS = f({
   'ai.patience': 'positive', 'play.startAt': 'positive', 'ai.contestDelay': 'positive', 'ai.stealRate': 'chance', 'ai.farAway': 'positive',
-  'player.accel': 'positive', 'player.brake': 'positive', 'decide.earlyThree': 'positive', 'decide.earlyRoom': 'positive', 'board.boxHold': 'word', 'board.selfWait': 'word', 'board.defence': 'word', 'board.crash': 'positive',
+  'player.accel': 'positive', 'player.brake': 'positive', 'decide.earlyThree': 'positive', 'decide.earlyRoom': 'positive', 'board.boxHold': 'word', 'board.selfWait': 'word', 'board.defence': 'word', 'board.crash': 'positive', 'board.lead': 'word',
   'steal.front': 'chance', 'steal.back': 'chance', 'pass.intercept': 'positive',
   'foul.reachFront': 'chance', 'foul.reachBack': 'chance', 'foul.shooting': 'chance', 'foul.charge': 'chance', 'foul.block': 'chance',
   'foul.looseBall': 'chance', 'foul.illegalScreen': 'chance', 'foul.drive': 'chance', 'fumble.rate': 'chance',
@@ -22,17 +22,17 @@ export const KINDS = f({
   'timeout.each': 'positive', 'timeout.rest': 'chance',
   'shot.make': 'positive', 'board.offence': 'positive',
   'shot.curve': 'word', 'shot.green': 'word', 'shot.boost': 'positive', 'ft.model': 'word',
-  'decide.temperature': 'positive', 'iq.offence': 'positive', 'iq.defence': 'positive', 'coach.adapt': 'positive', 'coach.rotation': 'word',
+  'decide.temperature': 'positive', 'iq.offence': 'positive', 'iq.defence': 'positive', 'coach.adapt': 'positive', 'coach.rotation': 'word', 'coach.ease': 'word', 'coach.focus': 'word',
   'decide.possession': 'positive', 'decide.usage': 'positive', 'decide.diet': 'positive', 'decide.drive': 'positive',
   'decide.pass': 'positive', 'decide.floor': 'positive', 'decide.misread': 'chance', 'decide.foulDraw': 'positive', 'decide.stale': 'positive', 'decide.rhythm': 'positive',
   'decide.scout': 'positive', 'decide.watch': 'chance', 'decide.watchDelay': 'positive', 'decide.fly': 'chance', 'decide.spread': 'positive', 'react.iq': 'chance', 'decide.threes': 'positive',
-  'rules.overtimeShare': 'chance', 'rules.orebClock': 'positive', 'rules.lastTwo': 'word', 'form.sd': 'chance', 'move.pacing': 'word',
+  'rules.overtimeShare': 'chance', 'rules.orebClock': 'positive', 'rules.lastTwo': 'word', 'rules.madeClock': 'word', 'form.sd': 'chance', 'move.pacing': 'word', 'decide.threeBase': 'chance', 'decide.rimBase': 'chance',
 });
 
 // Arcade: the game as it was, read from tuning.js.
 const ARCADE = f({
   'ai.patience': AI.patience, 'play.startAt': PLAY.startAt, 'ai.contestDelay': AI.contestDelay, 'ai.stealRate': AI.stealRate, 'ai.farAway': AI.farAway,
-  'player.accel': PLAYER.accel, 'player.brake': PLAYER.accel, 'decide.earlyThree': AI.earlyThree, 'decide.earlyRoom': AI.roomFor, 'board.boxHold': false, 'board.selfWait': 0, 'board.defence': AI.boards, 'board.crash': 1,
+  'player.accel': PLAYER.accel, 'player.brake': PLAYER.accel, 'decide.earlyThree': AI.earlyThree, 'decide.earlyRoom': AI.roomFor, 'board.boxHold': false, 'board.selfWait': 0, 'board.defence': AI.boards, 'board.crash': 1, 'board.lead': 0,
   'steal.front': STEAL.frontChance, 'steal.back': STEAL.backChance, 'pass.intercept': PASS.interceptRadius,
   'foul.reachFront': FOUL.reachFront, 'foul.reachBack': FOUL.reachBack, 'foul.shooting': FOUL.shooting, 'foul.charge': FOUL.charge, 'foul.block': FOUL.block,
   'foul.looseBall': 0, 'foul.illegalScreen': 0, 'foul.drive': 0, 'fumble.rate': 0,
@@ -41,18 +41,18 @@ const ARCADE = f({
   'timeout.each': TIMEOUT.each, 'timeout.rest': TIMEOUT.rest,
   'shot.make': 1, 'board.offence': 1,
   'shot.curve': 'line', 'shot.green': 'sure', 'shot.boost': 1, 'ft.model': 'flat',
-  'decide.temperature': 0.3, 'iq.offence': 1, 'iq.defence': 1, 'coach.adapt': 1, 'coach.rotation': 'energy',
+  'decide.temperature': 0.3, 'iq.offence': 1, 'iq.defence': 1, 'coach.adapt': 1, 'coach.rotation': 'energy', 'coach.ease': 0, 'coach.focus': 0,
   'decide.possession': 1.0, 'decide.usage': 0.5, 'decide.diet': 0.6, 'decide.drive': 0.2,
   'decide.pass': 0.15, 'decide.floor': 60, 'decide.misread': 0.25, 'decide.foulDraw': 0.15, 'decide.stale': 0.08, 'decide.rhythm': 0.15,
   'decide.scout': 0.5, 'decide.watch': 0.15, 'decide.watchDelay': 0.5, 'decide.fly': 0.5, 'decide.spread': 0.5, 'react.iq': 0, 'decide.threes': 0.6,
-  'rules.overtimeShare': 0, 'rules.orebClock': CLOCK.shot, 'rules.lastTwo': false, 'form.sd': 0, 'move.pacing': 'free',
+  'rules.overtimeShare': 0, 'rules.orebClock': CLOCK.shot, 'rules.lastTwo': false, 'rules.madeClock': false, 'form.sd': 0, 'move.pacing': 'free', 'decide.threeBase': 0, 'decide.rimBase': 0,
 });
 
 // Simulation: NBA-like. Its own numbers, written out (Stage 4 tunes them).
 const SIM = f({
-  'ai.patience': f([18, 23]), 'play.startAt': 11, 'ai.contestDelay': 0.3, 'ai.stealRate': 0.006, 'ai.farAway': 6,
-  'player.accel': 14, 'player.brake': 28, 'decide.earlyThree': 80, 'decide.earlyRoom': 2, 'board.boxHold': true, 'board.selfWait': 1.2, 'board.defence': 4, 'board.crash': 0.4,
-  'steal.front': 0.25, 'steal.back': 0.08, 'pass.intercept': 0.22,
+  'ai.patience': f([19, 24]), 'play.startAt': 11, 'ai.contestDelay': 0.3, 'ai.stealRate': 0.01, 'ai.farAway': 6,
+  'player.accel': 14, 'player.brake': 28, 'decide.earlyThree': 80, 'decide.earlyRoom': 2, 'board.boxHold': true, 'board.selfWait': 1.2, 'board.defence': 4, 'board.crash': 0.4, 'board.lead': 1,
+  'steal.front': 0.25, 'steal.back': 0.08, 'pass.intercept': 0.25,
   'foul.reachFront': 0.12, 'foul.reachBack': 0.3, 'foul.shooting': 1, 'foul.charge': 0.6, 'foul.block': 0.15,
   'foul.looseBall': 0.02, 'foul.illegalScreen': 0.05, 'foul.drive': 0.9, 'fumble.rate': 0.005,
   // Sized for 12-minute quarters: a starter tires over 8-12 minutes of play, and a man on the bench is ready again
@@ -63,11 +63,11 @@ const SIM = f({
   'shot.make': 1, 'board.offence': 0.25,
   // The chance of an open shot from each zone, before the defender, his rating, tiredness and timing (see shooting.js).
   'shot.curve': f({ rim: 0.95, close: 0.66, mid: 0.44, corner3: 0.38, arc3: 0.35 }), 'shot.green': 'boost', 'shot.boost': 0.5, 'ft.model': 'touch',
-  'decide.temperature': 0.3, 'iq.offence': 1, 'iq.defence': 1, 'coach.adapt': 1, 'coach.rotation': 'plan',
+  'decide.temperature': 0.3, 'iq.offence': 1, 'iq.defence': 1, 'coach.adapt': 1, 'coach.rotation': 'plan', 'coach.ease': 1, 'coach.focus': 0.4,
   'decide.possession': 1.6, 'decide.usage': 0.5, 'decide.diet': 0.6, 'decide.drive': 0.2,
   'decide.pass': 0.15, 'decide.floor': 60, 'decide.misread': 0.25, 'decide.foulDraw': 0.15, 'decide.stale': 0.08, 'decide.rhythm': 0.15,
   'decide.scout': 0.5, 'decide.watch': 0.15, 'decide.watchDelay': 0.5, 'decide.fly': 0.5, 'decide.spread': 0.5, 'react.iq': 1, 'decide.threes': 1,
-  'rules.overtimeShare': 5 / 12, 'rules.orebClock': 14, 'rules.lastTwo': true, 'form.sd': 0.05, 'move.pacing': 'gaits',
+  'rules.overtimeShare': 5 / 12, 'rules.orebClock': 14, 'rules.lastTwo': true, 'rules.madeClock': true, 'form.sd': 0.05, 'move.pacing': 'gaits', 'decide.threeBase': 0.05, 'decide.rimBase': 0.04,
 });
 
 export const STYLES = f({ arcade: ARCADE, sim: SIM });
@@ -78,7 +78,7 @@ export const STYLE_LABEL = f({ arcade: 'Arcade', sim: 'Simulation' });
 // key it lists with +1 is multiplied by that, one with -1 divided by it.
 export const SLIDERS = f([
   f({ key: 'pace', label: 'Pace', scales: f({ 'ai.patience': -1, 'play.startAt': -1 }) }),
-  f({ key: 'selection', label: 'Shot selection', scales: f({}) }),
+  f({ key: 'selection', label: 'Shot selection', scales: f({ 'decide.threeBase': 1, 'decide.threes': 1, 'decide.rimBase': 1 }) }),
   f({ key: 'shooting', label: 'Shooting', scales: f({ 'shot.make': 1 }) }),
   f({ key: 'offIQ', label: 'Offensive IQ', scales: f({ 'iq.offence': 1 }) }),
   f({ key: 'defIQ', label: 'Defensive IQ', scales: f({ 'ai.contestDelay': -1, 'iq.defence': 1 }) }),
@@ -114,13 +114,14 @@ export function setStyle(state, style = 'arcade', sliders = defaultSliders(), ta
   const base = tables[style];
   state.style = style;
   state.sliders = { ...defaultSliders(), ...sliders };
-  state.styleTable = Object.fromEntries(Object.keys(KINDS).map(key => [key, resolve(key, base[key], state.sliders)]));
+  // A Map: it is read many times a step, and a plain object of this many keys reads slower.
+  state.styleTable = new Map(Object.keys(KINDS).map(key => [key, resolve(key, base[key], state.sliders)]));
   return state;
 }
 
 // The value of a styled number for this match. An unknown key throws, so a misspelt one cannot read as nothing.
 export function styled(state, key) {
-  const value = state.styleTable[key];
+  const value = state.styleTable.get(key);
   if (value === undefined) throw new Error(`no styled number "${key}"`);
   return value;
 }

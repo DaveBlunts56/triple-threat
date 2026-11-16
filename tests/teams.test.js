@@ -37,3 +37,13 @@ test('a third team defined in a test plays a whole match against each of the two
     assert.equal(s.rosters[0][0].name, 'Ezra Pike');
   }
 });
+
+test('a third team plays fast games against each of the two, home and away: they end, and the box scores add up', async () => {
+  const { quickMatch } = await import('../src/sim/quick/engine.js');
+  const { teamLine } = await import('../src/sim/stats.js');
+  for (const teams of [[THIRD_TEAM, 0], [1, THIRD_TEAM], [THIRD_TEAM, 1], [0, THIRD_TEAM]]) for (let seed = 1; seed <= 5; seed++) {
+    const s = quickMatch({ seed, teams });
+    assert.equal(s.phase, 'final');
+    for (const t of [0, 1]) { const l = teamLine(s, t); assert.equal(l.pts, s.score[t]); assert.equal(l.pts, 2 * l.fgm + l.tpm + l.ftm); assert.ok(l.pts > 60, `${l.pts}`); }
+  }
+});

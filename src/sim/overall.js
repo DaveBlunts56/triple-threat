@@ -8,8 +8,15 @@ export const lift = (rating, per10) => 1 + ((rating - 70) / 10) * per10;
 // The same for a thing a better rating makes less of: tiredness, the chance of losing the ball.
 export const drop = (rating, per10) => 1 - ((rating - 70) / 10) * per10;
 
-// A person's overall: the mean of his best five ratings.
+// A person's overall: the mean of his best five ratings. (All eight less the lowest three: it is asked for often, and
+// this makes no garbage.)
 export function overall(person) {
-  const best = KEYS.map(key => person.ratings[key]).sort((a, b) => b - a).slice(0, 5);
-  return Math.round(best.reduce((sum, r) => sum + r, 0) / 5);
+  const r = person.ratings;
+  let total = 0, a = Infinity, b = Infinity, c = Infinity;   // the three lowest, a <= b <= c
+  for (const key of KEYS) {
+    const v = r[key];
+    total += v;
+    if (v < a) { c = b; b = a; a = v; } else if (v < b) { c = b; b = v; } else if (v < c) c = v;
+  }
+  return Math.round((total - a - b - c) / 5);
 }
