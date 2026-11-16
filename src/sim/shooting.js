@@ -76,8 +76,17 @@ export function expectedShot({ value, chance, green = 0, rule = 'sure', boost = 
   return value * (green * greenChance(rule, chance, boost) + (1 - green) * chance);
 }
 
-// A computer shooter's free throw. 'flat': the game's own, the same for everyone. 'touch' comes in Stage 4.
-export function freeThrowChance(model) {
-  if (model === 'flat') return FT.aiChance;
-  return FT.aiChance;
+// A computer shooter's free throw. 'flat': the game's own, the same for everyone. 'touch': his own, from his feel for a
+// jump shot (the mean of his mid-range and three ratings): 78% for a 75, about 0.6 points a rating either way.
+export const touchOf = person => Math.min(0.93, Math.max(0.55, 0.78 + ((person.ratings.mid + person.ratings.three) / 2 - 75) * 0.006));
+export function freeThrowChance(model, person) {
+  return model === 'touch' && person ? touchOf(person) : FT.aiChance;
+}
+
+// A night's form: drawn once a match for each player, around 1 by `sd` (two draws from the dice), within 15% either
+// way. With no spread it is 1 and draws nothing.
+export function formOf(rand, sd) {
+  if (!(sd > 0)) return 1;
+  const g = Math.sqrt(-2 * Math.log(Math.max(1e-12, rand()))) * Math.cos(2 * Math.PI * rand());
+  return Math.min(1.15, Math.max(0.85, 1 + sd * g));
 }

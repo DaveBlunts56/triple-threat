@@ -5,7 +5,7 @@ import { rimCentre } from './ball.js';
 import { carryBall, giveBall, launchShot } from './players.js';
 import { shotFactor } from './stamina.js';
 import { styled } from './styles.js';
-import { freeThrowChance } from './shooting.js';
+import { freeThrowChance, touchOf } from './shooting.js';
 import { ownMen } from './matchups.js';
 
 export const newFreeThrow = (shooter, shots) =>
@@ -53,8 +53,11 @@ export function stepFreeThrow(state, intents, events, dt) {
     ft.t += dt;
     const pressed = ft.armed && intents[ft.shooter].shoot;
     if (!intents[ft.shooter].shoot) ft.armed = true;   // Space still held from before the meter appeared does not count
-    const chance = shooter.team === 0 && pressed ? ftChance(ft.meter)
-      : shooter.team === 1 && ft.t >= FT.aiDelay ? freeThrowChance(styled(state, 'ft.model'))
+    // Your meter's centre gives the game's own best chance, or, where free throws go by touch, the shooter's own.
+    const model = styled(state, 'ft.model'), person = personOf(state, shooter);
+    const yours = model === 'touch' ? touchOf(person) / FT.centreChance : 1;
+    const chance = shooter.team === 0 && pressed ? ftChance(ft.meter) * yours
+      : shooter.team === 1 && ft.t >= FT.aiDelay ? freeThrowChance(model, person)
       : ft.t >= FT.limit ? 0 : null;
     if (chance === null) {
       ft.meter += ft.dir * FT.sweep * (shooter.team === 0 ? levelOf(state).sweep : 1) * dt;   // your meter moves at the level's speed

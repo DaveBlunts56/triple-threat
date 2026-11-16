@@ -9,7 +9,7 @@ import { note } from './stats.js';
 import { behindBoard, finishFor, flairFor, gatherVelocity, jumpVelocity } from './finish.js';
 import { styled } from './styles.js';
 import { handOver } from './possessions.js';
-import { contestShare, distanceChance, levelFor, rangeShare, shotChance, skillOf, timingShare, windowHalf, zoneFor } from './shooting.js';
+import { contestShare, distanceChance, greenChance, levelFor, rangeShare, shotChance, skillOf, timingShare, windowHalf, zoneFor } from './shooting.js';
 
 // Seconds after the press of a shot: the best moment to let go, and the moment he is back on the floor.
 export const SHOT_BEST = SHOT.gather + SHOT.bestAt * PLAYER.shotJumpV / BALL.gravity;
@@ -187,7 +187,7 @@ export function makeChance(state, player) {
   // His rating for a shot from where he stands counts for or against him.
   const person = personOf(state, player);
   return shotChance({ base, timing, contest: contest(state, player), energy: person.energy, levelMake: player.team === 0 ? levelOf(state).make : levelOf(state).cpuMake,
-    skill: skillOf(rated(state, player, zoneOf(player)), heatOf(person)), fading: player.fading, make: styled(state, 'shot.make') });
+    skill: skillOf(rated(state, player, zoneOf(player)), heatOf(person)), fading: player.fading, make: styled(state, 'shot.make'), form: person.form ?? 1 });
 }
 
 // Behind the backboard of the hoop he attacks, with the board between him and the rim.
@@ -287,7 +287,9 @@ export function releaseShot(state, player, { green: mayBeGreen = true } = {}) {
 
   // A green release always goes in, clean, and draws no random number to find out. Other makes go in every way a
   // shot can: clean, off the rim, rolling round it, or off the glass. Some misses sit on the rim before they fall out.
-  const made = green || rand(state) < makeChance(state, player);
+  // A green release always goes in, or, where the style has it, has its miss cut (see shooting.js, greenChance).
+  const rule = styled(state, 'shot.green');
+  const made = green ? rule === 'sure' || rand(state) < greenChance(rule, makeChance(state, player), styled(state, 'shot.boost')) : rand(state) < makeChance(state, player);
   streak(state, player, made);
   const dice = made && green ? 1 : rand(state);
   // A layup that goes in is rolled over the front of the rim: it is not banked in, and does not rattle.

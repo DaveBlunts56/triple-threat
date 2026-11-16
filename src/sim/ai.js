@@ -302,7 +302,7 @@ export function shotValue(state, m, { at = m, closing = 0, fading = false } = {}
   const contest = contestShare({ gap, defence: rated(state, nearest, 'defence'), fading });
   const base = distanceChance(styled(state, 'shot.curve'), far, zoneFor(far, three, corner, null));
   const chance = shotChance({ base, timing: meanTiming(lv.jitter, lv.worst), contest, energy: person.energy, levelMake: lv.make,
-    skill: skillOf(rating, heat), fading, make: styled(state, 'shot.make') });
+    skill: skillOf(rating, heat), fading, make: styled(state, 'shot.make'), form: person.form ?? 1 });
   const range = rangeShare(far);
   const half = windowHalf({ steps: levelFor(contest).steps, range, energy: person.energy, levelGreen: lv.green, rating, heat });
   const green = greenShare(half, lv.jitter, range > 0 && sign * (at.x - hoop.x) <= 0);

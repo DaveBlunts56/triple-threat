@@ -12,6 +12,7 @@ import { ownMen } from './matchups.js';
 import { styled } from './styles.js';
 import { beginPossession, endPossession, handOver } from './possessions.js';
 import { adjust } from './coach.js';
+import { formOf } from './shooting.js';
 
 const OUTSIDE = 0.5;        // how far behind the line an inbounder stands
 const BOARD_CLEAR = 1.5;    // baseline inbounds keep this far from the middle, clear of the backboard
@@ -190,6 +191,9 @@ export function callTimeout(state, team) {
 }
 
 export function startMatch(state) {
+  // Each player's form on the night (see shooting.js): 1 where the style has none.
+  const sd = styled(state, 'form.sd');
+  for (const person of state.rosters.flat()) person.form = formOf(() => rand(state), sd);
   state.quarter = 1;
   state.score = [0, 0];
   state.byQuarter = [[], []];
