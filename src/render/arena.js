@@ -6,18 +6,16 @@ import { arenaOf } from './arenas.js';
 import { BUILDING, createBuilding } from './building.js';
 import { createVideoBoard } from './videoboard.js';
 import { QUALITY } from './quality.js';
-import { KIT } from './kit.js';
 import { ADS, adAt } from './life.js';
+import { dressCrowd } from './crowd.js';
+import { createFans } from './fans.js';
+import { courtsideSeats } from './sideline.js';
 
-// concrete, seat: the colours of the stands' steps and of an empty seat's back. panels: the roof's lights, as in light.js's
-// hidden hall, drawn here so the floor has them to mirror. glow: how much brighter than white the lit boards and the
-// roof's lights are, so that they bloom. shirts, skins: what the crowd wears and its skin tones.
+// panels: the roof's lights, as in light.js's hidden hall, drawn here so the floor has them to mirror. glow: how much
+// brighter than white the lit boards and the roof's lights are, so that they bloom.
 const LOOK = Object.freeze({
-  concrete: 0x1b1e25, seat: 0x23324f, glow: 1.7,
+  glow: 1.7,
   panels: Object.freeze({ xs: [-21, -7, 7, 21], zs: [-11, 0, 11], wide: 9, deep: 5, y: 24 }),
-  shirts: Object.freeze([KIT.team[0], KIT.team[0], KIT.team[0], KIT.team[1], '#cfd3d8', '#cfd3d8', '#2a2d33', '#2a2d33', '#5b6570', '#8c8f96', '#6a5a4a', '#3e4c5e']),
-  dim: 0.5,   // the stands are darker than the court: the crowd's colours are multiplied by this
-  skins: Object.freeze(['#f0cfae', '#d9a877', '#a8744a', '#7a4f31', '#55371f']),
 });
 
 // A canvas picture of `words` in the game's lettering, `wide` by `high` metres, in `ink` on `back`.
@@ -55,64 +53,6 @@ function steps() {
   return blocks;
 }
 
-// The crowd: a seated body and a head for every seat, the upper deck's and the lower stands', in the fixed shuffled
-// order, so that showing the first so many fills the stands evenly. Two batches: the bodies in their shirts, and the
-// heads. Only the lower stands' fans move with the game; the upper deck's sit still.
-function crowd() {
-  const filled = shown([...seats(), ...upperSeats()], 1);
-  const torso = new THREE.BoxGeometry(0.44, 0.56, 0.26); torso.translate(0, 0.5, 0);
-  const lap = new THREE.BoxGeometry(0.4, 0.16, 0.42); lap.translate(0, 0.2, 0.2);
-  const bodies = new THREE.InstancedMesh(mergeGeometries([torso, lap]), new THREE.MeshStandardMaterial({ roughness: 0.9 }), filled.length);
-  const head = new THREE.SphereGeometry(0.115, 8, 6); head.translate(0, 0.94, 0.02);
-  const heads = new THREE.InstancedMesh(head, new THREE.MeshStandardMaterial({ roughness: 0.75 }), filled.length);
-  // Something to wave at a free-throw shooter: one for every seat behind a baseline, shown only while they wave.
-  const stick = new THREE.BoxGeometry(0.07, 0.7, 0.07); stick.translate(0, 1.5, 0);
-  const sticks = new THREE.InstancedMesh(stick, new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.6 }), filled.length);
-  sticks.visible = false;
-  const place = new THREE.Object3D(), colour = new THREE.Color(), hidden = new THREE.Matrix4().makeScale(0, 0, 0);
-  // Each seat's fan: whose he is (0 the home team's, 1 the visitors', 2 nobody's) and the end he sits behind (+1, -1, or 0).
-  const fans = filled.map((seat, i) => {
-    // Not Math.random: the same crowd every time. No two neighbours sit quite alike.
-    const pick = (list, salt) => Math.abs(Math.round(seat.x * 37 + seat.z * 91 + seat.y * 53 + salt * i)) % list.length;
-    const shirt = pick(LOOK.shirts, 3);
-    bodies.setColorAt(i, colour.set(LOOK.shirts[shirt]).multiplyScalar(LOOK.dim));
-    heads.setColorAt(i, colour.set(LOOK.skins[pick(LOOK.skins, 5)]).multiplyScalar(LOOK.dim + 0.15));
-    return { seat, turn: seat.facing + ((i * 7) % 5 - 2) * 0.06, size: 0.94 + ((i * 13) % 7) * 0.02, of: shirt < 3 ? 0 : shirt === 3 ? 1 : 2,
-      end: Math.abs(seat.x) >= ARENA.ends.first - 0.5 ? Math.sign(seat.x) : 0, upper: seat.y >= ARENA.upper.height - 0.1 };
-  });
-  // Puts the first `count` fans in their seats as the crowd's mood has them at `now`: on their feet and bouncing when
-  // their team scores, shaking with anger at a call against the home team, and behind a hoop waving at a shooter.
-  // The upper deck's are placed only when `all` (once, at the start).
-  function sit(count, life, now, all = false) {
-    const home = Math.min(1, life?.cheer[0] ?? 0), away = Math.min(1, life?.cheer[1] ?? 0), boo = Math.min(1, life?.boo ?? 0), wave = life?.distract ?? 0;
-    for (let i = 0; i < count; i++) {
-      const fan = fans[i];
-      if (fan.upper && !all) { if (wave !== 0) sticks.setMatrixAt(i, hidden); continue; }   // placed once, at the start
-      const waving = wave !== 0 && fan.end === wave;
-      const up = waving ? 1 : fan.of === 0 ? home : fan.of === 1 ? away : home * 0.4;
-      const angry = fan.of === 1 ? 0 : boo;
-      place.position.set(fan.seat.x, fan.seat.y + up * (0.2 + 0.3 * Math.abs(Math.sin(now * (waving ? 11 : 8) + i * 1.7))), fan.seat.z);
-      place.rotation.set(0, fan.turn + angry * 0.3 * Math.sin(now * 13 + i * 2.1), 0);
-      place.scale.setScalar(fan.size);
-      place.updateMatrix();
-      bodies.setMatrixAt(i, place.matrix); heads.setMatrixAt(i, place.matrix);
-      if (wave !== 0) {
-        place.rotation.z = waving ? 0.7 * Math.sin(now * 10 + i * 1.3) : 0;
-        place.scale.setScalar(waving ? fan.size : 0);
-        place.updateMatrix();
-        sticks.setMatrixAt(i, place.matrix);
-      }
-    }
-    bodies.instanceMatrix.needsUpdate = heads.instanceMatrix.needsUpdate = true;
-    sticks.visible = wave !== 0;
-    if (wave !== 0) { sticks.count = count; sticks.instanceMatrix.needsUpdate = true; }
-  }
-  sit(filled.length, null, 0, true);
-  for (const batch of [bodies, heads, sticks]) batch.frustumCulled = false;
-  bodies.instanceColor.needsUpdate = heads.instanceColor.needsUpdate = true;
-  return { bodies, heads, sticks, seats: filled.length, sit };
-}
-
 // The home side's arena, added to `scene`: the stands and their crowd, the building round them (building.js), the lit
 // boards, the scorer's table, the video board (videoboard.js), and a dark shell with the roof's lights. Returns
 // { setQuality(level), show(state), live(life, now), feed(renderer, camera, picture) }: how full the stands are at a
@@ -136,8 +76,10 @@ export function createArena(scene) {
     panels.push(panel);
   }
   hall.add(new THREE.Mesh(mergeGeometries(panels), lit));
-  const people = crowd();
-  hall.add(shell, people.bodies, people.heads, people.sticks);
+  hall.add(shell);
+  // The fans: the courtside seats always filled, then the stands, the first so many of them in a fixed shuffled order.
+  const stands = shown([...seats(), ...upperSeats()], 1);
+  const fans = createFans(hall, dressCrowd(stands, courtsideSeats(), ARENA.upper.height - 0.1)), courtside = fans.seats - stands.length;
 
   // The boards and the table carry words. (The video board's faces are its own: see videoboard.js.)
   // The boards along the far side and behind the baselines show advertisements, each changing in its turn; the
@@ -156,25 +98,21 @@ export function createArena(scene) {
   hall.add(table);
   scene.add(hall);
 
-  let said = '', full = people.seats, stirred = false;
+  let full = stands.length;
   return {
     setQuality(level) {
-      full = Math.round(people.seats * QUALITY[level].crowd);
-      people.bodies.count = people.heads.count = full;
+      full = Math.round(stands.length * QUALITY[level].crowd);
+      fans.setQuality(level);
       board.setQuality(level);
     },
     // The frame just drawn, onto the video board's screens (see videoboard.js).
     feed: (renderer, camera, picture) => board.copy(renderer, camera, picture),
-    // The crowd and the boards at `now` seconds, as the crowd's mood (`life`, see life.js) has them: fans who have
-    // gone home are no longer drawn, the rest move when there is something to move for, and each board changes its
+    // The crowd and the boards at `now` seconds, as the crowd's mood (`life`, see life.js) has them: fans in the stands
+    // who have gone home are no longer drawn, the rest react as the mood has them, and each board changes its
     // advertisement in turn.
     live(life, now) {
       building.live(now);
-      const count = Math.round(full * (1 - life.left));
-      people.bodies.count = people.heads.count = count;
-      const stirring = life.cheer[0] > 0 || life.cheer[1] > 0 || life.boo > 0 || life.distract !== 0;
-      if (stirring || stirred) people.sit(count, stirring ? life : null, now);   // once more after it ends, to sit them down
-      stirred = stirring;
+      fans.live(life, now, courtside + Math.round(full * (1 - life.left)));
       for (const ad of adLooks) {
         const now_ = adAt(ad.board, now);
         if (now_ !== ad.showing) { ad.showing = now_; ad.look.map = adPictures[now_]; ad.look.needsUpdate = true; }

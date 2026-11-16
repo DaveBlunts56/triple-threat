@@ -159,3 +159,35 @@ Every measurement is the NBA's, in metres:
     1.41–1.99, on the same machine back to back.
 - **Not yet:** the upper deck's fans sit still until Stage 3 gives every fan their reactions. Every match is at
   Tidewater until Stage 4 builds Red Rock Pavilion.
+
+## Stage 3 as built (2026-11-16)
+
+- **Who the fans are** (crowd.js, plain data, tested):
+  - Mostly home fans, some away fans and some for neither.
+  - A team's fans mostly wear its colour: a jersey with bare arms or a shirt.
+  - The rest wear their own clothes, some in long sleeves; a courtside fan is often in a suit.
+  - Six skin tones; short hair, long hair, bald heads and caps (often in the team's colour); grey hair on the older
+    fans; children, and slighter and heavier builds.
+  - Some of a team's fans bring a foam finger, a rally towel or a sign: "DEFENSE!", "GO WAVES!", "#1 FAN", and
+    "GO SCORPIONS!" for the visitors.
+- **How they are drawn** (fans.js): every fan in one batch, posed on the graphics card from their own numbers and a
+  few for the whole crowd each frame (the mood and the time). A reaction costs the main thread nothing per fan.
+- **How they react**, from the crowd's mood (life.js), eased so a crowd rises over a moment and sits back down a few
+  at a time:
+  - after a basket their team's fans stand: clapping, both arms up and jumping, pumping a fist, or waving their
+    towel, finger or sign; fans for neither side half as much as the home crowd;
+  - the home fans boo a foul on their team, leaning in with an arm thrust out and shaking;
+  - they groan with their hands on their heads at a big moment for the visitors;
+  - behind the hoop, everyone stands and waves at a visiting free-throw shooter;
+  - between times they sit with their hands on their laps, swaying a little.
+- **Courtside:** the seats along the near side and behind the baselines are the crowd's fans now, in the same chairs.
+  They clap from their seats and never stand, so they never come between the camera and the court. A standing fan in
+  the stands, arms and sign raised, never does either (tested). The benches, the table and the photographers stay as
+  they were.
+- **On Low:** 15% of the stands, as before, in the simplest body (a block for the legs, the body, a head with a cap of
+  hair, straight arms) and with nothing in their hands. Medium, High and Ultra draw the full body.
+- **Cost**, measured back to back with Stage 2 on the same machine:
+  - Low: 79 draws against 80, JavaScript a frame 1.57 ms against 1.56 (1.40 against 1.45 while the crowd cheers),
+    and fewer triangles (411,000 against 460,000).
+  - Medium and High draw more triangles: about 1.0 million against 0.62 on Medium, 3.2 million against 1.6 on High
+    (the floor's mirror draws the crowd again). Their JavaScript a frame is the same or less.
