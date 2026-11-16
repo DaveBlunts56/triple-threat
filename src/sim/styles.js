@@ -5,7 +5,7 @@
 //
 // A match holds its style, its sliders and the table resolved from them (state.styleTable). Everything reads a styled
 // number through `styled(state, key)`.
-import { AI, FOUL, PASS, PLAY, PLAYER, STAMINA, STEAL, TIMEOUT } from './tuning.js';
+import { AI, CLOCK, FOUL, PASS, PLAY, PLAYER, STAMINA, STEAL, TIMEOUT } from './tuning.js';
 
 const f = Object.freeze;
 
@@ -25,6 +25,7 @@ export const KINDS = f({
   'decide.possession': 'positive', 'decide.usage': 'positive', 'decide.diet': 'positive', 'decide.drive': 'positive',
   'decide.pass': 'positive', 'decide.floor': 'positive', 'decide.misread': 'chance', 'decide.foulDraw': 'positive', 'decide.stale': 'positive', 'decide.rhythm': 'positive',
   'decide.scout': 'positive', 'decide.watch': 'chance', 'decide.watchDelay': 'positive', 'decide.fly': 'chance', 'decide.spread': 'positive', 'react.iq': 'chance', 'decide.threes': 'positive',
+  'rules.overtimeShare': 'chance', 'rules.orebClock': 'positive', 'rules.lastTwo': 'word',
 });
 
 // Arcade: the game as it was, read from tuning.js.
@@ -42,6 +43,7 @@ const ARCADE = f({
   'decide.possession': 1.0, 'decide.usage': 0.5, 'decide.diet': 0.6, 'decide.drive': 0.2,
   'decide.pass': 0.15, 'decide.floor': 60, 'decide.misread': 0.25, 'decide.foulDraw': 0.15, 'decide.stale': 0.08, 'decide.rhythm': 0.15,
   'decide.scout': 0.5, 'decide.watch': 0.15, 'decide.watchDelay': 0.5, 'decide.fly': 0.5, 'decide.spread': 0.5, 'react.iq': 0, 'decide.threes': 0.6,
+  'rules.overtimeShare': 0, 'rules.orebClock': CLOCK.shot, 'rules.lastTwo': false,
 });
 
 // Simulation: NBA-like. Its own numbers, written out (Stage 4 tunes them).
@@ -52,13 +54,14 @@ const SIM = f({
   'foul.reachFront': 0.12, 'foul.reachBack': 0.3, 'foul.shooting': 0.25, 'foul.charge': 0.6, 'foul.block': 0.15,
   'stamina.sprint': 0.025, 'stamina.run': 0.006, 'stamina.jump': 0.015, 'stamina.rest': 0.02, 'stamina.bench': 0.03,
   'stamina.subOut': 0.35, 'stamina.subIn': 0.7,
-  'timeout.each': 3, 'timeout.rest': 0.3,
+  'timeout.each': 7, 'timeout.rest': 0.12,
   'shot.make': 1, 'board.offence': 1,
   'shot.curve': 'line', 'shot.green': 'sure', 'shot.boost': 1, 'ft.model': 'flat',
   'decide.temperature': 0.3, 'iq.offence': 1, 'iq.defence': 1, 'coach.adapt': 1, 'coach.rotation': 'plan',
   'decide.possession': 1.0, 'decide.usage': 0.5, 'decide.diet': 0.6, 'decide.drive': 0.2,
   'decide.pass': 0.15, 'decide.floor': 60, 'decide.misread': 0.25, 'decide.foulDraw': 0.15, 'decide.stale': 0.08, 'decide.rhythm': 0.15,
   'decide.scout': 0.5, 'decide.watch': 0.15, 'decide.watchDelay': 0.5, 'decide.fly': 0.5, 'decide.spread': 0.5, 'react.iq': 0, 'decide.threes': 0.6,
+  'rules.overtimeShare': 5 / 12, 'rules.orebClock': 14, 'rules.lastTwo': true,
 });
 
 export const STYLES = f({ arcade: ARCADE, sim: SIM });

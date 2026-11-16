@@ -106,9 +106,12 @@ function setupInbound(state) {
 }
 
 function beginPeriod(state) {
-  state.gameClock = state.quarter <= CLOCK.quarters ? state.quarterLength : CLOCK.overtime;
+  // Overtime: the game's own minute, or in a style that scales it, that share of a quarter (five minutes after twelve).
+  const share = styled(state, 'rules.overtimeShare');
+  state.gameClock = state.quarter <= CLOCK.quarters ? state.quarterLength : share > 0 ? state.quarterLength * share : CLOCK.overtime;
   state.shotClock = CLOCK.shot;
   if (state.quarter <= CLOCK.quarters) state.teamFouls = [0, 0];   // overtime carries on the 4th quarter's count
+  state.lateFouls = [0, 0];   // fouls in the last two minutes of the period, for a style with that rule
   lineUp(state);
   if (state.quarter === 1) return setupTip(state);
   // The team that lost the opening tip starts quarters 2 and 4, the winner quarter 3; overtime keeps alternating.
@@ -241,7 +244,7 @@ function livePlay(state, events, dt) {
   const { ball } = state;
   if (state.tipWinner === null && ball.holder !== null) state.tipWinner = state.players[ball.holder].team;
   shotTouched(state, events);
-  if (events.hitRim) state.shotClock = CLOCK.shot;
+  if (events.hitRim) state.shotClock = styled(state, 'rules.orebClock');   // a shot that hits the rim resets the clock: in full, or (in a style that says so) to 14 for the offence's own rebound; the defence's rebound starts it afresh anyway
 
   // When several things happen in one step the call is, in order: a foul, a basket, a violation, out of bounds, the clocks.
   const foul = judgeContacts(state, events, dt);

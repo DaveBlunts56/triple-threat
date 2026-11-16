@@ -41,6 +41,9 @@ export function recordFoul(state, foul) {
   const fouler = state.players[foul.by];
   personOf(state, fouler).fouls++;
   const teamFouls = ++state.teamFouls[fouler.team];
-  const defensive = foul.kind === 'reach' || foul.kind === 'block';
-  return { shots: defensive && teamFouls >= state.bonus ? 2 : 0, ball: state.players[foul.on].team };
+  const defensive = foul.kind === 'reach' || foul.kind === 'block' || foul.kind === 'looseBall';
+  // In the last two minutes of a period, a team's second foul there is shot even short of the bonus (where the style
+  // has that rule).
+  const late = styled(state, 'rules.lastTwo') && state.gameClock <= 120 && ++(state.lateFouls ??= [0, 0])[fouler.team] >= 2;
+  return { shots: defensive && (teamFouls >= state.bonus || late) ? 2 : 0, ball: state.players[foul.on].team };
 }
