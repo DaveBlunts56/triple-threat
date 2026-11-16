@@ -540,3 +540,55 @@ Stills of each go in the ledger.
 - **Lower acceleration in Simulation may look different** with clips that were timed against today's movement. The browser check covers it. If it looks wrong, the acceleration change is the first to be dialled back.
 - **The engines-agree check may expose differences** between the fast engine's shapes and what the 3D game really produces. If so, the shapes are measured from the 3D game (`tools/calibrate.mjs`) rather than written by hand.
 - **The utility decisions change the computer's behaviour everywhere.** Tests in `tests/ai.test.js` that pin today's exact choices may need to be rewritten to pin the behaviour instead. Each such change is listed in the ledger.
+
+## As built (2026-11-16)
+
+Where the build differs from the sections above. The ledger (`.superpowers/sdd/2026-11-15-coach-and-sim/progress.md`) has every measurement behind these.
+
+**The box score, in both styles and both engines.** Calibrating turned up three counting errors that were older than this piece:
+- A missed shot that was fouled was counted as a field-goal attempt, and its miss as a rebound. The rules count neither.
+- A defender who took the miss of a shot he had fouled was charged a turnover.
+- A ball the offence lost out of bounds (a pass thrown away, a dribbler stepping out, a fumble) was not a turnover. It is now the holder's, the passer's or the fumbler's. A miss out of bounds stays a team rebound.
+
+None of them changes play.
+
+**Simulation's rules and players, beyond section 2:**
+- The game clock runs on after a made basket, through the inbound, except in the last two minutes of the fourth quarter and overtime (`rules.madeClock`).
+- Rebounders read the carom: a loose ball is chased to where it will be (`board.lead`). This brought misses going out untouched from 17% to 4%.
+- An appetite for the rim beside the one for threes (`decide.rimBase`, 0.04). The Shot selection slider scales `decide.threeBase`, `decide.threes` and `decide.rimBase`.
+- Steals: `ai.stealRate` 0.01 and `pass.intercept` 0.25. Patience is [19, 24] seconds.
+
+**The coach and the decision maker, beyond sections 4 and 5:**
+- Score effects (`coach.ease`, Simulation 1): a team eight or more up in the second half eases off on defence, up to twice as far off at 28 or more.
+- A coach closes on a man having a big night (`coach.focus`, Simulation 0.4): from 15 points, up to 40% closer at 35.
+- Both styles: down exactly three with a shot clock or less left, a three is wanted and a two is not (`needOf` in `late.js`), and that team defends rather than fouls. A ball holder does not stay in the lane past 1.9 s.
+- `sharpness()` in `choose.js`: an IQ as the side's IQ slider sharpens it. It is used for misreads, ball-watching, the fast engine's turnovers and its defenders' reads, so the IQ sliders reach every read, not only the choice's temperature. At slider 50 it is the IQ itself.
+- Who plays a team (`isHuman`, `cpuLevelOf`) replaces "team 0 is yours, team 1 is the computer's" throughout. With nobody playing, both teams use All-Star's numbers.
+
+**The fast engine, against section 10:**
+- Plays are not lists of beats per play key (`SHAPES`). A possession is beats in which the man with the ball is offered a pull-up, a drive when a lane opens, a post move, a pass to each team-mate he can reach, or holding it. The play called changes those looks (the scheme's gap on a pick, the roller, the post feed, the shooters off screens).
+- Measured from the 3D game, not written by hand:
+  - who starts with the ball (`handlerPull`);
+  - how many team-mates a pass can reach (`passLane`);
+  - the defenders' attention by shooter and scouting report;
+  - the no-return-pass rule.
+- A "late in the clock the best creator takes it" shape was not built. With the game on the line the ball goes to the star, as in the 3D game, and that is what is tested.
+
+**Tests, against section 11:**
+- The agree test sits in `simplay.test.js` and uses its eight 3D matches, played in worker threads.
+- Slider directions are checked over 150 games a setting, not 200, to keep `npm test` near 45 s.
+- The 10 ms speed guard judges only on a quiet machine.
+- USG% is tested from season totals for each team's top rotation player.
+- The Waves' star's play share is a todo test: a known miss.
+
+**Bands met and missed.** The fast engine meets every band of section 11's table over 1,000 games: pace 101.0, 115.1 points, FGA 91.4, 3PA 37.3, FTA 22.3, TOV 13.8. It also meets the variety, upsets, stars, USG% and minutes bands, and the mix. Known misses and near-misses:
+- **Play share:** the Waves' star (Cross, a pass-first playmaker) takes about 15% of his team's plays in the fast engine (band 18-30%). In the 3D game he is the team's main user. Player-level usage does not agree between the engines; team-level does.
+- **Overtime:** 3.3% of games (band 3-9%; real games about 6%).
+- **Fast-engine speed:** 6.7 ms a game against the 5 ms target. The 10 ms guard holds.
+- **The 3D game in Simulation:** about 5% above the targets on points and FG% (121.6 and .502 over 50 matches), within its ±15% bands.
+- **The 3D game's shot mix:** corner threes are almost never taken (0.5% of shots), with mid-range above the real share. The grouped mix (rim, twos, threes) agrees with the fast engine's.
+
+**The page, against section 9:**
+- Watch also hides the controlled player's ring, his matchup mark, his box by the scorebug and the key line under the court.
+- The result screen's keys are `resultKey` in `menu.js`.
+- Frame times could not be measured in the hidden browser pane (they swung from 3 to 131 ms a frame within seconds). They are bounded instead by the simulation's cost: 8.2 µs a step in Arcade (+4.9% on main's) and 8.7 in Simulation, under 0.01 ms of a frame. The renderer is unchanged except for the ring in Watch.
