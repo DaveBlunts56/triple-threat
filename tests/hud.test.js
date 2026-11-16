@@ -654,6 +654,8 @@ test('with no human there is no name under a player, no meter, no player box and
   s.humans = [];
   hud.update(s, 'webgl2', { paused: false, pick: null, feet: { x: 10, y: 20 }, meter });
   assert.deepEqual([e.nameTag.hidden, e.shotMeter.hidden, e.whoBox.hidden, e.controls.hidden], [true, true, true, true]);   // nor his box, nor the keys
+  s.score = [4, 2]; hud.update(s, 'webgl2', { paused: false, pick: null });
+  assert.equal(e.announce.textContent, 'Harbor City Waves 4, Red Rock Scorpions 2');   // the score said by the teams' names, not "you"
 });
 
 test('the result screen shows what was played, the score by period, both full box scores and the team advanced stats', () => {

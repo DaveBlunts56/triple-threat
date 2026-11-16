@@ -466,7 +466,8 @@ export function createHud(doc) {
       const banner = state.phase === 'dead' && state.call !== null && !show.replay;   // not over a replay
       if (banner) set('call', callText(state.call));
       hide('call', !banner);
-      const score = `You ${state.score[0]}, opponent ${state.score[1]}`;
+      // Your team and the other in Play; with nobody playing, the two teams by name.
+      const score = human ? `You ${state.score[0]}, opponent ${state.score[1]}` : `${ROSTER.teams[0]} ${state.score[0]}, ${ROSTER.teams[1]} ${state.score[1]}`;
       if (state.call && state.call !== lastCall) set('announce', callText(state.call));
       else if (keysPanel) set('announce', keysText(keys, keysPanel.row, keysPanel));
       else if (menu) set('announce', menuRows(menu).length ? menuText(menu, menu.row, ui.quality, ui.camera, ui.prefs, ui.hasVoice) : MENU_WORDS[menu.panel]);

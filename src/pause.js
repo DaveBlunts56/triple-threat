@@ -9,6 +9,9 @@ const ROWS = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit
 export const PAUSE = Object.freeze({
   main: Object.freeze(['resume', 'subs', 'box', 'controls', 'settings', 'quit']),
   watch: Object.freeze(['resume', 'box', 'settings', 'quit']),   // the main list in Watch: nobody's team to change, no keys to read
+  // Settings in Watch: no automatic substitutions to switch off (the coaches make them) and no difficulty (both sides
+  // play at All-Star's).
+  watchSettings: Object.freeze(['quality', 'camera', 'commentary', 'replays', 'sound', 'keys']),
   settings: Object.freeze(['quality', 'autoSubs', 'camera', 'difficulty', 'commentary', 'replays', 'sound', 'keys']),
   keys: KEY_ROWS,
   quit: Object.freeze(['stay', 'leave']),
@@ -21,7 +24,7 @@ export const inPlay = state => state.phase !== 'start' && state.phase !== 'final
 // the highlighted action. watching: a match nobody plays, whose main list is Watch's.
 export const createPauseMenu = (watching = false) => ({ panel: 'main', row: 0, from: 0, listening: false, watching });
 
-export const pauseRows = menu => (menu.panel === 'main' && menu.watching ? PAUSE.watch : PAUSE[menu.panel] ?? []);
+export const pauseRows = menu => (menu.watching && menu.panel === 'main' ? PAUSE.watch : menu.watching && menu.panel === 'settings' ? PAUSE.watchSettings : PAUSE[menu.panel] ?? []);
 
 // Pauses or resumes. `game` is { state, paused, pick, pauseMenu, menu }; pick is the roster row chosen first in
 // Substitutions. Pausing always starts from the top of the list.
@@ -46,7 +49,7 @@ export function pauseKey(game, code, keys = { ...DEFAULT_KEYS }) {
   const menu = game.pauseMenu;
   if (menu.panel === 'keys') {
     const did = keysPanelKey(menu, code, keys);
-    if (did === 'back') { menu.panel = 'settings'; menu.row = PAUSE.settings.indexOf('keys'); }
+    if (did === 'back') { menu.panel = 'settings'; menu.row = pauseRows(menu).indexOf('keys'); }
     return did === 'changed' ? 'keys' : null;
   }
   const rows = pauseRows(menu);

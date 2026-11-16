@@ -208,6 +208,9 @@ test('in Watch the pause menu is Resume, Box score, Settings, Quit: no substitut
   const game = { state, paused: false, pick: null, menu: null, pauseMenu: null };
   setPaused(game, { intent() {}, drop() {} }, true);
   assert.deepEqual(pauseRows(game.pauseMenu), ['resume', 'box', 'settings', 'quit']);
+  game.pauseMenu.panel = 'settings';
+  assert.ok(!pauseRows(game.pauseMenu).includes('autoSubs') && !pauseRows(game.pauseMenu).includes('difficulty'), 'nothing of a team nobody plays');
+  assert.ok(pauseRows(game.pauseMenu).includes('keys'));
   state.humans = [0]; setPaused(game, { intent() {}, drop() {} }, true);
   assert.deepEqual(pauseRows(game.pauseMenu), PAUSE.main);
   for (const panel of Object.values(PAUSE)) assert.ok(!panel.includes('styles') && !panel.includes('quarter'));
