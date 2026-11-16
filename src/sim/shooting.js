@@ -2,7 +2,7 @@
 // in, its green window, and what a shot is worth in expected points. The 3D game works these out from where everyone
 // stands (players.js); the fast engine (quick/) from the play it is running. Same functions, same numbers.
 import { DT, FT, HEAT, MOVES, RATE, SHOT } from './tuning.js';
-import { lift } from './ratings.js';
+import { lift } from './overall.js';
 import { shotFactor } from './stamina.js';
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);

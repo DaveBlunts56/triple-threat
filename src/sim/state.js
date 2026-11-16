@@ -1,5 +1,6 @@
 import { BALL, CLOCK, FOUL, LINEUP, MATCH, TIP } from './tuning.js';
 import { TEAMS } from './teams.js';
+import { iqOf, tendenciesOf } from './tendencies.js';
 import { emptyLine } from './stats.js';
 import { setStyle, styled } from './styles.js';
 
@@ -147,6 +148,12 @@ export function createMatch(seed = 1, size = 3, teams = [0, 1]) {
       target: null,   // the id of the team-mate a pass in the air is for
     },
   };
+  // What each player likes to do and how well he decides (see tendencies.js), from his role and ratings or his own.
+  sidesOf(teams).forEach((side, t) => side.players.forEach((p, row) => {
+    const person = state.rosters[t][row];
+    person.tend = tendenciesOf(person, p.tendencies);
+    person.iq = iqOf(person, p.iq);
+  }));
   setStyle(state);   // Arcade with every slider at 50 until the page says otherwise (see styles.js)
   state.timeouts = [styled(state, 'timeout.each'), styled(state, 'timeout.each')];
   lineUp(state);
