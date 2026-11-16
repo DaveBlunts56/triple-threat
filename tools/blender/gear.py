@@ -13,7 +13,7 @@ import numpy as np
 from mathutils import Vector
 
 from common import project
-from kit import cut_out, tidy_border
+from kit import SHORTS, cut_out, tidy_border
 
 BONE = 'mixamorig:'
 ITEMS = ('headband', 'armSleeveLeft', 'armSleeveRight', 'legSleeveLeft', 'legSleeveRight', 'wristbandLeft', 'wristbandRight')
@@ -51,7 +51,7 @@ def band_points(body, item, mark, bones, frame, shoe_top, joint):
         start = joint(f'{side}Arm')
         return lambda i: is_skin[i] and bones[i] in (f'{side}Arm', f'{side}ForeArm') and (coords[i] - start).length > BAND['shoulder']
     if item.startswith('legSleeve'):
-        top = mark['knee'] + 0.03 - BAND['hem']   # the shorts' hem (kit.SHORTS above_knee) less the gap
+        top = mark['knee'] - SHORTS['below_knee'] - BAND['hem']   # the shorts' hem less the gap
         return lambda i: is_skin[i] and bones[i] in (f'{side}UpLeg', f'{side}Leg') and shoe_top + 0.01 < coords[i].z < top
     wrist = joint(f'{side}Hand')
     return lambda i: is_skin[i] and bones[i] == f'{side}ForeArm' and (coords[i] - wrist).length < BAND['wrist']

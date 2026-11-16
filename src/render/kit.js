@@ -1,4 +1,7 @@
-// What is painted on a jersey and a pair of shorts, and the painting. No Three.js here, so it can be tested without a browser.
+// What is painted on a jersey and a pair of shorts, and the painting, in the manner of early-2000s basketball kit: the
+// team's name arched over a big outlined number, side panels piped in white. No Three.js here, so it can be tested
+// without a browser.
+import { ROSTER } from '../sim/tuning.js';
 
 const f = Object.freeze;
 
@@ -11,15 +14,20 @@ const f = Object.freeze;
 // numbers. shade: how much darker than the team's colour a jersey's side panels are. font: {px} stands for the height
 // of a number in pixels. digit: the widest one digit is painted, as a share of its height: the cloth stretches the
 // picture sideways, so a digit this narrow has its natural shape on the player. chest, back: the middle of the number
-// and how tall it is. stitch: the stitching along each seam: [length, gap, thickness] of a stitch, in shares of the
-// picture, and how far in from the seam it runs. gear: the colours headbands, sleeves and wristbands come in, besides
+// and how tall it is. name: the team's name across the chest: the middle of its middle letter, how tall the letters are,
+// how far round an arch the word bends (radians, end to end), how far apart the letters are (a share of their
+// width), and the widest the word may be (about the chest between the arm holes): a longer one is lettered smaller. outline: how thick the outline round each letter and number is, as a share of its height. piping: how wide
+// the white line down the inner edge of each side panel is. stitch: the stitching along each seam: [length, gap,
+// thickness] of a stitch, in shares of the picture, and how far in from the seam it runs. gear: the colours headbands, sleeves and wristbands come in, besides
 // the team's, and their order on the far model's picture (see ATLAS).
 export const KIT = f({
   layout: f({ main: f([0, 0.8]), trim: f([0.82, 0.9]) }),
-  sides: f({ at: f([0.02, 0.48, 0.52, 0.98]), jersey: 0.025, shorts: 0.015 }),
+  sides: f({ at: f([0.02, 0.48, 0.52, 0.98]), jersey: 0.025, shorts: 0.04 }),
   size: 512, team: f(['#2f6fe0', '#d83a3a']), trim: '#ffffff', shade: 0.7, font: 'bold {px}px system-ui, sans-serif', digit: 0.45,
-  chest: f({ at: f([0.25, 0.34]), height: 0.21 }),
-  back: f({ at: f([0.75, 0.32]), height: 0.27 }),
+  chest: f({ at: f([0.25, 0.47]), height: 0.22 }),
+  back: f({ at: f([0.75, 0.36]), height: 0.30 }),
+  name: f({ at: f([0.25, 0.28]), height: 0.075, arch: 0.6, spacing: 1.15, widest: 0.22 }),
+  outline: 0.12, piping: 0.005,
   stitch: f({ dash: f([0.008, 0.006, 0.003]), inset: 0.006 }),
   gear: f({ white: '#f2f2f2', black: '#161616', order: f(['white', 'black', 'team']) }),
 });
@@ -66,15 +74,38 @@ const sideRects = part => {
   return [[0, top, a + w, h], [b - w, top, w, h], [c, top, w, h], [d - w, top, 1 - d + w, h]];
 };
 
-// What to paint on a `part` ('jersey' or 'shorts') of the player wearing `number`, in the order it is painted:
-// { fill, rect } or { text, at, height, fill }, placed as in KIT, with `fill` naming 'team', 'trim' or 'panel'.
-export function kitOps(part, number) {
+// The white line down the inner edge of each side panel (the edge away from the seam it covers).
+const piping = sides => sides.map(([x, top, w, h]) => {
+  const seam = KIT.sides.at.reduce((best, at) => (Math.abs(at - (x + w / 2)) < Math.abs(best - (x + w / 2)) ? at : best));
+  const edge = Math.abs(x - seam) > Math.abs(x + w - seam) ? x : x + w;
+  return [edge - KIT.piping / 2, top, KIT.piping, h];
+});
+
+// The lettering of a jersey for `team` and `number`, in `fill` with an `outline`: the team's name (the last word of its
+// name) arched across the chest, each letter turned to the arch, and the number on the chest and on the back.
+function lettering(team, number, fill, outline) {
+  const word = ROSTER.teams[team].split(' ').pop().toUpperCase(), { at: [x, y], arch, spacing, widest } = KIT.name;
+  const fit = Math.min(1, widest / (KIT.name.height * KIT.digit * (spacing * (word.length - 1) + 1)));
+  const height = KIT.name.height * fit, step = height * KIT.digit * spacing, radius = (step * word.length) / arch;
+  const letters = [...word].map((text, k) => {
+    const angle = ((k - (word.length - 1) / 2) * step) / radius;
+    return { text, at: [x + radius * Math.sin(angle), y + radius * (1 - Math.cos(angle))], height, angle, fill, outline };
+  });
+  return [...letters, ...[KIT.chest, KIT.back].map(spot => ({ text: String(number), ...spot, fill, outline }))];
+}
+
+// What to paint on a `part` ('jersey' or 'shorts') of the player of `team` wearing `number`, in the order it is
+// painted: { fill, rect } or { text, at, height, angle?, fill, outline }, placed as in KIT, with `fill` and `outline`
+// naming 'team', 'trim' or 'panel'.
+export function kitOps(part, number, team = 0) {
+  const sides = sideRects(part);
   const ops = [
     { fill: 'team', rect: band(KIT.layout.main) },
-    ...sideRects(part).map(rect => ({ fill: part === 'jersey' ? 'panel' : 'trim', rect })),
+    ...sides.map(rect => ({ fill: 'panel', rect })),
+    ...piping(sides).map(rect => ({ fill: 'trim', rect })),
     { fill: 'trim', rect: band(KIT.layout.trim) },
   ];
-  if (part === 'jersey') for (const spot of [KIT.chest, KIT.back]) ops.push({ text: String(number), ...spot, fill: 'trim' });
+  if (part === 'jersey') ops.push(...lettering(team, number, 'trim', 'panel'));
   return ops;
 }
 
@@ -91,12 +122,13 @@ const stitchesDown = x => {
 };
 
 // What stands out of the cloth on a `part`, painted as heights (white raised, black flat) in the same places: the
-// numbers, which are stitched on, the stitching along the bindings' inner edge, and down each side panel's seams.
-export function heightOps(part, number) {
+// name and numbers, which are stitched on with their outlines, the stitching along the bindings' inner edge, and down
+// each side panel's seams.
+export function heightOps(part, number, team = 0) {
   const { trim } = KIT.layout, inset = KIT.stitch.inset;
   const seams = sideRects(part).flatMap(([x, , w]) => [x + inset, x + w - inset]).filter(x => x > 0.01 && x < 0.99);
   const ops = [{ fill: 'low', rect: [0, 0, 1, 1] }, ...stitches(trim[1] - inset), ...seams.flatMap(stitchesDown)];
-  if (part === 'jersey') for (const spot of [KIT.chest, KIT.back]) ops.push({ text: String(number), ...spot, fill: 'high' });
+  if (part === 'jersey') ops.push(...lettering(team, number, 'high', 'high'));
   return ops;
 }
 
@@ -114,10 +146,19 @@ export function paintKit(context, size, ops, colours) {
     context.fillStyle = colours[op.fill];
     if (op.rect) context.fillRect(...op.rect.map(n => n * size));
     else {
-      const px = op.height * size;
+      const px = op.height * size, widest = px * KIT.digit * op.text.length;   // a wider one is squeezed to fit
+      context.save();
+      context.translate(op.at[0] * size, op.at[1] * size);
+      if (op.angle) context.rotate(op.angle);
       context.font = KIT.font.replace('{px}', Math.round(px));
-      // The last argument is the widest the number may be: a wider one is squeezed to fit.
-      context.fillText(op.text, op.at[0] * size, op.at[1] * size, px * KIT.digit * op.text.length);
+      if (op.outline) {
+        context.strokeStyle = colours[op.outline];
+        context.lineWidth = px * KIT.outline;
+        context.lineJoin = 'round';
+        context.strokeText(op.text, 0, 0, widest);
+      }
+      context.fillText(op.text, 0, 0, widest);
+      context.restore();
     }
   }
 }

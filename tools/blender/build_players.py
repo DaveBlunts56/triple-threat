@@ -43,7 +43,7 @@ EXPRESSIONS = {
 # (about 14 degrees) to each side of it.
 COVER = {'reach': 0.03, 'spread': 0.25}
 # The far level of detail (spec section 9): about this many triangles, without the parts too small to see from afar.
-FAR = {'triangles': 15000, 'without': ('eyes', 'cornea', 'brows', 'lashes', 'mouth')}
+FAR = {'triangles': 13000, 'without': ('eyes', 'cornea', 'brows', 'lashes', 'mouth')}
 # The skin's regions, kept in its vertex colours for the game's skin material (src/render/materials.js skinMaterial):
 # red how rough it is, green how much sweat gathers there. `rough` and `sweat` give each region's values.
 MASKS = {
@@ -212,7 +212,7 @@ def strip_body(body, mark, bones, shoes, under_hair=()):
     the points of the skin the hair hides)."""
     is_body = in_group(body, 'body')
     coords = [body.matrix_world @ v.co for v in body.data.vertices]
-    shorts_hem = mark['knee'] + SHORTS['above_knee'] + SKIN_MARGIN
+    shorts_hem = mark['knee'] - SHORTS['below_knee'] + SKIN_MARGIN
     armpit = mark['shoulder'].z - 0.10
     shoe_top = bounds([shoes])[1].z - 0.03
 

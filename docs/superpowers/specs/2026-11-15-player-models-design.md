@@ -272,3 +272,23 @@ Built in the five stages, each looked at in film strips, contact sheets (`docs/s
   Medium 91%, High 111% (budgets 110% and 130%). Ultra was 143% before the far models and not measured since.
 - **Not checked:** the Chromebook; Ultra up close in the game (the test pane could not capture it); skin through cloth
   is checked by eye only. Known: a few white flecks of binding at the jersey's straps up close.
+
+## 14. Early-2000s kit (after play-testing, 2026-11-15)
+
+The owner asked for the look of early-2000s basketball kit instead of a modern fitted one, with a round neck, and
+showed two photographs of the era for reference (looked at only; nothing of them is in the game or the repo).
+
+- **Cut:** the jersey 17% loose at the chest (9% before), still tucked but bloused over the waistband, its arm holes
+  14 cm under the shoulder joint; the shorts reach 6 cm below the knee (3 cm above before) and flare to 55% at the
+  hem, the shin bones now part of their cut. The cloth is 6 mm thick and draped heavier, with broader folds; bindings
+  2.5 cm at the collar, 4.5 cm at the waistband, 3 cm at the hems.
+- **Collar:** a round neck on a smooth curve (11.5 cm deep at the front, 3.5 at the back), not cut from the skin's own
+  coarse surface: the cloth along it is subdivided smoothly and trimmed to the curve, held still in the drape, and its
+  binding smoothed along the loop. Round the neck the jersey follows the spine and neck (a quarter of the shoulders,
+  none of the arms), so the collar keeps its round shape when he leans or swings his arms: it no longer sags into a U.
+- **Paint:** the team's name (WAVES, SCORPIONS) arched across the chest over a big number, a long name lettered smaller
+  to fit; name and numbers white, outlined in the darker team colour and raised; white piping down the side panels;
+  wide darker stripes down the shorts, piped in white.
+- **Fabric:** glossy: roughness 0.42 for the jersey's open mesh (a coarser knit), 0.38 for the satin shorts.
+- **Budgets:** near 35,000-42,000 triangles, far 13,000 (from 15,000, to keep the file at 34.5 MB). Frame times were
+  not re-measured after this change.

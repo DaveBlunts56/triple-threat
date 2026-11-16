@@ -266,16 +266,16 @@ test('the kit is cloth with thickness, with bindings, and the jersey is tucked i
     const name = rootName(person), jersey = piece(person, 'jersey'), shorts = piece(person, 'shorts');
     for (const [part, kit] of [['jersey', jersey], ['shorts', shorts]]) {
       assert.ok(kit.uv.filter(uv => inRegion(uv, 'trim')).length > 40, `${name} ${part}: no bindings`);
-      // Thickness: from a point on the outside, 3 to 5 mm in along its normal, there is a point of the inside.
+      // Thickness: heavy cloth: from a point on the outside, 5 to 7 mm in along its normal, there is a point of the inside.
       let found = 0, tried = 0;
       for (let i = 0; i < kit.at.length && tried < 100; i += 23) {   // enough points that a few near an edge do not decide it
         const [x, y, z] = kit.at[i], [nx, ny, nz] = kit.normal[i];
         if (!inRegion(kit.uv[i], 'main')) continue;
         tried++;
         if (kit.at.some((q, j) => j !== i && kit.normal[j][0] * nx + kit.normal[j][1] * ny + kit.normal[j][2] * nz < -0.5
-          && [3, 4, 5].some(d => Math.hypot(q[0] - (x - nx * d / 1000), q[1] - (y - ny * d / 1000), q[2] - (z - nz * d / 1000)) < 0.003))) found++;
+          && [5, 5.5, 6, 6.5, 7].some(d => Math.hypot(q[0] - (x - nx * d / 1000), q[1] - (y - ny * d / 1000), q[2] - (z - nz * d / 1000)) < 0.0012))) found++;
       }
-      assert.ok(found >= tried * 0.7, `${name} ${part}: only ${found} of ${tried} points have cloth 3 to 5 mm behind them`);   // near an edge or a binding the inside is not straight behind
+      assert.ok(found >= tried * 0.7, `${name} ${part}: only ${found} of ${tried} points have cloth 5 to 7 mm behind them`);   // near an edge or a binding the inside is not straight behind
     }
     const lowest = Math.min(...jersey.at.map(p => p[1])), waist = Math.max(...shorts.at.map(p => p[1]));
     assert.ok(lowest < waist - 0.04 && lowest > waist - 0.15, `${name}: the jersey ends ${waist - lowest} m under the shorts' waistband`);
@@ -289,6 +289,24 @@ test('the shorts\' hems are bound all round without a fold: no binding hangs bel
     const edge = lowest(v => v <= KIT.layout.main[1]), binding = lowest(v => v >= KIT.layout.trim[0] - 0.005);
     // The binding wraps 2 mm past the edge and the cloth is 4 mm thick: a binding turned off the cloth hangs its own width (16 mm) below.
     assert.ok(binding > edge - 0.008, `${rootName(person)}: the hem's binding hangs ${((edge - binding) * 1000).toFixed(0)} mm below its edge`);
+  }
+});
+
+test('early-2000s kit: shorts reaching below the knee, and a round collar dipping 7 to 12 cm under the neck at the front', async () => {
+  const { Matrix4, Vector3 } = await import('three');
+  for (const person of people) {
+    const name = rootName(person), root = players.json.nodes.findIndex(n => n.name === name);
+    const meshNode = nodesUnder(players.json, root).map(i => players.json.nodes[i]).find(n => n.mesh !== undefined && !n.name.endsWith('-far'));
+    const skin = players.json.skins[meshNode.skin], bind = floatsOf(players, skin.inverseBindMatrices);
+    const joint = bone => { const i = skin.joints.findIndex(j => players.json.nodes[j].name === `mixamorig:${bone}`); return new Vector3().setFromMatrixPosition(new Matrix4().fromArray(bind.slice(16 * i, 16 * i + 16)).invert()); };
+    const knee = joint('LeftLeg').y, neck = joint('Neck').y;
+    const shorts = piece(person, 'shorts'), jersey = piece(person, 'jersey');
+    assert.ok(Math.min(...shorts.at.map(p => p[1])) < knee - 0.03, `${name}: the shorts end ${(Math.min(...shorts.at.map(p => p[1])) - knee).toFixed(3)} m from the knee`);
+    // The collar: the binding at the front middle of the neck.
+    const collar = jersey.at.filter((p, i) => jersey.uv[i][1] >= KIT.layout.trim[0] - 0.005 && Math.abs(p[0]) < 0.02 && p[2] > 0 && p[1] > neck - 0.2);
+    assert.ok(collar.length > 4, `${name}: no collar at the front`);
+    const dip = neck - Math.min(...collar.map(p => p[1]));
+    assert.ok(dip > 0.07 && dip < 0.12 + 0.03, `${name}: the collar dips ${dip.toFixed(3)} m under the neck`);   // the binding hangs a little below the edge
   }
 });
 

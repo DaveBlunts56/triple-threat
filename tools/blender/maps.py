@@ -15,9 +15,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import project  # noqa: E402
 
 SIZE = 512
-# The knit: holes on a grid of this many to the tile (a 4 cm tile: a hole every 2 mm), this deep and this wide (a share
-# of the grid's spacing), between ribs that run down the cloth. The twill: diagonal ribs, this many to the tile.
-KNIT = {'holes': 20, 'depth': 1.0, 'radius': 0.26, 'ribs': 0.25, 'strength': 4.0, 'rough': 0.76, 'roughHole': 0.9}
+# The knit: the open mesh of early-2000s kit, holes on a grid of this many to the tile (a 4 cm tile: a hole every
+# 3 mm), this deep and this wide (a share of the grid's spacing), between ribs that run down the cloth. The twill:
+# diagonal ribs, this many to the tile.
+KNIT = {'holes': 13, 'depth': 1.0, 'radius': 0.3, 'ribs': 0.25, 'strength': 4.0, 'rough': 0.76, 'roughHole': 0.9}
 TWILL = {'lines': 48, 'strength': 2.5, 'rough': 0.84}
 # Hair strands, running up the tile (along v): this many to the tile, each wandering by up to `wander` of the spacing,
 # with a slower wave of clumping.

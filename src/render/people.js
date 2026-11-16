@@ -80,11 +80,11 @@ export async function loadPeople(camera) {
   }
 
   // What stands out of a garment (its numbers and stitching), as a normal map.
-  function raised(part, number) {
+  function raised(part, number, team) {
     const size = KIT.size, canvas = document.createElement('canvas');
     canvas.width = canvas.height = size;
     const g = canvas.getContext('2d');
-    paintKit(g, size, heightOps(part, number), kitColours(0));
+    paintKit(g, size, heightOps(part, number, team), kitColours(0));
     const made = new THREE.DataTexture(normalFromHeight(g.getImageData(0, 0, size, size).data, size), size, size, THREE.RGBAFormat);
     made.flipY = false;
     made.colorSpace = THREE.NoColorSpace;
@@ -114,7 +114,7 @@ export async function loadPeople(camera) {
       if (part === 'jersey' || part === 'shorts') {
         g.save();
         g.translate(x, y); g.scale(w / KIT.size, h / KIT.size);
-        paintKit(g, KIT.size, kitOps(part, number), kitColours(team));
+        paintKit(g, KIT.size, kitOps(part, number, team), kitColours(team));
         g.restore();
       } else if (part === 'gear') {
         KIT.gear.order.forEach((colour, k) => { g.fillStyle = gearColour(colour, team); g.fillRect(x + (k * w) / 3, y, w / 3, h); });
@@ -201,10 +201,10 @@ export async function loadPeople(camera) {
       if (place && part.material.map) drawn[place] = part.material.map.image;
       let made;
       if (kind === 'jersey' || kind === 'shorts') {
-        const normal = raised(kind, number), colours = kitColours(team), sizes = {};
+        const normal = raised(kind, number, team), colours = kitColours(team), sizes = {};
         made = atEachLevel(level => {
           const size = Math.round(GARMENT[kind] * QUALITY[level].textures);
-          sizes[size] ??= picture(kitOps(kind, number), colours, size);
+          sizes[size] ??= picture(kitOps(kind, number, team), colours, size);
           return kitMaterial(level, { part: kind, map: sizes[size], normal, fabric: kind === 'jersey' ? tiles.knit : tiles.twill });
         });
       } else if (kind === 'skin') {

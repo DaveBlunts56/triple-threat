@@ -14,19 +14,34 @@ import bpy
 from mathutils import Vector
 
 BONE = 'mixamorig:'
+# The kit is cut as basketball kit was in the early 2000s: a long, loose jersey hanging straight from the shoulders,
+# and long, baggy shorts reaching below the knee, in thick, heavy, shiny cloth.
 # How loosely the kit hangs: how far each ring of the surface is pushed out from the body, as a share of its radius.
 # The jersey is tucked into the shorts, as the rules of the game ask: its hem is `tuck` metres below the shorts'
-# waistband, and it is a little narrower there than they are.
-JERSEY = {'chest': 0.09, 'hem': 0.07, 'shoulder': 0.02, 'tuck': 0.08}   # looseness (a share) at each height; tuck: metres in the shorts
-SHORTS = {'hip': 0.10, 'hem': 0.52, 'above_knee': 0.03, 'rise': 0.09}   # rise: metres the waistband sits above the hip bone's root
+# waistband, narrower there than they are, and roomier just above it, so that it blouses over the waistband.
+# armpit: how far under the shoulder joint its arm holes reach; strap: how far in from the shoulder joint they start.
+JERSEY = {'chest': 0.17, 'hem': 0.10, 'shoulder': 0.04, 'tuck': 0.08, 'armpit': 0.14, 'strap': 0.04}
+# A round neck: the opening dips `front` metres under the neck joint at the front and `back` at the back, and is
+# `wide` metres either side of the middle, on a smooth curve, broad at the bottom (the higher `round`, the broader).
+NECK = {'front': 0.115, 'back': 0.035, 'wide': 0.11, 'round': 2.6, 'spare': 0.03, 'fine': 0.04}
+# spare: the opening is first cut this much smaller; fine: within this far under the curve the cloth is made finer,
+# then trimmed to it, so that the collar's edge is a clean round line (see round_neck).
+# rise: metres the waistband sits above the hip bone's root; below_knee: metres the hems hang below the knee joint.
+SHORTS = {'hip': 0.16, 'hem': 0.55, 'below_knee': 0.06, 'rise': 0.09}
 # Regions of each garment's picture, as (top, bottom) shares of its height. Must match KIT.layout in src/render/kit.js.
 LAYOUT = {'main': (0.0, 0.8), 'trim': (0.82, 0.9)}
 PANEL = {'front': 0.25, 'back': 0.75, 'width': 0.46}      # the main panels: their middles across the picture, and their width
-BINDING = {'width': 0.016, 'proud': 0.0025, 'over': 0.002}   # metres: how wide a binding is, how far it stands off the cloth, how far past its edge it wraps
-THICK = 0.004                                             # metres of cloth
-# The drape: frames of cloth simulation, and the most any point may move or go into the body before the drape is
-# thrown away for that garment.
-DRAPE = {'frames': 30, 'most': 0.06, 'near': 0.004}
+# How wide each binding is (metres) — the collar, the arm holes, the shorts' waistband and their hems — how far it
+# stands off the cloth, how far past its edge it wraps, and how many rounds of smoothing its edges get along the loop.
+BINDING = {'collar': 0.025, 'arm': 0.018, 'waist': 0.045, 'hem': 0.03, 'proud': 0.003, 'over': 0.002, 'smooth': 10}
+THICK = 0.006                                             # metres of cloth: heavy, as the cloth of the time was
+# The drape: frames of cloth simulation, how heavy and how stiff to bend the cloth is (heavy cloth falls in a few broad
+# folds), and the most any point may move or go into the body before the drape is thrown away for that garment.
+DRAPE = {'frames': 30, 'mass': 0.3, 'bend': 0.5, 'most': 0.08, 'near': 0.004}
+# Round the neck the jersey moves with his spine and neck only, not with his shoulders and arms, so that the collar keeps
+# its round shape when he leans or swings his arms: fully within `hold` metres of the collar's edge, blending back to
+# its own weights by `free`; `shoulders` is the share of his shoulders' pull it keeps there.
+COLLAR = {'hold': 0.04, 'free': 0.09, 'shoulders': 0.25}
 
 
 def activate(obj):
@@ -53,10 +68,11 @@ def cut_out(body, name, keep_vertex):
     return piece
 
 
-def tidy_border(piece, flat=()):
+def tidy_border(piece, flat=(), onto=None):
     """Cut edges follow the faces they were cut along, so they are ragged. Level the hems, and round off the rest.
 
-    `flat` lists heights: border corners within 12 cm of one are moved onto it.
+    `flat` lists heights: border corners within 12 cm of one are moved onto it. `onto(point)`: the height of a curve a
+    border corner is laid on (the neck's), or None.
     """
     bm = bmesh.new()
     bm.from_mesh(piece.data)
@@ -64,7 +80,10 @@ def tidy_border(piece, flat=()):
     level = {}
     for v in border:
         near = sorted((z for z in flat if abs(v.co.z - z) < 0.12), key=lambda z: abs(v.co.z - z))   # the nearest level
-        if near:
+        curve = onto(v.co) if onto else None
+        if curve is not None:
+            v.co.z = level[v] = curve
+        elif near:
             v.co.z = level[v] = near[0]
     # Smooth each border loop without shrinking it: a step toward the neighbours, then a slightly larger step back.
     for step in [0.5, -0.53] * 12:
@@ -75,12 +94,21 @@ def tidy_border(piece, flat=()):
     bm.free()
 
 
+def neckline(mark, p):
+    """The height of the round neck's edge above the point `p` (by its side-to-side place and whether it is in front),
+    or None where the neck is not open."""
+    if abs(p.x) >= NECK['wide']:
+        return None
+    depth = NECK['front'] if p.y < mark['spine_y'] else NECK['back']
+    return mark['neck'] - depth * (1 - abs(p.x / NECK['wide']) ** NECK['round'])
+
+
 def make_jersey(body, mark, bones, tights):
-    """A sleeveless jersey: the torso of the tights surface, hung loose, with a scooped neck and arm holes."""
+    """A sleeveless jersey: the torso of the tights surface, hung loose, with a round neck and deep arm holes."""
     hem = mark['pelvis'] + SHORTS['rise'] - JERSEY['tuck']
-    strap = mark['shoulder'].x - 0.035                     # the straps stop short of the shoulder joint
+    strap = mark['shoulder'].x - JERSEY['strap']           # the straps stop short of the shoulder joint
     coords = [body.matrix_world @ v.co for v in body.data.vertices]
-    armpit = mark['shoulder'].z - 0.10
+    armpit = mark['shoulder'].z - JERSEY['armpit']
     is_arm = lambda bone: 'Arm' in bone or 'Hand' in bone
 
     def keep(i):
@@ -91,9 +119,8 @@ def make_jersey(body, mark, bones, tights):
             return not is_arm(bone)                        # the whole torso, but not the arms hanging beside it
         if abs(p.x) > strap:
             return False                                   # arm hole
-        front = p.y < mark['spine_y']
-        scoop = mark['neck'] - (0.13 if front else 0.05)
-        return not (abs(p.x) < 0.085 and p.z > scoop)      # neck opening, deeper at the front
+        edge = neckline(mark, p)
+        return edge is None or p.z <= edge + NECK['spare']  # the neck opening, cut a little small: see round_neck
 
     jersey = cut_out(body, 'jersey', keep)
     for v in jersey.data.vertices:
@@ -102,18 +129,46 @@ def make_jersey(body, mark, bones, tights):
         loose = JERSEY['chest'] + (JERSEY['hem'] - JERSEY['chest']) * (1 - t) + (JERSEY['shoulder'] - JERSEY['chest']) * up   # the straps lie on the shoulders
         v.co.x *= 1 + loose
         v.co.y = mark['spine_y'] + (v.co.y - mark['spine_y']) * (1 + loose)
-    tidy_border(jersey, flat=[hem])
+    round_neck(jersey, mark)
+    # The neck's edge laid on its curve, so that it is a clean round line, not the skin's own steps.
+    above = mark['shoulder'].z - JERSEY['armpit']
+    tidy_border(jersey, flat=[hem], onto=lambda p: neckline(mark, p) if p.z > above and abs(p.x) < NECK['wide'] + 0.01 else None)
     return jersey
 
 
+def round_neck(jersey, mark):
+    """The cloth round the neck made finer (each edge there cut in three) and trimmed to the neck's curve: the skin's
+    surface is too coarse at the breastbone to follow a round line. Weights and the picture's points are carried over."""
+    bm = bmesh.new()
+    bm.from_mesh(jersey.data)
+    above = mark['shoulder'].z - JERSEY['armpit']
+
+    def close(co):   # along the curve: from `fine` under it to the spare cloth over it, and where it meets the straps;
+        # every edge touching this band is cut, so the faces that straddle the curve are made fine too
+        if co.z <= above:
+            return False
+        edge = neckline(mark, co)
+        if edge is not None:
+            return -NECK['fine'] < co.z - edge < NECK['spare'] + 0.01
+        return abs(co.x) < NECK['wide'] + NECK['fine'] and co.z > mark['neck'] - NECK['fine']
+
+    # Smooth: the new points follow the curve of the cloth, not the flat faces they cut (inside his body by a few mm).
+    bmesh.ops.subdivide_edges(bm, edges=[e for e in bm.edges if any(close(v.co) for v in e.verts)], cuts=2, use_grid_fill=True, smooth=1.0)
+    inside = lambda f: (lambda c, edge: edge is not None and c.z > edge)(f.calc_center_median(), neckline(mark, f.calc_center_median()))
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if close(f.calc_center_median()) and inside(f)], context='FACES')
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+    bm.to_mesh(jersey.data)
+    bm.free()
+
+
 def make_shorts(body, mark, bones, tights):
-    """Loose knee-length shorts: the hips and thighs of the tights surface, flared toward the hem."""
-    hem, waist = mark['knee'] + SHORTS['above_knee'], mark['pelvis'] + SHORTS['rise']
+    """Long, baggy shorts: the hips and legs of the tights surface down to below the knee, flared toward the hem."""
+    hem, waist = mark['knee'] - SHORTS['below_knee'], mark['pelvis'] + SHORTS['rise']
     crotch = mark['hip'] - 0.10
     coords = [body.matrix_world @ v.co for v in body.data.vertices]
 
     def keep(i):
-        return tights[i] and hem <= coords[i].z <= waist and bones[i] in ('Hips', 'Spine', 'LeftUpLeg', 'RightUpLeg')
+        return tights[i] and hem <= coords[i].z <= waist and bones[i] in ('Hips', 'Spine', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg')
 
     shorts = cut_out(body, 'shorts', keep)
     thigh = mark['thigh']
@@ -145,9 +200,9 @@ def drape(piece, collider, pins):
     hits = collider.modifiers.new('drape-collision', 'COLLISION')
     cloth = piece.modifiers.new('drape', 'CLOTH')
     s = cloth.settings
-    s.quality, s.mass, s.air_damping = 6, 0.15, 1.0
+    s.quality, s.mass, s.air_damping = 6, DRAPE['mass'], 1.0
     s.tension_stiffness = s.compression_stiffness = 15
-    s.bending_stiffness = 0.05
+    s.bending_stiffness = DRAPE['bend']
     s.vertex_group_mass = 'drape-pin'
     cloth.collision_settings.distance_min = 0.004
     cloth.collision_settings.use_self_collision = False
@@ -207,14 +262,15 @@ def lay_out(piece, middle, legs=None):
                 a = (math.pi - a) if a > 0 else (-math.pi - a)
             share = side * (a + math.pi / 2) / math.pi if leg else 2 * a / math.pi   # leg: 0 inside to 1 outside
             u = PANEL['front'] + half * share if front else PANEL['back'] - half * share
+            u = min(1.0, max(0.0, u))   # a corner reaching round past a side seam: the side panel's paint covers it
             v = top + (bottom - top) * (1 - (co.z - lowest) / height)
             uv[corner].uv = (u, 1 - v)                      # Blender's v runs up; the picture's rows run down
 
 
-def bind(piece, bound):
-    """Sews a binding along each edge of the garment that `bound(point)` says is bound: a strip BINDING['width'] wide,
-    standing BINDING['proud'] off the cloth and wrapping just past its edge, in the TRIM region of the picture.
-    Its points take the weights of the edge they are sewn to, so it moves with the garment."""
+def bind(piece, bound, width):
+    """Sews a binding along each edge of the garment that `bound(point)` says is bound: a strip `width(loop)` metres
+    wide (`loop`: the edge's points), standing BINDING['proud'] off the cloth and wrapping just past its edge, in the
+    TRIM region of the picture. Its points take the weights of the edge they are sewn to, so it moves with the garment."""
     bm = bmesh.new()
     bm.from_mesh(piece.data)
     bm.verts.ensure_lookup_table()
@@ -245,17 +301,24 @@ def bind(piece, bound):
         # most of its points' inner neighbours lie (a point at the tip of a lone triangle has none of its own).
         across = [v.normal.cross(loop[(k + 1) % len(loop)].co - loop[k - 1].co).normalized() for k, v in enumerate(loop)]
         lean = sum((e.other_vert(v).co - v.co).dot(across[k]) for k, v in enumerate(loop) for e in v.link_edges if not e.is_boundary)
-        points = []
+        points, wide = [], width(loop)
         for k, v in enumerate(loop):
             n = v.normal.copy()
             into = across[k] if lean >= 0 else -across[k]
             outer = bm.verts.new(v.co - into * BINDING['over'] + n * BINDING['proud'] * 0.5)
-            inside = bm.verts.new(v.co + into * BINDING['width'] + n * BINDING['proud'])
+            inside = bm.verts.new(v.co + into * wide + n * BINDING['proud'])
             for made in (outer, inside):
                 if deform is not None:
                     for group, weight in v[deform].items():
                         made[deform][group] = weight
             points.append((outer, inside))
+        # Each edge of the strip smoothed along the loop: point by point the cloth's normals and directions wobble,
+        # and a strip laid on them ruffles.
+        for _ in range(BINDING['smooth']):
+            for ring in (0, 1):
+                moved = [(points[k - 1][ring].co + 2 * points[k][ring].co + points[(k + 1) % len(points)][ring].co) / 4 for k in range(len(points))]
+                for k, co in enumerate(moved):
+                    points[k][ring].co = co
         length, along = 0.0, [0.0]
         for a, b in zip(loop, loop[1:] + loop[:1]):
             length += (a.co - b.co).length
@@ -314,6 +377,34 @@ def fit_weights(piece, collider, low, high):
     piece.vertex_groups.remove(piece.vertex_groups['fit-weights'])
 
 
+def steady_collar(jersey, mark):
+    """Round the neck, the jersey's weights are its spine's and neck's (and a little of its shoulders'), so the collar
+    keeps its round shape however his shoulders and arms move (see COLLAR)."""
+    names = {g.index: g.name for g in jersey.vertex_groups}
+    spine = {i for i, n in names.items() if n in (BONE + 'Spine1', BONE + 'Spine2', BONE + 'Neck')}
+    shoulder = {i for i, n in names.items() if n.startswith(BONE) and 'Shoulder' in n}
+    bm = bmesh.new()
+    bm.from_mesh(jersey.data)
+    above = mark['shoulder'].z - JERSEY['armpit']
+    edge = [v.co.copy() for v in bm.verts if v.is_boundary and v.co.z > above and abs(v.co.x) < NECK['wide'] + 0.01]
+    bm.free()
+    if not edge:
+        return
+    for v in jersey.data.vertices:
+        far = min((v.co - e).length for e in edge)
+        share = 1 - min(1.0, max(0.0, (far - COLLAR['hold']) / (COLLAR['free'] - COLLAR['hold'])))
+        if share <= 0:
+            continue
+        old = {g.group: g.weight for g in v.groups if g.group in spine or (names[g.group].startswith(BONE))}
+        kept = {i: w * (1.0 if i in spine else COLLAR['shoulders'] if i in shoulder else 0.0) for i, w in old.items()}
+        total = sum(kept.values())
+        if total <= 0:
+            continue
+        for g in v.groups:
+            if g.group in old:
+                g.weight = (1 - share) * old[g.group] + share * kept[g.group] / total
+
+
 def thicken(piece):
     """Cloth THICK metres thick, the inside facing in, the edges closed."""
     activate(piece)
@@ -343,16 +434,25 @@ def make_kit(body, collider, mark, bones, tights):
     shorts = make_shorts(body, mark, bones, tights)
     neck, waist = mark['neck'], mark['pelvis'] + SHORTS['rise']
     hem = waist - JERSEY['tuck']
-    drape(jersey, collider, lambda p: p.z > mark['shoulder'].z - 0.04 or p.z < hem + 0.06)   # held at the shoulders, and in the shorts
+    # Held at the shoulders, round the collar (so it keeps the round line it was cut to) and in the shorts.
+    collar = lambda p: p.z > mark['chest'] and abs(p.x) < NECK['wide'] + NECK['fine']
+    drape(jersey, collider, lambda p: p.z > mark['shoulder'].z - 0.04 or collar(p) or p.z < hem + 0.06)
     drape(shorts, collider, lambda p: p.z > waist - 0.03)                 # held at the waistband
     tuck(jersey, shorts, waist)
     fit_weights(jersey, collider, mark['chest'] - 0.04, mark['chest'] + 0.04)
+    steady_collar(jersey, mark)
     legs = {'crotch': mark['hip'] - 0.10, 'x': abs(mark['thigh'].x) + 0.01, 'y': mark['thigh'].y}
     for piece, kind in ((jersey, 'jersey'), (shorts, 'shorts')):
         lowest = min(v.co.z for v in piece.data.vertices)
         lay_out(piece, mark['spine_y'], legs if kind == 'shorts' else None)
-        # The jersey's hem is tucked into the shorts: it has no binding.
-        bind(piece, (lambda co: co.z > lowest + 0.03) if kind == 'jersey' else (lambda co: True))
+        # The jersey's hem is tucked into the shorts: it has no binding. Its collar is the edge that crosses its middle;
+        # the shorts' waistband is their highest edge.
+        top = max(v.co.z for v in piece.data.vertices)
+        if kind == 'jersey':
+            width = lambda loop: BINDING['collar'] if min(abs(v.co.x) for v in loop) < 0.02 else BINDING['arm']
+        else:
+            width = lambda loop: BINDING['waist'] if max(v.co.z for v in loop) > top - 0.01 else BINDING['hem']
+        bind(piece, (lambda co: co.z > lowest + 0.03) if kind == 'jersey' else (lambda co: True), width)
         piece.data.materials.clear()
         piece.data.materials.append(material(kind))
         thicken(piece)
@@ -375,7 +475,7 @@ def add_springs(rig, shorts, mark):
         bone.parent, bone.use_deform = thigh, True
     bpy.ops.object.mode_set(mode='OBJECT')
 
-    crotch, hem = mark['hip'] - 0.10, mark['knee'] + SHORTS['above_knee']
+    crotch, hem = mark['hip'] - 0.10, mark['knee'] - SHORTS['below_knee']
     groups = {side: shorts.vertex_groups.new(name=f'kitShorts{side}') for side in ('Left', 'Right')}
     for v in shorts.data.vertices:
         co = shorts.matrix_world @ v.co
