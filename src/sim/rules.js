@@ -171,6 +171,7 @@ export function callTimeout(state, team) {
   if (state.timeouts[team] <= 0 || !(live || state.phase === 'dead' || state.phase === 'inbound')) return false;
   state.timeouts[team]--;
   state.lastTimeout = state.time;
+  state.ato = state.possession;   // the team with the ball runs what has worked when play starts again
   for (const person of state.rosters.flat()) person.energy = Math.min(1, person.energy + styled(state, 'timeout.rest'));
   const call = { kind: 'timeout', team, ball: state.possession, number: null, shots: 0 };
   if (live) stopPlay(state, state.possession, sidelineSpot(state.ball), call);

@@ -137,6 +137,9 @@ export function createMatch(seed = 1, size = 3, teams = [0, 1]) {
     side: [1, 1],             // the side of the court each team's offence is set to (see offball.js)
     cut: [null, null],        // each team's player cutting to the hoop, { id, until }, or null
     plays: [null, null],      // the play each team is running (see plays.js), or null
+    coach: [null, null],      // each team's coach (see coach.js), made when first asked for
+    humans: [0],              // the teams a person plays: [0] in Play, [] in a match with nobody playing
+    ato: null,                // the team that has just called a timeout with the ball: its coach calls what has worked
     playCall: [null, null],   // the play asked for and not yet started, by its key
     playWait: [0, 0],         // seconds until each team's coach may call another
     switches: 0,   // how many times men have been changed, by a screen or when getting back

@@ -6,6 +6,7 @@ import { tire } from './stamina.js';
 import { emptyEvents, emptyIntent } from './state.js';
 import { screenSwitches } from './matchups.js';
 import { stepPlays } from './plays.js';
+import { coachKindOf } from './coach.js';
 
 // Advances the whole match by one fixed step. `intents` holds one Intent per player, by id. Returns what happened in
 // the step (see emptyEvents), or null before and after a match.
@@ -37,7 +38,8 @@ export function step(state, intents, dt) {
 
   applyRules(state, stopped ? emptyEvents() : events, dt, intents);
   stepPlays(state, dt);
-  if (wantsTimeout(state, 1)) callTimeout(state, 1);   // the computer's coach; your timeouts are yours to call
+  // The computer's coaches call timeouts: both in a match nobody plays, team 1's in Play. Your timeouts are yours.
+  for (const team of [0, 1]) if (!state.humans.includes(team) && wantsTimeout(state, team, coachKindOf(state, team).timeouts)) callTimeout(state, team);
   state.time += dt;
   return events;   // for whoever watches the match: the rules have already judged them
 }

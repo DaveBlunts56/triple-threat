@@ -5,6 +5,7 @@ import { AI, CLOCK, FOUL, PLAY, RIM } from './tuning.js';
 import { attackSign, onFloor, personOf, rand } from './state.js';
 import { guardOf } from './matchups.js';
 import { styled } from './styles.js';
+import { playWeight, running } from './coach.js';
 import { rated, starOf, heatOf } from './ratings.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -240,12 +241,14 @@ export function stepPlays(state, dt) {
     let key = state.playCall[team];
     // The coach lets the ball be walked up and the offence set before he calls anything; a play you ask for starts at once.
     if (!key && state.playWait[team] <= 0 && CLOCK.shot - state.shotClock >= styled(state, 'play.startAt')) {
-      // The coach's pick: any play the match has, the likelier the better it suits who is on the floor.
-      const weights = list.map(play => suits(state, team, play));
+      // The coach's pick: any play the match has, the likelier the better it suits who is on the floor, the more his
+      // playbook calls it, the bigger the mismatch it hunts and the more it has scored (see coach.js).
+      const ids = cast(state, state.players[state.ball.holder]);
+      const weights = list.map(play => suits(state, team, play) * playWeight(state, team, play, ids));
       let at = rand(state) * weights.reduce((sum, w) => sum + w, 0);
       key = list.find((_, i) => (at -= weights[i]) < 0) ?? list[list.length - 1];
     }
-    if (key) { start(state, team, key); state.playCall[team] = null; }
+    if (key) { start(state, team, key); state.playCall[team] = null; running(state, team, key); if (state.ato === team) state.ato = null; }
   }
 }
 

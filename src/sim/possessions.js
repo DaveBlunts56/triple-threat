@@ -16,7 +16,9 @@ export function handOver(state, team) {
   if (state.owner !== null && back?.team === team && back.at === state.gameClock && back.quarter === state.quarter
     && state.ownerClock === state.gameClock && state.ownerQuarter === state.quarter) {
     if (back.counted) { state.possessions[team]--; state.lengths[team][0] -= back.used; state.lengths[team][1]--; }
-    state.owner = team; state.ownerClock = back.startClock; state.ownerQuarter = back.quarter;
+    state.owner = team; state.ownerClock = back.startClock; state.ownerQuarter = back.quarter; state.ownerScore = back.score;
+    const c = state.coach?.[team];
+    if (back.counted && c) { const m = c.memory[back.kind]; m[0] -= back.points; m[1]--; c.kind = back.kind === 'none' || back.kind === 'transition' ? null : back.kind; }
     state.lastEnded = null;
     return;
   }
@@ -25,7 +27,7 @@ export function handOver(state, team) {
 }
 
 export function beginPossession(state, team) {
-  state.owner = team; state.ownerClock = state.gameClock; state.ownerQuarter = state.quarter;
+  state.owner = team; state.ownerClock = state.gameClock; state.ownerQuarter = state.quarter; state.ownerScore = state.score[team];
 }
 
 // Ends the open possession, if any. One begun with no time left on the clock (a basket at the buzzer hands the ball
@@ -35,9 +37,13 @@ export function endPossession(state) {
   if (team === null) return;
   state.owner = null;
   const used = state.ownerQuarter === state.quarter ? state.ownerClock - state.gameClock : state.ownerClock;
-  const counted = state.ownerClock > 0;
-  state.lastEnded = { team, at: state.gameClock, quarter: state.quarter, startClock: state.ownerClock, used, counted };
+  const counted = state.ownerClock > 0, points = state.score[team] - (state.ownerScore ?? state.score[team]);
+  // What the possession was, for the coach's memory: the play it ran, or a quick one with none, or neither.
+  const c = state.coach?.[team], kind = c?.kind ?? (used < 8 ? 'transition' : 'none');
+  state.lastEnded = { team, at: state.gameClock, quarter: state.quarter, startClock: state.ownerClock, used, counted, score: state.ownerScore, points, kind };
+  if (c) c.kind = null;
   if (!counted) return;
   state.possessions[team]++;
   state.lengths[team][0] += used; state.lengths[team][1]++;
+  if (c) { const m = (c.memory[kind] ??= [0, 0]); m[0] += points; m[1]++; }
 }

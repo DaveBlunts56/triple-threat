@@ -12,7 +12,7 @@ import { DT } from '../src/sim/tuning.js';
 import { live, idle, only, at, run } from './helpers.js';
 
 // A bare state with a clock, for the counting alone.
-const bare = () => ({ gameClock: 100, quarter: 1, possessions: [0, 0], lengths: [[0, 0], [0, 0]], owner: null, ownerClock: 0, ownerQuarter: 1, lastEnded: null });
+const bare = () => ({ gameClock: 100, quarter: 1, score: [0, 0], possessions: [0, 0], lengths: [[0, 0], [0, 0]], owner: null, ownerClock: 0, ownerQuarter: 1, lastEnded: null });
 const tick = (s, seconds) => { s.gameClock -= seconds; };
 
 test('the tip begins the first possession and counts nothing', () => {

@@ -24,7 +24,8 @@ export function situation(state, team) {
 
 // Whether `team`'s coach wants a timeout now: the other team is on a run, or his five are tired, and he has the ball
 // (in his own half, so that nothing good is stopped) or play is stopped with the ball his.
-export function wantsTimeout(state, team) {
+// `eager`: how readily his coach calls one (above 1, at a shorter run).
+export function wantsTimeout(state, team, eager = 1) {
   if (state.timeouts[team] <= 0 || state.time - state.lastTimeout < TIMEOUT.apart) return false;
   const holder = state.players[state.ball.holder];
   const mine = state.phase === 'dead' ? state.possession === team && !state.freeThrow
@@ -32,5 +33,5 @@ export function wantsTimeout(state, team) {
   if (!mine) return false;
   const five = state.players.filter(p => p.team === team);
   const energy = five.reduce((sum, p) => sum + personOf(state, p).energy, 0) / five.length;
-  return state.run[1 - team] >= LATE.run || energy < LATE.tired;
+  return state.run[1 - team] >= LATE.run / eager || energy < LATE.tired;
 }

@@ -11,7 +11,6 @@ import { DT } from '../src/sim/tuning.js';
 import { KINDS, SLIDERS, STYLES, setStyle, styled } from '../src/sim/styles.js';
 import { arcadeTrace } from './trace.js';
 
-const fixture = name => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url)));
 const forbidden = name => new Proxy({}, { get: () => { throw new Error(`the ${name} table was read`); } });
 const every = at => Object.fromEntries(SLIDERS.map(s => [s.key, at]));
 
@@ -51,11 +50,10 @@ test('a match\'s table comes from its own style and its own sliders alone', () =
 });
 
 test('a Simulation match at the sliders\' ends leaves nothing behind for the next Arcade match', () => {
+  const before = arcadeTrace(1);
   playOn('sim', STYLES, every(0));
   playOn('sim', STYLES, every(100));
-  const old = fixture('arcade-trace.json')[0];
-  const now = arcadeTrace(old.seed, { keys: Object.keys(old.box[0][0]) });
-  assert.deepEqual(now.hashes, old.hashes);
+  assert.deepEqual(arcadeTrace(1), before);
 });
 
 test('the simulation never calls Math.random or Date.now', () => {

@@ -5,7 +5,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as tuning from '../src/sim/tuning.js';
 import { shotCases } from './shotcases.js';
-import { arcadeTrace } from './trace.js';
 
 const fixture = name => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url)));
 
@@ -15,17 +14,10 @@ test('Arcade\'s numbers are today\'s', () => {
   for (const [name, value] of Object.entries(was)) assert.deepEqual(numbers[name], value, `${name} has changed`);
 });
 
-test('an Arcade match plays exactly as it did', () => {
-  const was = fixture('arcade-trace.json');
-  for (const old of was) {
-    const now = arcadeTrace(old.seed, { keys: Object.keys(old.box[0][0]) });
-    assert.equal(now.steps, old.steps, `seed ${old.seed}: the match lasted a different number of steps`);
-    const first = now.hashes.findIndex((h, i) => h !== old.hashes[i]);
-    assert.equal(first, -1, `seed ${old.seed}: the match first differs ${first * 60} steps in`);
-    assert.deepEqual(now.score, old.score);
-    assert.deepEqual(now.box, old.box);
-  }
-});
+// 'an Arcade match plays exactly as it did' pinned every step of three matches through Stages 1 and 2 (the refactors).
+// It was retired at Task 3.2, where the coach's play calls began to change the computer's decisions on purpose; from
+// then on Arcade is held to its measured baseline instead (the band test, Task 3.8). arcade-trace.json stays as the
+// record of the matches main played.
 
 test('the shot model gives the numbers it gave', () => {
   const was = fixture('shot-model.json'), now = shotCases();
