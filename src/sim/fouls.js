@@ -1,5 +1,6 @@
 import { FOUL } from './tuning.js';
 import { onFloor, personOf, rand } from './state.js';
+import { styled } from './styles.js';
 
 // Decides whether any of this step's contacts is a foul. Returns the first one found: { kind, by, on } (player ids).
 export function judgeContacts(state, events, dt) {
@@ -7,13 +8,13 @@ export function judgeContacts(state, events, dt) {
 
   const shot = events.release;
   for (const miss of events.stealMisses) {
-    if (!miss.sure && rand(state) >= (miss.front ? FOUL.reachFront : FOUL.reachBack)) continue;   // sure: he meant to foul
+    if (!miss.sure && rand(state) >= (miss.front ? styled(state, 'foul.reachFront') : styled(state, 'foul.reachBack'))) continue;   // sure: he meant to foul
     // A reach on the step its victim lets a shot go is a foul on the shot: the ball is already in the air.
     const onShot = shot && shot.shooter === miss.on && !shot.blocked;
     return { kind: onShot ? 'shooting' : 'reach', by: miss.by, on: miss.on };
   }
 
-  if (shot && shot.defender !== null && !shot.blocked && rand(state) < FOUL.shooting) {
+  if (shot && shot.defender !== null && !shot.blocked && rand(state) < styled(state, 'foul.shooting')) {
     return { kind: 'shooting', by: shot.defender, on: shot.shooter };
   }
 
@@ -27,8 +28,8 @@ export function judgeContacts(state, events, dt) {
       if (o.team === holder.team || o.foulCooldown > 0 || !ahead) continue;
       o.foulCooldown = FOUL.cooldown;
       if (o.setT >= FOUL.setTime) {
-        if (rand(state) < FOUL.charge) return { kind: 'charge', by: holder.id, on: o.id };
-      } else if (rand(state) < FOUL.block) return { kind: 'block', by: o.id, on: holder.id };
+        if (rand(state) < styled(state, 'foul.charge')) return { kind: 'charge', by: holder.id, on: o.id };
+      } else if (rand(state) < styled(state, 'foul.block')) return { kind: 'block', by: o.id, on: holder.id };
     }
   }
   return null;

@@ -1,4 +1,4 @@
-import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FINISH, FOUL, MOVES, PASS, PLAYER, RIM, SHOT, STAMINA, STAT, STEAL, THREE_PT, RATE, HEAT, levelOf } from './tuning.js';
+import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FINISH, FOUL, MOVES, PASS, PLAYER, RIM, SHOT, STAT, STEAL, THREE_PT, RATE, HEAT, levelOf } from './tuning.js';
 import { attackSign, onFloor as grounded, personOf, rand } from './state.js';
 import { shotFactor, speedFactor, spend } from './stamina.js';
 import { rimCentre, solveShot, stepBall } from './ball.js';
@@ -7,6 +7,7 @@ import { lift, drop, rated, heatOf } from './ratings.js';
 import { DRIBBLES, KINDS, startMove, stepMove, finishMove } from './moves.js';
 import { note } from './stats.js';
 import { behindBoard, finishFor, flairFor, gatherVelocity, jumpVelocity } from './finish.js';
+import { styled } from './styles.js';
 
 // Seconds after the press of a shot: the best moment to let go, and the moment he is back on the floor.
 export const SHOT_BEST = SHOT.gather + SHOT.bestAt * PLAYER.shotJumpV / BALL.gravity;
@@ -31,7 +32,7 @@ export function jump(player, speed = PLAYER.jumpV) {
 }
 
 // `pace`: what his top speed is multiplied by: his tiredness, his speed rating, and with the ball his handle.
-function moveOne(p, intent, dt, hasBall, pace) {
+function moveOne(p, intent, dt, hasBall, pace, accel) {
   if (p.inbounder) { p.vx = p.vz = 0; return; }
 
   if (grounded(p)) {
@@ -49,7 +50,7 @@ function moveOne(p, intent, dt, hasBall, pace) {
     const len = Math.hypot(moveX, moveZ);
     const scale = ((intent.sprint ? PLAYER.sprint : PLAYER.run) * (hasBall ? PLAYER.dribbleSpeed : 1) * pace) / Math.max(len, 1);
     const dvx = moveX * scale - p.vx, dvz = moveZ * scale - p.vz;
-    const dv = Math.hypot(dvx, dvz), step = PLAYER.accel * dt;
+    const dv = Math.hypot(dvx, dvz), step = accel * dt;
     const k = dv <= step ? 1 : step / dv;
     if (!p.move) { p.vx += dvx * k; p.vz += dvz * k; }
   } else {
@@ -97,7 +98,7 @@ export function movePlayers(state, intents, dt) {
     const hasBall = state.ball.holder === p.id;
     const pace = speedFactor(personOf(state, p).energy) * lift(rated(state, p, 'speed'), RATE.speed) * (hasBall ? lift(rated(state, p, 'handle'), RATE.speed) : 1);
     if (p.move) stepMove(state, p, dt);
-    moveOne(p, intents[i], dt, hasBall, pace);
+    moveOne(p, intents[i], dt, hasBall, pace, styled(state, 'player.accel'));
     finishMove(state, p);
     p.moveWait = Math.max(0, p.moveWait - dt); p.lateT = Math.max(0, p.lateT - dt); p.stumbleT = Math.max(0, p.stumbleT - dt);
     // Once he has picked up his dribble, every metre on the floor counts toward a travel, but not the slide of a gather.
@@ -440,7 +441,7 @@ export function trySteal(state, player) {
   const guarded = move ? (move.hidden && front ? 0 : move.steal) : 1;
   // In a finish he has it in both hands through his two steps, and high in one as he goes up: hard to get at.
   const gripped = holder.finish ? FINISH.stealFactor : 1;
-  const won = rand(state) < clamp((front ? STEAL.frontChance : STEAL.backChance) * (holder.held ? STEAL.heldFactor : 1) * skill * guarded * gripped, 0, 1);
+  const won = rand(state) < clamp((front ? styled(state, 'steal.front') : styled(state, 'steal.back')) * (holder.held ? STEAL.heldFactor : 1) * skill * guarded * gripped, 0, 1);
   if (won) {
     holder.shooting = false; holder.fading = false; holder.finish = null;
     note(state, player, 'stl'); note(state, holder, 'tov');
@@ -460,11 +461,13 @@ export function tryPickup(state) {
     if (justThrown && p.team !== state.lastTouch) continue;
     if (p.inbounder || (p.id === ball.noPickupId && ball.noPickupT > 0)) continue;
     // A pass is caught by the team it was meant for at arm's length; a defender must be right in its path.
-    const radius = ball.mode === 'pass' && p.team !== state.lastTouch ? PASS.interceptRadius : PLAYER.pickupRadius;
+    const radius = ball.mode === 'pass' && p.team !== state.lastTouch ? styled(state, 'pass.intercept') : PLAYER.pickupRadius;
     if (dist(p, ball) > radius || p.y + PLAYER.reach < ball.y) continue;
     // A pass goes to whoever it reaches first. Any other ball two can reach goes to the better rebounder more often
     // than to the nearer man: each counts as nearer by his rebound rating.
-    const far = dist(p, ball) / (ball.mode === 'pass' ? 1 : lift(rated(state, p, 'rebound'), RATE.rebound));
+    // The Rebounding slider strengthens the team whose miss it is (state.possession is still theirs until it is taken).
+    const crash = state.board && p.team === state.possession ? styled(state, 'board.offence') : 1;
+    const far = dist(p, ball) / (ball.mode === 'pass' ? 1 : lift(rated(state, p, 'rebound'), RATE.rebound) * crash);
     if (!best || far < bestFar) { best = p; bestFar = far; }
   }
   return best;
@@ -485,7 +488,7 @@ function continueShot(state, p, intent, dt, report) {
   }
   if (!intent[p.shotKey]) p.letGo = true;
   if (gathering(p)) return;
-  jump(p, jumpOf(p)); spend(state, p, STAMINA.jump);
+  jump(p, jumpOf(p)); spend(state, p, styled(state, 'stamina.jump'));
   if (p.finish) {
     // The jump of a finish carries him to the rim (see finish.js).
     const carry = jumpVelocity(p, p.finish);
@@ -537,7 +540,7 @@ export function applyActions(state, intents, dt) {
       }
     } else {
       if (p.shooting) { p.shooting = false; p.fading = false; p.finish = null; }   // the ball has left him some other way: no shot is left in his hands
-      if (pressed('shoot') && !p.inbounder && grounded(p)) { jump(p); spend(state, p, STAMINA.jump); }
+      if (pressed('shoot') && !p.inbounder && grounded(p)) { jump(p); spend(state, p, styled(state, 'stamina.jump')); }
       if (pressed('steal')) {
         const victim = ball.holder;
         const attempt = trySteal(state, p);

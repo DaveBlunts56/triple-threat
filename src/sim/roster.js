@@ -1,4 +1,4 @@
-import { STAMINA } from './tuning.js';
+import { styled } from './styles.js';
 
 const courtPlayers = (state, team) => state.players.filter(p => p.team === team);
 const fouledOut = (state, person) => person.fouls >= state.foulLimit;
@@ -62,9 +62,9 @@ export function applySubs(state) {
     for (const p of players) {
       const person = roster[p.person];
       if (person.manual) continue;   // your own choice stands until you take him off or he fouls out
-      const tired = person.energy < STAMINA.subOut, inTrouble = person.fouls === state.foulLimit - 1;
+      const tired = person.energy < styled(state, 'stamina.subOut'), inTrouble = person.fouls === state.foulLimit - 1;
       if (!tired && !inTrouble) continue;
-      const sub = freshest(b => b.energy > STAMINA.subIn && (tired || b.fouls < person.fouls));
+      const sub = freshest(b => b.energy > styled(state, 'stamina.subIn') && (tired || b.fouls < person.fouls));
       if (sub !== undefined) substitute(state, p.id, sub);
     }
   }

@@ -1,6 +1,7 @@
 import { RATE, STAMINA } from './tuning.js';
 import { drop } from './ratings.js';
 import { personOf } from './state.js';
+import { styled } from './styles.js';
 
 // 1 at or above STAMINA.fadeBelow, falling in a straight line to `min` at zero energy.
 const fade = (energy, min) => (energy >= STAMINA.fadeBelow ? 1 : min + (1 - min) * (energy / STAMINA.fadeBelow));
@@ -16,10 +17,10 @@ export function tire(state, intents, dt) {
     const person = personOf(state, p);
     onCourt.add(person);
     // A player with more stamina tires more slowly; everyone rests alike.
-    const rate = Math.hypot(p.vx, p.vz) < STAMINA.restSpeed ? STAMINA.rest : -(intents[i].sprint ? STAMINA.sprint : STAMINA.run) * drop(person.ratings.stamina, RATE.tire);
+    const rate = Math.hypot(p.vx, p.vz) < STAMINA.restSpeed ? styled(state, 'stamina.rest') : -(intents[i].sprint ? styled(state, 'stamina.sprint') : styled(state, 'stamina.run')) * drop(person.ratings.stamina, RATE.tire);
     person.energy = clamp01(person.energy + rate * dt);
   });
-  for (const person of state.rosters.flat()) if (!onCourt.has(person)) person.energy = clamp01(person.energy + STAMINA.bench * dt);
+  for (const person of state.rosters.flat()) if (!onCourt.has(person)) person.energy = clamp01(person.energy + styled(state, 'stamina.bench') * dt);
 }
 
 export function spend(state, player, amount) {

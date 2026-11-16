@@ -1,4 +1,4 @@
-import { CLOCK, COURT, PASS, PLAYER, STAMINA, TIMEOUT, TIP, VIOLATION } from './tuning.js';
+import { CLOCK, COURT, PASS, PLAYER, TIP, VIOLATION } from './tuning.js';
 import { note, noteRow } from './stats.js';
 import { addPoints, attackSign, isJumper, lineUp, onFloor, personOf, rand } from './state.js';
 import { jump } from './players.js';
@@ -9,6 +9,7 @@ import { findViolation, trackCounters } from './violations.js';
 import { newFreeThrow, setupFreeThrow, stepFreeThrow } from './freethrow.js';
 import { judgeContacts, recordFoul } from './fouls.js';
 import { ownMen } from './matchups.js';
+import { styled } from './styles.js';
 
 const OUTSIDE = 0.5;        // how far behind the line an inbounder stands
 const BOARD_CLEAR = 1.5;    // baseline inbounds keep this far from the middle, clear of the backboard
@@ -137,7 +138,7 @@ function tipOff(state, events, dt, intents) {
   }
   // Each jumper gets one jump, and can tap the ball only while he is in the air and it is coming down.
   for (const p of jumpers(state)) {
-    if (intents[p.id].shoot && onFloor(p) && p.jumpT === 0) { jump(p); spend(state, p, STAMINA.jump); }
+    if (intents[p.id].shoot && onFloor(p) && p.jumpT === 0) { jump(p); spend(state, p, styled(state, 'stamina.jump')); }
   }
   const reaches = p => ball.vy < 0 && p.y > 0 && p.y + PLAYER.reach >= ball.y
     && Math.hypot(p.x - ball.x, p.z - ball.z) <= PLAYER.pickupRadius;
@@ -165,7 +166,7 @@ export function callTimeout(state, team) {
   if (state.timeouts[team] <= 0 || !(live || state.phase === 'dead' || state.phase === 'inbound')) return false;
   state.timeouts[team]--;
   state.lastTimeout = state.time;
-  for (const person of state.rosters.flat()) person.energy = Math.min(1, person.energy + TIMEOUT.rest);
+  for (const person of state.rosters.flat()) person.energy = Math.min(1, person.energy + styled(state, 'timeout.rest'));
   const call = { kind: 'timeout', team, ball: state.possession, number: null, shots: 0 };
   if (live) stopPlay(state, state.possession, sidelineSpot(state.ball), call);
   else { deadBall(state); state.call = call; state.phase = 'dead'; }
@@ -177,7 +178,7 @@ export function startMatch(state) {
   state.quarter = 1;
   state.score = [0, 0];
   state.byQuarter = [[], []];
-  state.timeouts = [TIMEOUT.each, TIMEOUT.each];
+  state.timeouts = [styled(state, 'timeout.each'), styled(state, 'timeout.each')];
   beginPeriod(state);
 }
 

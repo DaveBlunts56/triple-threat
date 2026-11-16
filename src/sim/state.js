@@ -1,5 +1,6 @@
-import { BALL, CLOCK, FOUL, LINEUP, MATCH, ROSTER, TIMEOUT, TIP } from './tuning.js';
+import { BALL, CLOCK, FOUL, LINEUP, MATCH, ROSTER, TIP } from './tuning.js';
 import { emptyLine } from './stats.js';
+import { setStyle, styled } from './styles.js';
 
 const RATING_KEYS = ['inside', 'mid', 'three', 'handle', 'speed', 'defence', 'rebound', 'stamina'];   // ratings.js's KEYS: it imports this file, so they are named here too
 
@@ -110,7 +111,7 @@ export function createMatch(seed = 1, size = 3) {
       ratings: Object.fromEntries(RATING_KEYS.map((key, i) => [key, ROSTER.ratings[t][row][i]])), streak: 0, energy: 1, fouls: 0, manual: false, stats: emptyLine() }))),   // stats: his line in the box score (see stats.js)
     subQueue: [], autoSubs: [true, true], teamFouls: [0, 0],
     call: null, freeThrow: null, pendingFoul: null, tipWinner: null,
-    timeouts: [TIMEOUT.each, TIMEOUT.each], lastTimeout: -Infinity,   // each team's timeouts left; when the last was called
+    timeouts: [0, 0], lastTimeout: -Infinity,   // each team's timeouts left (set below, from the style); when the last was called
     run: [0, 0],              // each team's points since the other last scored
     made: [[0, 0], [0, 0]],   // each team's baskets from the floor: [twos, threes]
     passer: null,             // the player who threw the last pass
@@ -141,6 +142,8 @@ export function createMatch(seed = 1, size = 3) {
       target: null,   // the id of the team-mate a pass in the air is for
     },
   };
+  setStyle(state);   // Arcade with every slider at 50 until the page says otherwise (see styles.js)
+  state.timeouts = [styled(state, 'timeout.each'), styled(state, 'timeout.each')];
   lineUp(state);
   return state;
 }

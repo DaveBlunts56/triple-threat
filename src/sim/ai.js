@@ -10,6 +10,7 @@ import { playHolds, playRan, playSpot, playTarget } from './plays.js';
 import { situation } from './late.js';
 import { offBallSpot, passed } from './offball.js';
 import { KINDS } from './moves.js';
+import { styled } from './styles.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const nearestTo = (list, point) => list.reduce((a, b) => (dist(b, point) < dist(a, point) ? b : a));
@@ -50,7 +51,7 @@ const passTo = (ai, p, mate) => {
 // a fast break is taken whenever it comes.)
 function patience(state) {
   const { tempo } = state;
-  if (state.shotClock > tempo.clock + 0.5) { tempo.wait = AI.patience[0] + rand(state) * (AI.patience[1] - AI.patience[0]); tempo.fed = false; }
+  if (state.shotClock > tempo.clock + 0.5) { const [early, late] = styled(state, 'ai.patience'); tempo.wait = early + rand(state) * (late - early); tempo.fed = false; }
   tempo.clock = state.shotClock;
   return tempo.wait;
 }
@@ -274,7 +275,7 @@ function planOffBall(state, p) {
   ai.why = spot.why ?? 'play';   // what he is doing off the ball: a part in a play, his place, a cut, clearing a drive, a break
   // Whatever he was sent in for, he does not stay in the key: with the count running out he steps out to the side.
   if (p.keyT > AI.keyOut) { spot.x = p.x; spot.z = Math.sign(p.z || 1) * (VIOLATION.keyHalfWidth + 0.9); spot.sprint = true; }
-  goTo(ai, spot, spot.sprint || situation(state, p.team).hustle || dist(p, spot) > AI.farAway);
+  goTo(ai, spot, spot.sprint || situation(state, p.team).hustle || dist(p, spot) > styled(state, 'ai.farAway'));
   // Open in a place he can score from, he puts a hand up for the ball. (Not the player you control: that is yours to do.)
   if (holder && holder !== p && holder.team === p.team && !(p.team === 0 && p.id === state.controlled)) {
     const zone = zoneOf(p), skill = rated(state, p, zone);
@@ -315,7 +316,7 @@ function planDefence(state, p) {
     const mine = state.players.filter(m => m.team === p.team), first = nearestTo(mine, hoop);
     // Only a defender who is between the ball and the hoop can stop it; one chasing from behind keeps to his man.
     const ahead = mine.filter(m => m !== first && dist(m, hoop) < dist(holder, hoop)), second = ahead.length ? nearestTo(ahead, holder) : null;
-    if (p === first) return goTo(ai, { x: hoop.x - Math.sign(hoop.x) * AI.helpAt, z: 0 }, dist(p, hoop) > AI.farAway);
+    if (p === first) return goTo(ai, { x: hoop.x - Math.sign(hoop.x) * AI.helpAt, z: 0 }, dist(p, hoop) > styled(state, 'ai.farAway'));
     if (p === second) man = holder;
   }
   const hasBall = state.ball.holder === man.id;
@@ -356,12 +357,12 @@ function planDefence(state, p) {
   if (sit.foul && hasBall && !man.inbounder) guard = { x: man.x, z: man.z };
   // Closing out: his man has just caught the ball, and he sprints at him with a hand up.
   p.closing = theirs && hasBall && !man.inbounder && (man.ai.heldT ?? Infinity) < AI.closeFor && dist(p, guard) > AI.arrive;
-  goTo(ai, guard, p.closing || sit.hustle || sit.press || dist(p, guard) > AI.farAway);
+  goTo(ai, guard, p.closing || sit.hustle || sit.press || dist(p, guard) > styled(state, 'ai.farAway'));
 
   // A gather does not draw him off the floor: he goes up when his man does.
   if (shotJump(man) && dist(p, man) < AI.contestDist) ai.action = 'jump';
   else if (sit.foul && state.phase === 'live' && holder && holder.team !== p.team && !holder.inbounder && dist(p, holder) <= STEAL.reach) ai.action = 'foul';
-  else if (hasBall && !man.inbounder && p.stealCooldown <= 0 && dist(p, man) <= STEAL.reach && rand(state) < AI.stealRate * (p.team === 1 ? levelOf(state).steal : 1)) ai.action = 'steal';
+  else if (hasBall && !man.inbounder && p.stealCooldown <= 0 && dist(p, man) <= STEAL.reach && rand(state) < styled(state, 'ai.stealRate') * (p.team === 1 ? levelOf(state).steal : 1)) ai.action = 'steal';
 }
 
 function plan(state, p) {
@@ -454,9 +455,9 @@ export function aiIntents(state, dt) {
     const ownPass = state.ball.mode === 'pass' && state.lastTouch === p.team;
     if (ownPass && !p.ai.sawPass) p.ai.timer = 0;
     p.ai.sawPass = ownPass;
-    // His man going up for a shot: he reacts within AI.contestDelay, not at his next decision.
+    // His man going up for a shot: he reacts within the style's contest delay, not at his next decision.
     const up = shotJump(manOf(state, p));
-    if (up && !p.ai.sawJump) p.ai.timer = Math.min(p.ai.timer, rand(state) * AI.contestDelay);
+    if (up && !p.ai.sawJump) p.ai.timer = Math.min(p.ai.timer, rand(state) * styled(state, 'ai.contestDelay'));
     p.ai.sawJump = up;
     p.ai.heldT = has ? (p.ai.had ? p.ai.heldT + dt : 0) : 0;
     p.ai.had = has;
