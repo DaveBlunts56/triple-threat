@@ -252,7 +252,7 @@ function blockedBy(state, player) {
   const toHoop = dist(blocker, hoop) || 1, pace = (blocker.vx * (hoop.x - blocker.x) + blocker.vz * (hoop.z - blocker.z)) / toHoop;
   note(state, blocker, 'blk');
   state.last.block = { by: blocker.id, on: player.id, at: state.time, chase: pace > STAT.chasePace && dist(blocker, hoop) >= dist(player, hoop) - STAT.chaseBehind };
-  state.board = true; ball.info = null;
+  state.board = true; state.boardTeam = player.team; ball.info = null;
   return blocker;
 }
 
@@ -413,7 +413,7 @@ export function giveBall(state, player) {
   // For the box score. A missed shot taken is a rebound. A pass caught by the other team is a steal, and by his own
   // team is remembered, in case he scores off it.
   const passer = ball.mode === 'pass' ? state.players[state.passer] : null;
-  if (state.board && state.phase !== 'dead') note(state, player, 'reb');
+  if (state.board && state.phase !== 'dead') { note(state, player, 'reb'); if (player.team === state.boardTeam) note(state, player, 'orb'); }
   state.board = false;
   if (passer && passer.team !== player.team) {
     note(state, player, 'stl'); note(state, passer, 'tov');

@@ -29,6 +29,7 @@ export function addPoints(state, team, points) {
   while (periods.length < state.quarter) periods.push(0);
   periods[state.quarter - 1] += points;
   state.score[team] += points;
+  for (const p of state.players) personOf(state, p).pm += p.team === team ? points : -points;   // plus-minus for the ten on court
   state.run[team] += points; state.run[1 - team] = 0;
   const mine = state.teamStats[team];
   mine.lead = Math.max(mine.lead, state.score[team] - state.score[1 - team]); mine.run = Math.max(mine.run, state.run[team]);
@@ -115,7 +116,7 @@ export function createMatch(seed = 1, size = 3, teams = [0, 1]) {
     // manual: you brought him on yourself, so the automatic substitutions leave him alone until he comes off
     // ratings: what he is good at (see ratings.js). streak: his makes in a row from the floor, or his misses if negative.
     rosters: sidesOf(teams).map(t => t.players.map(p => ({ number: p.number, name: p.name, position: p.position, role: p.role,
-      ratings: Object.fromEntries(RATING_KEYS.map(key => [key, p.ratings[key]])), streak: 0, energy: 1, fouls: 0, manual: false, stats: emptyLine() }))),   // stats: his line in the box score (see stats.js)
+      ratings: Object.fromEntries(RATING_KEYS.map(key => [key, p.ratings[key]])), streak: 0, energy: 1, fouls: 0, manual: false, stats: emptyLine(), secs: 0, pm: 0 }))),   // stats: his line in the box score (see stats.js); secs: seconds on court; pm: plus-minus
     teams: sidesOf(teams),   // the data of each side: playbook, defence, coach (see teams.js)
     subQueue: [], autoSubs: [true, true], teamFouls: [0, 0],
     call: null, freeThrow: null, pendingFoul: null, tipWinner: null,
@@ -131,6 +132,7 @@ export function createMatch(seed = 1, size = 3, teams = [0, 1]) {
     last: { stumble: null, score: null, block: null, steal: null },
     teamStats: [{ lead: 0, run: 0, tov: 0 }, { lead: 0, run: 0, tov: 0 }],   // each team's biggest lead, longest run, and turnovers that are nobody's
     board: false,             // a missed or blocked shot is loose: whoever takes it has a rebound
+    boardTeam: null,          // the team whose miss it is: a rebound by them is offensive
     tempo: { clock: 0, wait: 0, fed: false },   // how patient this possession is, and the shot clock when that was last looked at (see ai.js)
     side: [1, 1],             // the side of the court each team's offence is set to (see offball.js)
     cut: [null, null],        // each team's player cutting to the hoop, { id, until }, or null

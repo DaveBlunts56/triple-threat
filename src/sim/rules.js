@@ -208,7 +208,7 @@ function checkOut(state, events) {
 function shotTouched(state, events) {
   const { ball } = state;
   if (ball.holder === null && (events.hitFloor || events.hitRim || events.hitBoard)) {
-    if (ball.mode === 'shot') state.board = true;   // it has missed, unless it still drops: whoever takes it has a rebound
+    if (ball.mode === 'shot') { state.board = true; state.boardTeam = state.possession; }   // it has missed, unless it still drops: whoever takes it has a rebound
     ball.mode = 'loose'; ball.target = null;
     if (events.hitFloor) { ball.shooter = null; ball.shotValue = 0; }
   }
@@ -266,7 +266,9 @@ function livePlay(state, events, dt) {
   // Both clocks wait at zero for a shot that is still in the air.
   const shotInAir = ball.shooter !== null;
   state.shotClock = Math.max(0, state.shotClock - dt);
+  const was = state.gameClock;
   state.gameClock = Math.max(0, state.gameClock - dt);
+  for (const p of state.players) personOf(state, p).secs += was - state.gameClock;   // minutes, for the ten on court
   if (state.gameClock <= 0 && !shotInAir) endPeriod(state);
   else if (state.shotClock <= 0 && !shotInAir) { state.teamStats[state.possession].tov++; stopPlay(state, 1 - state.possession, sidelineSpot(ball), makeCall('shotClock', state.possession)); }
 }

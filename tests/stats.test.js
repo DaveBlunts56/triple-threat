@@ -54,7 +54,7 @@ test('the basket is remembered for whoever watches: who, from where, how far, an
   assert.deepEqual([score.tied, score.lead], [false, true]);           // 0-0 became 3-0
 });
 
-test('a miss is an attempt only, and the rebound goes to whoever takes it, on either team', () => {
+test('a miss is an attempt only, and the rebound goes to whoever takes it, on either team, offensive if his team missed', () => {
   // He lets go far too early from 6 m; the ball comes off the rim or the board and is loose.
   const missed = seed => { const s = shooter(6, seed); s.rosters[0][0].ratings.mid = 40;
     for (let t = 0; t < 0.12; t += DT) step(s, only(0, { shoot: true }), DT);
@@ -63,7 +63,8 @@ test('a miss is an attempt only, and the rebound goes to whoever takes it, on ei
     const s = firstSeed(missed, st => st.board && st.phase === 'live' && st.score[0] === 0);
     assert.deepEqual(line(s, 0), { ...emptyLine(), fga: 1 });
     giveBall(s, s.players[taker]);
-    assert.deepEqual(line(s, taker), { ...emptyLine(), reb: 1 });
+    // Taken by the shooter's own team (player 1) it is an offensive rebound as well.
+    assert.deepEqual(line(s, taker), { ...emptyLine(), reb: 1, orb: taker === 1 ? 1 : 0 });
     assert.equal(s.board, false);
     giveBall(s, s.players[2]);                                          // a ball handed on is no second rebound
     assert.equal(line(s, 2).reb, 0);

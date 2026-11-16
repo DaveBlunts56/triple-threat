@@ -506,12 +506,14 @@ test('the page shows the Keys panel over the menu that opened it, and the change
 
 // ---------- the broadcast on the page ----------
 
-test('a row of the box score is the player\'s line, and the last row his team\'s', () => {
+test('a row of the box score is the player\'s line, with his minutes and plus-minus, and the last row his team\'s', () => {
   const s = createMatch();
   Object.assign(s.rosters[0][0].stats, { pts: 14, fgm: 5, fga: 9, tpm: 2, tpa: 4, ftm: 2, fta: 3, reb: 4, ast: 6, stl: 2, blk: 1, tov: 3 });
   s.rosters[0][0].fouls = 2; s.rosters[0][1].stats.pts = 6; s.rosters[0][1].fouls = 1; s.teamStats[0].tov = 1;
-  assert.deepEqual(boxRow(s, 0, 0), ['Cross', '14', '5/9', '2/4', '2/3', '4', '6', '2', '1', '3', '2']);
-  assert.deepEqual(boxTotal(s, 0), ['TEAM', '20', '5/9', '2/4', '2/3', '4', '6', '2', '1', '4', '3']);
+  Object.assign(s.rosters[0][0], { secs: 545, pm: 7 }); Object.assign(s.rosters[0][1], { secs: 300, pm: -3 });
+  assert.deepEqual(boxRow(s, 0, 0), ['Cross', '9:05', '14', '5/9', '2/4', '2/3', '4', '6', '2', '1', '3', '2', '+7']);
+  assert.deepEqual(boxRow(s, 0, 1).at(-1), '-3');
+  assert.deepEqual(boxTotal(s, 0), ['TEAM', '14:05', '20', '5/9', '2/4', '2/3', '4', '6', '2', '1', '4', '3', '']);
   assert.equal(BOX_HEAD.length, boxRow(s, 0, 0).length);
 });
 
@@ -576,12 +578,12 @@ test('the box score shows in the pause menu\'s panel and on the final screen, wi
   show();
   assert.equal(e.boxScore.hidden, true);
   choose('ArrowDown', 'ArrowDown', 'Enter'); show();
-  assert.deepEqual([e.boxScore.hidden, e.pauseList.hidden, e.boxTeam0.textContent, e.box0r0c0.textContent, e.box0r0c1.textContent, e.box0r8c0.textContent, e.box0r8c1.textContent],
+  assert.deepEqual([e.boxScore.hidden, e.pauseList.hidden, e.boxTeam0.textContent, e.box0r0c0.textContent, e.box0r0c2.textContent, e.box0r8c0.textContent, e.box0r8c2.textContent],
     [false, true, 'Harbor City Waves', 'Cross', '7', 'TEAM', '7']);
   const doc = fakeDoc(), hud = createHud(doc), over = createMatch();
   over.phase = 'final'; over.score = [50, 61]; over.rosters[1][0].stats.pts = 30;
   hud.update(over, 'webgl2', { paused: false, pick: null });
-  assert.deepEqual([doc.els.boxScore.hidden, doc.els.finalPotg.textContent, doc.els.box1r0c1.textContent], [false, 'PLAYER OF THE GAME · Kai Mercer · 30 PTS · 0 REB · 0 AST', '30']);
+  assert.deepEqual([doc.els.boxScore.hidden, doc.els.finalPotg.textContent, doc.els.box1r0c2.textContent], [false, 'PLAYER OF THE GAME · Kai Mercer · 30 PTS · 0 REB · 0 AST', '30']);
 });
 
 test('the Commentary row says what is chosen, and where there is no voice that it is captions only', () => {

@@ -157,13 +157,17 @@ export function pauseText(state, menu, row, quality, camera = '2k', prefs = DEFA
 
 // ---------- the box score and the panels between play ----------
 
-export const BOX_HEAD = Object.freeze(['', 'PTS', 'FG', '3PT', 'FT', 'REB', 'AST', 'STL', 'BLK', 'TO', 'PF']);
-const boxCells = (name, s, fouls) => [name, String(s.pts), `${s.fgm}/${s.fga}`, `${s.tpm}/${s.tpa}`, `${s.ftm}/${s.fta}`, String(s.reb), String(s.ast),
-  String(s.stl), String(s.blk), String(s.tov), String(fouls)];
+export const BOX_HEAD = Object.freeze(['', 'MIN', 'PTS', 'FG', '3PT', 'FT', 'REB', 'AST', 'STL', 'BLK', 'TO', 'PF', '+/-']);
+// Seconds on the court as minutes and seconds: '9:05'.
+const clockOf = secs => `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
+const signed = n => (n > 0 ? `+${n}` : String(n));
+const boxCells = (name, secs, s, fouls, pm) => [name, clockOf(secs), String(s.pts), `${s.fgm}/${s.fga}`, `${s.tpm}/${s.tpa}`, `${s.ftm}/${s.fta}`, String(s.reb), String(s.ast),
+  String(s.stl), String(s.blk), String(s.tov), String(fouls), pm];
 // One player's row of the box score, as BOX_HEAD has the columns.
-export const boxRow = (state, team, row) => { const person = state.rosters[team][row]; return boxCells(surname(person), person.stats, person.fouls); };
-// His team's totals.
-export const boxTotal = (state, team) => boxCells('TEAM', teamStats(state, team), state.rosters[team].reduce((sum, person) => sum + person.fouls, 0));
+export const boxRow = (state, team, row) => { const person = state.rosters[team][row]; return boxCells(surname(person), person.secs, person.stats, person.fouls, signed(person.pm)); };
+// His team's totals. A team's plus-minus is its margin, which the score already says: left empty.
+export const boxTotal = (state, team) => boxCells('TEAM', state.rosters[team].reduce((sum, person) => sum + person.secs, 0), teamStats(state, team),
+  state.rosters[team].reduce((sum, person) => sum + person.fouls, 0), '');
 
 // A starter's line on the line-ups panel: position, name (the team's star marked), what he is for, and his overall.
 export function lineupRow(state, team, slot) {

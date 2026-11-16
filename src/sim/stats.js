@@ -1,6 +1,8 @@
 // The box score: what each player has done in the match, kept on his roster entry so that it stays with him on the
 // bench. Nothing here decides anything: the rules write it and the page reads it.
-export const STAT_KEYS = Object.freeze(['pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'reb', 'ast', 'stl', 'blk', 'tov']);
+// reb is every rebound; orb those of his own team's misses (the rest, reb - orb, are defensive). A person's seconds on
+// the court (secs) and his plus-minus (pm) are kept beside his line, not in it.
+export const STAT_KEYS = Object.freeze(['pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'reb', 'ast', 'stl', 'blk', 'tov', 'orb']);
 
 export const emptyLine = () => Object.fromEntries(STAT_KEYS.map(key => [key, 0]));
 
