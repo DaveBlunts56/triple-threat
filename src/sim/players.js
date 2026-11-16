@@ -95,11 +95,12 @@ function clampToCourt(p) {
 
 // Moves everyone one step. Returns the pairs of player ids that ran into each other.
 export function movePlayers(state, intents, dt) {
+  const accel = styled(state, 'player.accel');
   state.players.forEach((p, i) => {
     const hasBall = state.ball.holder === p.id;
     const pace = speedFactor(personOf(state, p).energy) * lift(rated(state, p, 'speed'), RATE.speed) * (hasBall ? lift(rated(state, p, 'handle'), RATE.speed) : 1);
     if (p.move) stepMove(state, p, dt);
-    moveOne(p, intents[i], dt, hasBall, pace, styled(state, 'player.accel'));
+    moveOne(p, intents[i], dt, hasBall, pace, accel);
     finishMove(state, p);
     p.moveWait = Math.max(0, p.moveWait - dt); p.lateT = Math.max(0, p.lateT - dt); p.stumbleT = Math.max(0, p.stumbleT - dt);
     // Once he has picked up his dribble, every metre on the floor counts toward a travel, but not the slide of a gather.
@@ -459,16 +460,17 @@ export function tryPickup(state) {
   // A pass just thrown cannot be snatched at the hand by a defender; teammates may catch it at any range.
   const justThrown = ball.mode === 'pass' && ball.noPickupT > PASS.noPickup - PASS.clearTime;
   let best = null, bestFar = Infinity;
+  const intercept = styled(state, 'pass.intercept'), crashing = styled(state, 'board.offence');
   for (const p of state.players) {
     if (justThrown && p.team !== state.lastTouch) continue;
     if (p.inbounder || (p.id === ball.noPickupId && ball.noPickupT > 0)) continue;
     // A pass is caught by the team it was meant for at arm's length; a defender must be right in its path.
-    const radius = ball.mode === 'pass' && p.team !== state.lastTouch ? styled(state, 'pass.intercept') : PLAYER.pickupRadius;
+    const radius = ball.mode === 'pass' && p.team !== state.lastTouch ? intercept : PLAYER.pickupRadius;
     if (dist(p, ball) > radius || p.y + PLAYER.reach < ball.y) continue;
     // A pass goes to whoever it reaches first. Any other ball two can reach goes to the better rebounder more often
     // than to the nearer man: each counts as nearer by his rebound rating.
     // The Rebounding slider strengthens the team whose miss it is (state.possession is still theirs until it is taken).
-    const crash = state.board && p.team === state.possession ? styled(state, 'board.offence') : 1;
+    const crash = state.board && p.team === state.possession ? crashing : 1;
     const far = dist(p, ball) / (ball.mode === 'pass' ? 1 : lift(rated(state, p, 'rebound'), RATE.rebound) * crash);
     if (!best || far < bestFar) { best = p; bestFar = far; }
   }
