@@ -24,7 +24,7 @@ import { slowFor } from './broadcast/moments.js';
 import { createEars, frameCues, listen } from './audio/cues.js';
 import { createPlayer, nextSound } from './audio/player.js';
 import { SOUNDS, assetUrl, soundPath } from './render/assets.js';
-import { clear as clearReplays, createRecorder, due, frameAt, mark, record, settle, skip as skipReplay, start as startReplay } from './replay.js';
+import { clear as clearReplays, createRecorder, decode, due, frameAt, mark, record, settle, skip as skipReplay, start as startReplay } from './replay.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
 const newMatch = size => createMatch(Date.now() % 1e6, size);   // size: 3 or 5 a side; three when not said
@@ -236,7 +236,7 @@ if (view) {
     const holding = PANELS.includes(panel);
     if (prefs.replays && !game.paused && due(replays, state)) {
       startReplay(replays, state);
-      replaySide = replays.playing.frames[replays.playing.frames.length - 1].ball.z >= 0 ? 1 : -1;
+      replaySide = decode(replays.playing.frames[replays.playing.frames.length - 1]).ball.z >= 0 ? 1 : -1;
       actors.cut();
     }
     const shown = replays.playing && !game.paused ? frameAt(replays, elapsed) : null;   // the frame of the replay to draw, if one is on
