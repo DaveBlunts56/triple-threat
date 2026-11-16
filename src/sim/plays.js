@@ -3,7 +3,7 @@
 // run it. The rules never read a play: it only says where players should go.
 import { AI, CLOCK, FOUL, PLAY, RIM } from './tuning.js';
 import { attackSign, onFloor, personOf, rand } from './state.js';
-import { guardOf } from './matchups.js';
+import { guardOf, schemeOf, swap } from './matchups.js';
 import { styled } from './styles.js';
 import { playWeight, running } from './coach.js';
 import { rated, starOf, heatOf } from './ratings.js';
@@ -292,4 +292,18 @@ export function screenerOn(state, team, after = 1.2) {
   const play = state.plays[team], part = play && PLAYS[play.key].screener;
   if (!part || (play.usedAt !== null && play.t - play.usedAt > after)) return null;
   return play.ids[part] ?? null;
+}
+
+// A switching team swaps on the screen itself: the moment the ball handler uses a play's screen, his defender and the
+// screener's take each other's men (unless either has just swapped). Teams that go over or drop do not.
+export function schemeSwitches(state) {
+  for (const team of [0, 1]) {
+    const play = state.plays[team], part = play && PLAYS[play.key].screener;
+    if (!part || play.usedAt === null || play.switched) continue;
+    play.switched = true;
+    const handler = state.players[play.ids.handler], screener = state.players[play.ids[part]];
+    const a = guardOf(state, handler), b = screener && guardOf(state, screener);
+    if (!a || !b || a === b || schemeOf(state, a.team).screen !== 'switch' || a.switchWait > 0 || b.switchWait > 0) continue;
+    swap(state, a, b);
+  }
 }

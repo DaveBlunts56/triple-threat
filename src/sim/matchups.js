@@ -53,7 +53,7 @@ export function ownMen(state) {
 }
 
 // Two team-mates take each other's men, and neither is switched again for a moment.
-function swap(state, a, b) {
+export function swap(state, a, b) {
   [a.man, b.man] = [b.man, a.man];
   a.switchWait = b.switchWait = MATCHUP.wait;
   state.switches++;
@@ -100,3 +100,4 @@ export function rematch(state, team) {
   defenders.forEach((defender, i) => { defender.man = best[i].id; });
   state.switches++;
 }
+

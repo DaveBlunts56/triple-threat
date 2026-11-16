@@ -5,7 +5,7 @@ import { wantsTimeout } from './late.js';
 import { tire } from './stamina.js';
 import { emptyEvents, emptyIntent } from './state.js';
 import { screenSwitches } from './matchups.js';
-import { stepPlays } from './plays.js';
+import { schemeSwitches, stepPlays } from './plays.js';
 import { coachKindOf } from './coach.js';
 
 // Advances the whole match by one fixed step. `intents` holds one Intent per player, by id. Returns what happened in
@@ -28,7 +28,7 @@ export function step(state, intents, dt) {
   // Everything that happened this step, for the rules to judge.
   const events = emptyEvents();
   events.contacts = movePlayers(state, frozen ? intents.map(emptyIntent) : intents, dt);   // frozen players still come down from a jump
-  if (state.phase === 'live') screenSwitches(state, events.contacts, dt);
+  if (state.phase === 'live') { screenSwitches(state, events.contacts, dt); schemeSwitches(state); }
   tire(state, intents, dt);
   if (!stopped && !frozen) Object.assign(events, applyActions(state, intents, dt));
   else state.players.forEach((p, i) => { p.prev = { ...intents[i] }; });   // keep key state current for when play resumes

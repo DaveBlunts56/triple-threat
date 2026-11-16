@@ -172,7 +172,7 @@ function planWithBall(state, p) {
   // or he is a great shooter with room for an early three. While his play forms, or his team uses the clock, no shot
   // from outside and no pass: he may still take a clear lane to the rim.
   const caught = open && ai.heldT >= READ.onCatch;
-  const mayNow = !early || ahead || beat || caught || (zone === 'three' && skill >= AI.earlyThree && room > AI.roomFor);
+  const mayNow = !early || ahead || beat || caught || (zone === 'three' && skill >= styled(state, 'decide.earlyThree') && room > styled(state, 'decide.earlyRoom'));
   const shooterBias = leaning(state, p, zone);
   // Shoot from here: once he has gathered the ball, or at once if it found him wide open.
   // Just after a catch the look is as good as it will get, before his man recovers: a shot in rhythm is worth more.

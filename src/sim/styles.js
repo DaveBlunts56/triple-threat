@@ -13,7 +13,7 @@ const f = Object.freeze;
 // that stays above 0), or 'word' (a choice, never scaled). Ranges ([low, high]) are scaled end by end.
 export const KINDS = f({
   'ai.patience': 'positive', 'play.startAt': 'positive', 'ai.contestDelay': 'positive', 'ai.stealRate': 'chance', 'ai.farAway': 'positive',
-  'player.accel': 'positive', 'player.brake': 'positive',
+  'player.accel': 'positive', 'player.brake': 'positive', 'decide.earlyThree': 'positive', 'decide.earlyRoom': 'positive',
   'steal.front': 'chance', 'steal.back': 'chance', 'pass.intercept': 'positive',
   'foul.reachFront': 'chance', 'foul.reachBack': 'chance', 'foul.shooting': 'chance', 'foul.charge': 'chance', 'foul.block': 'chance',
   'foul.looseBall': 'chance', 'foul.illegalScreen': 'chance', 'foul.drive': 'chance', 'fumble.rate': 'chance',
@@ -32,7 +32,7 @@ export const KINDS = f({
 // Arcade: the game as it was, read from tuning.js.
 const ARCADE = f({
   'ai.patience': AI.patience, 'play.startAt': PLAY.startAt, 'ai.contestDelay': AI.contestDelay, 'ai.stealRate': AI.stealRate, 'ai.farAway': AI.farAway,
-  'player.accel': PLAYER.accel, 'player.brake': PLAYER.accel,
+  'player.accel': PLAYER.accel, 'player.brake': PLAYER.accel, 'decide.earlyThree': AI.earlyThree, 'decide.earlyRoom': AI.roomFor,
   'steal.front': STEAL.frontChance, 'steal.back': STEAL.backChance, 'pass.intercept': PASS.interceptRadius,
   'foul.reachFront': FOUL.reachFront, 'foul.reachBack': FOUL.reachBack, 'foul.shooting': FOUL.shooting, 'foul.charge': FOUL.charge, 'foul.block': FOUL.block,
   'foul.looseBall': 0, 'foul.illegalScreen': 0, 'foul.drive': 0, 'fumble.rate': 0,
@@ -51,7 +51,7 @@ const ARCADE = f({
 // Simulation: NBA-like. Its own numbers, written out (Stage 4 tunes them).
 const SIM = f({
   'ai.patience': f([9, 15]), 'play.startAt': 5, 'ai.contestDelay': 0.3, 'ai.stealRate': 0.01, 'ai.farAway': 6,
-  'player.accel': 14, 'player.brake': 28,
+  'player.accel': 14, 'player.brake': 28, 'decide.earlyThree': 88, 'decide.earlyRoom': 3,
   'steal.front': 0.25, 'steal.back': 0.08, 'pass.intercept': 0.4,
   'foul.reachFront': 0.12, 'foul.reachBack': 0.3, 'foul.shooting': 0.25, 'foul.charge': 0.6, 'foul.block': 0.15,
   'foul.looseBall': 0.02, 'foul.illegalScreen': 0.15, 'foul.drive': 0.25, 'fumble.rate': 0.02,

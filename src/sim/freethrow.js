@@ -56,8 +56,11 @@ export function stepFreeThrow(state, intents, events, dt) {
     // Your meter's centre gives the game's own best chance, or, where free throws go by touch, the shooter's own.
     const model = styled(state, 'ft.model'), person = personOf(state, shooter);
     const yours = model === 'touch' ? touchOf(person) / FT.centreChance : 1;
-    const chance = shooter.team === 0 && pressed ? ftChance(ft.meter) * yours
-      : shooter.team === 1 && ft.t >= FT.aiDelay ? freeThrowChance(model, person)
+    // A team a person plays shoots on the meter (yours, or a team-mate of yours stopping it himself); any other team's
+    // shooter by the computer's own chance.
+    const metered = (state.humans ?? [0]).includes(shooter.team);
+    const chance = metered && pressed ? ftChance(ft.meter) * yours
+      : !metered && ft.t >= FT.aiDelay ? freeThrowChance(model, person)
       : ft.t >= FT.limit ? 0 : null;
     if (chance === null) {
       ft.meter += ft.dir * FT.sweep * (shooter.team === 0 ? levelOf(state).sweep : 1) * dt;   // your meter moves at the level's speed
