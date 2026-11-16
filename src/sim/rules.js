@@ -10,6 +10,7 @@ import { newFreeThrow, setupFreeThrow, stepFreeThrow } from './freethrow.js';
 import { judgeContacts, recordFoul } from './fouls.js';
 import { ownMen } from './matchups.js';
 import { styled } from './styles.js';
+import { beginPossession, endPossession, handOver } from './possessions.js';
 
 const OUTSIDE = 0.5;        // how far behind the line an inbounder stands
 const BOARD_CLEAR = 1.5;    // baseline inbounds keep this far from the middle, clear of the backboard
@@ -41,6 +42,7 @@ function stopPlay(state, possession, spot, call = null) {
   state.board = false;   // nothing to rebound once play has stopped
   state.call = call;
   if (possession !== state.possession) state.shotClock = CLOCK.shot;
+  handOver(state, possession);
   state.possession = possession;
   state.inboundSpot = spot;
   if (state.gameClock <= 0 && !state.freeThrow) endPeriod(state);
@@ -71,6 +73,7 @@ function deadBall(state) {
 }
 
 function endPeriod(state) {
+  endPossession(state);
   deadBall(state);
   state.phase = 'quarterEnd';
   state.phaseT = CLOCK.quarterBreak;
@@ -106,6 +109,7 @@ function beginPeriod(state) {
   // The team that lost the opening tip starts quarters 2 and 4, the winner quarter 3; overtime keeps alternating.
   const winner = state.tipWinner ?? 0;
   state.possession = state.quarter % 2 === 1 ? winner : 1 - winner;
+  beginPossession(state, state.possession);
   state.inboundSpot = { x: 0, z: COURT.halfWidth + OUTSIDE };
   setupInbound(state);
 }
@@ -153,6 +157,7 @@ function tipOff(state, events, dt, intents) {
       mode: 'pass', noPickupId: p.id, noPickupT: PASS.noPickup,
     });
     state.lastTouch = state.possession = p.team;
+    beginPossession(state, p.team);
     state.phase = 'live';
   } else if (events.hitFloor) state.phase = 'live';   // nobody got to it
 }

@@ -109,6 +109,8 @@ export function createMatch(seed = 1, size = 3, teams = [0, 1]) {
     score: [0, 0],
     byQuarter: [[], []],   // each team's points in each period played so far; overtime periods follow the fourth
     possession: 0, lastTouch: null, controlled: 0, lastControlled: 0,
+    // possessions counted where they end (see possessions.js): each team's count, and [seconds used, how many]
+    possessions: [0, 0], lengths: [[0, 0], [0, 0]], owner: null, ownerClock: 0, ownerQuarter: 1, lastEnded: null,
     inboundSpot: { x: 0, z: 0 },
     // manual: you brought him on yourself, so the automatic substitutions leave him alone until he comes off
     // ratings: what he is good at (see ratings.js). streak: his makes in a row from the floor, or his misses if negative.

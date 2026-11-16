@@ -8,6 +8,7 @@ import { DRIBBLES, KINDS, startMove, stepMove, finishMove } from './moves.js';
 import { note } from './stats.js';
 import { behindBoard, finishFor, flairFor, gatherVelocity, jumpVelocity } from './finish.js';
 import { styled } from './styles.js';
+import { handOver } from './possessions.js';
 import { contestShare, distanceChance, levelFor, rangeShare, shotChance, skillOf, timingShare, windowHalf, zoneFor } from './shooting.js';
 
 // Seconds after the press of a shot: the best moment to let go, and the moment he is back on the floor.
@@ -426,6 +427,7 @@ export function giveBall(state, player) {
     state.shotClock = CLOCK.shot;
     if (state.phase === 'live') rematch(state, 1 - player.team);   // the team that lost it gets back to whoever is nearest
   }
+  handOver(state, player.team);
   state.possession = state.lastTouch = player.team;
   if (player.team === 0) state.controlled = player.id;
 }

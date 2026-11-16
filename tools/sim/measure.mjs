@@ -108,6 +108,9 @@ export function playHeadless({ seed = 1, size = 5, minutes = 3, setup, observe, 
     });
     observe?.(s, rec);
   }
+  // The game counts its own possessions once it can (src/sim/possessions.js); this tool's count stays as a check.
+  rec.possTool = rec.poss;
+  if (s.possessions) rec.poss = [...s.possessions];
   rec.final = s.phase === 'final';
   rec.score = [...s.score];
   rec.lines = [teamLine(s, 0), teamLine(s, 1)];
@@ -129,7 +132,7 @@ export function summarise(records, { per48 = false } = {}) {
     const shots = Object.values(r.zones[team]).reduce((a, b) => a + b, 0) || 1;
     const lens = r.lengths[team];
     rows.push({
-      pts: line.pts * scale, poss: r.poss[team] * scale, ppp: line.pts / (r.poss[team] || 1),
+      pts: line.pts * scale, poss: r.poss[team] * scale, possTool: r.possTool[team] * scale, ppp: line.pts / (r.poss[team] || 1),
       secs: mean(lens), fast: lens.filter(l => l < 8).length / (lens.length || 1),
       fga: line.fga * scale, fgPct: line.fgm / (line.fga || 1), tpa: line.tpa * scale, tpPct: line.tpm / (line.tpa || 1),
       fta: line.fta * scale, ftPct: line.ftm / (line.fta || 1), tov: line.tov * scale, oreb: r.oreb[team] * scale,
