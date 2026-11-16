@@ -2,7 +2,8 @@
 // suits what he is, taken up in his own time, and the moves he makes from it: a cut, getting out of the way of a
 // drive, running a lane on a fast break. The rules never read any of this: it only says where he should go.
 import { AI, OFF, RIM } from './tuning.js';
-import { attackSign, rand } from './state.js';
+import { attackSign, personOf, rand } from './state.js';
+import { choose } from './choose.js';
 import { rated } from './ratings.js';
 import { guardOf } from './matchups.js';
 
@@ -61,9 +62,11 @@ function driving(holder, hoop) {
 // and nobody stands on his way to the rim.
 function beaten(state, player, hoop) {
   const defender = guardOf(state, player);
-  const lost = dist(defender, player) > OFF.cutGap || dist(defender, hoop) > dist(player, hoop) + 0.3;
-  return lost && dist(player, hoop) > OFF.cutFrom && state.players.every(o => o.team === player.team || off(o, player, hoop).far > OFF.cutWidth);
+  return dist(defender, player) > OFF.cutGap || dist(defender, hoop) > dist(player, hoop) + 0.3;
 }
+
+// Whether a cut from where `player` stands can go: he is not already near the rim, and nobody stands on his way to it.
+const wayClear = (state, player, hoop) => dist(player, hoop) > OFF.cutFrom && state.players.every(o => o.team === player.team || off(o, player, hoop).far > OFF.cutWidth);
 
 // Where `player`, whose team has the ball, should be now, and why: { x, z, sprint, why }. In this order: a cut he
 // is making; out of the way of a drive; on a fast break, his lane; else his place, taken up only at his own moments,
@@ -99,12 +102,22 @@ export function offBallSpot(state, player) {
   if (ai.place === undefined || state.time >= ai.placeAt) {
     ai.place = places(state, team).get(player.id);
     ai.placeAt = state.time + OFF.every[0] + rand(state) * (OFF.every[1] - OFF.every[0]) + (ai.placeAt === undefined ? player.slot * 0.6 : 0);
-    // At such a moment he may cut instead, if nobody else is cutting: a slasher whose defender is beaten, or
-    // whoever has just passed the ball.
+    // At such a moment he may cut instead, if nobody else is cutting and his way to the rim is clear. It is a choice
+    // (see choose.js): a cut is worth more the further his man is beaten, the more that man watches the ball instead
+    // of him, if he has just passed, and the more he likes to attack; staying is worth the possession going on.
     const passed = ai.passedAt !== undefined && state.time - ai.passedAt < OFF.giveAndGo;
-    if (mine && !state.cut[team] && !driving(holder, hoop) && (passed || kindOf(state, player) === 'slasher') && beaten(state, player, hoop)) {
-      state.cut[team] = { id: player.id, until: state.time + OFF.cutFor };
-      return { x: sign * OFF.rimAt, z: 0.6 * Math.sign(player.z || 1), sprint: true, why: 'cut' };
+    if (mine && !state.cut[team] && !driving(holder, hoop) && wayClear(state, player, hoop)) {
+      const defender = guardOf(state, player), watching = 1 - (personOf(state, defender).iq ?? 0.7);
+      const tend = personOf(state, player).tend;
+      const kind = kindOf(state, player), lost = beaten(state, player, hoop);
+      const cut = 0.7 + (lost ? 0.5 : 0) + 0.6 * watching + (passed ? 0.5 : 0) + (kind === 'slasher' ? 0.15 : 0) + 0.2 * (tend.drive - 0.5);
+      // A shooter spotted up where he shoots from is worth something where he is, more with his man off him.
+      const stay = kind === 'shooter' ? 1.35 + (lost ? 0.3 : 0) : 1;
+      const go = choose(state, [{ key: 'cut', value: cut }, { key: 'stay', value: stay }], personOf(state, player).iq);
+      if (go.key === 'cut') {
+        state.cut[team] = { id: player.id, until: state.time + OFF.cutFor };
+        return { x: sign * OFF.rimAt, z: 0.6 * Math.sign(player.z || 1), sprint: true, why: 'cut' };
+      }
     }
   }
   return ai.place ? { ...ai.place, sprint: false, why: 'place' } : null;

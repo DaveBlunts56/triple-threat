@@ -113,13 +113,20 @@ test('a slasher cuts when his defender is beaten and his lane is clear; not when
   assert.equal(offBallSpot(blocked, blocked.players[1]).why, 'place');
 });
 
+// A cut is a choice (see choose.js): over many seeds, a shooter who has not passed mostly stays, and one who has just
+// passed mostly cuts for the ball back.
 test('whoever has just passed may cut for the ball back, though he is no slasher', () => {
-  const s = settled(5, 1);                    // Marsh has the ball; Cross (a shooter) is off it
-  at(s, 5, s.players[0].x - 1, s.players[0].z + 3.2);
-  at(s, 7, 0, 6); at(s, 9, 0, 6.5);           // the bigs' defenders are not in the lane
-  assert.equal(offBallSpot(s, s.players[0]).why, 'place', 'a shooter cut without having passed');
-  s.time += 6; passed(s, s.players[0]);
-  assert.equal(offBallSpot(s, s.players[0]).why, 'cut');
+  let before = 0, after = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const s = settled(5, 1); s.seed = seed * 7;   // Marsh has the ball; Cross (a shooter) is off it
+    at(s, 5, s.players[0].x - 1, s.players[0].z + 3.2);
+    at(s, 7, 0, 6); at(s, 9, 0, 6.5);           // the bigs' defenders are not in the lane
+    if (offBallSpot(s, s.players[0]).why === 'cut') before++;
+    s.cut[0] = null; s.time += 6; passed(s, s.players[0]);
+    if (offBallSpot(s, s.players[0]).why === 'cut') after++;
+  }
+  assert.ok(before <= 12, `a shooter cut ${before} times of 40 without having passed`);
+  assert.ok(after >= 24 && after > before + 10, `after passing he cut ${after} times of 40`);
 });
 
 test('the others get out of the way of a drive, and stay when they are clear of it', () => {
@@ -158,9 +165,11 @@ test('an open player in a place he can score from calls for the ball; a covered 
   assert.equal(calls()[2], false, 'the player you control called for the ball');
 });
 
+// How many go is the team's playbook's choice (see the next test): a team like any other ('balanced') sends two.
 test('on a shot the two best rebounders go to the boards and the rest get back, in five a side and three', () => {
   for (const size of [5, 3]) {
     const s = settled(size);
+    s.teams = [{ ...s.teams[0], playbook: 'balanced' }, s.teams[1]];
     Object.assign(s.ball, { holder: null, mode: 'shot', shooter: 0, x: 9, y: 4, z: 0, vx: 2, vy: 1, vz: 0 });
     for (const p of s.players) p.ai.timer = 0;
     aiIntents(s, DT);
@@ -168,6 +177,18 @@ test('on a shot the two best rebounders go to the boards and the rest get back, 
     assert.deepEqual(chasing, size === 5 ? [2, 4] : [1, 2], `${size} a side`);   // Stone and Volkov; in three a side Stone and Marsh
     for (const p of mine.filter(m => !m.ai.chase)) assert.ok(p.ai.targetX < 0, `${size} a side: player ${p.id} did not get back`);
   }
+});
+
+test('a team that gets back sends one to the glass, a team that crashes sends three', () => {
+  const sent = playbook => {
+    const s = settled(5);
+    s.teams = [{ ...s.teams[0], playbook }, s.teams[1]];
+    Object.assign(s.ball, { holder: null, mode: 'shot', shooter: 0, x: 9, y: 4, z: 0, vx: 2, vy: 1, vz: 0 });
+    for (const p of s.players) p.ai.timer = 0;
+    aiIntents(s, DT);
+    return s.players.filter(p => p.team === 0 && p.ai.chase).length;
+  };
+  assert.deepEqual([sent('paceSpace'), sent('balanced'), sent('insideOut')], [1, 2, 3]);
 });
 
 test('the player you control is given no place and no cut, and his team-mates clear his drive as they do the computer\'s', () => {
@@ -224,8 +245,8 @@ test('on a shot every defender puts himself between his man and the hoop before 
   s.time += AI.boxFor + 0.01; plan(s);
   const chasing = s.players.filter(m => m.team === 1 && m.ai.chase).map(m => m.id).sort();
   assert.equal(chasing.length, AI.boards, 'the defenders nearest the rim did not go for it');
-  // The team that shot does not box out: its rebounders go straight to the boards.
-  assert.ok(s.players.filter(m => m.team === 0 && m.ai.chase).length === 2);
+  // The team that shot does not box out: its rebounders go straight to the boards (as many as its playbook sends).
+  assert.ok(s.players.filter(m => m.team === 0 && m.ai.chase).length >= 1);
 });
 
 test('the man a helper leaves is covered by a sagging team-mate, who goes back when the helper does', () => {
@@ -256,4 +277,26 @@ test('getting back: with the ball still in the other half, the defender nearest 
   assert.ok(Math.abs(target(stopper).z - 1) < 2 && target(stopper).x > -6, `the second is sent to ${JSON.stringify(target(stopper))}, not at the ball`);
   at(s, 0, 3, 1); plan(s);                             // once the ball is over half way everyone has his own man
   assert.ok(apart(target(s.players[7]), hoop) > AI.helpAt + 0.5 || s.players[7].man === 0);
+});
+
+// A cut is a choice (see choose.js): Marsh, a slasher on the wing whose man is right on him, cuts far more often when
+// that man is one who watches the ball than when he is one who watches him.
+test('a cutter whose man is watching the ball cuts; one who is well guarded mostly stays', () => {
+  const cuts = iq => {
+    let n = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      const s = settled(5, 0); s.seed = seed * 11;
+      const marsh = s.players[1], d = s.players.find(p => p.man === marsh.id);
+      s.rosters[1][d.person].iq = iq;
+      // His man stands close, a step toward the ball and off his line to the rim (as a man watching the ball does):
+      // not beaten, but the way to the rim is open.
+      // Marsh is at (7.4, 5.6), the ball at the top: half a metre toward the rim and 1.2 m across toward the ball.
+      at(s, d.id, 6.84, 4.43);
+      at(s, 7, 0, 6); at(s, 9, 0, 6.5);           // the bigs' defenders are not in the lane
+      if (offBallSpot(s, marsh).why === 'cut') n++;
+    }
+    return n;
+  };
+  const watched = cuts(0.98), watcher = cuts(0.35);
+  assert.ok(watcher > watched + 10, `against a ball-watcher he cut ${watcher} times of 60, against a sharp man ${watched}`);
 });

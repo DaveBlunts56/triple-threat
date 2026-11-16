@@ -12,7 +12,7 @@ import { offBallSpot, passed } from './offball.js';
 import { OFF } from './tuning.js';
 import { KINDS } from './moves.js';
 import { styled } from './styles.js';
-import { gambleOf, tightness } from './coach.js';
+import { gambleOf, playbookOf, tightness } from './coach.js';
 import { choose } from './choose.js';
 import { contestShare, distanceChance, expectedShot, greenShare, levelFor, rangeShare, shotChance, skillOf, timingShare, windowHalf, zoneFor } from './shooting.js';
 
@@ -366,8 +366,12 @@ function planFreeBall(state, p) {
   // The team that shot sends its two best rebounders; the defence, which has boxed out and stands inside, sends
   // those of its players nearest the rim.
   const shot = ball.mode === 'shot' && ball.shooter !== null, ours = shot && state.players[ball.shooter].team === p.team;
-  const order = ours ? (a, b) => rated(state, b, 'rebound') - rated(state, a, 'rebound') || dist(a, focus) - dist(b, focus) : (a, b) => dist(a, focus) - dist(b, focus);
-  const chasers = [...team].sort(order).slice(0, shot && !ours ? AI.boards : 2);
+  // How many of the team that shot go to the glass is its playbook's choice (two for a team like any other; a team
+  // that gets back sends one, one that crashes three), and who goes is who rebounds and likes to.
+  const crash = playbookOf(state, p.team).crash, crashers = Math.min(team.length - 1, Math.max(1, Math.round((2 * crash) / 0.4)));
+  const pull = m => rated(state, m, 'rebound') * (0.5 + personOf(state, m).tend.crash);
+  const order = ours ? (a, b) => pull(b) - pull(a) || dist(a, focus) - dist(b, focus) : (a, b) => dist(a, focus) - dist(b, focus);
+  const chasers = [...team].sort(order).slice(0, !shot ? 2 : ours ? crashers : AI.boards);
   if (!chasers.includes(p)) {
     const back = state.players.filter(m => m.team === p.team && !chasers.includes(m)).sort((a, b) => a.z - b.z);
     return goTo(ai, { x: -sign * AI.safetyX, z: (back.indexOf(p) - (back.length - 1) / 2) * AI.safetyGap }, true);

@@ -273,21 +273,27 @@ test('early in the shot clock only a great shooter with room takes the three', (
   assert.deepEqual([open(92, 4), open(80, 4), open(92, 2.2)], ['shoot', null, null]);
 });
 
+// A pass is a choice (see choose.js): over many seeds the star, and a hot hand, get the ball more often than the man a
+// little nearer the hoop; a cold one less often than when he is not cold.
 test('the pass leans to the star and to a hot player, and away from a cold one', () => {
   // The handler (player 1) is covered; two team-mates are open, one a little nearer the hoop than the other.
-  const pass = change => {
-    const s = floor(); giveBall(s, s.players[1]); s.players[1].ai.heldT = 2; s.players[1].ai.had = true; s.seed = 99;
-    at(s, 1, 6.5, 0); at(s, 6, 7.9, -0.6);
-    at(s, 2, 7.6, 5); at(s, 0, 7.0, -5);          // player 2 is 0.5 m nearer the hoop than player 0
-    change(s);
-    for (let i = 0; i < 40; i++) { const thrown = plan(s)[1]; if (thrown.pass) return thrown.moveZ > 0 ? 2 : 0; s.players[1].prev.pass = false; }
-    return null;
+  const share = change => {
+    let toStar = 0, thrown = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      const s = floor(); giveBall(s, s.players[1]); s.players[1].ai.heldT = 2; s.players[1].ai.had = true; s.seed = seed * 99;
+      at(s, 1, 6.5, 0); at(s, 6, 7.9, -0.6);
+      at(s, 2, 7.6, 5); at(s, 0, 7.0, -5);          // player 2 is 0.5 m nearer the hoop than player 0
+      change(s);
+      for (let i = 0; i < 40; i++) { const t = plan(s)[1]; if (t.pass) { thrown++; if (t.moveZ < 0) toStar++; break; } s.players[1].prev.pass = false; }
+    }
+    return toStar / (thrown || 1);
   };
-  assert.equal(pass(() => {}), 0, 'the star (player 0, Jalen Cross) is not leaned to');
-  assert.equal(pass(s => { s.rosters[0][0].streak = -3; }), 2, 'a cold star is still leaned to');
+  const star = share(() => {}), cold = share(s => { s.rosters[0][0].streak = -3; });
+  assert.ok(star > 0.5, `the star (player 0, Jalen Cross) is leaned to: ${star}`);
+  assert.ok(cold < star, `a cold star less: ${cold} against ${star}`);
   const noStar = s => { s.rosters[0][7].ratings = Object.fromEntries(KEYS.map(k => [k, 99])); };   // the star is on the bench
-  assert.equal(pass(noStar), 2, 'with no star on the floor the nearer man is not chosen');
-  assert.equal(pass(s => { noStar(s); s.rosters[0][0].streak = 3; }), 0, 'a hot player is not leaned to');
+  const plainMan = share(noStar), hotMan = share(s => { noStar(s); s.rosters[0][0].streak = 3; });
+  assert.ok(hotMan > plainMan, `a hot player is leaned to: ${hotMan} against ${plainMan}`);
 });
 
 test('with the game on the line the ball goes to the star', () => {
