@@ -132,6 +132,11 @@ export const AI = f({
   moveAt: 78, moveNear: 1.5, moveEvery: 2.5, stepAt: 82, stepNear: 1.3, fadeAt: 80, fadeNear: 1.5, mateMoves: 0.6, moveFrom: 6, beatFor: 1,
   releaseJitter: 0.16,    // seconds either side of the best moment that a shot may be released
   driveX: 11.5, topX: 5.01, safetyX: 4,   // distances from centre court: drive target, top of the key, the player who gets back
+  catchRoom: 1.5,         // metres beyond his shooting range a man who catches a pass still squares up where he caught it
+  workTo: 4, arcOut: 0.6, // the furthest a man with nothing on a catch works the ball along the arc, and how far outside it
+  slotTurn: 0.35,         // radians from the arc's middle (straight out from the hoop) that he stops short of: about 2.7 m to its side
+  elbowNear: 1,           // metres from where a man working the ball from a catch is going at which he has got there
+  catchDriveAt: 0.6,      // the drive tendency from which, where the style says so, a man on a catch attacks the elbow
   inboundHelp: 4,         // how far into the court a teammate comes to receive an inbound pass
   contestDist: 2,         // jump to contest a shooter this close
   contestDelay: 0.05,     // the longest a defender takes to react to his man leaving the floor

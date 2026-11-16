@@ -7,7 +7,7 @@ import { startMatch } from '../src/sim/rules.js';
 import { giveBall } from '../src/sim/players.js';
 import { step } from '../src/sim/step.js';
 import { aiIntents } from '../src/sim/ai.js';
-import { AI, DT, RIM } from '../src/sim/tuning.js';
+import { AI, COURT, DT, LANE, RIM } from '../src/sim/tuning.js';
 import { plain } from './helpers.js';
 import { playHeadless } from '../tools/sim/measure.mjs';
 
@@ -148,6 +148,33 @@ test('caught open in the corner, a shooter squares up there instead of dribbling
     const tight = corner(style, 1.2); aiIntents(tight.s, DT);
     assert.notDeepEqual([tight.me.ai.targetX, tight.me.ai.targetZ], [tight.me.x, tight.me.z], style);
   }
+});
+
+test('caught on the wing with nothing on, he squares up there, then works it along the arc on his own side: he never walks it out to the top to pass it on', () => {
+  // Nine metres out on the right wing (beyond the arc), his man two metres off toward the hoop; his team-mates are
+  // back over half court, so there is nobody to pass to. Player 0, no driver, caught it from player 1, or brought it
+  // up himself.
+  const wing = (heldT, from, out = 9, style = 'arcade') => {
+    const s = scene(1, out, 2), a = Math.PI / 4;
+    setStyle(s, style);
+    put(s, 0, RIM.x - out * Math.cos(a), out * Math.sin(a)); put(s, 3, RIM.x - (out - 2) * Math.cos(a), (out - 2) * Math.sin(a));
+    Object.assign(s.players[0].ai, { heldT, from, gotAt: s.time });
+    person(s, 0).tend.drive = 0.2;   // no driver: in Simulation a driver would take his man on from here
+    return s;
+  };
+  const target = ai => ({ x: ai.targetX, z: ai.targetZ }), top = { x: AI.topX, z: 0 };
+  for (const style of ['arcade', 'sim']) {
+    const caught = wing(0.3, 1, 9, style), me = caught.players[0];
+    assert.deepEqual([first(caught).chose, target(me.ai)], ['hold', { x: me.x, z: me.z }], `${style}: squared up where he caught it`);
+    const later = wing(2, 1, 9, style), it = later.players[0], to = target(first(later));
+    assert.ok(to.z > 0 && to.z < it.z && Math.hypot(to.x - it.x, to.z - it.z) <= AI.workTo + 1e-9, `${style}: along the arc toward the middle, a few metres`);
+    assert.ok(Math.hypot(to.x - top.x, to.z - top.z) > 2.5, `${style}: and not to the top`);
+    assert.deepEqual(target(first(wing(2, null, 9, style))), top, `${style}: the man who brought it up takes it to the top`);
+  }
+  // Inside the arc, a man who likes to drive attacks the elbow on his side in Arcade; in Simulation he works it too.
+  const driver = style => { const s = wing(2, 1, 6, style); person(s, 0).tend.drive = 0.8; return s; };
+  assert.deepEqual(target(first(driver('arcade'))), { x: COURT.halfLength - LANE.depth, z: LANE.halfWidth });
+  assert.notDeepEqual(target(first(driver('sim'))), { x: COURT.halfLength - LANE.depth, z: LANE.halfWidth });
 });
 
 test('a shooter reads a closeout in Simulation: his man sprinting at him makes the shot worth less than his man standing there; Arcade does not read it', () => {
