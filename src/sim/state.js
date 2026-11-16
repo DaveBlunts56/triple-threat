@@ -116,9 +116,10 @@ export function createMatch(seed = 1, size = 3, teams = [0, 1]) {
     // manual: you brought him on yourself, so the automatic substitutions leave him alone until he comes off
     // ratings: what he is good at (see ratings.js). streak: his makes in a row from the floor, or his misses if negative.
     rosters: sidesOf(teams).map(t => t.players.map(p => ({ number: p.number, name: p.name, position: p.position, role: p.role,
-      ratings: Object.fromEntries(RATING_KEYS.map(key => [key, p.ratings[key]])), streak: 0, energy: 1, fouls: 0, manual: false, stats: emptyLine(), secs: 0, pm: 0 }))),   // stats: his line in the box score (see stats.js); secs: seconds on court; pm: plus-minus
+      ratings: Object.fromEntries(RATING_KEYS.map(key => [key, p.ratings[key]])), streak: 0, energy: 1, fouls: 0, manual: false, stats: emptyLine(), secs: 0, pm: 0, onAt: 0 }))),   // stats: his line in the box score (see stats.js); secs: seconds on court; pm: plus-minus
     teams: sidesOf(teams),   // the data of each side: playbook, defence, coach (see teams.js)
     subQueue: [], autoSubs: [true, true], teamFouls: [0, 0],
+    stoppages: 0, planned: [-1, -1],   // how many times play has stopped; the stoppage each coach last planned his rotation at
     call: null, freeThrow: null, pendingFoul: null, tipWinner: null,
     timeouts: [0, 0], lastTimeout: -Infinity,   // each team's timeouts left (set below, from the style); when the last was called
     run: [0, 0],              // each team's points since the other last scored

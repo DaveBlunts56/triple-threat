@@ -40,6 +40,7 @@ const makeCall = (kind, team, extra = {}) => ({ kind, team, ball: 1 - team, numb
 // If the period clock has run out, the period ends instead of restarting, once any free throws are shot.
 function stopPlay(state, possession, spot, call = null) {
   deadBall(state);
+  state.stoppages++;
   adjust(state, 0); adjust(state, 1);   // each coach looks at his defence at the whistle
   state.board = false;   // nothing to rebound once play has stopped
   state.call = call;
@@ -76,6 +77,7 @@ function deadBall(state) {
 
 function endPeriod(state) {
   endPossession(state);
+  state.stoppages++;
   deadBall(state);
   state.phase = 'quarterEnd';
   state.phaseT = CLOCK.quarterBreak;

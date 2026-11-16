@@ -21,7 +21,7 @@ export const KINDS = f({
   'timeout.each': 'positive', 'timeout.rest': 'chance',
   'shot.make': 'positive', 'board.offence': 'positive',
   'shot.curve': 'word', 'shot.green': 'word', 'shot.boost': 'positive', 'ft.model': 'word',
-  'decide.temperature': 'positive', 'iq.offence': 'positive', 'iq.defence': 'positive', 'coach.adapt': 'positive',
+  'decide.temperature': 'positive', 'iq.offence': 'positive', 'iq.defence': 'positive', 'coach.adapt': 'positive', 'coach.rotation': 'word',
 });
 
 // Arcade: the game as it was, read from tuning.js.
@@ -35,7 +35,7 @@ const ARCADE = f({
   'timeout.each': TIMEOUT.each, 'timeout.rest': TIMEOUT.rest,
   'shot.make': 1, 'board.offence': 1,
   'shot.curve': 'line', 'shot.green': 'sure', 'shot.boost': 1, 'ft.model': 'flat',
-  'decide.temperature': 0.3, 'iq.offence': 1, 'iq.defence': 1, 'coach.adapt': 1,
+  'decide.temperature': 0.3, 'iq.offence': 1, 'iq.defence': 1, 'coach.adapt': 1, 'coach.rotation': 'energy',
 });
 
 // Simulation: NBA-like. Its own numbers, written out (Stage 4 tunes them).
@@ -49,7 +49,7 @@ const SIM = f({
   'timeout.each': 3, 'timeout.rest': 0.3,
   'shot.make': 1, 'board.offence': 1,
   'shot.curve': 'line', 'shot.green': 'sure', 'shot.boost': 1, 'ft.model': 'flat',
-  'decide.temperature': 0.3, 'iq.offence': 1, 'iq.defence': 1, 'coach.adapt': 1,
+  'decide.temperature': 0.3, 'iq.offence': 1, 'iq.defence': 1, 'coach.adapt': 1, 'coach.rotation': 'plan',
 });
 
 export const STYLES = f({ arcade: ARCADE, sim: SIM });
