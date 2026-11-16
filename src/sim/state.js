@@ -1,4 +1,5 @@
-import { BALL, CLOCK, FOUL, LINEUP, MATCH, ROSTER, TIP } from './tuning.js';
+import { BALL, CLOCK, FOUL, LINEUP, MATCH, TIP } from './tuning.js';
+import { TEAMS } from './teams.js';
 import { emptyLine } from './stats.js';
 import { setStyle, styled } from './styles.js';
 
@@ -91,8 +92,11 @@ export function setLength(state, minutes) {
   Object.assign(state, { quarterLength: minutes * 60, gameClock: minutes * 60, foulLimit: MATCH.fouls[minutes], bonus: MATCH.bonus[minutes] });
 }
 
-// A match of `size` a side: 3 or 5. Any other size is 3.
-export function createMatch(seed = 1, size = 3) {
+// The two sides of a match, as team data: each given as its place in TEAMS or as a team of its own (a test's).
+const sidesOf = teams => teams.map(t => (typeof t === 'number' ? TEAMS[t] : t));
+
+// A match of `size` a side: 3 or 5. Any other size is 3. `teams`: which teams play, the home side first.
+export function createMatch(seed = 1, size = 3, teams = [0, 1]) {
   if (size !== 5) size = 3;
   const state = {
     size,
@@ -107,8 +111,9 @@ export function createMatch(seed = 1, size = 3) {
     inboundSpot: { x: 0, z: 0 },
     // manual: you brought him on yourself, so the automatic substitutions leave him alone until he comes off
     // ratings: what he is good at (see ratings.js). streak: his makes in a row from the floor, or his misses if negative.
-    rosters: ROSTER.numbers.map((team, t) => team.map((number, row) => ({ number, name: ROSTER.names[t][row], position: ROSTER.positions[row], role: ROSTER.roles[t][row],
-      ratings: Object.fromEntries(RATING_KEYS.map((key, i) => [key, ROSTER.ratings[t][row][i]])), streak: 0, energy: 1, fouls: 0, manual: false, stats: emptyLine() }))),   // stats: his line in the box score (see stats.js)
+    rosters: sidesOf(teams).map(t => t.players.map(p => ({ number: p.number, name: p.name, position: p.position, role: p.role,
+      ratings: Object.fromEntries(RATING_KEYS.map(key => [key, p.ratings[key]])), streak: 0, energy: 1, fouls: 0, manual: false, stats: emptyLine() }))),   // stats: his line in the box score (see stats.js)
+    teams: sidesOf(teams),   // the data of each side: playbook, defence, coach (see teams.js)
     subQueue: [], autoSubs: [true, true], teamFouls: [0, 0],
     call: null, freeThrow: null, pendingFoul: null, tipWinner: null,
     timeouts: [0, 0], lastTimeout: -Infinity,   // each team's timeouts left (set below, from the style); when the last was called

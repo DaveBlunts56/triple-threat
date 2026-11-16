@@ -1,4 +1,6 @@
 // Every tunable number in the simulation. Distances in metres, times in seconds.
+import { TEAMS } from './teams.js';
+
 const f = Object.freeze;
 
 export const DT = 1 / 60;
@@ -274,22 +276,20 @@ export const TIP = f({ wait: 1, height: 1.5, tossV: 6.6, gap: 0.6, speed: 7, aiJ
 // gap: metres between team-mates lined up before the tip, by the match's size.
 export const LINEUP = f({ gap: f({ 3: 3, 5: 2.4 }) });
 
+// The two teams, in the shape the game has always read them (see teams.js, where they live as data). Eight a side,
+// in roster order: the first three start a three-a-side match, the first five a five-a-side one. positions: by
+// roster row, the same for both teams. ratings: in the order inside, mid, three, handle, speed, defence, rebound,
+// stamina (see ratings.js).
+const RATING_ORDER = ['inside', 'mid', 'three', 'handle', 'speed', 'defence', 'rebound', 'stamina'];
+const TWO = TEAMS.slice(0, 2);
 export const ROSTER = f({
-  // Eight a side, in roster order: the first three start a three-a-side match, the first five a five-a-side one.
-  numbers: f([f([4, 7, 11, 15, 23, 1, 13, 32]), f([5, 8, 10, 21, 33, 2, 14, 30])]),
-  teams: f(['Harbor City Waves', 'Red Rock Scorpions']),
-  abbr: f(['WAV', 'SCO']),   // each team's name on a scoreboard
-  names: f([f(['Jalen Cross', 'Theo Marsh', 'Darius Stone', 'Sam Okoro', 'Andre Volkov', 'Marcus Bell', 'Noah Vance', 'Idris Kane']),
-    f(['Kai Mercer', 'Luca Reyes', 'Viktor Lund', 'Devon Hale', 'Emeka Bright', 'Rafael Ortiz', 'Jamal Whitaker', 'Bogdan Ilic'])]),
-  positions: f(['PG', 'SF', 'C', 'SG', 'PF', 'PG', 'SF', 'C']),   // by roster row, the same for both teams
-  // What each player is for, and his ratings in the order inside, mid, three, handle, speed, defence, rebound,
-  // stamina (see ratings.js). The two teams total the same overall for three a side, five a side and the bench.
-  roles: f([f(['Playmaker', 'Slasher', 'Rim protector', 'Sharpshooter', 'Stretch big', 'Shot creator', 'Lockdown wing', 'Rebounder']),
-    f(['Shot creator', 'Two-way wing', 'Post scorer', 'Sharpshooter', 'Glass cleaner', 'Lockdown guard', 'Slasher', 'Rim protector'])]),
-  ratings: f([f([f([78, 88, 84, 94, 90, 72, 48, 84]), f([90, 70, 58, 80, 88, 74, 64, 78]), f([86, 74, 42, 50, 62, 92, 90, 78]), f([60, 88, 94, 78, 75, 58, 62, 80]),
-    f([80, 78, 84, 58, 56, 74, 84, 70]), f([68, 86, 76, 84, 76, 52, 58, 66]), f([63, 55, 70, 60, 76, 90, 60, 86]), f([82, 62, 40, 54, 50, 76, 92, 68])]),
-  f([f([83, 94, 90, 92, 86, 58, 62, 78]), f([78, 72, 84, 60, 80, 88, 66, 80]), f([94, 80, 45, 55, 52, 78, 88, 75]), f([62, 84, 92, 73, 76, 62, 44, 90]),
-    f([80, 60, 44, 52, 70, 84, 92, 74]), f([62, 64, 52, 76, 86, 90, 58, 74]), f([86, 62, 50, 74, 84, 69, 62, 72]), f([76, 62, 50, 44, 48, 88, 86, 68])])]),
+  numbers: f(TWO.map(t => f(t.players.map(p => p.number)))),
+  teams: f(TWO.map(t => t.name)),
+  abbr: f(TWO.map(t => t.abbr)),   // each team's name on a scoreboard
+  names: f(TWO.map(t => f(t.players.map(p => p.name)))),
+  positions: f(TWO[0].players.map(p => p.position)),
+  roles: f(TWO.map(t => f(t.players.map(p => p.role)))),
+  ratings: f(TWO.map(t => f(t.players.map(p => f(RATING_ORDER.map(k => p.ratings[k])))))),
 });
 
 // What 10 points of a rating are worth, as a share of the thing it changes: a shot's chance, the green window's
