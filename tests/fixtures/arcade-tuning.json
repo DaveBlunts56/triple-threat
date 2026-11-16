@@ -1,0 +1,915 @@
+{
+ "AI": {
+  "interval": 0.3,
+  "openDist": 1.8,
+  "shootRange": 7.5,
+  "laneWidth": 1.07,
+  "panicClock": 4,
+  "stealRate": 0.03,
+  "inboundDelay": 1,
+  "onBallGap": 1.35,
+  "offBallGap": 1.8,
+  "jitter": 0.1,
+  "arrive": 0.3,
+  "slowDist": 1.5,
+  "layupDist": 2.8,
+  "moveAt": 78,
+  "moveNear": 1.5,
+  "moveEvery": 2.5,
+  "stepAt": 82,
+  "stepNear": 1.3,
+  "fadeAt": 80,
+  "fadeNear": 1.5,
+  "mateMoves": 0.6,
+  "moveFrom": 6,
+  "beatFor": 1,
+  "releaseJitter": 0.16,
+  "driveX": 11.2,
+  "topX": 5.2,
+  "safetyX": 4,
+  "inboundHelp": 4,
+  "contestDist": 2,
+  "contestDelay": 0.05,
+  "reboundDist": 1,
+  "reboundHeight": 3.3,
+  "farAway": 2,
+  "passRange": 10,
+  "holdTime": 0.5,
+  "pickupX": 4,
+  "hurryAt": 5,
+  "keyOut": 1.9,
+  "callAt": 70,
+  "shootAt": 60,
+  "earlyThree": 88,
+  "roomFor": 3,
+  "roomGap": 0.2,
+  "passAfter": 1.4,
+  "noReturn": 4,
+  "goTo": 0.5,
+  "lean": 1.5,
+  "shy": 0.6,
+  "shooterGap": 0.06,
+  "quickGap": 0.04,
+  "offShooterGap": 0.08,
+  "gapRange": [
+   0.9,
+   1.9
+  ],
+  "patience": [
+   12,
+   19
+  ],
+  "insideDist": 5,
+  "breakLead": 2.5,
+  "onePass": 6.5,
+  "sag": 0.4,
+  "sagTo": 3,
+  "sagWithin": 11,
+  "closeFor": 0.7,
+  "boards": 2,
+  "boxFor": 0.9,
+  "boxGap": 0.7,
+  "helpFrom": 8,
+  "helpAt": 1.6,
+  "helpFor": 1,
+  "adaptAfter": 4,
+  "vary": 0.3,
+  "lowSpotZ": 3.2,
+  "safetyGap": 4
+ },
+ "BALL": {
+  "radius": 0.12,
+  "gravity": 9.81,
+  "floorBounce": 0.75,
+  "rimBounce": 0.55,
+  "boardBounce": 0.6,
+  "restSpeed": 0.5,
+  "floorGrip": 0.9,
+  "rollDecel": 2,
+  "substeps": 4
+ },
+ "BLOCK": {
+  "reach": 1.2,
+  "minHeight": 0.3,
+  "chance": 0.36,
+  "cone": 45,
+  "deflect": 4
+ },
+ "BOARD": {
+  "x": 12.8,
+  "halfWidth": 0.9,
+  "bottom": 2.9,
+  "top": 3.95
+ },
+ "CLOCK": {
+  "quarters": 4,
+  "quarter": 180,
+  "overtime": 60,
+  "shot": 24,
+  "shotAfterFoul": 14,
+  "dead": 1.5,
+  "quarterBreak": 2,
+  "timeout": 3
+ },
+ "COURT": {
+  "halfLength": 14,
+  "halfWidth": 7.5,
+  "margin": 1.5
+ },
+ "DIFFICULTY": {
+  "order": [
+   "rookie",
+   "starter",
+   "allstar",
+   "superstar",
+   "legend"
+  ],
+  "label": {
+   "rookie": "Rookie",
+   "starter": "Starter",
+   "allstar": "All-Star",
+   "superstar": "Superstar",
+   "legend": "Legend"
+  },
+  "levels": {
+   "rookie": {
+    "green": 2,
+    "make": 1,
+    "sweep": 0.6,
+    "timing": 0.8,
+    "jitter": 0.3,
+    "cpuGreen": 0.7,
+    "cpuMake": 0.85,
+    "interval": 0.45,
+    "steal": 0.5,
+    "adapt": 0,
+    "moves": 0.15
+   },
+   "starter": {
+    "green": 1.5,
+    "make": 1,
+    "sweep": 0.8,
+    "timing": 0.7,
+    "jitter": 0.22,
+    "cpuGreen": 0.85,
+    "cpuMake": 0.92,
+    "interval": 0.36,
+    "steal": 0.75,
+    "adapt": 0.3,
+    "moves": 0.35
+   },
+   "allstar": {
+    "green": 1,
+    "make": 1,
+    "sweep": 1,
+    "timing": 0.6,
+    "jitter": 0.16,
+    "cpuGreen": 1,
+    "cpuMake": 1,
+    "interval": 0.3,
+    "steal": 1,
+    "adapt": 0.6,
+    "moves": 0.6
+   },
+   "superstar": {
+    "green": 0.34,
+    "make": 0.5,
+    "sweep": 1.25,
+    "timing": 0.45,
+    "jitter": 0.09,
+    "cpuGreen": 1.25,
+    "cpuMake": 1.1,
+    "interval": 0.25,
+    "steal": 1.25,
+    "adapt": 0.85,
+    "moves": 0.8
+   },
+   "legend": {
+    "green": 0.2,
+    "make": 0.08,
+    "sweep": 1.5,
+    "timing": 0.3,
+    "jitter": 0.06,
+    "cpuGreen": 1.35,
+    "cpuMake": 1.18,
+    "interval": 0.2,
+    "steal": 1.5,
+    "adapt": 1,
+    "moves": 1
+   }
+  }
+ },
+ "DT": 0.016666666666666666,
+ "FINISH": {
+  "layupNear": 0.5,
+  "layupFar": 4.5,
+  "drive": 2,
+  "close": 2.8,
+  "away": 1,
+  "gather": 0.5,
+  "gatherSpeed": 5,
+  "takeoff": {
+   "layup": 1.6,
+   "dunk": 2.2
+  },
+  "jump": {
+   "layup": 3.7,
+   "dunk": 4.6
+  },
+  "arrive": {
+   "layup": 0.9,
+   "dunk": 0.2
+  },
+  "release": {
+   "up": 2.15,
+   "ahead": 0.3
+  },
+  "windmillAt": 86,
+  "windmillRoom": 2.5,
+  "dunkMoment": 0.55,
+  "dunkAt": 78,
+  "dunkEnergy": 0.25,
+  "dunkChance": 0.97,
+  "dunkContest": 0.45,
+  "reach": 0.9,
+  "dunkDrop": 4,
+  "stealFactor": 0.5,
+  "block": 0.5
+ },
+ "FOUL": {
+  "reachFront": 0.12,
+  "reachBack": 0.3,
+  "shooting": 0.25,
+  "contactDist": 0.8,
+  "charge": 0.6,
+  "block": 0.15,
+  "chargeSpeed": 5,
+  "setTime": 0.4,
+  "setSpeed": 0.5,
+  "cooldown": 1,
+  "limit": 3,
+  "bonus": 3
+ },
+ "FT": {
+  "lineDist": 5.8,
+  "sweep": 1.5,
+  "centreChance": 0.95,
+  "edgeChance": 0.2,
+  "limit": 5,
+  "aiDelay": 1,
+  "aiChance": 0.75,
+  "pause": 1,
+  "defence": [
+   [
+    2.3,
+    -2.75
+   ],
+   [
+    2.3,
+    2.75
+   ],
+   [
+    9,
+    2
+   ]
+  ],
+  "offence": [
+   [
+    3.7,
+    -2.75
+   ],
+   [
+    3.7,
+    2.75
+   ]
+  ],
+  "defence5": [
+   [
+    2.3,
+    -2.75
+   ],
+   [
+    2.3,
+    2.75
+   ],
+   [
+    5.1,
+    -2.75
+   ],
+   [
+    5.1,
+    2.75
+   ],
+   [
+    9,
+    0
+   ]
+  ],
+  "offence5": [
+   [
+    3.7,
+    -2.75
+   ],
+   [
+    3.7,
+    2.75
+   ],
+   [
+    9.5,
+    -3.5
+   ],
+   [
+    9.5,
+    3.5
+   ]
+  ]
+ },
+ "HEAT": {
+  "after": 3,
+  "hot": 1.1,
+  "hotWindow": 1.2,
+  "cold": 0.92
+ },
+ "HOOP_NET": {
+  "depth": 0.45,
+  "slow": 0.015,
+  "exit": 3.5
+ },
+ "LATE": {
+  "closing": 60,
+  "hurry": 45,
+  "close": 8,
+  "foulUnder": 24,
+  "foulOver": 1.5,
+  "hurryClock": 12,
+  "milkClock": 6,
+  "heave": 1.3,
+  "pressGap": 1,
+  "run": 8,
+  "tired": 0.4,
+  "clutch": 12,
+  "clutchLead": 3
+ },
+ "LINEUP": {
+  "gap": {
+   "3": 3,
+   "5": 2.4
+  }
+ },
+ "MATCH": {
+  "minutes": [
+   3,
+   5,
+   8,
+   12
+  ],
+  "fouls": {
+   "3": 3,
+   "5": 4,
+   "8": 5,
+   "12": 6
+  },
+  "bonus": {
+   "3": 3,
+   "5": 4,
+   "8": 5,
+   "12": 5
+  }
+ },
+ "MATCHUP": {
+  "lost": 2,
+  "save": 6,
+  "wait": 2
+ },
+ "MOVES": {
+  "cross": {
+   "time": 0.3,
+   "push": 1.5,
+   "keep": 0.5,
+   "steal": 1.5,
+   "hidden": false
+  },
+  "legs": {
+   "time": 0.4,
+   "push": 1.1,
+   "keep": 0.5,
+   "steal": 0.5,
+   "hidden": false
+  },
+  "back": {
+   "time": 0.5,
+   "push": 1.2,
+   "keep": 1,
+   "steal": 1,
+   "hidden": true
+  },
+  "stepBack": {
+   "time": 0.35,
+   "push": 1.3
+  },
+  "gap": 0.3,
+  "plant": 0.25,
+  "cost": 0.02,
+  "tired": 0.6,
+  "near": 1.6,
+  "late": 0.25,
+  "latePer10": 0.1,
+  "lateMax": 0.6,
+  "leaning": 0.5,
+  "ankle": {
+   "edge": 15,
+   "wrong": 1,
+   "chance": 0.25,
+   "time": 1
+  },
+  "side": 0.3,
+  "fade": {
+   "within": 5.5,
+   "drift": 0.8,
+   "contest": 0.6,
+   "make": 0.92,
+   "block": 0.6
+  }
+ },
+ "OFF": {
+  "shooterAt": 80,
+  "apart": 2.5,
+  "sideHold": 1.5,
+  "every": [
+   2.5,
+   5
+  ],
+  "cutGap": 2.4,
+  "cutFrom": 4.5,
+  "cutWidth": 0.9,
+  "cutFor": 1.6,
+  "rimAt": 11,
+  "giveAndGo": 0.8,
+  "drivePace": 2.5,
+  "clear": 2.2,
+  "clearTo": 3,
+  "breakUntil": 6,
+  "breakWide": 6,
+  "breakTrail": 4
+ },
+ "PASS": {
+  "speed": 14,
+  "noPickup": 0.3,
+  "height": 1.3,
+  "clearTime": 0.1,
+  "interceptRadius": 0.4
+ },
+ "PLAY": {
+  "wait": 1.5,
+  "minClock": 9,
+  "startX": 1.5,
+  "screenGap": 0.66,
+  "setDist": 0.9,
+  "useBy": 1.6,
+  "cut": 4.5,
+  "ripeBy": 4,
+  "roll": 1.7,
+  "feedWidth": 0.65,
+  "startAt": 6,
+  "roundGap": 1.05,
+  "roundBy": 0.3
+ },
+ "PLAYER": {
+  "radius": 0.3,
+  "run": 4.5,
+  "sprint": 6.3,
+  "accel": 30,
+  "jumpV": 4,
+  "shotJumpV": 2.2,
+  "releaseHeight": 2.3,
+  "reach": 2.4,
+  "pickupRadius": 0.7,
+  "handHeight": 1,
+  "carryDist": 0.4,
+  "dribbleRate": 2,
+  "jumpCarry": 0.2,
+  "dribbleSpeed": 0.85,
+  "gatherDist": 1.5
+ },
+ "RATE": {
+  "shot": 0.07,
+  "window": 0.1,
+  "speed": 0.012,
+  "steal": 0.1,
+  "contest": 0.08,
+  "tire": 0.08,
+  "rebound": 0.1
+ },
+ "READ": {
+  "wide": 2.5,
+  "onCatch": 0.25,
+  "crowd": 2
+ },
+ "RIM": {
+  "x": 12.425,
+  "height": 3.05,
+  "radius": 0.225,
+  "tube": 0.02
+ },
+ "ROSTER": {
+  "numbers": [
+   [
+    4,
+    7,
+    11,
+    15,
+    23,
+    1,
+    13,
+    32
+   ],
+   [
+    5,
+    8,
+    10,
+    21,
+    33,
+    2,
+    14,
+    30
+   ]
+  ],
+  "teams": [
+   "Harbor City Waves",
+   "Red Rock Scorpions"
+  ],
+  "abbr": [
+   "WAV",
+   "SCO"
+  ],
+  "names": [
+   [
+    "Jalen Cross",
+    "Theo Marsh",
+    "Darius Stone",
+    "Sam Okoro",
+    "Andre Volkov",
+    "Marcus Bell",
+    "Noah Vance",
+    "Idris Kane"
+   ],
+   [
+    "Kai Mercer",
+    "Luca Reyes",
+    "Viktor Lund",
+    "Devon Hale",
+    "Emeka Bright",
+    "Rafael Ortiz",
+    "Jamal Whitaker",
+    "Bogdan Ilic"
+   ]
+  ],
+  "positions": [
+   "PG",
+   "SF",
+   "C",
+   "SG",
+   "PF",
+   "PG",
+   "SF",
+   "C"
+  ],
+  "roles": [
+   [
+    "Playmaker",
+    "Slasher",
+    "Rim protector",
+    "Sharpshooter",
+    "Stretch big",
+    "Shot creator",
+    "Lockdown wing",
+    "Rebounder"
+   ],
+   [
+    "Shot creator",
+    "Two-way wing",
+    "Post scorer",
+    "Sharpshooter",
+    "Glass cleaner",
+    "Lockdown guard",
+    "Slasher",
+    "Rim protector"
+   ]
+  ],
+  "ratings": [
+   [
+    [
+     78,
+     88,
+     84,
+     94,
+     90,
+     72,
+     48,
+     84
+    ],
+    [
+     90,
+     70,
+     58,
+     80,
+     88,
+     74,
+     64,
+     78
+    ],
+    [
+     86,
+     74,
+     42,
+     50,
+     62,
+     92,
+     90,
+     78
+    ],
+    [
+     60,
+     88,
+     94,
+     78,
+     75,
+     58,
+     62,
+     80
+    ],
+    [
+     80,
+     78,
+     84,
+     58,
+     56,
+     74,
+     84,
+     70
+    ],
+    [
+     68,
+     86,
+     76,
+     84,
+     76,
+     52,
+     58,
+     66
+    ],
+    [
+     63,
+     55,
+     70,
+     60,
+     76,
+     90,
+     60,
+     86
+    ],
+    [
+     82,
+     62,
+     40,
+     54,
+     50,
+     76,
+     92,
+     68
+    ]
+   ],
+   [
+    [
+     83,
+     94,
+     90,
+     92,
+     86,
+     58,
+     62,
+     78
+    ],
+    [
+     78,
+     72,
+     84,
+     60,
+     80,
+     88,
+     66,
+     80
+    ],
+    [
+     94,
+     80,
+     45,
+     55,
+     52,
+     78,
+     88,
+     75
+    ],
+    [
+     62,
+     84,
+     92,
+     73,
+     76,
+     62,
+     44,
+     90
+    ],
+    [
+     80,
+     60,
+     44,
+     52,
+     70,
+     84,
+     92,
+     74
+    ],
+    [
+     62,
+     64,
+     52,
+     76,
+     86,
+     90,
+     58,
+     74
+    ],
+    [
+     86,
+     62,
+     50,
+     74,
+     84,
+     69,
+     62,
+     72
+    ],
+    [
+     76,
+     62,
+     50,
+     44,
+     48,
+     88,
+     86,
+     68
+    ]
+   ]
+  ]
+ },
+ "SHOT": {
+  "nearChance": 0.85,
+  "farChance": 0.15,
+  "farDist": 8,
+  "minChance": 0.05,
+  "gather": 0.3,
+  "bestAt": 0.8,
+  "worstTiming": 0.6,
+  "contestDist": 2,
+  "maxContest": 0.5,
+  "airContest": 0.8,
+  "airContestDist": 1.5,
+  "missMin": 0.18,
+  "missMax": 0.32,
+  "minAngle": 50,
+  "minEntry": 45,
+  "maxAngle": 88,
+  "rimClear": 0.02,
+  "rattleMin": 0.07,
+  "rattleMax": 0.17,
+  "rattleSteps": 6,
+  "rattleTries": 40,
+  "loft": 0.2,
+  "loftFrom": 2.5,
+  "ways": [
+   0.3,
+   0.62,
+   0.84,
+   1
+  ],
+  "rollBounces": 2,
+  "bankLow": 0.2,
+  "bankHigh": 0.55,
+  "bankWide": 0.25,
+  "tease": 0.25,
+  "minRelease": 0.6,
+  "insideDist": 3,
+  "greenFull": 4,
+  "greenNone": 12,
+  "levels": [
+   {
+    "name": "Open",
+    "above": 0.95,
+    "steps": 3
+   },
+   {
+    "name": "Guarded",
+    "above": 0.75,
+    "steps": 2
+   },
+   {
+    "name": "Contested",
+    "above": 0.55,
+    "steps": 1
+   },
+   {
+    "name": "Smothered",
+    "above": 0,
+    "steps": 0
+   }
+  ]
+ },
+ "STAMINA": {
+  "sprint": 0.025,
+  "run": 0.006,
+  "jump": 0.015,
+  "rest": 0.02,
+  "bench": 0.03,
+  "restSpeed": 1,
+  "fadeBelow": 0.5,
+  "minSpeed": 0.75,
+  "minShot": 0.8,
+  "subOut": 0.35,
+  "subIn": 0.7
+ },
+ "STAT": {
+  "assist": 3,
+  "chasePace": 4,
+  "chaseBehind": 0.5
+ },
+ "STEAL": {
+  "reach": 1.2,
+  "frontChance": 0.25,
+  "backChance": 0.08,
+  "cooldown": 1,
+  "frontArc": 120,
+  "heldFactor": 0.4
+ },
+ "THREE_PT": {
+  "radius": 6.75,
+  "cornerZ": 6.6
+ },
+ "TIMEOUT": {
+  "each": 3,
+  "rest": 0.3,
+  "apart": 20
+ },
+ "TIP": {
+  "wait": 1,
+  "height": 1.5,
+  "tossV": 6.6,
+  "gap": 0.6,
+  "speed": 7,
+  "aiJumpAt": 3.6,
+  "aiError": 0.25,
+  "slot": {
+   "3": 1,
+   "5": 2
+  },
+  "around": {
+   "3": [
+    [
+     0.6,
+     -2.4
+    ],
+    null,
+    [
+     0.6,
+     2.4
+    ]
+   ],
+   "5": [
+    [
+     6,
+     0
+    ],
+    [
+     0.6,
+     -2.4
+    ],
+    null,
+    [
+     0.6,
+     2.4
+    ],
+    [
+     -5,
+     1.3
+    ]
+   ]
+  }
+ },
+ "VIOLATION": {
+  "backcourt": 8,
+  "key": 3,
+  "inbound": 5,
+  "keyHalfWidth": 2.45,
+  "keyDepth": 5.8
+ }
+}

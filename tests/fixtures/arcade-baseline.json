@@ -1,0 +1,453 @@
+{
+ "recorded": "2026-11-15 on main 8859bf0 (the branch had only docs on top), by tools/sim/measure.mjs",
+ "three3": {
+  "size": 3,
+  "minutes": 3,
+  "seeds": "1-20",
+  "table": {
+   "pts": {
+    "mean": 36.475,
+    "sd": 5.5136
+   },
+   "poss": {
+    "mean": 34.975,
+    "sd": 2.8061
+   },
+   "ppp": {
+    "mean": 1.0456,
+    "sd": 0.1615
+   },
+   "secs": {
+    "mean": 10.4728,
+    "sd": 0.9614
+   },
+   "fast": {
+    "mean": 0.234,
+    "sd": 0.0606
+   },
+   "fga": {
+    "mean": 36.525,
+    "sd": 4.0372
+   },
+   "fgPct": {
+    "mean": 0.4189,
+    "sd": 0.074
+   },
+   "tpa": {
+    "mean": 4.875,
+    "sd": 1.7915
+   },
+   "tpPct": {
+    "mean": 0.1987,
+    "sd": 0.1859
+   },
+   "fta": {
+    "mean": 7.05,
+    "sd": 3.7944
+   },
+   "ftPct": {
+    "mean": 0.7249,
+    "sd": 0.1946
+   },
+   "tov": {
+    "mean": 3,
+    "sd": 1.5166
+   },
+   "oreb": {
+    "mean": 9.225,
+    "sd": 3.0207
+   },
+   "dreb": {
+    "mean": 11.4,
+    "sd": 2.6814
+   },
+   "ast": {
+    "mean": 10.475,
+    "sd": 2.5689
+   },
+   "stl": {
+    "mean": 2.95,
+    "sd": 1.4824
+   },
+   "blk": {
+    "mean": 3.125,
+    "sd": 1.7775
+   },
+   "estimate": {
+    "mean": 33.402,
+    "sd": 2.484
+   },
+   "rim": {
+    "mean": 0.5212,
+    "sd": 0.0677
+   },
+   "close": {
+    "mean": 0.0455,
+    "sd": 0.0346
+   },
+   "mid": {
+    "mean": 0.3001,
+    "sd": 0.0716
+   },
+   "corner3": {
+    "mean": 0.0037,
+    "sd": 0.0098
+   },
+   "arc3": {
+    "mean": 0.1296,
+    "sd": 0.0468
+   },
+   "assisted": {
+    "mean": 0.6924,
+    "sd": 0.1394
+   },
+   "subs": {
+    "mean": 19.15,
+    "sd": 4.0654
+   },
+   "margin": {
+    "mean": 0,
+    "sd": 6.8666
+   },
+   "glide20": {
+    "mean": 0.1109
+   },
+   "glide35": {
+    "mean": 0.0607
+   },
+   "between": {
+    "mean": 0.0862
+   },
+   "stepMicros": {
+    "mean": 4.8595
+   },
+   "foulsByKind": {
+    "shooting": 3.125,
+    "reach": 2.05,
+    "block": 0.525,
+    "charge": 0.325
+   },
+   "playsByKind": {
+    "postUp": 11.175,
+    "iso": 4.925,
+    "pickPop": 3.325,
+    "pickRoll": 5.075,
+    "giveGo": 3.475
+   },
+   "overtime": {
+    "mean": 0.1
+   },
+   "finished": {
+    "mean": 1
+   }
+  }
+ },
+ "five3": {
+  "size": 5,
+  "minutes": 3,
+  "seeds": "1-20",
+  "table": {
+   "pts": {
+    "mean": 30.025,
+    "sd": 6.1175
+   },
+   "poss": {
+    "mean": 30.85,
+    "sd": 2.6977
+   },
+   "ppp": {
+    "mean": 0.9791,
+    "sd": 0.214
+   },
+   "secs": {
+    "mean": 11.812,
+    "sd": 1.5394
+   },
+   "fast": {
+    "mean": 0.2762,
+    "sd": 0.0894
+   },
+   "fga": {
+    "mean": 31.025,
+    "sd": 3.5319
+   },
+   "fgPct": {
+    "mean": 0.4079,
+    "sd": 0.0878
+   },
+   "tpa": {
+    "mean": 6.925,
+    "sd": 2.218
+   },
+   "tpPct": {
+    "mean": 0.2656,
+    "sd": 0.1584
+   },
+   "fta": {
+    "mean": 4.625,
+    "sd": 4.0043
+   },
+   "ftPct": {
+    "mean": 0.636,
+    "sd": 0.3444
+   },
+   "tov": {
+    "mean": 3.625,
+    "sd": 2.2659
+   },
+   "oreb": {
+    "mean": 8.2,
+    "sd": 3.1796
+   },
+   "dreb": {
+    "mean": 8.5,
+    "sd": 2.1679
+   },
+   "ast": {
+    "mean": 9.025,
+    "sd": 2.6219
+   },
+   "stl": {
+    "mean": 3.6,
+    "sd": 2.2561
+   },
+   "blk": {
+    "mean": 1.4,
+    "sd": 1.044
+   },
+   "estimate": {
+    "mean": 28.485,
+    "sd": 2.5386
+   },
+   "rim": {
+    "mean": 0.3799,
+    "sd": 0.0715
+   },
+   "close": {
+    "mean": 0.0314,
+    "sd": 0.0325
+   },
+   "mid": {
+    "mean": 0.3649,
+    "sd": 0.0911
+   },
+   "corner3": {
+    "mean": 0.003,
+    "sd": 0.0091
+   },
+   "arc3": {
+    "mean": 0.2207,
+    "sd": 0.0733
+   },
+   "assisted": {
+    "mean": 0.7071,
+    "sd": 0.1153
+   },
+   "subs": {
+    "mean": 22.175,
+    "sd": 5.7788
+   },
+   "margin": {
+    "mean": 0,
+    "sd": 9.0637
+   },
+   "glide20": {
+    "mean": 0.1161
+   },
+   "glide35": {
+    "mean": 0.0622
+   },
+   "between": {
+    "mean": 0.0943
+   },
+   "stepMicros": {
+    "mean": 7.432
+   },
+   "foulsByKind": {
+    "block": 0.55,
+    "shooting": 1.85,
+    "reach": 1.65,
+    "charge": 0.3
+   },
+   "playsByKind": {
+    "floppy": 4.025,
+    "iso": 2.275,
+    "horns": 2.7,
+    "spain": 2.4,
+    "postUp": 5.6,
+    "ucla": 1.65,
+    "giveGo": 1.65,
+    "pickPop": 0.8,
+    "pickRoll": 2.525,
+    "fiveOut": 2.15
+   },
+   "overtime": {
+    "mean": 0.05
+   },
+   "finished": {
+    "mean": 1
+   }
+  }
+ },
+ "five12": {
+  "size": 5,
+  "minutes": 12,
+  "seeds": "1-6",
+  "per48": true,
+  "table": {
+   "pts": {
+    "mean": 110.9167,
+    "sd": 13.0285
+   },
+   "poss": {
+    "mean": 110.4167,
+    "sd": 2.6913
+   },
+   "ppp": {
+    "mean": 1.0032,
+    "sd": 0.1044
+   },
+   "secs": {
+    "mean": 13.0512,
+    "sd": 0.8754
+   },
+   "fast": {
+    "mean": 0.1771,
+    "sd": 0.0402
+   },
+   "fga": {
+    "mean": 120,
+    "sd": 6.0139
+   },
+   "fgPct": {
+    "mean": 0.3966,
+    "sd": 0.0466
+   },
+   "tpa": {
+    "mean": 20.5833,
+    "sd": 3.4024
+   },
+   "tpPct": {
+    "mean": 0.2721,
+    "sd": 0.0764
+   },
+   "fta": {
+    "mean": 14.1667,
+    "sd": 3.2102
+   },
+   "ftPct": {
+    "mean": 0.7121,
+    "sd": 0.0713
+   },
+   "tov": {
+    "mean": 12.3333,
+    "sd": 2.8674
+   },
+   "oreb": {
+    "mean": 31.9167,
+    "sd": 5.0408
+   },
+   "dreb": {
+    "mean": 35.0833,
+    "sd": 4.6808
+   },
+   "ast": {
+    "mean": 32,
+    "sd": 5.5678
+   },
+   "stl": {
+    "mean": 12.25,
+    "sd": 2.7119
+   },
+   "blk": {
+    "mean": 7.25,
+    "sd": 3.2436
+   },
+   "estimate": {
+    "mean": 106.65,
+    "sd": 4.5684
+   },
+   "rim": {
+    "mean": 0.4262,
+    "sd": 0.0422
+   },
+   "close": {
+    "mean": 0.0336,
+    "sd": 0.0167
+   },
+   "mid": {
+    "mean": 0.368,
+    "sd": 0.0455
+   },
+   "corner3": {
+    "mean": 0.0027,
+    "sd": 0.0039
+   },
+   "arc3": {
+    "mean": 0.1695,
+    "sd": 0.0306
+   },
+   "assisted": {
+    "mean": 0.6705,
+    "sd": 0.075
+   },
+   "subs": {
+    "mean": 78.6667,
+    "sd": 8.6635
+   },
+   "margin": {
+    "mean": 0,
+    "sd": 14.6572
+   },
+   "glide20": {
+    "mean": 0.1184
+   },
+   "glide35": {
+    "mean": 0.0633
+   },
+   "between": {
+    "mean": 0.0955
+   },
+   "stepMicros": {
+    "mean": 7.5671
+   },
+   "foulsByKind": {
+    "block": 1.25,
+    "shooting": 8.5,
+    "reach": 1.917,
+    "charge": 0.417
+   },
+   "playsByKind": {
+    "floppy": 16.833,
+    "iso": 9.917,
+    "horns": 10.417,
+    "spain": 10.25,
+    "postUp": 22.75,
+    "giveGo": 8.333,
+    "ucla": 7.333,
+    "pickRoll": 9.833,
+    "pickPop": 4.333,
+    "fiveOut": 8
+   },
+   "overtime": {
+    "mean": 0
+   },
+   "finished": {
+    "mean": 1
+   }
+  }
+ },
+ "levels": {
+  "size": 5,
+  "minutes": 3,
+  "seeds": "1-10",
+  "what": "team 1 points per possession at each difficulty level",
+  "ppp": {
+   "rookie": 0.771,
+   "starter": 0.951,
+   "allstar": 0.984,
+   "superstar": 1.233,
+   "legend": 1.445
+  }
+ }
+}
