@@ -211,7 +211,14 @@ export async function createScene(canvas) {
       arena.live(life, clock);
       sideline.live(state.ball, life, clock);
     },
-    render: () => post.render(),
+    // Draws the frame. Nothing moves while it is drawn, so the scene's matrices are worked out once here, not again by
+    // each pass that draws the scene (the floor's mirror is one), and the shadow is drawn once (see light.js).
+    render() {
+      light.fresh();
+      scene.updateMatrixWorld();
+      scene.matrixWorldAutoUpdate = false;
+      try { post.render(); } finally { scene.matrixWorldAutoUpdate = true; }
+    },
     missing: post.missing,   // the effects of the current level that this browser could not run, in words
     // Eases the camera toward the ball: along the sideline, or behind the team that has the ball, looking at the hoop
     // it attacks (`sign`: +1 for the hoop at +x) and swinging round when the ball changes teams.

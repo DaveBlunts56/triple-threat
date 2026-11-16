@@ -12,13 +12,40 @@ const ALWAYS = ['buzzer', 'winner'];
 // playing: the replay on now, { frames, at, kind, team }, or null.
 export const createRecorder = () => ({ frames: [], waiting: null, held: null, shown: -Infinity, playing: null });
 
-// Keeps a copy of the match as it is after a step. Frames older than REPLAY.keep are let go.
-// shortcut: copies the whole match state every step (about 15 KB, 60 times a second); if a slow machine stutters,
-// copy only what the renderer reads.
+// A copy of `v`, plain data as the match state is (objects, arrays, Maps, numbers, strings, booleans, null and
+// undefined, nothing in it reached twice): what structuredClone gives, a few times faster.
+function copy(v) {
+  if (typeof v !== 'object' || v === null) return v;
+  if (Array.isArray(v)) {
+    const out = new Array(v.length);
+    for (let i = 0; i < v.length; i++) out[i] = copy(v[i]);
+    return out;
+  }
+  if (v instanceof Map) {
+    const out = new Map();
+    for (const [key, value] of v) out.set(copy(key), copy(value));
+    return out;
+  }
+  const out = {};
+  for (const key of Object.keys(v)) out[key] = copy(v[key]);
+  return out;
+}
+
+// A copy of the whole match as it is now. Two parts are set once, at the start of a match, and never changed in place,
+// so a frame shares them instead of copying them: the style's table (a Map made by setStyle, its values frozen) and
+// the teams' data (frozen: see teams.js).
+export function snapshot(state) {
+  const out = {};
+  for (const key of Object.keys(state)) out[key] = key === 'styleTable' ? state.styleTable : key === 'teams' ? [...state.teams] : copy(state[key]);
+  return out;
+}
+
+// Keeps a copy of the match as it is after a step (about 30 KB, 60 times a second). Frames older than REPLAY.keep are
+// let go.
 export function record(rec, state) {
   const { frames } = rec;
   if (frames.length && state.time < frames[frames.length - 1].time) Object.assign(rec, createRecorder());   // another match
-  rec.frames.push(structuredClone(state));
+  rec.frames.push(snapshot(state));
   while (rec.frames.length && rec.frames[0].time < state.time - REPLAY.keep) rec.frames.shift();
 }
 

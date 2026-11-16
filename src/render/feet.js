@@ -20,12 +20,18 @@ const SIDES = ['Left', 'Right'];
 // Scratch values, so that a frame makes no garbage.
 const [hip, knee, ankle, goal, up, down, from, to, axis, here] = Array.from({ length: 10 }, () => new THREE.Vector3());
 const [turn, parent, own, flat] = Array.from({ length: 4 }, () => new THREE.Quaternion());
+const [spot, size] = [new THREE.Vector3(), new THREE.Vector3()];
+// Where a bone is and how it is turned on the court, read from its world matrix. plant keeps every bone's world matrix
+// up to date (it updates the whole model first, and each bone it turns after turning it), so these give what three's
+// getWorldPosition and getWorldQuaternion would, without working the matrices out again from the root on every call.
+const placeOf = (bone, v) => v.setFromMatrixPosition(bone.matrixWorld);
+const turnOf = (bone, q) => { bone.matrixWorld.decompose(spot, q, size); return q; };
 const smooth = t => t * t * (3 - 2 * t);
 const fail = message => { throw new Error(message); };
 
 // Turns `bone` about its own joint by `by`, a turn in the court's frame.
 function turnBone(bone, by) {
-  bone.parent.getWorldQuaternion(parent);
+  turnOf(bone.parent, parent);
   bone.quaternion.premultiply(own.copy(parent).invert().multiply(by).multiply(parent));
   bone.updateWorldMatrix(false, true);
 }
@@ -33,8 +39,8 @@ function turnBone(bone, by) {
 // Bends the leg (`thigh`, `shin`, `foot`: its three bones) so that the ankle is at `goal` on the court, or as near as
 // the leg reaches; the foot keeps the turn the motion gave it.
 function reach(thigh, shin, foot, most) {
-  foot.getWorldQuaternion(flat);
-  thigh.getWorldPosition(hip); shin.getWorldPosition(knee); foot.getWorldPosition(ankle);
+  turnOf(foot, flat);
+  placeOf(thigh, hip); placeOf(shin, knee); placeOf(foot, ankle);
   const upper = hip.distanceTo(knee), lower = knee.distanceTo(ankle);
   const far = Math.min(Math.max(hip.distanceTo(goal), Math.abs(upper - lower) + 1e-3), (upper + lower) * most);
   // The knee: opened or closed until the ankle is as far from the hip as the goal is.
@@ -42,13 +48,13 @@ function reach(thigh, shin, foot, most) {
   const now = Math.acos(Math.min(1, Math.max(-1, up.dot(down))));
   const want = Math.acos(Math.min(1, Math.max(-1, (upper * upper + lower * lower - far * far) / (2 * upper * lower))));
   axis.crossVectors(up, down);
-  if (axis.lengthSq() < 1e-8) axis.set(1, 0, 0).applyQuaternion(thigh.getWorldQuaternion(own));   // a straight leg bends about the thigh's own side
+  if (axis.lengthSq() < 1e-8) axis.set(1, 0, 0).applyQuaternion(turnOf(thigh, own));   // a straight leg bends about the thigh's own side
   turnBone(shin, turn.setFromAxisAngle(axis.normalize(), want - now));
   // The hip: the whole leg swung until the ankle points at the goal.
-  foot.getWorldPosition(ankle);
+  placeOf(foot, ankle);
   from.subVectors(ankle, hip).normalize(); to.subVectors(goal, hip).normalize();
   turnBone(thigh, turn.setFromUnitVectors(from, to));
-  foot.parent.getWorldQuaternion(parent);
+  turnOf(foot.parent, parent);
   foot.quaternion.copy(parent.invert().multiply(flat));
   foot.updateWorldMatrix(false, true);
 }
@@ -81,7 +87,7 @@ export function createFeet(model, scale) {
       const speed = Math.hypot(vx, vz), limit = Math.min(FEET.most, FEET.stretch + speed * FEET.perSpeed);
 
       legs.forEach((leg, i) => {
-        leg.foot.getWorldPosition(ankle);
+        placeOf(leg.foot, ankle);
         const ax = ankle.x, ay = ankle.y, az = ankle.z, other = legs[1 - i];
         const low = ay <= floor, grounded = low;
         leg.goal.copy(ankle); leg.held = false;   // unless planting says otherwise, where the motion has it
@@ -116,13 +122,14 @@ export function createFeet(model, scale) {
       let sink = 0;
       for (const leg of legs) {
         if (!leg.held) continue;
-        leg.thigh.getWorldPosition(hip); leg.shin.getWorldPosition(knee); leg.foot.getWorldPosition(ankle);
+        placeOf(leg.thigh, hip); placeOf(leg.shin, knee); placeOf(leg.foot, ankle);
         const full = (hip.distanceTo(knee) + knee.distanceTo(ankle)) * FEET.reach, out = Math.hypot(leg.goal.x - hip.x, leg.goal.z - hip.z);
         sink = Math.max(sink, hip.y - (leg.goal.y + Math.sqrt(Math.max(0, full * full - out * out))));
       }
       sink = Math.min(sink, FEET.sink * scale);
       if (sink > 0) {
-        hips.position.y -= sink / hips.parent.getWorldScale(here).y;
+        hips.parent.matrixWorld.decompose(spot, own, here);
+        hips.position.y -= sink / here.y;
         hips.updateWorldMatrix(false, true);
       }
       // With the hips down every leg is bent to its foot, the ones the motion alone places too.

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { REPLAY, clear, createRecorder, due, frameAt, mark, record, settle, skip, start, stopped } from '../src/replay.js';
+import { REPLAY, clear, createRecorder, due, frameAt, mark, record, settle, skip, snapshot, start, stopped } from '../src/replay.js';
+import { setStyle } from '../src/sim/styles.js';
 import { KINDS, createWatch, watchStep } from '../src/broadcast/moments.js';
 import { createMatch } from '../src/sim/state.js';
 import { startMatch } from '../src/sim/rules.js';
@@ -153,7 +154,29 @@ test('a copy of the match takes well under a millisecond', () => {
   const s = createMatch(1, 5); startMatch(s);
   for (let i = 0; i < 600; i++) step(s, aiIntents(s, DT), DT);
   const from = performance.now();
-  for (let i = 0; i < 600; i++) structuredClone(s);
+  for (let i = 0; i < 600; i++) snapshot(s);
   const each = (performance.now() - from) / 600;
   assert.ok(each < 1, `${each.toFixed(3)} ms a copy`);
+});
+
+// The recorder's copy is structuredClone's, made faster: equal to it in everything (-0, Infinity and undefined
+// included), and nothing in it is the match's own but the frozen parts it shares.
+test('a frame is the match exactly as structuredClone would copy it, and none of it changes with the match', () => {
+  let checked = 0;
+  for (const [style, size, humans] of [['arcade', 5, [0]], ['sim', 5, []], ['arcade', 3, []]]) {
+    const s = createMatch(7, size); setStyle(s, style); s.humans = humans; startMatch(s);
+    for (let i = 1; i <= 3600; i++) {
+      step(s, aiIntents(s, DT), DT);
+      if (i % 120) continue;
+      const frame = snapshot(s);
+      assert.deepStrictEqual(frame, structuredClone(s), `${style} step ${i}`);
+      assert.equal(frame.styleTable, s.styleTable);   // shared: made once, its values frozen
+      assert.ok(frame.teams.every(t => Object.isFrozen(t)));
+      const before = JSON.stringify(frame);
+      step(s, aiIntents(s, DT), DT); s.players[0].x += 1; s.rosters[0][0].stats.pts += 1; s.ball.y += 1;
+      assert.equal(JSON.stringify(frame), before, `${style} step ${i}: the frame changed with the match`);
+      checked++;
+    }
+  }
+  assert.ok(checked >= 80, `${checked} frames checked`);
 });
