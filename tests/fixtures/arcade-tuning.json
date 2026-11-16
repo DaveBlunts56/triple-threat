@@ -27,6 +27,12 @@
   "driveX": 11.5,
   "topX": 5.01,
   "safetyX": 4,
+  "catchRoom": 1.5,
+  "workTo": 4,
+  "arcOut": 0.6,
+  "slotTurn": 0.35,
+  "elbowNear": 1,
+  "catchDriveAt": 0.6,
   "inboundHelp": 4,
   "contestDist": 2,
   "contestDelay": 0.05,
@@ -76,6 +82,16 @@
   "vary": 0.3,
   "lowSpotZ": 3.2,
   "safetyGap": 4
+ },
+ "ARC": {
+  "threeAt": 75,
+  "openAt": 2.5,
+  "driftReach": 5,
+  "relocateReach": 7
+ },
+ "ASSIST": {
+  "quick": 2.4,
+  "carry": 3
  },
  "BALL": {
   "radius": 0.12,
@@ -198,6 +214,9 @@
     "moves": 1
    }
   }
+ },
+ "DRIVE": {
+  "dist": 1.2
  },
  "DT": 0.016666666666666666,
  "FINISH": {
@@ -335,6 +354,13 @@
   "slow": 0.015,
   "exit": 3.5
  },
+ "LANE": {
+  "halfWidth": 2.44,
+  "depth": 5.79,
+  "circle": 1.83,
+  "centre": 1.83,
+  "restricted": 1.22
+ },
  "LATE": {
   "closing": 60,
   "hurry": 45,
@@ -349,6 +375,13 @@
   "tired": 0.4,
   "clutch": 12,
   "clutchLead": 3
+ },
+ "LEVEL_IQ": {
+  "rookie": -0.2,
+  "starter": -0.1,
+  "allstar": 0,
+  "superstar": 0.08,
+  "legend": 0.15
  },
  "LINEUP": {
   "gap": {
@@ -762,6 +795,18 @@
     ]
    ]
   ]
+ },
+ "SCHEME": {
+  "switchReach": 2.5,
+  "dropAt": 3.5,
+  "changeEvery": 8,
+  "beaten": 0.25,
+  "seen": 5,
+  "doubleAt": 85,
+  "doubleWithin": 4,
+  "doubleFor": 2.5,
+  "doubleGap": 0.9,
+  "flyPast": 0.4
  },
  "SHOT": {
   "nearChance": 0.85,

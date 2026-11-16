@@ -1,4 +1,4 @@
-import { AI, BALL, CLOCK, COURT, DT, FINISH, FT, LATE, MOVES, PASS, PLAY, PLAYER, READ, RIM, SHOT, STEAL, THREE_PT, TIP, VIOLATION, LEVEL_IQ, SCHEME, RATE, cpuLevelOf, isHuman, levelOf } from './tuning.js';
+import { AI, BALL, CLOCK, COURT, DT, FINISH, FT, LANE, LATE, MOVES, PASS, PLAY, PLAYER, READ, RIM, SHOT, STEAL, THREE_PT, TIP, VIOLATION, LEVEL_IQ, SCHEME, RATE, cpuLevelOf, isHuman, levelOf } from './tuning.js';
 import { SHOT_BEST, SHOT_LANDS, gatherOf, isThree, shotBest, shotLands, zoneOf } from './players.js';
 import { canDunk, finishFor } from './finish.js';
 import { lift, drop, rated, starOf, heatOf } from './ratings.js';
@@ -270,8 +270,29 @@ function planWithBall(state, p) {
   // the corner shoots from the corner. Closed out on, or anywhere else, he moves on into the offence.
   const inCorner = Math.abs(p.z) > THREE_PT.cornerZ - 0.4 && sign * p.x > RIM.x - 2.5;
   if (!settled && zone === 'three' && inCorner && room >= READ.wide && !ahead && styled(state, 'decide.squareUp')) return goTo(ai, { x: p.x, z: p.z });
-  // Nothing on: in a play he takes it where the play says; otherwise to the top, which his team-mates leave to him.
-  goTo(ai, playSpot(state, p) ?? { x: sign * AI.topX, z: 0 });
+  // Nothing on, and no play on. A man who caught a pass where he can play from squares up there and gathers it, as a
+  // player does on the catch: he does not turn and dribble it out to the top to pass it on. Then, still with nothing
+  // on, he works it along the arc toward its middle, but stays on his own side (AI.workTo, AI.slotTurn), where a three
+  // or a passing angle may open; or, where the style has drivers attack (decide.catchDrive), a strong driver
+  // (AI.catchDriveAt) inside the arc attacks the gap at the elbow on his side. In a play he takes the ball where the
+  // play says: its action needs it there. The man who brought the ball up, or one who caught it far out, takes it where
+  // the play says, or else to the top, which his team-mates leave to him.
+  const spot = playSpot(state, p);
+  const squares = ai.from != null && state.frontcourt && toHoop <= AI.shootRange + AI.catchRoom;
+  if (squares && !spot) {
+    if (ai.heldT < AI.holdTime) return goTo(ai, { x: p.x, z: p.z });
+    if (styled(state, 'decide.catchDrive') && tend.drive >= AI.catchDriveAt && zone !== 'three') {
+      const elbow = { x: sign * (COURT.halfLength - LANE.depth), z: Math.sign(p.z || 1) * LANE.halfWidth };
+      return goTo(ai, dist(p, elbow) < AI.elbowNear || dist(elbow, hoop) >= toHoop ? { x: p.x, z: p.z } : elbow);
+    }
+    // Halfway round the arc from where he is toward its middle, but no nearer the middle than AI.slotTurn, at least at
+    // the arc, and as far as AI.workTo takes him.
+    const angle = Math.atan2(p.z, sign * (hoop.x - p.x)), turn = Math.sign(angle) * Math.max(Math.abs(angle) / 2, Math.min(Math.abs(angle), AI.slotTurn));
+    const r = Math.max(toHoop, THREE_PT.radius + AI.arcOut);
+    const slot = { x: hoop.x - sign * r * Math.cos(turn), z: r * Math.sin(turn) }, far = dist(slot, p), k = Math.min(1, AI.workTo / (far || 1));
+    return goTo(ai, far < AI.elbowNear ? { x: p.x, z: p.z } : { x: p.x + (slot.x - p.x) * k, z: p.z + (slot.z - p.z) * k });
+  }
+  goTo(ai, spot ?? { x: sign * AI.topX, z: 0 });
 }
 
 // ---------- what a shot is worth: the shot model's expected points, as a computer shooter takes it ----------
