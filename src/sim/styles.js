@@ -20,6 +20,7 @@ export const KINDS = f({
   'stamina.subOut': 'chance', 'stamina.subIn': 'chance',
   'timeout.each': 'positive', 'timeout.rest': 'chance',
   'shot.make': 'positive', 'board.offence': 'positive',
+  'shot.curve': 'word', 'shot.green': 'word', 'shot.boost': 'positive', 'ft.model': 'word',
 });
 
 // Arcade: the game as it was, read from tuning.js.
@@ -32,6 +33,7 @@ const ARCADE = f({
   'stamina.subOut': STAMINA.subOut, 'stamina.subIn': STAMINA.subIn,
   'timeout.each': TIMEOUT.each, 'timeout.rest': TIMEOUT.rest,
   'shot.make': 1, 'board.offence': 1,
+  'shot.curve': 'line', 'shot.green': 'sure', 'shot.boost': 1, 'ft.model': 'flat',
 });
 
 // Simulation: NBA-like. Its own numbers, written out (Stage 4 tunes them).
@@ -44,6 +46,7 @@ const SIM = f({
   'stamina.subOut': 0.35, 'stamina.subIn': 0.7,
   'timeout.each': 3, 'timeout.rest': 0.3,
   'shot.make': 1, 'board.offence': 1,
+  'shot.curve': 'line', 'shot.green': 'sure', 'shot.boost': 1, 'ft.model': 'flat',
 });
 
 export const STYLES = f({ arcade: ARCADE, sim: SIM });

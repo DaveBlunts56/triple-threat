@@ -1,6 +1,6 @@
-import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FINISH, FOUL, MOVES, PASS, PLAYER, RIM, SHOT, STAT, STEAL, THREE_PT, RATE, HEAT, levelOf } from './tuning.js';
+import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FINISH, FOUL, MOVES, PASS, PLAYER, RIM, SHOT, STAT, STEAL, THREE_PT, RATE, levelOf } from './tuning.js';
 import { attackSign, onFloor as grounded, personOf, rand } from './state.js';
-import { shotFactor, speedFactor, spend } from './stamina.js';
+import { speedFactor, spend } from './stamina.js';
 import { rimCentre, solveShot, stepBall } from './ball.js';
 import { rematch } from './matchups.js';
 import { lift, drop, rated, heatOf } from './ratings.js';
@@ -8,6 +8,7 @@ import { DRIBBLES, KINDS, startMove, stepMove, finishMove } from './moves.js';
 import { note } from './stats.js';
 import { behindBoard, finishFor, flairFor, gatherVelocity, jumpVelocity } from './finish.js';
 import { styled } from './styles.js';
+import { contestShare, distanceChance, levelFor, rangeShare, shotChance, skillOf, timingShare, windowHalf, zoneFor } from './shooting.js';
 
 // Seconds after the press of a shot: the best moment to let go, and the moment he is back on the floor.
 export const SHOT_BEST = SHOT.gather + SHOT.bestAt * PLAYER.shotJumpV / BALL.gravity;
@@ -156,33 +157,35 @@ function letGo(state, player, mode) {
 }
 
 // How much of a shot's chance its timing keeps, `t` seconds after the press: all of it at the best moment,
-// falling in a straight line to the worst at the press and at the landing.
-export function shotTiming(t, worst = SHOT.worstTiming, best = SHOT_BEST, lands = SHOT_LANDS) {
-  const off = t < best ? (best - t) / best : (t - best) / (lands - best);
-  return 1 - (1 - worst) * Math.min(1, off);
+// falling in a straight line to the worst at the press and at the landing (see shooting.js).
+export const shotTiming = (t, worst = SHOT.worstTiming, best = SHOT_BEST, lands = SHOT_LANDS) => timingShare(t, worst, best, lands);
+
+// The nearest opponent to `player`, and how far off him he is.
+function nearestDefender(state, player) {
+  let nearest = null;
+  for (const o of state.players) if (o.team !== player.team && (!nearest || dist(o, player) < dist(nearest, player))) nearest = o;
+  return { nearest, gap: dist(nearest, player) };
 }
 
 // The share of a shot's chance the nearest defender leaves it: half with him on the shooter (less with a good
 // defender, more with a poor one), all of it from SHOT.contestDist away, and less again if he is in the air close by.
 export function contest(state, player) {
-  let nearest = null;
-  for (const o of state.players) if (o.team !== player.team && (!nearest || dist(o, player) < dist(nearest, player))) nearest = o;
-  const d = dist(nearest, player);
-  const byDistance = clamp(SHOT.maxContest + (1 - SHOT.maxContest) * (d / SHOT.contestDist), SHOT.maxContest, 1);
-  // A better defender takes more off the shot from the same distance.
-  const factor = clamp(1 - (1 - byDistance) * lift(rated(state, nearest, 'defence'), RATE.contest), 0, 1);
-  const left = nearest.y > 0 && d < SHOT.airContestDist ? factor * SHOT.airContest : factor;
-  return player.fading ? 1 - (1 - left) * MOVES.fade.contest : left;   // a fade is harder to get to
+  const { nearest, gap } = nearestDefender(state, player);
+  return contestShare({ gap, defence: rated(state, nearest, 'defence'), airborne: nearest.y > 0, fading: player.fading });
 }
 
+// Whether a shot from where `player` stands is a three, and whether from the corner.
+const threeAt = player => isThree(player.x, player.z, attackSign(player.team));
+const cornerAt = player => Math.abs(player.z) > THREE_PT.cornerZ;
+
 export function makeChance(state, player) {
-  const hoop = rimCentre(attackSign(player.team));
-  const byDistance = Math.max(SHOT.minChance, SHOT.nearChance + (SHOT.farChance - SHOT.nearChance) * (dist(player, hoop) / SHOT.farDist));
+  const far = dist(player, rimCentre(attackSign(player.team)));
+  const base = distanceChance(styled(state, 'shot.curve'), far, zoneFor(far, threeAt(player), cornerAt(player), player.finish));
   const timing = shotTiming(player.shotT, player.team === 0 ? levelOf(state).timing : SHOT.worstTiming, shotBest(player), shotLands(player));   // a bad release costs you what the level says
   // His rating for a shot from where he stands counts for or against him.
-  const heat = heatOf(personOf(state, player));
-  const skill = lift(rated(state, player, zoneOf(player)), RATE.shot) * (heat === 'hot' ? HEAT.hot : heat === 'cold' ? HEAT.cold : 1);
-  return clamp(byDistance * timing * contest(state, player) * shotFactor(personOf(state, player).energy) * (player.team === 0 ? levelOf(state).make : levelOf(state).cpuMake) * skill * (player.fading ? MOVES.fade.make : 1), 0, 1);
+  const person = personOf(state, player);
+  return shotChance({ base, timing, contest: contest(state, player), energy: person.energy, levelMake: player.team === 0 ? levelOf(state).make : levelOf(state).cpuMake,
+    skill: skillOf(rated(state, player, zoneOf(player)), heatOf(person)), fading: player.fading, make: styled(state, 'shot.make') });
 }
 
 // Behind the backboard of the hoop he attacks, with the board between him and the rim.
@@ -191,15 +194,14 @@ export const boardInWay = behindBoard;
 // The green window of a shot from where `player` stands: a release within `half` seconds of `best` always goes in.
 // It is as wide as his defender allows, and narrows with range and tiredness.
 export function shotWindow(state, player) {
-  const far = dist(player, rimCentre(attackSign(player.team)));
-  const range = clamp(1 - (far - SHOT.greenFull) / (SHOT.greenNone - SHOT.greenFull), 0, 1);
-  const guarded = contest(state, player);
-  const { name, steps } = SHOT.levels.find(level => level.above <= guarded);
+  const range = rangeShare(dist(player, rimCentre(attackSign(player.team))));
+  const { name, steps } = levelFor(contest(state, player));
+  const person = personOf(state, player);
   return {
     best: shotBest(player),
     // Your window is the level's, and so is the computer's team's; anybody's is wider the better he shoots from there.
-    half: steps * DT * range * shotFactor(personOf(state, player).energy) * (player.team === 0 ? levelOf(state).green : levelOf(state).cpuGreen)
-      * Math.max(0, lift(rated(state, player, zoneOf(player)), RATE.window)) * (heatOf(personOf(state, player)) === 'hot' ? HEAT.hotWindow : 1),
+    half: windowHalf({ steps, range, energy: person.energy, levelGreen: player.team === 0 ? levelOf(state).green : levelOf(state).cpuGreen,
+      rating: rated(state, player, zoneOf(player)), heat: heatOf(person) }),
     level: name,
     inRange: range > 0 && !boardInWay(player),
   };

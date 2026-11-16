@@ -4,6 +4,8 @@ import { addPoints, attackSign, personOf, rand } from './state.js';
 import { rimCentre } from './ball.js';
 import { carryBall, giveBall, launchShot } from './players.js';
 import { shotFactor } from './stamina.js';
+import { styled } from './styles.js';
+import { freeThrowChance } from './shooting.js';
 
 export const newFreeThrow = (shooter, shots) =>
   ({ shooter, left: shots, total: shots, stage: 'aim', meter: 0, dir: 1, t: 0, armed: false, live: false });
@@ -50,7 +52,7 @@ export function stepFreeThrow(state, intents, events, dt) {
     const pressed = ft.armed && intents[ft.shooter].shoot;
     if (!intents[ft.shooter].shoot) ft.armed = true;   // Space still held from before the meter appeared does not count
     const chance = shooter.team === 0 && pressed ? ftChance(ft.meter)
-      : shooter.team === 1 && ft.t >= FT.aiDelay ? FT.aiChance
+      : shooter.team === 1 && ft.t >= FT.aiDelay ? freeThrowChance(styled(state, 'ft.model'))
       : ft.t >= FT.limit ? 0 : null;
     if (chance === null) {
       ft.meter += ft.dir * FT.sweep * (shooter.team === 0 ? levelOf(state).sweep : 1) * dt;   // your meter moves at the level's speed
