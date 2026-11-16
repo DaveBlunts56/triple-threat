@@ -11,8 +11,9 @@ test('with no storage, or nothing saved, the settings are the defaults', () => {
 });
 
 test('saved settings come back, and what was not saved is the default', () => {
-  const prefs = readPrefs(box('{"difficulty":"legend","camera":"broadcast","size":5,"quality":"low","watch":{"style":"arcade","minutes":5}}'));
-  assert.deepEqual(prefs, { ...plainDefaults, difficulty: 'legend', camera: 'broadcast', size: 5, quality: 'low', watch: { style: 'arcade', minutes: 5 } });
+  const prefs = readPrefs(box('{"difficulty":"legend","camera":"broadcast","size":5,"home":1,"quality":"low","watch":{"style":"arcade","minutes":5}}'));
+  assert.deepEqual(prefs, { ...plainDefaults, difficulty: 'legend', camera: 'broadcast', size: 5, home: 1, quality: 'low', watch: { style: 'arcade', minutes: 5 } });
+  assert.equal(readPrefs(box('{"home":2}')).home, 0, 'a side that does not exist is not at home');
 });
 
 test('Play, Watch and Simulate start where the spec says: Play on Arcade\'s 3 minutes, Watch on Simulation\'s 12, Simulate on 12', () => {

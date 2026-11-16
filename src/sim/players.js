@@ -186,7 +186,9 @@ export function makeChance(state, player) {
   const far = dist(player, rimCentre(attackSign(player.team)));
   const base = distanceChance(styled(state, 'shot.curve'), far, zoneFor(far, threeAt(player), cornerAt(player), player.finish));
   const human = isHuman(state, player.team);   // your team shoots on the level's numbers; a team nobody plays on the computer's
-  const timing = shotTiming(player.shotT, human ? levelOf(state).timing : SHOT.worstTiming, shotBest(player), shotLands(player));   // a bad release costs you what the level says
+  // A bad release costs you what the level says; where the style has no meter (Simulation) a release is not judged at
+  // all, and the chance is the shooter's own.
+  const timing = !styled(state, 'shot.meter') ? 1 : shotTiming(player.shotT, human ? levelOf(state).timing : SHOT.worstTiming, shotBest(player), shotLands(player));
   // His rating for a shot from where he stands counts for or against him.
   const person = personOf(state, player);
   return shotChance({ base, timing, contest: contest(state, player), energy: person.energy, levelMake: human ? levelOf(state).make : cpuLevelOf(state).cpuMake,
@@ -286,7 +288,7 @@ function toRelease(state, player) {
 export function releaseShot(state, player, { green: mayBeGreen = true } = {}) {
   const { ball } = state;
   // Judged from where he stands, before the ball is moved to where it leaves his hand.
-  const window = shotWindow(state, player), green = mayBeGreen && greenAt(window, player.shotT);
+  const window = shotWindow(state, player), green = mayBeGreen && styled(state, 'shot.meter') && greenAt(window, player.shotT);   // no green release without a meter
   state.shot = { shooter: player.id, t: player.shotT, at: state.time, clock: state.gameClock, ...window, green, blocked: false, finish: player.finish };
   // For the box score: the attempt, and what the basket will be remembered by if it goes in.
   const info = shotInfo(state, player, green);

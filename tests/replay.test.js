@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { REPLAY, clear, createRecorder, due, frameAt, mark, record, settle, skip, start, stopped } from '../src/replay.js';
+import { REPLAY, clear, createRecorder, decode, due, frameAt, mark, record, settle, skip, snapshot, start, stopped } from '../src/replay.js';
+import { setStyle } from '../src/sim/styles.js';
 import { KINDS, createWatch, watchStep } from '../src/broadcast/moments.js';
 import { createMatch } from '../src/sim/state.js';
 import { startMatch } from '../src/sim/rules.js';
@@ -21,8 +22,8 @@ test('the recorder keeps the last sixteen seconds of the match, a frame a step, 
   assert.ok(Math.abs(span - REPLAY.keep) <= 2 * DT, `spans ${span}`);
   assert.ok(Math.abs(rec.frames.length - REPLAY.keep * 60) <= 2);
   s.score[0] = 99;
-  assert.equal(rec.frames[rec.frames.length - 1].score[0], 0);        // a copy: what the match does next is not in it
-  assert.notEqual(rec.frames[rec.frames.length - 1], s);
+  assert.equal(decode(rec.frames[rec.frames.length - 1]).score[0], 0);   // a copy: what the match does next is not in it
+  assert.notEqual(decode(rec.frames[rec.frames.length - 1]), s);
 });
 
 test('a moment\'s frames are set aside a second after it: the four seconds before it and the one after', () => {
@@ -108,8 +109,8 @@ test('a replay plays the frames that were recorded, in order, at half speed, and
   assert.ok(Math.abs(real - 10) < 0.1, `${real} s for five seconds of the match`);
   assert.equal(rec.playing, null);
   for (let i = 1; i < drawn.length; i++) assert.ok(drawn[i].time >= drawn[i - 1].time);
-  assert.deepEqual([...new Set(drawn)].length, frames.length);        // every recorded frame is shown
-  for (const frame of drawn) assert.ok(frames.includes(frame));        // and nothing that was not recorded
+  assert.deepEqual([...new Set(drawn)].length, frames.length);        // every recorded frame is shown, each made once
+  assert.deepEqual([...new Set(drawn)].map(frame => frame.time), frames.map(frame => frame.time));   // and nothing that was not recorded
   assert.equal(frameAt(rec, DT), null);
 });
 
@@ -153,7 +154,48 @@ test('a copy of the match takes well under a millisecond', () => {
   const s = createMatch(1, 5); startMatch(s);
   for (let i = 0; i < 600; i++) step(s, aiIntents(s, DT), DT);
   const from = performance.now();
-  for (let i = 0; i < 600; i++) structuredClone(s);
+  for (let i = 0; i < 600; i++) snapshot(s);
   const each = (performance.now() - from) / 600;
   assert.ok(each < 1, `${each.toFixed(3)} ms a copy`);
+});
+
+// The recorder's copy is structuredClone's, made faster: equal to it in everything (-0, Infinity and undefined
+// included), and nothing in it is the match's own but the frozen parts it shares.
+test('a frame is the match exactly as structuredClone would copy it, and none of it changes with the match', () => {
+  let checked = 0;
+  for (const [style, size, humans] of [['arcade', 5, [0]], ['sim', 5, []], ['arcade', 3, []]]) {
+    const s = createMatch(7, size); setStyle(s, style); s.humans = humans; startMatch(s);
+    for (let i = 1; i <= 3600; i++) {
+      step(s, aiIntents(s, DT), DT);
+      if (i % 120) continue;
+      const frame = snapshot(s);
+      assert.deepStrictEqual(frame, structuredClone(s), `${style} step ${i}`);
+      assert.equal(frame.styleTable, s.styleTable);   // shared: made once, its values frozen
+      assert.ok(frame.teams.every(t => Object.isFrozen(t)));
+      const before = JSON.stringify(frame);
+      step(s, aiIntents(s, DT), DT); s.players[0].x += 1; s.rosters[0][0].stats.pts += 1; s.ball.y += 1;
+      assert.equal(JSON.stringify(frame), before, `${style} step ${i}: the frame changed with the match`);
+      checked++;
+    }
+  }
+  assert.ok(checked >= 80, `${checked} frames checked`);
+});
+
+// Frames let go are written over by later steps, and a held replay's are not: every frame kept, and every frame held,
+// is still the match as it was at its step, keys in the same order.
+test('frames written over keep nothing of what was there, and held frames are never written over', () => {
+  const s = createMatch(4, 5); setStyle(s, 'sim'); s.humans = []; startMatch(s);
+  const rec = createRecorder(), was = new Map();
+  for (let i = 1; i <= 2400; i++) {
+    step(s, aiIntents(s, DT), DT);
+    record(rec, s); settle(rec, s);
+    if (i === 600) mark(rec, moment('block', s.time));
+    was.set(rec.frames[rec.frames.length - 1], structuredClone(s));
+  }
+  assert.ok(rec.held && rec.frames.length >= REPLAY.keep * 60 - 2, 'a full window and a held replay');
+  for (const frame of [...rec.frames, ...rec.held.frames]) {
+    const now = decode(frame), then = was.get(frame);
+    assert.deepStrictEqual(now, then, `the frame at ${frame.time}`);
+    assert.equal(JSON.stringify(now), JSON.stringify(then), `the frame at ${frame.time}: its keys' order`);
+  }
 });

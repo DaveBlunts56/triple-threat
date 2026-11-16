@@ -11,7 +11,16 @@ const f = Object.freeze;
 // far, near, ends: each stand's rows, where its first row is and how high, and how far it runs to each side. The
 // near stand, on the camera's side, is low and short so that it never comes between the camera and the court.
 // sideBoards, endBoards, table, hanging: the lit boards along the far sideline and behind the baselines, the scorer's
-// table, and the scoreboard over centre court: places and sizes in metres.
+// table, and the video board over centre court (each of its four screens: `wide` by `high`, centred `y` up): places
+// and sizes in metres.
+// The building round the lower stands (see building.js): ring: where the wall behind each lower stand stands (its far
+// side, near side and ends); aisle: down every stand, every `every` metres, a stair `wide` across with no seats;
+// corner: the blocks between the stands up to the suites' floor, each with a tunnel at floor level; suites: the ring
+// of boxes above the lower stands, from `floor` to `ceiling`, `deep` deep; ribbon: the LED band above them; upper:
+// the upper deck, `rows` rows each `deep` deep and `rise` higher, its first `height` up and `gap` behind the ribbon,
+// the near side's beginning at `near` (behind the camera), the far and near sides `half` long each way, the ends
+// `ends` across; roof: its underside `y` up, the trusses between `low` and `high`, `every` metres apart, the
+// catwalks `catwalk` up at each `catwalkZ`, and the hall's half length and width.
 export const ARENA = f({
   clearX: 16.5, clearZ: 9.6,
   camera: f({ height: 11, back: 18, maxX: 9 }),
@@ -22,16 +31,29 @@ export const ARENA = f({
   sideBoards: f({ z: -9.95, y: 1.45, wide: 4, high: 1, count: 7 }),   // raised: the benches and the table sit in front of them
   endBoards: f({ x: 16.4, y: 0.5, wide: 4, high: 1, count: 3 }),
   table: f({ z: -8.9, wide: 6, high: 0.8, deep: 0.6 }),
-  hanging: f({ y: 11.8, wide: 5, high: 2.4 }),   // clear of the 2K camera, which passes under it
+  hanging: f({ y: 14, wide: 8, high: 4.6 }),   // high over centre court: clear of every camera's view of the court
+  ring: f({ far: 23.3, near: 16.2, end: 28.4 }),
+  aisle: f({ every: 6.6, wide: 1.1 }),
+  corner: f({ tunnelWide: 3.6, tunnelHigh: 3.1 }),
+  suites: f({ floor: 7.2, ceiling: 9.5, deep: 3 }),
+  ribbon: f({ low: 9.6, high: 10.5 }),
+  upper: f({ rows: 12, deep: 0.85, rise: 0.62, height: 11.3, gap: 0.6, near: 19.6, half: 24, ends: 13 }),
+  roof: f({ y: 31, low: 26.5, high: 29.5, every: 12, catwalk: 25.5, catwalkZ: f([-10, 10]), hallX: 44, hallZ: 39 }),
 });
 
 const WORDS = f(['TRIPLE THREAT', 'HARBOR CITY WAVES', 'RED ROCK SCORPIONS']);
 
-// Every seat: { x, y, z, facing }. y is the height of the seat; facing is the way its occupant looks, as an angle
-// round the upright axis: 0 looks toward +z, a quarter turn toward +x. The same list every time.
+// The places along a row `half` metres each way from its middle, a seat's width apart, leaving the aisles clear.
+function across(half) {
+  const { wide } = ARENA.seat, { every, wide: aisle } = ARENA.aisle;
+  return Array.from({ length: Math.floor(2 * half / wide) + 1 }, (_, i) => -half + i * wide)
+    .filter(at => Math.abs(at - Math.round(at / every) * every) >= aisle / 2);
+}
+
+// Every seat of the lower stands: { x, y, z, facing }. y is the height of the seat; facing is the way its occupant
+// looks, as an angle round the upright axis: 0 looks toward +z, a quarter turn toward +x. The same list every time.
 export function seats() {
-  const all = [], { wide, deep, rise } = ARENA.seat;
-  const across = half => Array.from({ length: Math.floor(2 * half / wide) + 1 }, (_, i) => -half + i * wide);
+  const all = [], { deep, rise } = ARENA.seat;
   for (let row = 0; row < ARENA.far.rows; row++)
     for (const x of across(ARENA.far.half)) all.push({ x, y: ARENA.far.height + row * rise, z: -(ARENA.far.first + row * deep), facing: 0 });
   for (let row = 0; row < ARENA.near.rows; row++)
@@ -48,6 +70,18 @@ function order(count) {
   const next = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 2 ** 32; };
   for (let i = count - 1; i > 0; i--) { const j = Math.floor(next() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
   return list;
+}
+
+// Every seat of the upper deck, as seats() gives them: above the suites and the ribbon on all four sides, the near
+// side's behind the camera.
+export function upperSeats() {
+  const all = [], { rows, deep, rise, height, gap, near, half, ends } = ARENA.upper, ring = ARENA.ring;
+  for (let row = 0; row < rows; row++) {
+    const y = height + row * rise, back = gap + row * deep + deep / 2;   // the middle of the row's step
+    for (const x of across(half)) all.push({ x, y, z: -(ring.far + back), facing: 0 }, { x, y, z: near + back, facing: Math.PI });
+    for (const side of [1, -1]) for (const z of across(ends)) all.push({ x: side * (ring.end + back), y, z, facing: -side * Math.PI / 2 });
+  }
+  return all;
 }
 
 // The seats that are filled when `share` of them are: the first so many in a fixed shuffled order, so the crowd is

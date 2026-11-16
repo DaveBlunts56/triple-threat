@@ -1,5 +1,6 @@
 // What the people round the court do, worked out from the match alone: the crowd's mood, and where the referees stand
-// and what they signal. Plain logic, no Three.js, so it can be tested without a browser. Team 0 is the home team.
+// and what they signal. Plain logic, no Three.js, so it can be tested without a browser. The home team is the match's
+// `home` (0 when it says none).
 import { CLOCK, COURT } from '../sim/tuning.js';
 import { attackSign } from '../sim/state.js';
 
@@ -19,12 +20,13 @@ export const LIFE = Object.freeze({ cheer: 2.2, cheerThree: 3.2, boo: 2.6, blowo
 export const createLife = () => ({ cheer: [0, 0], boo: 0, distract: 0, shake: 0, left: 0, flashes: 0, groan: 0, seen: { score: [0, 0], call: null } });
 
 // Moves the crowd's mood on by dt seconds of real time, from what has happened in the match since the last call.
-// `heard` is what the broadcast's watcher heard this frame: a big moment for the home team (team 0) brings the home
-// crowd to its feet as a three does; one for the visitors makes it groan.
+// `heard` is what the broadcast's watcher heard this frame: a big moment for the home team brings the home crowd to
+// its feet as a three does; one for the visitors makes it groan.
 export function stepLife(life, state, dt, heard = []) {
+  const home = state.home ?? 0, away = 1 - home;
   life.groan = Math.max(0, life.groan - dt);
   for (const h of heard) if (h.moment) {
-    if (h.team === 0) life.cheer[0] = Math.max(life.cheer[0], LIFE.cheerThree + dt); else life.groan = LIFE.groan;
+    if (h.team === home) life.cheer[home] = Math.max(life.cheer[home], LIFE.cheerThree + dt); else life.groan = LIFE.groan;
   }
   for (const team of [0, 1]) {
     const gained = state.score[team] - life.seen.score[team];
@@ -34,20 +36,20 @@ export function stepLife(life, state, dt, heard = []) {
   }
   // A foul on the home team is a bad call to the home crowd, whatever it was; one on the visitors gets a cheer.
   if (state.call && state.call !== life.seen.call && FOULS.includes(state.call.kind)) {
-    if (state.call.team === 0) life.boo = LIFE.boo; else life.cheer[0] = Math.max(life.cheer[0], LIFE.cheer / 2);
+    if (state.call.team === home) life.boo = LIFE.boo; else life.cheer[home] = Math.max(life.cheer[home], LIFE.cheer / 2);
   }
   life.seen.call = state.call;
   life.boo = Math.max(0, life.boo - dt);
   // A visitor at the line: the fans behind that hoop wave to put him off, and the picture shakes with them.
   const ft = state.phase === 'freeThrow' ? state.freeThrow : null;
-  const visitor = ft && ft.stage === 'aim' && state.players[ft.shooter].team === 1;
-  life.distract = visitor ? attackSign(1) : 0;
+  const visitor = ft && ft.stage === 'aim' && state.players[ft.shooter].team === away;
+  life.distract = visitor ? attackSign(away) : 0;
   life.shake = visitor ? LIFE.shake : 0;
   // A blowout in the last period: fans drift out, more of them the bigger the lead and the less time is left, and
   // more again when it is the home team that is beaten. Nobody comes back.
   const lead = Math.abs(state.score[0] - state.score[1]);
   if (state.phase !== 'start' && state.quarter >= CLOCK.quarters && lead >= LIFE.blowout) {
-    const want = clamp((lead - LIFE.blowout) / 20 + 0.3 * (1 - state.gameClock / state.quarterLength), 0, 1) * LIFE.leaveMost * (state.score[0] < state.score[1] ? 1 : 0.7);
+    const want = clamp((lead - LIFE.blowout) / 20 + 0.3 * (1 - state.gameClock / state.quarterLength), 0, 1) * LIFE.leaveMost * (state.score[home] < state.score[away] ? 1 : 0.7);
     life.left = Math.min(Math.max(life.left, want), life.left + LIFE.leaveRate * dt);
   }
   if (state.phase === 'start') life.left = 0;   // a new match: the house is full again

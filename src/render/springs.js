@@ -11,7 +11,7 @@ const f = Object.freeze;
 export const SPRING = f({ bones: f(['kitShortsLeft', 'kitShortsRight', 'hairLocsLeft', 'hairLocsRight']), reach: 0.35, stiffness: 90, damping: 11, limit: 0.3 });
 
 // Scratch values, so that a frame makes no garbage.
-const [head, target, from, to] = Array.from({ length: 4 }, () => new THREE.Vector3());
+const [head, target, from, to, spot, size] = Array.from({ length: 6 }, () => new THREE.Vector3());
 const [swing, parent] = [new THREE.Quaternion(), new THREE.Quaternion()];
 const ALONG = new THREE.Vector3(0, 1, 0);
 
@@ -49,8 +49,9 @@ export function createSprings(model) {
           s.tip.copy(from).applyQuaternion(swing).multiplyScalar(length).add(head);
           s.speed.multiplyScalar(0.5);
         }
-        // Turned about its joint in the court's frame: into its parent's frame, on top of its rest turn.
-        bone.parent.getWorldQuaternion(parent);
+        // Turned about its joint in the court's frame: into its parent's frame, on top of its rest turn. (The parent's
+        // world matrix is the one worked out just above, from the root down: nothing has moved since.)
+        bone.parent.matrixWorld.decompose(spot, parent, size);
         bone.quaternion.copy(parent).invert().multiply(swing).multiply(parent).multiply(s.rest);
       }
     },

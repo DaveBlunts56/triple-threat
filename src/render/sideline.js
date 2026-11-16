@@ -1,5 +1,6 @@
 // The people and furniture round the court who never leave their places: the two benches, the commentators and the
-// scorer's officials at the table, the courtside seats, the photographers on the baselines and the camera crews.
+// scorer's officials at the table, the courtside chairs (their fans are the crowd's: see fans.js), the photographers
+// on the baselines and the camera crews.
 // Everything that does not move is one mesh; the cameras turn to follow the ball and the photographers' flashes fire.
 import * as THREE from 'three';
 import { bakedFigure, bakedBox, bakedMesh, SEATED, KNEELING } from './figure.js';
@@ -16,8 +17,8 @@ const anyone = (i, extra = {}) => ({ shirt: pick(TOPS, i, 1), trousers: pick(LEG
 // A row of places `gap` apart from `from` to `to`.
 const row = (from, to) => Array.from({ length: Math.floor((to - from) / SEAT.gap) + 1 }, (_, i) => from + i * SEAT.gap);
 
-// Where everyone sits: { x, z, facing, look, chair }. The benches and the table are on the far side; courtside seats
-// run along the near side, at the far side's ends and behind both baselines.
+// Where everyone sits: { x, z, facing, look, chair }: the benches and the table on the far side, and the seats at the
+// far side's ends.
 export function sidelinePeople() {
   const all = [];
   const seat = (x, z, facing, look, chair = SEAT.chair) => all.push({ x, z, facing, look: look(all.length), chair });
@@ -28,8 +29,15 @@ export function sidelinePeople() {
     for (const x of row(11.4, 13.4)) seat(way * x, -9.05, 0, anyone);
   }
   for (const x of [-2.4, -1.2, 0, 1.2, 2.4]) seat(x, -9.85, 0, suit);                      // the table: three commentators and two officials
-  for (const x of row(-13, 13)) seat(x, 9.3, Math.PI, anyone);
-  for (const side of [1, -1]) for (const z of [...row(-7, -2.6), ...row(2.6, 7)]) seat(side * 15.9, z, -side * Math.PI / 2, anyone);
+  return all;
+}
+
+// The courtside seats, their fans drawn with the crowd's (see fans.js): { x, y, z, facing }, y the chair's height. They
+// run along the near side and behind both baselines.
+export function courtsideSeats() {
+  const all = [], seat = (x, z, facing) => all.push({ x, y: SEAT.high, z, facing });
+  for (const x of row(-13, 13)) seat(x, 9.3, Math.PI);
+  for (const side of [1, -1]) for (const z of [...row(-7, -2.6), ...row(2.6, 7)]) seat(side * 15.9, z, -side * Math.PI / 2);
   return all;
 }
 
@@ -42,11 +50,15 @@ export const cameraCrews = () => [[15.3, -2.3], [-15.3, 2.3], [13.9, 9.0], [-13.
 // crowd's mood (`life`) asks, `now` being the time in seconds.
 export function createSideline(scene) {
   const parts = [], ahead = (p, far) => [p.x + Math.sin(p.facing) * far, p.z + Math.cos(p.facing) * far];
+  const chair = p => {
+    parts.push(bakedBox(p.chair ?? SEAT.chair, 0.46, 0.06, 0.44, p.x, SEAT.high, p.z, p.facing));
+    const [bx, bz] = ahead(p, -0.24);
+    parts.push(bakedBox(p.chair ?? SEAT.chair, 0.46, 0.5, 0.05, bx, SEAT.high + 0.27, bz, p.facing));
+  };
+  courtsideSeats().forEach(chair);
   sidelinePeople().forEach((p, i) => {
     parts.push(bakedFigure(p.look, SEATED, p.x, 0, p.z, p.facing));
-    parts.push(bakedBox(p.chair, 0.46, 0.06, 0.44, p.x, SEAT.high, p.z, p.facing));
-    const [bx, bz] = ahead(p, -0.24);
-    parts.push(bakedBox(p.chair, 0.46, 0.5, 0.05, bx, SEAT.high + 0.27, bz, p.facing));
+    chair(p);
     if (p.z < -9.5) {   // at the table: a headset, and a screen in front of him
       const [sx, sz] = ahead(p, 0.62);
       parts.push(bakedBox('#101114', 0.25, 0.03, 0.06, p.x, 1.42, p.z, p.facing), bakedBox('#9fd0ff', 0.42, 0.26, 0.04, sx, 0.96, sz, p.facing));

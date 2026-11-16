@@ -2,6 +2,7 @@
 import { DT } from '../sim/tuning.js';
 import { attackSign } from '../sim/state.js';
 import { shotWindow } from '../sim/players.js';
+import { styled } from '../sim/styles.js';
 
 // The shot meter. stay: seconds it is kept after the release. aside: metres it stands from the shooter, on the side
 // away from the hoop he attacks. high: the height its top is level with, about his shoulder; it does not rise with his
@@ -27,9 +28,10 @@ function meterOf(player, t, window, frozen) {
 }
 
 // The shot meter to draw, or null for none. Only team 0 gets one: live while one of them is in his shooting motion,
-// then frozen as the rules judged the release, for SHOT_METER.stay seconds of match time.
+// then frozen as the rules judged the release, for SHOT_METER.stay seconds of match time. None in a style without a
+// meter (Simulation), where a release is not judged.
 export function shotMeter(state) {
-  if (state.phase === 'start' || state.phase === 'final') return null;
+  if (state.phase === 'start' || state.phase === 'final' || !styled(state, 'shot.meter')) return null;
   const shooter = state.players.find(p => p.team === 0 && p.shooting);
   if (shooter) return shooter.finish === 'dunk' ? null : meterOf(shooter, shooter.shotT, shotWindow(state, shooter), null);   // a dunk has nothing to time
 

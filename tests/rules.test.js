@@ -4,7 +4,9 @@ import { createMatch, emptyIntent } from '../src/sim/state.js';
 import { giveBall } from '../src/sim/players.js';
 import { startMatch } from '../src/sim/rules.js';
 import { step } from '../src/sim/step.js';
-import { DT, RIM, CLOCK } from '../src/sim/tuning.js';
+import { COURT, DT, RIM, CLOCK } from '../src/sim/tuning.js';
+
+const OUT = 0.5;   // an inbounder stands this far outside the line
 
 const idle = () => Array.from({ length: 6 }, emptyIntent);
 const intents = (id, intent) => Array.from({ length: 6 }, (_, i) => (i === id ? { ...emptyIntent(), ...intent } : emptyIntent()));
@@ -49,7 +51,7 @@ test('a later period starts with an inbound at half court, clocks stopped', () =
   const inbounders = s.players.filter(p => p.inbounder);
   assert.equal(inbounders.length, 1);
   assert.equal(inbounders[0].team, 1);
-  assert.equal(inbounders[0].z, 8);
+  assert.equal(inbounders[0].z, COURT.halfWidth + OUT);
   assert.equal(s.ball.holder, inbounders[0].id);
   run(s, 2);
   assert.equal(s.gameClock, 180);
@@ -74,7 +76,7 @@ test('a made two scores 2 and gives the ball to the other team under that hoop',
   assert.deepEqual(s.score, [2, 0]);
   assert.equal(s.phase, 'dead');
   assert.equal(s.possession, 1);
-  assert.equal(s.inboundSpot.x, 14.5);
+  assert.equal(s.inboundSpot.x, COURT.halfLength + OUT);
 });
 
 test('a made three scores 3', () => {
@@ -97,7 +99,7 @@ test('the -x hoop scores for team 1', () => {
   run(s, 1, st => st.phase !== 'live');
   assert.deepEqual(s.score, [0, 2]);
   assert.equal(s.possession, 0);
-  assert.equal(s.inboundSpot.x, -14.5);
+  assert.equal(s.inboundSpot.x, -(COURT.halfLength + OUT));
 });
 
 test('after a basket the other team inbounds from the baseline once the dead time passes', () => {
@@ -107,34 +109,34 @@ test('after a basket the other team inbounds from the baseline once the dead tim
   assert.ok(run(s, CLOCK.dead + 0.2, st => st.phase === 'inbound'), 'never reached inbound');
   const inb = s.players.find(p => p.inbounder);
   assert.equal(inb.team, 1);
-  assert.equal(inb.x, 14.5);
+  assert.equal(inb.x, COURT.halfLength + OUT);
   assert.equal(s.ball.holder, inb.id);
   assert.equal(s.shotClock, 24);
 });
 
 test('loose ball landing out of bounds goes to the team that did not touch it last', () => {
   const s = live();
-  freeBall(s, { x: 0, y: 0.5, z: 7.8 });
+  freeBall(s, { x: 0, y: 0.5, z: COURT.halfWidth + 0.3 });
   s.lastTouch = 0;
   assert.ok(run(s, 1, st => st.phase === 'dead'));
   assert.equal(s.possession, 1);
-  assert.equal(s.inboundSpot.z, 8);
+  assert.equal(s.inboundSpot.z, COURT.halfWidth + OUT);
   assert.ok(Math.abs(s.inboundSpot.x) < 0.5);
 });
 
 test('a ball out over the baseline is not inbounded from behind the backboard', () => {
   const s = live();
-  freeBall(s, { x: 14.3, y: 0.5, z: 0.3 });
+  freeBall(s, { x: COURT.halfLength + 0.3, y: 0.5, z: 0.3 });
   s.lastTouch = 1;
   assert.ok(run(s, 1, st => st.phase === 'dead'));
   assert.equal(s.possession, 0);
-  assert.equal(s.inboundSpot.x, 14.5);
+  assert.equal(s.inboundSpot.x, COURT.halfLength + OUT);
   assert.ok(Math.abs(s.inboundSpot.z) >= 1.5);
 });
 
 test('a holder stepping out of bounds loses the ball', () => {
   const s = live();
-  s.players[0].x = 14.2;
+  s.players[0].x = COURT.halfLength + 0.2;
   step(s, idle(), DT);
   assert.equal(s.phase, 'dead');
   assert.equal(s.possession, 1);
@@ -146,7 +148,7 @@ test('shot clock expiry is a turnover', () => {
   step(s, idle(), DT);
   assert.equal(s.phase, 'dead');
   assert.equal(s.possession, 1);
-  assert.equal(Math.abs(s.inboundSpot.z), 8);
+  assert.equal(Math.abs(s.inboundSpot.z), COURT.halfWidth + OUT);
 });
 
 test('shot clock resets to 24 when the ball hits the rim', () => {

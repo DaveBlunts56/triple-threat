@@ -57,8 +57,8 @@ export function stepFreeThrow(state, intents, events, dt) {
     const model = styled(state, 'ft.model'), person = personOf(state, shooter);
     const yours = model === 'touch' ? touchOf(person) / FT.centreChance : 1;
     // A team a person plays shoots on the meter (yours, or a team-mate of yours stopping it himself); any other team's
-    // shooter by the computer's own chance.
-    const metered = (state.humans ?? [0]).includes(shooter.team);
+    // shooter, and everyone's where the style has no meter (Simulation), by the computer's own chance.
+    const metered = styled(state, 'shot.meter') && (state.humans ?? [0]).includes(shooter.team);
     const chance = metered && pressed ? ftChance(ft.meter) * yours
       : !metered && ft.t >= FT.aiDelay ? freeThrowChance(model, person)
       : ft.t >= FT.limit ? 0 : null;

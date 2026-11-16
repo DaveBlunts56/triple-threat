@@ -20,39 +20,39 @@ const SUIT = Object.freeze({ post: 80, shooter: 85, handle: 80, pop: 75 });
 // now, as { part: spot }; `ball` is where whoever holds the ball should take it when he has nothing better to do.
 // The parts are handler (who held the ball when the play was called), big, big2, wing and shooter. `c` is the
 // play's context: see context() below. Distances are along the court from the centre line toward the hoop
-// attacked (the hoop is at 12.4, the baseline at 14) and across it toward the play's side.
+// attacked (the hoop is at 12.725, the baseline at 14.325: the NBA's court) and across it toward the play's side.
 export const PLAYS = Object.freeze({
   pickRoll: {
     name: 'Pick & Roll', hint: 'Use the screen, then hit the roller or score', sizes: [3, 5], long: 8, ripe: 'used', screener: 'big',
     spots: c => ({
-      big: !c.used ? c.screen() : c.sinceUsed < PLAY.roll ? c.at(11, 0.5, true) : c.at(11.3, -3.2),
-      big2: c.at(7.5, -5.5), wing: c.five ? c.at(11.6, -6.95) : c.at(7.5, -5.5), shooter: c.at(11.6, 6.95),
-      ball: c.used ? c.at(10.8, 1) : c.set ? c.past() : c.at(5.4, -0.6),
+      big: !c.used ? c.screen() : c.sinceUsed < PLAY.roll ? c.at(11.3, 0.5, true) : c.at(11.6, -3.2),
+      big2: c.at(7.47, -5.87), wing: c.five ? c.at(11.9, -7.06) : c.at(7.47, -5.87), shooter: c.at(11.9, 7.06),
+      ball: c.used ? c.at(11.1, 1) : c.set ? c.past() : c.at(5.21, -0.64),
     }),
   },
   pickPop: {
     name: 'Pick & Pop', hint: 'Use the screen, then find the big at the arc', sizes: [3, 5], long: 8, ripe: 'used', screener: 'big',
     spots: c => ({
-      big: !c.used ? c.screen() : c.at(6, -2.2),
-      big2: c.at(11.3, -3.2), wing: c.five ? c.at(11.6, -6.95) : c.at(7.5, -5.5), shooter: c.at(11.6, 6.95),
-      ball: c.used ? c.at(10.8, 1) : c.set ? c.past() : c.at(5.4, -0.6),
+      big: !c.used ? c.screen() : c.at(5.84, -2.36),
+      big2: c.at(11.6, -3.2), wing: c.five ? c.at(11.9, -7.06) : c.at(7.47, -5.87), shooter: c.at(11.9, 7.06),
+      ball: c.used ? c.at(11.1, 1) : c.set ? c.past() : c.at(5.21, -0.64),
     }),
   },
   iso: {
     name: 'Clear Out', hint: 'Everyone clears: take your man one on one', sizes: [3, 5], long: 7, ripe: 1,
     spots: c => ({
-      big: c.five ? c.at(11.3, -3.2) : c.at(11.6, -6.95), big2: c.at(7.5, -5.5), wing: c.five ? c.at(11.6, -6.95) : c.at(7.5, -5.5),
-      shooter: c.at(11.6, 6.95),
-      ball: c.t < 1 ? c.at(6.5, 2) : c.at(10.8, 1.2),
+      big: c.five ? c.at(11.6, -3.2) : c.at(11.9, -7.06), big2: c.at(7.47, -5.87), wing: c.five ? c.at(11.9, -7.06) : c.at(7.47, -5.87),
+      shooter: c.at(11.9, 7.06),
+      ball: c.t < 1 ? c.at(6.34, 2.16) : c.at(11.1, 1.2),
     }),
   },
   horns: {
     name: 'Horns', hint: 'Bigs at the elbows: use the screen on your side', sizes: [5], long: 9, ripe: 'used', screener: 'big',
     spots: c => ({
-      big: c.t < 1.6 ? c.at(8, 2.6) : !c.used ? c.screen() : c.sinceUsed < PLAY.roll ? c.at(11, 0.5, true) : c.at(11.3, 3.2),
-      big2: c.used ? c.at(5.6, -1.5) : c.at(8, -2.6),
-      wing: c.at(11.6, -6.95), shooter: c.at(11.6, 6.95),
-      ball: c.used ? c.at(10.8, 1) : c.set ? c.past() : c.at(5.2, 0),
+      big: c.t < 1.6 ? c.at(8.3, 2.6) : !c.used ? c.screen() : c.sinceUsed < PLAY.roll ? c.at(11.3, 0.5, true) : c.at(11.6, 3.2),
+      big2: c.used ? c.at(5.42, -1.61) : c.at(8.3, -2.6),
+      wing: c.at(11.9, -7.06), shooter: c.at(11.9, 7.06),
+      ball: c.used ? c.at(11.1, 1) : c.set ? c.past() : c.at(5.01, 0),
     }),
   },
   fiveOut: {
@@ -64,58 +64,58 @@ export const PLAYS = Object.freeze({
       const side = (pair, mine, done) => {
         const [wing, corner] = done % 2 === 0 ? pair : [pair[1], pair[0]], s = mine ? 1 : -1, live = near === mine;
         return {
-          [wing]: !live || into < 0.8 ? c.at(7.2, 5.8 * s) : into < 2.3 ? c.at(11, 0.6 * s, true) : c.at(11.6, 6.95 * s),
-          [corner]: !live || into < 0.8 ? c.at(11.6, 6.95 * s) : c.at(7.2, 5.8 * s),
+          [wing]: !live || into < 0.8 ? c.at(7.17, 6.16 * s) : into < 2.3 ? c.at(11.3, 0.6 * s, true) : c.at(11.9, 7.06 * s),
+          [corner]: !live || into < 0.8 ? c.at(11.9, 7.06 * s) : c.at(7.17, 6.16 * s),
         };
       };
-      return { ...side(['shooter', 'big'], true, Math.ceil(turn / 2)), ...side(['wing', 'big2'], false, Math.floor(turn / 2)), ball: c.at(5.2, 0) };
+      return { ...side(['shooter', 'big'], true, Math.ceil(turn / 2)), ...side(['wing', 'big2'], false, Math.floor(turn / 2)), ball: c.at(5.01, 0) };
     },
   },
   postUp: {
     name: 'Post Up', hint: 'Feed the big on the block', sizes: [3, 5], long: 9, ripe: 2,
     target: c => (c.holds('big') ? null : 'big'),
     spots: c => ({
-      big: c.at(11, 3.2), big2: c.at(8.2, -2.7), wing: c.at(7.5, -5.5), shooter: c.five ? c.at(5.4, -0.5) : c.at(5.6, -1.5),
-      handler: c.at(6.4, 2.4),
-      ball: c.holds('big') ? c.at(11.7, 1.3) : c.at(6.4, 2.4),   // fed from the slot, where the pass goes clear of the handler's defender
+      big: c.at(11.3, 3.2), big2: c.at(8.5, -2.7), wing: c.at(7.47, -5.87), shooter: c.five ? c.at(5.21, -0.53) : c.at(5.42, -1.61),
+      handler: c.at(6.24, 2.58),
+      ball: c.holds('big') ? c.at(12, 1.3) : c.at(6.24, 2.58),   // fed from the slot, where the pass goes clear of the handler's defender
     }),
   },
   floppy: {
     name: 'Floppy', hint: 'Shooters come off the screens: hit the open one', sizes: [5], long: 7, ripe: 2.4,
     spots: c => ({
-      big: c.at(9.8, 3.4), big2: c.at(9.8, -3.4),
-      shooter: c.t < 1.4 ? c.at(12, 0.9) : c.at(7.3, 5.6, c.t < 3),
-      wing: c.t < 1.4 ? c.at(12, -0.9) : c.at(7.3, -5.6, c.t < 3),
-      ball: c.at(5.2, 0),
+      big: c.at(10.1, 3.4), big2: c.at(10.1, -3.4),
+      shooter: c.t < 1.4 ? c.at(12.3, 0.9) : c.at(7.27, 5.96, c.t < 3),
+      wing: c.t < 1.4 ? c.at(12.3, -0.9) : c.at(7.27, -5.96, c.t < 3),
+      ball: c.at(5.01, 0),
     }),
   },
   spain: {
     name: 'Spain Pick & Roll', hint: 'Pick and roll with a back screen for the roller', sizes: [5], long: 8, ripe: 'used', screener: 'big',
     spots: c => ({
-      big: !c.used ? c.screen() : c.sinceUsed < PLAY.roll ? c.at(11, 0.5, true) : c.at(11.3, -3.2),
-      shooter: !c.used ? c.at(7.6, -0.4) : c.sinceUsed < 1.2 ? c.backScreen('big') : c.at(5.6, -1.2),
-      big2: c.at(11.6, -6.95), wing: c.at(11.6, 6.95),
-      ball: c.used ? c.at(10.8, 1) : c.set ? c.past() : c.at(5.4, -0.6),
+      big: !c.used ? c.screen() : c.sinceUsed < PLAY.roll ? c.at(11.3, 0.5, true) : c.at(11.6, -3.2),
+      shooter: !c.used ? c.at(7.9, -0.4) : c.sinceUsed < 1.2 ? c.backScreen('big') : c.at(5.42, -1.28),
+      big2: c.at(11.9, -7.06), wing: c.at(11.9, 7.06),
+      ball: c.used ? c.at(11.1, 1) : c.set ? c.past() : c.at(5.21, -0.64),
     }),
   },
   giveGo: {
     name: 'Give & Go', hint: 'Pass to the wing, then look for the cutter', sizes: [3, 5], long: 7, ripe: 0.6,
     target: c => (!c.passed ? (c.five ? 'shooter' : 'wing') : c.sincePass > 0.5 && c.sincePass < 2 ? 'handler' : null),
     spots: c => ({
-      [c.five ? 'shooter' : 'wing']: c.at(7.2, 4.8),
-      big: c.five ? c.at(11.3, -3.2) : c.at(11.6, -6.95), big2: c.at(7.5, -5.5), ...(c.five ? { wing: c.at(11.6, -6.95) } : {}),
-      handler: c.passed && c.sincePass < 2 ? c.at(11, 0.6, true) : c.at(11.6, 6.95),
-      ball: c.at(5.6, 1.2),
+      [c.five ? 'shooter' : 'wing']: c.at(7.14, 5.13),
+      big: c.five ? c.at(11.6, -3.2) : c.at(11.9, -7.06), big2: c.at(7.47, -5.87), ...(c.five ? { wing: c.at(11.9, -7.06) } : {}),
+      handler: c.passed && c.sincePass < 2 ? c.at(11.3, 0.6, true) : c.at(11.9, 7.06),
+      ball: c.at(5.42, 1.28),
     }),
   },
   ucla: {
     name: 'UCLA Cut', hint: 'Pass to the wing: the cutter rubs off the high post', sizes: [5], long: 9, ripe: 0.8,
     target: c => (!c.passed ? 'shooter' : c.sincePass > 0.6 && c.sincePass < 2.2 ? 'handler' : null),
     spots: c => ({
-      big: c.passed && c.sincePass > 1.5 ? c.screen() : c.at(8, 2.7),
-      shooter: c.at(7.5, 5.5), wing: c.at(7.5, -5.5), big2: c.at(11, -3.2),
-      handler: c.at(11, 3.1, c.passed && c.sincePass < 1.5),
-      ball: c.at(5.4, 0.8),
+      big: c.passed && c.sincePass > 1.5 ? c.screen() : c.at(8.3, 2.7),
+      shooter: c.at(7.47, 5.87), wing: c.at(7.47, -5.87), big2: c.at(11.3, -3.2),
+      handler: c.at(11.3, 3.1, c.passed && c.sincePass < 1.5),
+      ball: c.at(5.21, 0.86),
     }),
   },
 });

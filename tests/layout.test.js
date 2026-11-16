@@ -63,3 +63,64 @@ test('the boards carry only the game\'s own words, and the scoreboard says the s
   const s = createMatch(); s.score = [28, 26]; s.quarter = 3;
   assert.deepEqual(scoreLines(s), { home: 'WAV 28', away: 'SCO 26', period: '3RD' });
 });
+
+// ---------- The building round the stands (arenas Stage 2) ----------
+
+import { upperSeats } from '../src/render/layout.js';
+import { ARENAS, LOGOS, arenaOf } from '../src/render/arenas.js';
+import { boardWords } from '../src/render/videoboard.js';
+
+test('the stands have aisles: no seat stands on a stair, and every stand is crossed by some', () => {
+  const { every, wide } = ARENA.aisle;
+  const along = s => (Math.abs(s.z) >= ARENA.clearZ && Math.abs(s.x) < ARENA.ring.end ? s.x : s.z);   // along its row
+  for (const s of [...seats(), ...upperSeats()]) {
+    const at = along(s);
+    assert.ok(Math.abs(at - Math.round(at / every) * every) >= wide / 2 - 1e-9, JSON.stringify(s));
+  }
+});
+
+test('the upper deck has seats on all four sides, above the suites and the ribbon, outside the lower stands\' ring', () => {
+  const up = upperSeats();
+  assert.ok(up.length >= 1500 && up.length <= 4000, `${up.length} seats`);
+  assert.deepEqual(upperSeats(), up);
+  for (const s of up) {
+    assert.ok(s.y >= ARENA.upper.height && s.y > ARENA.ribbon.high, JSON.stringify(s));
+    assert.ok(s.z <= -ARENA.ring.far || s.z >= ARENA.upper.near || Math.abs(s.x) >= ARENA.ring.end, JSON.stringify(s));
+  }
+  for (const side of [s => s.z < 0 && Math.abs(s.x) < ARENA.ring.end, s => s.z > 0 && Math.abs(s.x) < ARENA.ring.end, s => s.x > ARENA.ring.end, s => s.x < -ARENA.ring.end])
+    assert.ok(up.filter(side).length >= 200);
+});
+
+test('nothing of the upper deck or the near side\'s building comes between the camera and the court', () => {
+  // The near side's suites, ribbon and upper deck begin behind the camera; the near wall stays under its view.
+  assert.ok(ARENA.upper.near > ARENA.camera.back);
+  const things = upperSeats().map(body);
+  for (const from of cameras) for (const to of sights) for (const box of things) assert.ok(!blocks(box, from, to), JSON.stringify(box));
+});
+
+test('the home arena is the Waves\' Tidewater Arena, all of it invented, and both teams have a mark', () => {
+  const look = arenaOf();
+  assert.equal(look, ARENAS.tidewater);
+  assert.equal(look.team, 0);
+  assert.equal(look.name, 'TIDEWATER ARENA');
+  assert.equal(LOGOS.length, 2);
+  for (const logo of LOGOS) assert.ok(logo.paths.length >= 2 && /^#/.test(logo.disc));
+  assert.ok(look.banners.length >= 3);
+});
+
+test('the Scorpions\' home is Red Rock Pavilion: sandstone and rust, a sunset glow, a folded roof, their own court and banners', () => {
+  const look = arenaOf(1);
+  assert.equal(look, ARENAS.redrock);
+  assert.deepEqual([look.team, look.name, look.city, look.trusses], [1, 'RED ROCK PAVILION', 'RED ROCK', 'angle']);
+  assert.equal(arenaOf(0), ARENAS.tidewater);
+  assert.ok(look.banners.length >= 3 && look.banners.every(b => !/WAVES|HARBOR/.test(b.top)));
+  for (const key of Object.keys(ARENAS.tidewater.colour)) assert.ok(key in look.colour, key);
+  assert.notEqual(look.colour.lane, ARENAS.tidewater.colour.lane);
+});
+
+test('the video board says the teams, their points, the period and the clock', () => {
+  const s = createMatch(); s.score = [61, 58]; s.quarter = 3; s.gameClock = 432.2;
+  const words = boardWords(s);
+  assert.deepEqual([words.home, words.away, words.score, words.period, words.clock], ['WAV', 'SCO', [61, 58], '3RD', '7:13']);
+  assert.ok(words.bottom.includes('WAV 61') && words.bottom.includes('SCO 58'));
+});

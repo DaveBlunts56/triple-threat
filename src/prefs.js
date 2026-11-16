@@ -7,11 +7,11 @@ import { SLIDERS, STYLE_NAMES, defaultSliders } from './sim/styles.js';
 
 export const PREFS_KEY = 'tripleThreat.settings.v1';
 
-// quality: null means the game chooses its own level. keys: { action: key }, what differs from the default keys.
+// quality: null means the game chooses its own level. home: the team at home, whose arena a match is in. keys: { action: key }, what differs from the default keys.
 // play, watch: the style and quarter length each starts at (Play on Arcade's 3 minutes, as before; Watch on
 // Simulation's 12). simulate: Simulate's quarter length (it is always Simulation). sliders: each style's nine.
 const f = Object.freeze;
-export const DEFAULT_PREFS = f({ quality: null, camera: '2k', difficulty: 'allstar', size: 3,
+export const DEFAULT_PREFS = f({ quality: null, camera: '2k', difficulty: 'allstar', size: 3, home: 0,
   autoSubs: true, commentary: 'voice', replays: true, sound: 'full', keys: f({}),
   play: f({ style: 'arcade', minutes: 3 }), watch: f({ style: 'sim', minutes: 12 }), simulate: f({ minutes: 12 }),
   sliders: f({ arcade: f(defaultSliders()), sim: f(defaultSliders()) }) });
@@ -25,6 +25,7 @@ const VALID = {
   camera: oneOf(['2k', 'broadcast']),
   difficulty: oneOf(DIFFICULTY.order),
   size: oneOf([3, 5]),
+  home: oneOf([0, 1]),
   autoSubs: flag, replays: flag,
   commentary: oneOf(['voice', 'captions', 'off']),
   sound: oneOf(['full', 'quiet', 'off']),

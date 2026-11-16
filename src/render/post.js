@@ -22,6 +22,7 @@ export function createPost(renderer, scene, camera) {
   const missing = [];
   let pipeline = null;   // null: the scene is drawn straight to the screen
   let parts = [];        // the passes and effects of the current chain, each holding pictures on the graphics card
+  let drawn = null;      // the scene pass's picture of the scene (as a node, which samples it the right way up), on a level that has a chain
 
   // The chain for a level, or null if the level asks for nothing. An effect that cannot be built is left out.
   function chain(level) {
@@ -30,6 +31,7 @@ export function createPost(renderer, scene, camera) {
     const made = new THREE.RenderPipeline(renderer);
     const scenePass = pass(scene, camera);
     parts.push(scenePass);
+    drawn = scenePass.getTextureNode('output');
     const attempt = (words, add) => { try { add(); } catch (error) { console.warn(`No ${words} here.`, error); missing.push(words); } };
     let picture = scenePass, lit = scenePass;   // the picture so far, and the scene as drawn, which is what glows
     if (q.ao) attempt('ambient occlusion', () => {
@@ -61,12 +63,15 @@ export function createPost(renderer, scene, camera) {
   function drop() {
     for (const part of parts) part.dispose?.();
     parts = [];
+    drawn = null;
     pipeline?.dispose();
     pipeline = null;
   }
 
   return {
     missing,
+    // The scene as the last frame drew it, before its effects (for the video board), or null on a level without them.
+    picture: () => drawn,
     setQuality(level) {
       drop();
       missing.length = 0;

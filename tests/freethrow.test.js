@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import { emptyIntent } from '../src/sim/state.js';
 import { newFreeThrow, ftChance, setupFreeThrow } from '../src/sim/freethrow.js';
 import { step } from '../src/sim/step.js';
-import { DT, FT } from '../src/sim/tuning.js';
+import { COURT, DT, FT } from '../src/sim/tuning.js';
+
+// Metres from the baseline of the +x hoop, as a place on the court.
+const X = fromBaseline => COURT.halfLength - fromBaseline;
 import { live, idle, only, run, firstSeed, ai, press, pressWhenAiming } from './helpers.js';
 
 // Player 0 (or player 3 for team 1) is on the line with `shots` free throws to come.
@@ -40,17 +43,17 @@ test('the odds run in a straight line from 95% at the centre to 20% at the edges
 test('setup puts the shooter on the line with the ball and the other five in their spots', () => {
   const s = shooting(1, 2);
   const p = s.players[0];
-  assert.deepEqual([s.phase, s.ball.holder, s.shotClock, p.x, p.z], ['freeThrow', 0, 24, 8.2, 0]);
-  assert.deepEqual([1, 2].map(i => [s.players[i].x, s.players[i].z]), [[10.3, -2.75], [10.3, 2.75]]);
-  assert.deepEqual([3, 4, 5].map(i => [s.players[i].x, s.players[i].z]), [[11.7, -2.75], [11.7, 2.75], [5, 2]]);
+  assert.deepEqual([s.phase, s.ball.holder, s.shotClock, p.x, p.z], ['freeThrow', 0, 24, X(FT.lineDist), 0]);
+  assert.deepEqual([1, 2].map(i => [s.players[i].x, s.players[i].z]), [[X(3.7), -2.75], [X(3.7), 2.75]]);
+  assert.deepEqual([3, 4, 5].map(i => [s.players[i].x, s.players[i].z]), [[X(2.3), -2.75], [X(2.3), 2.75], [X(FT.defence[2][0]), 2]]);
   assert.ok(s.players.every(q => !q.inbounder && q.vx === 0 && q.vz === 0));
 });
 
 test('for team 1 everything is mirrored', () => {
   const s = shooting(1, 2, 1);
-  assert.deepEqual([s.ball.holder, s.players[3].x, s.players[3].z], [3, -8.2, 0]);
-  assert.deepEqual([4, 5].map(i => [s.players[i].x, s.players[i].z]), [[-10.3, -2.75], [-10.3, 2.75]]);
-  assert.deepEqual([0, 1, 2].map(i => [s.players[i].x, s.players[i].z]), [[-11.7, -2.75], [-11.7, 2.75], [-5, 2]]);
+  assert.deepEqual([s.ball.holder, s.players[3].x, s.players[3].z], [3, -X(FT.lineDist), 0]);
+  assert.deepEqual([4, 5].map(i => [s.players[i].x, s.players[i].z]), [[-X(3.7), -2.75], [-X(3.7), 2.75]]);
+  assert.deepEqual([0, 1, 2].map(i => [s.players[i].x, s.players[i].z]), [[-X(2.3), -2.75], [-X(2.3), 2.75], [-X(FT.defence[2][0]), 2]]);
 });
 
 test('the marker crosses the bar 1.5 times a second and turns at the ends', () => {
@@ -136,7 +139,7 @@ test('a missed last attempt is a live rebound and the clocks start when someone 
 
 test('a made last attempt gives the other team the ball under that hoop', () => {
   const s = madeLast();
-  assert.deepEqual([s.phase, s.call, s.possession, s.inboundSpot.x, s.score, s.freeThrow], ['dead', null, 1, 14.5, [1, 0], null]);
+  assert.deepEqual([s.phase, s.call, s.possession, s.inboundSpot.x, s.score, s.freeThrow], ['dead', null, 1, COURT.halfLength + 0.5, [1, 0], null]);
 });
 
 test('with the period clock at zero the free throws are shot and then the period ends', () => {

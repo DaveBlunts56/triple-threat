@@ -83,8 +83,17 @@ export const STRIDES = Object.freeze(['run', 'sprint']);
 
 export const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
-// The opponent nearest to `player`.
-export const nearestOpponent = (state, player) => state.players.filter(o => o.team !== player.team).reduce((a, b) => (dist(b, player) < dist(a, player) ? b : a));
+// The opponent nearest to `player` (of two as near, the first). A loop, not a filtered list: it runs for everyone,
+// every step.
+export function nearestOpponent(state, player) {
+  let nearest = null, gap = Infinity;
+  for (const o of state.players) {
+    if (o.team === player.team) continue;
+    const d = dist(o, player);
+    if (nearest === null || d < gap) { nearest = o; gap = d; }
+  }
+  return nearest;
+}
 
 // Seconds from leaving the floor to landing for the jump `player` is in, or last made: a shot's jump is the smaller.
 export const airTime = player => (2 * (player.takeoff || PLAYER.jumpV)) / BALL.gravity;

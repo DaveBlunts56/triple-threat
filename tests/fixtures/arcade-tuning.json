@@ -2,7 +2,7 @@
  "AI": {
   "interval": 0.3,
   "openDist": 1.8,
-  "shootRange": 7.5,
+  "shootRange": 7.99,
   "laneWidth": 1.07,
   "panicClock": 4,
   "stealRate": 0.03,
@@ -24,8 +24,8 @@
   "moveFrom": 6,
   "beatFor": 1,
   "releaseJitter": 0.16,
-  "driveX": 11.2,
-  "topX": 5.2,
+  "driveX": 11.5,
+  "topX": 5.01,
   "safetyX": 4,
   "inboundHelp": 4,
   "contestDist": 2,
@@ -96,10 +96,10 @@
   "deflect": 4
  },
  "BOARD": {
-  "x": 12.8,
-  "halfWidth": 0.9,
+  "x": 13.105,
+  "halfWidth": 0.915,
   "bottom": 2.9,
-  "top": 3.95
+  "top": 3.967
  },
  "CLOCK": {
   "quarters": 4,
@@ -112,8 +112,8 @@
   "timeout": 3
  },
  "COURT": {
-  "halfLength": 14,
-  "halfWidth": 7.5,
+  "halfLength": 14.325,
+  "halfWidth": 7.62,
   "margin": 1.5
  },
  "DIFFICULTY": {
@@ -251,7 +251,7 @@
   "bonus": 3
  },
  "FT": {
-  "lineDist": 5.8,
+  "lineDist": 5.79,
   "sweep": 1.5,
   "centreChance": 0.95,
   "edgeChance": 0.2,
@@ -269,7 +269,7 @@
     2.75
    ],
    [
-    9,
+    9.53,
     2
    ]
   ],
@@ -301,7 +301,7 @@
     2.75
    ],
    [
-    9,
+    9.5,
     0
    ]
   ],
@@ -315,11 +315,11 @@
     2.75
    ],
    [
-    9.5,
+    10.05,
     -3.5
    ],
    [
-    9.5,
+    10.05,
     3.5
    ]
   ]
@@ -443,7 +443,7 @@
   "cutFrom": 4.5,
   "cutWidth": 0.9,
   "cutFor": 1.6,
-  "rimAt": 11,
+  "rimAt": 11.3,
   "giveAndGo": 0.8,
   "drivePace": 2.5,
   "clear": 2.2,
@@ -506,9 +506,9 @@
   "crowd": 2
  },
  "RIM": {
-  "x": 12.425,
+  "x": 12.725,
   "height": 3.05,
-  "radius": 0.225,
+  "radius": 0.2286,
   "tube": 0.02
  },
  "ROSTER": {
@@ -852,8 +852,8 @@
   "heldFactor": 0.4
  },
  "THREE_PT": {
-  "radius": 6.75,
-  "cornerZ": 6.6
+  "radius": 7.24,
+  "cornerZ": 6.71
  },
  "TIMEOUT": {
   "each": 3,
@@ -909,7 +909,7 @@
   "backcourt": 8,
   "key": 3,
   "inbound": 5,
-  "keyHalfWidth": 2.45,
-  "keyDepth": 5.8
+  "keyHalfWidth": 2.44,
+  "keyDepth": 5.79
  }
 }

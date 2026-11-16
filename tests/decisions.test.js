@@ -103,7 +103,7 @@ test('players play their roles: slashers attack the rim, shooters and creators s
   const line = person => (by[person.role] ??= { fga: 0, rim: 0, three: 0, ast: 0, secs: 0 });
   for (let seed = 1; seed <= 8; seed++) {
     let last = null;
-    const r = playHeadless({ seed, size: 5, minutes: 3, setup: s => { s.humans = []; }, observe: s => {
+    const r = playHeadless({ seed, size: 5, minutes: 3, glide: false, setup: s => { s.humans = []; }, observe: s => {
       if (s.shot && s.shot !== last && s.shot.shooter !== undefined) {
         const p = s.players[s.shot.shooter], person = s.rosters[p.team][p.person], far = Math.hypot(p.x - (p.team === 0 ? 1 : -1) * RIM.x, p.z);
         const l = line(person); l.fga++; if (s.shot.finish || far < 1.5) l.rim++; if (far > 6.75 || Math.abs(p.z) > 6.6) l.three++;

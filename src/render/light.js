@@ -49,9 +49,14 @@ export function createLight(renderer, scene) {
   Object.assign(key.shadow.camera, { left: -18, right: 18, top: 12, bottom: -12, near: 1, far: 45 });
   key.shadow.bias = -0.0004;
   key.shadow.normalBias = LIGHT.normalBias;
+  // The shadow is drawn once a frame (see `fresh`), not again for every pass that draws the scene: the floor's mirror
+  // draws it too, from its own camera, and the shadow it would draw is the same.
+  key.shadow.autoUpdate = false;
   scene.add(key);
 
   return {
+    // A new frame: its shadow is drawn by the first pass that needs it.
+    fresh() { key.shadow.needsUpdate = true; },
     // The shadow map's size and the blur of its edge at a quality level (one of QUALITY.order). The renderer resizes
     // the map before it next draws the shadow.
     setQuality(level) {

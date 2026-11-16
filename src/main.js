@@ -24,14 +24,14 @@ import { slowFor } from './broadcast/moments.js';
 import { createEars, frameCues, listen } from './audio/cues.js';
 import { createPlayer, nextSound } from './audio/player.js';
 import { SOUNDS, assetUrl, soundPath } from './render/assets.js';
-import { clear as clearReplays, createRecorder, due, frameAt, mark, record, settle, skip as skipReplay, start as startReplay } from './replay.js';
+import { clear as clearReplays, createRecorder, decode, due, frameAt, mark, record, settle, skip as skipReplay, start as startReplay } from './replay.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
 const newMatch = size => createMatch(Date.now() % 1e6, size);   // size: 3 or 5 a side; three when not said
 const MENU_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyS', 'KeyA', 'KeyD', 'Enter', 'Space', 'Escape', 'Backspace']);
 const MENU_ONCE = new Set(['Enter', 'Space', 'Escape', 'Backspace']);   // a held one counts once; the bar keys may repeat
 
-const view = await createScene(document.getElementById('court'));
+const view = await createScene(document.getElementById('court'), readPrefs(storageOf()).home);   // in the saved home side's arena
 if (view) {
   // The generated players. If their files are missing or broken the match is still playable, with capsules.
   const people = await loadPeople(view.camera).catch(error => { console.warn('Players could not be loaded; using capsules.', error); return null; });
@@ -81,10 +81,10 @@ if (view) {
   // Keeps what the menus and the keys have just changed for the next time. `chose`: the quality was stepped by hand,
   // which is the only way a level is remembered; one the game fell to by itself is not.
   const remember = (chose = false) => {
-    const { size, difficulty, autoSubs, play, watch, simulate, sliders } = game.menu;
+    const { size, home, difficulty, autoSubs, play, watch, simulate, sliders } = game.menu;
     // The camera chosen in Play is the one kept: Watch starts on the broadcast view without changing it.
     const camera = game.mode === 'watch' ? prefs.camera : game.camera;
-    Object.assign(prefs, { size, difficulty, autoSubs, camera, keys: savedKeys(keys), play: { ...play }, watch: { ...watch }, simulate: { ...simulate },
+    Object.assign(prefs, { size, home, difficulty, autoSubs, camera, keys: savedKeys(keys), play: { ...play }, watch: { ...watch }, simulate: { ...simulate },
       sliders: { arcade: { ...sliders.arcade }, sim: { ...sliders.sim } } });
     if (chose) prefs.quality = quality.level;
     writePrefs(storage, prefs);
@@ -103,6 +103,7 @@ if (view) {
   const start = mode => {
     game.mode = mode;
     startFromMenu(game, keyboard, newMatch, mode);
+    view.setHome(game.state.home);
     game.camera = mode === 'watch' ? 'broadcast' : prefs.camera;
     view.setCamera(game.camera);
   };
@@ -117,6 +118,7 @@ if (view) {
     if (asked === 'play') play();
     else if (asked === 'watch') start('watch');
     else if (asked === 'simulate') simulate();
+    else if (asked === 'home') view.setHome(game.menu.home);   // its arena built now, ready for the match
     else if (asked === 'quality') stepQualityByHand();
     else if (asked === 'camera') switchCamera();
     else if (asked === 'commentary') stepCommentary();
@@ -236,7 +238,7 @@ if (view) {
     const holding = PANELS.includes(panel);
     if (prefs.replays && !game.paused && due(replays, state)) {
       startReplay(replays, state);
-      replaySide = replays.playing.frames[replays.playing.frames.length - 1].ball.z >= 0 ? 1 : -1;
+      replaySide = decode(replays.playing.frames[replays.playing.frames.length - 1]).ball.z >= 0 ? 1 : -1;
       actors.cut();
     }
     const shown = replays.playing && !game.paused ? frameAt(replays, elapsed) : null;   // the frame of the replay to draw, if one is on

@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { reflector } from 'three/tsl';
 import { gaussianBlur } from 'three/addons/tsl/display/GaussianBlurNode.js';
-import { COURT, RIM, THREE_PT } from '../sim/tuning.js';
+import { COURT, LANE } from '../sim/tuning.js';
+import { drawLogo } from './arenas.js';
+import { MARKS, courtMarks } from './markings.js';
 import { FLOOR_FILES, assetUrl } from './assets.js';
 import { QUALITY } from './quality.js';
 
@@ -15,10 +17,12 @@ import { QUALITY } from './quality.js';
 const FLOOR = Object.freeze({ length: 32, width: 19, px: 64, plank: 1.7, full: 2048, paintGloss: 0.4, runOff: 'rgba(52, 34, 20, 0.6)', lift: 0.004,
   tone: Object.freeze([1.55, 1.45, 1.22]), mirror: 0.3, blur: 3 });
 
-// The court's paint: every line, and a darker stain over the run-off. With `wood` the playing surface and the run-off
-// are painted as wood-coloured blocks under the lines (the floor of the game before it had real wood, and still the
-// floor if the wood's pictures cannot be loaded); without it everything but the paint is clear.
-function paintCourt(wood) {
+// The court's paint: every line, and a darker stain over the run-off; and the home arena's (`look`, see arenas.js): the
+// lanes and the centre circle stained in its colour, its team's mark at centre court, its city along the baselines
+// and its name along the sidelines. With `wood` the playing surface and the run-off are painted as wood-coloured blocks
+// under the lines (the floor of the game before it had real wood, and still the floor if the wood's pictures cannot
+// be loaded); without it everything but the paint is clear.
+function paintCourt(wood, look) {
   const c = document.createElement('canvas');
   c.width = FLOOR.length * FLOOR.px; c.height = FLOOR.width * FLOOR.px;
   const g = c.getContext('2d'), PX = FLOOR.px;
@@ -33,26 +37,42 @@ function paintCourt(wood) {
     g.clearRect(...court);
   }
 
-  g.strokeStyle = '#ffffff'; g.lineWidth = 0.06 * PX;
-  const line = (x1, z1, x2, z2) => { g.beginPath(); g.moveTo(X(x1), Z(z1)); g.lineTo(X(x2), Z(z2)); g.stroke(); };
-  const arc = (x, z, r, from, to) => { g.beginPath(); g.arc(X(x), Z(z), r * PX, from, to); g.stroke(); };
-
-  g.strokeRect(...court);
-  line(0, -COURT.halfWidth, 0, COURT.halfWidth);
-  arc(0, 0, 1.8, 0, 2 * Math.PI);
-
+  // The lanes and the centre circle, stained in the home team's colour.
+  const L = COURT.halfLength, W = COURT.halfWidth;
+  g.globalAlpha = look.colour.laneShade; g.fillStyle = look.colour.lane;
+  for (const s of [1, -1]) g.fillRect(Math.min(X(s * L), X(s * (L - LANE.depth))), Z(-LANE.halfWidth), LANE.depth * PX, 2 * LANE.halfWidth * PX);
+  g.beginPath(); g.arc(X(0), Z(0), LANE.centre * PX, 0, 2 * Math.PI); g.fill();
+  g.globalAlpha = 1;
+  // The city along the run-off behind each baseline, read from the court; the arena's name along each sideline's.
+  const words = (text, x, z, turn, high) => {
+    g.save(); g.translate(X(x), Z(z)); g.rotate(turn);
+    g.font = `italic 900 ${Math.round(high * PX)}px "Arial Narrow", Arial, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = look.colour.lane; g.globalAlpha = 0.85; g.fillText(text, 0, 0, 12 * PX); g.restore();
+  };
+  const runEnd = (FLOOR.length / 2 + L) / 2, runSide = (FLOOR.width / 2 + W) / 2;
   for (const s of [1, -1]) {
-    // Three-point line: an arc around the rim, straight in the corners.
-    const reach = Math.asin(THREE_PT.cornerZ / THREE_PT.radius);
-    const mid = s === 1 ? Math.PI : 0;                 // the arc bulges toward centre court
-    arc(s * RIM.x, 0, THREE_PT.radius, mid - reach, mid + reach);
-    const cornerX = s * (RIM.x - Math.sqrt(THREE_PT.radius ** 2 - THREE_PT.cornerZ ** 2));
-    for (const z of [-THREE_PT.cornerZ, THREE_PT.cornerZ]) line(s * COURT.halfLength, z, cornerX, z);
-    // Key and free-throw circle.
-    const keyX = s * (COURT.halfLength - 5.8);
-    g.strokeRect(Math.min(X(keyX), X(s * COURT.halfLength)), Z(-2.45), 5.8 * PX, 4.9 * PX);
-    arc(keyX, 0, 1.8, 0, 2 * Math.PI);
+    words(look.city, s * runEnd, 0, s * Math.PI / 2, 1.0);
+    words(look.name, 0, s * runSide, 0, 0.9);
   }
+  g.globalAlpha = 1;
+
+  // The lines and blocks of an NBA floor (see markings.js), in white.
+  g.strokeStyle = g.fillStyle = '#ffffff'; g.lineWidth = MARKS.line * PX;
+  for (const mark of courtMarks()) {
+    g.beginPath();
+    if (mark.kind === 'block') {
+      const [[x1, z1], [x2, z2]] = [mark.from, mark.to];
+      g.fillRect(Math.min(X(x1), X(x2)), Math.min(Z(z1), Z(z2)), Math.abs(X(x2) - X(x1)), Math.abs(Z(z2) - Z(z1)));
+      continue;
+    }
+    g.setLineDash(mark.dashed ? [MARKS.dash * PX, MARKS.dash * PX] : []);
+    if (mark.kind === 'line') { g.moveTo(X(mark.from[0]), Z(mark.from[1])); g.lineTo(X(mark.to[0]), Z(mark.to[1])); }
+    else g.arc(X(mark.at[0]), Z(mark.at[1]), mark.r * PX, mark.from, mark.to);
+    g.stroke();
+  }
+  g.setLineDash([]);
+  // The home team's mark at centre court, over the lines, inside the circle.
+  drawLogo(g, look.team, X(0), Z(0), 2 * (LANE.centre - 0.25) * PX);
   const texture = new THREE.CanvasTexture(c);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
@@ -90,17 +110,19 @@ function shrunk(picture, size) {
   return copy;
 }
 
-// The hall's floor, added to `scene`: scanned wood under the court's paint. Resolves to { setQuality(level) }, which
-// gives the wood the pictures of a quality level (one of QUALITY.order). If the wood's pictures cannot be loaded the
-// floor is the painted one the game had before, and the game plays on.
-export async function createFloor(scene) {
+// The hall's floor, added to `scene`: scanned wood under the court's paint, dressed for the home arena (`look`, see
+// arenas.js). Resolves to { setQuality(level), dress(look) }: the wood's pictures for a quality level (one of
+// QUALITY.order), and the paint of another arena. If the wood's pictures cannot be loaded the floor is the painted one
+// the game had before, and the game plays on.
+export async function createFloor(scene, look) {
   let pictures;
   try {
     pictures = await Promise.all([wood(FLOOR_FILES.colour, true), wood(FLOOR_FILES.bumps), wood(FLOOR_FILES.gloss)]);
   } catch (error) {
     console.warn('The floor\'s wood could not be loaded; using the painted floor.', error);
-    scene.add(sheet(new THREE.MeshStandardMaterial({ map: paintCourt(true), roughness: 0.55 })));
-    return { setQuality: () => null };
+    const painted = new THREE.MeshStandardMaterial({ map: paintCourt(true, look), roughness: 0.55 });
+    scene.add(sheet(painted));
+    return { setQuality: () => null, dress: to => { painted.map.dispose(); painted.map = paintCourt(true, to); painted.needsUpdate = true; } };
   }
   // Each picture at each size a level asks for: the full ones as they came, the smaller ones made here.
   const sizes = new Map([[FLOOR.full, pictures]]);
@@ -109,11 +131,13 @@ export async function createFloor(scene) {
     if (!sizes.has(size)) sizes.set(size, pictures.map(picture => shrunk(picture, size)));
   }
   const planks = new THREE.MeshStandardNodeMaterial({ color: new THREE.Color(...FLOOR.tone), roughness: 1, metalness: 0 });
-  const paint = new THREE.MeshStandardMaterial({ map: paintCourt(false), transparent: true, depthWrite: false, roughness: FLOOR.paintGloss });
+  const paint = new THREE.MeshStandardMaterial({ map: paintCourt(false, look), transparent: true, depthWrite: false, roughness: FLOOR.paintGloss });
   const boards = sheet(planks);
   scene.add(boards, sheet(paint, FLOOR.lift));
   let mirror = null, smear = null;   // the floor's reflection of the game, on the levels that have one, and its blur
   return {
+    // The court's paint for the arena `to`.
+    dress(to) { paint.map.dispose(); paint.map = paintCourt(false, to); paint.needsUpdate = true; },
     // The wood's pictures and the mirror of a level. Returns the words for what could not be done here, or null.
     setQuality(level) {
       [planks.map, planks.normalMap, planks.roughnessMap] = sizes.get(QUALITY[level].floor);

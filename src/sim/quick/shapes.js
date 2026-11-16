@@ -52,7 +52,7 @@ export const QUICK = f({
   block: f({ rim: 0.112, close: 0.066, mid: 0.018, corner3: 0.007, arc3: 0.007 }),
   // Shooting fouls, by zone: the share of shots on which a defender's contact is there to be called (the style's
   // chances then decide: foul.drive for a finish, foul.shooting for any shot).
-  contact: f({ drive: f({ rim: 0.37, close: 0.18 }), post: 0.1, air: f({ rim: 0.08, close: 0.05, mid: 0.025, corner3: 0.012, arc3: 0.012 }) }),
+  contact: f({ drive: f({ rim: 0.28, close: 0.15 }), post: 0.13, air: f({ rim: 0.11, close: 0.05, mid: 0.025, corner3: 0.012, arc3: 0.012 }) }),
   // A beat's chance of losing the ball, before the handler's handle, his IQ and the defence: a bad pass, a strip on a
   // drive, a fumble. And the share of those that are steals.
   turnover: f({ pass: 0.088, drive: 0.112, hold: 0.04, stolen: 0.55 }),
@@ -60,7 +60,7 @@ export const QUICK = f({
   reach: 0.043, looseBall: 0.02,
   // The share of baskets assisted, by how the scorer got the ball: off a catch he shot, a pass that put him at the rim,
   // a drive or post move of his own after a catch.
-  assist: f({ catch: 0.78, feed: 0.78, drive: 0.3, post: 0.25 }),
+  assist: f({ catch: 0.81, feed: 0.81, drive: 0.32, post: 0.25 }),
   // How a possession's seconds are spent, for tiredness: sprinting, running, standing (the 3D game's own shares).
   effort: f({ sprint: 0.29, run: 0.49, rest: 0.22 }),
 });

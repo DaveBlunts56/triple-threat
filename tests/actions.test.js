@@ -7,7 +7,7 @@ import {
 } from '../src/sim/players.js';
 import { stepBall } from '../src/sim/ball.js';
 import { step } from '../src/sim/step.js';
-import { DT, RIM, PLAYER, BALL, BLOCK, SHOT, STEAL } from '../src/sim/tuning.js';
+import { DT, RIM, PLAYER, BALL, BLOCK, SHOT, STEAL, THREE_PT } from '../src/sim/tuning.js';
 import { plain } from './helpers.js';
 
 // Team 0 near the +x hoop, team 1 parked far away at the other end. Player 0 has the ball.
@@ -27,12 +27,13 @@ function tick(s, its) { movePlayers(s, its, DT); applyActions(s, its, DT); carry
 const atBest = p => Object.assign(p, { y: 0.24, vy: 0.4, shotT: SHOT_BEST, shooting: true });
 
 test('isThree: arc and corners', () => {
-  assert.equal(isThree(RIM.x - 6.7, 0, 1), false);
-  assert.equal(isThree(RIM.x - 6.8, 0, 1), true);
-  assert.equal(isThree(13, 6.7, 1), true);
-  assert.equal(isThree(13, 6.5, 1), false);
-  assert.equal(isThree(-RIM.x + 6.8, 0, -1), true);
-  assert.equal(isThree(-RIM.x + 6.7, 0, -1), false);
+  const R = THREE_PT.radius, Z = THREE_PT.cornerZ;
+  assert.equal(isThree(RIM.x - (R - 0.05), 0, 1), false);
+  assert.equal(isThree(RIM.x - (R + 0.05), 0, 1), true);
+  assert.equal(isThree(13, Z + 0.1, 1), true);
+  assert.equal(isThree(13, Z - 0.1, 1), false);
+  assert.equal(isThree(-RIM.x + (R + 0.05), 0, -1), true);
+  assert.equal(isThree(-RIM.x + (R - 0.05), 0, -1), false);
 });
 
 test('makeChance falls with distance', () => {
@@ -64,7 +65,7 @@ test('makeChance falls when a defender is close, more if airborne', () => {
 
 test('releaseShot launches a 3 from behind the arc', () => {
   const s = setup(), p = atBest(s.players[0]);
-  p.x = RIM.x - 7;
+  p.x = RIM.x - (THREE_PT.radius + 0.25);
   releaseShot(s, p);
   assert.equal(s.ball.mode, 'shot');
   assert.equal(s.ball.shotValue, 3);
@@ -334,6 +335,7 @@ test('a defender right in front cannot snatch a pass the instant it leaves the h
 
 test('a sprinting player who goes up for a shot does not fly on at full speed', () => {
   const s = setup();
+  s.players[0].x = RIM.x - 4.425;   // where he stood on the court this was written for, out from the rim
   for (let i = 0; i < 30; i++) tick(s, intents(0, { moveX: 1, sprint: true }));
   const x = s.players[0].x;
   // From the press until he is back on the floor (he lands still holding the ball, which no longer releases it).

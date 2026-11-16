@@ -97,7 +97,8 @@ export function setLength(state, minutes) {
 // The two sides of a match, as team data: each given as its place in TEAMS or as a team of its own (a test's).
 const sidesOf = teams => teams.map(t => (typeof t === 'number' ? TEAMS[t] : t));
 
-// A match of `size` a side: 3 or 5. Any other size is 3. `teams`: which teams play, the home side first.
+// A match of `size` a side: 3 or 5. Any other size is 3. `teams`: which teams play, the one a person plays first.
+// Which of them is at home is the match's `home` (the first, unless it is set).
 export function createMatch(seed = 1, size = 3, teams = [0, 1]) {
   if (size !== 5) size = 3;
   const state = {
@@ -140,6 +141,7 @@ export function createMatch(seed = 1, size = 3, teams = [0, 1]) {
     plays: [null, null],      // the play each team is running (see plays.js), or null
     coach: [null, null],      // each team's coach (see coach.js), made when first asked for
     humans: [0],              // the teams a person plays: [0] in Play, [] in a match with nobody playing
+    home: 0,                  // the team at home (0 or 1): its arena and its crowd. It changes nothing in the play.
     ato: null,                // the team that has just called a timeout with the ball: its coach calls what has worked
     playCall: [null, null],   // the play asked for and not yet started, by its key
     playWait: [0, 0],         // seconds until each team's coach may call another

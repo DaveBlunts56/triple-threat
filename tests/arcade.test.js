@@ -27,12 +27,15 @@ test('the shot model gives the numbers it gave', () => {
 
 // ---------- Arcade stays Arcade: its play within its measured baseline (plan Task 3.8) ----------
 
-import { playHeadless, summarise } from '../tools/sim/measure.mjs';
+import { summarise } from '../tools/sim/measure.mjs';
+import { watchBatches } from './watch.js';
 
-test('Arcade stays Arcade: points, points per possession, seconds a possession within 10% of the baseline, and no more gliding', () => {
-  const baseline = fixture('arcade-baseline.json');
+test('Arcade stays Arcade: points, points per possession, seconds a possession within 10% of the baseline, and no more gliding', async () => {
+  const baseline = fixture('arcade-baseline.json'), seeds = Array.from({ length: 10 }, (_, i) => i + 1);
+  // The matches as the baseline played them (no setup: see watch.js), in worker threads.
+  const played = { 3: watchBatches(seeds, { size: 3, minutes: 3, style: 'arcade' }, 3), 5: watchBatches(seeds, { size: 5, minutes: 3, style: 'arcade' }, 3) };
   for (const [size, key] of [[3, 'three3'], [5, 'five3']]) {
-    const records = Array.from({ length: 10 }, (_, i) => playHeadless({ seed: i + 1, size, minutes: 3 }));
+    const records = await played[size];
     const now = summarise(records), was = baseline[key].table;
     // pppTool: points per possession as this tool counted them in Stage 0 (the game now counts its own; see possessions.js).
     for (const [stat, washKey] of [['pts', 'pts'], ['pppTool', 'ppp'], ['secs', 'secs']]) {

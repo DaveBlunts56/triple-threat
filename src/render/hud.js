@@ -145,6 +145,7 @@ export function menuText(menu, row, quality, camera = '2k', prefs = DEFAULT_PREF
   }
   if (choice === 'autoSubs') return `Automatic substitutions: ${menu.autoSubs ? 'On' : 'Off'}`;
   if (choice === 'mode') return MODE_WORDS[menu.size];
+  if (choice === 'home') return `Home: ${ROSTER.teams[menu.home].split(' ').pop()}`;
   return MENU_WORDS[choice];
 }
 
@@ -479,7 +480,7 @@ export function createHud(doc) {
       const ft = state.phase === 'freeThrow' ? state.freeThrow : null;
       hide('ftBox', !ft);
       if (ft) {
-        const aiming = ft.stage === 'aim' && state.players[ft.shooter].team === 0;
+        const aiming = ft.stage === 'aim' && state.players[ft.shooter].team === 0 && styled(state, 'shot.meter');   // no aim bar without a meter
         set('ftText', `Free throw ${Math.min(ft.total, ft.total - ft.left + 1)} of ${ft.total}`);
         hide('ftBar', !aiming);
         if (aiming) style('ftMarker', 'left', `${Math.round(ft.meter * 100)}%`);
