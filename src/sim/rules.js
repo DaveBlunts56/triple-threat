@@ -11,6 +11,7 @@ import { judgeContacts, recordFoul } from './fouls.js';
 import { ownMen } from './matchups.js';
 import { styled } from './styles.js';
 import { beginPossession, endPossession, handOver } from './possessions.js';
+import { adjust } from './coach.js';
 
 const OUTSIDE = 0.5;        // how far behind the line an inbounder stands
 const BOARD_CLEAR = 1.5;    // baseline inbounds keep this far from the middle, clear of the backboard
@@ -39,6 +40,7 @@ const makeCall = (kind, team, extra = {}) => ({ kind, team, ball: 1 - team, numb
 // If the period clock has run out, the period ends instead of restarting, once any free throws are shot.
 function stopPlay(state, possession, spot, call = null) {
   deadBall(state);
+  adjust(state, 0); adjust(state, 1);   // each coach looks at his defence at the whistle
   state.board = false;   // nothing to rebound once play has stopped
   state.call = call;
   if (possession !== state.possession) state.shotClock = CLOCK.shot;
@@ -83,6 +85,7 @@ function endPeriod(state) {
 function setupInbound(state) {
   const { ball, inboundSpot: spot } = state;
   const d = p => Math.hypot(p.x - spot.x, p.z - spot.z);
+  ownMen(state);   // matched afresh, now that the substitutions of the stoppage are made
   const inbounder = state.players.filter(p => p.team === state.possession).reduce((a, b) => (d(b) < d(a) ? b : a));
   for (const p of state.players) { p.inbounder = false; p.shooting = false; p.finish = null; p.held = false; p.steps = 0; }
   Object.assign(inbounder, {
@@ -119,6 +122,7 @@ const jumpers = state => state.players.filter(p => isJumper(state, p));
 // The opening jump ball: a jumper from each team either side of the centre spot, the ball held above it, and the
 // rest round the circle.
 function setupTip(state) {
+  ownMen(state);
   for (const p of state.players) {
     const [back, z] = TIP.around[state.size][p.slot] ?? [TIP.gap, 0], x = -attackSign(p.team) * back;
     Object.assign(p, { x, z, facing: Math.atan2(-z, -x) });   // everyone faces the ball

@@ -11,6 +11,7 @@ import { situation } from './late.js';
 import { offBallSpot, passed } from './offball.js';
 import { KINDS } from './moves.js';
 import { styled } from './styles.js';
+import { gambleOf, tightness } from './coach.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const nearestTo = (list, point) => list.reduce((a, b) => (dist(b, point) < dist(a, point) ? b : a));
@@ -283,15 +284,6 @@ function planOffBall(state, p) {
   }
 }
 
-// How the computer's team stands off you for what you have scored with: tighter on a team making threes, and off
-// the ball looser on one scoring inside. Only team 1 adapts, by as much as the level says.
-function adapted(state, p, hasBall) {
-  const [twos, threes] = state.made[0], made = twos + threes, { adapt } = levelOf(state);
-  if (p.team !== 1 || made < AI.adaptAfter) return 1;
-  const share = threes / made;
-  return share >= 0.45 ? 1 - 0.3 * adapt : share <= 0.2 && !hasBall ? 1 + 0.35 * adapt : 1;
-}
-
 // Whether `p` should leave his man to help: the ball handler, who is not his man, has a clear lane and is near the
 // hoop, and of the defenders off the ball `p` is the nearest to the hoop. Once he has come he stays a moment.
 function helps(state, p, man, hoop) {
@@ -325,7 +317,7 @@ function planDefence(state, p) {
   const three = rated(state, man, 'three');
   const usual = hasBall ? Math.min(Math.max(AI.onBallGap * drop(three, AI.shooterGap) * lift(rated(state, man, 'speed'), AI.quickGap), AI.gapRange[0]), AI.gapRange[1])
     : AI.offBallGap * drop(three, AI.offShooterGap);
-  const gap = (hasBall && sit.press ? LATE.pressGap : usual) * adapted(state, p, hasBall);
+  const gap = (hasBall && sit.press ? LATE.pressGap : usual) * tightness(state, p.team, hasBall);   // as his coach has adjusted it
   const d = dist(hoop, man) || 1;
   let guard = { x: man.x + ((hoop.x - man.x) / d) * gap, z: man.z + ((hoop.z - man.z) / d) * gap };
   // No full-court press: while their man is still up the court, wait for him on the pick-up line, between him and the
@@ -362,7 +354,7 @@ function planDefence(state, p) {
   // A gather does not draw him off the floor: he goes up when his man does.
   if (shotJump(man) && dist(p, man) < AI.contestDist) ai.action = 'jump';
   else if (sit.foul && state.phase === 'live' && holder && holder.team !== p.team && !holder.inbounder && dist(p, holder) <= STEAL.reach) ai.action = 'foul';
-  else if (hasBall && !man.inbounder && p.stealCooldown <= 0 && dist(p, man) <= STEAL.reach && rand(state) < styled(state, 'ai.stealRate') * (p.team === 1 ? levelOf(state).steal : 1)) ai.action = 'steal';
+  else if (hasBall && !man.inbounder && p.stealCooldown <= 0 && dist(p, man) <= STEAL.reach && rand(state) < styled(state, 'ai.stealRate') * (p.team === 1 ? levelOf(state).steal : 1) * gambleOf(state, p, personOf(state, p))) ai.action = 'steal';
 }
 
 function plan(state, p) {

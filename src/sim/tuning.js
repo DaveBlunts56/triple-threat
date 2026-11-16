@@ -240,6 +240,12 @@ export const nextDifficulty = level => DIFFICULTY.order[(DIFFICULTY.order.indexO
 // defender who has just swapped men swaps with nobody.
 export const MATCHUP = f({ lost: 2, save: 6, wait: 2 });
 
+// The coaches' defensive schemes (see coach.js and the DEFENCES in teams.js). switchReach: on a switching team, the
+// screener's defender takes the man when he is this near him. dropAt: metres in front of the rim a dropping big sits.
+// changeEvery: possessions a coach lets pass between two changes of scheme. beaten: points per possession by which
+// the other team's pick-and-roll must beat its own average, over at least `seen` of them, for him to change.
+export const SCHEME = f({ switchReach: 2.5, dropAt: 3.5, changeEvery: 8, beaten: 0.25, seen: 5 });
+
 export const VIOLATION = f({ backcourt: 8, key: 3, inbound: 5, keyHalfWidth: 2.45, keyDepth: 5.8 });
 
 export const FOUL = f({

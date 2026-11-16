@@ -93,3 +93,61 @@ test('both coaches call timeouts in a match nobody plays, and team 0\'s coach ne
   step(play, idle(10), DT);
   assert.notEqual(play.call?.kind, 'timeout', 'your timeouts are yours to call');
 });
+
+// ---------- the defence (plan Task 3.3) ----------
+
+import { matchFor, schemeOf, screenSwitches } from '../src/sim/matchups.js';
+import { tightness, adjust } from '../src/sim/coach.js';
+import { callTimeout } from '../src/sim/rules.js';
+import { substitute } from '../src/sim/roster.js';
+
+const guarding = (s, team, name) => {
+  const men = matchFor(s, team), defenders = s.players.filter(p => p.team === team);
+  const d = defenders.find((p, i) => s.rosters[1 - team][s.players[men[i]].person].name === name);
+  return s.rosters[team][d.person].name;
+};
+
+test('the best defender who can stay with him guards the other team\'s main threat', () => {
+  const s = scene();
+  assert.equal(guarding(s, 1, 'Jalen Cross'), 'Luca Reyes');
+  assert.equal(guarding(s, 0, 'Kai Mercer'), 'Jalen Cross');
+  substitute(s, s.players.find(p => p.team === 0 && p.slot === 1).id, 6);   // Noah Vance, the lockdown wing, comes on
+  assert.equal(guarding(s, 0, 'Kai Mercer'), 'Noah Vance');
+  const men = matchFor(s, 0);
+  assert.equal(new Set(men).size, 5, 'one man each');
+});
+
+test('a switching team swaps men when a screen is set, though nobody is being lost', () => {
+  const s = scene([0, 1]);
+  assert.equal(schemeOf(s, 0).screen, 'switch');
+  // Team 1 attacks: its player 6 stands set; defender 0 runs into him with his own man (5) still close, and defender 1,
+  // who guards player 6, is near player 5.
+  giveBall(s, s.players[9]); at(s, 9, -3, 6);
+  for (const [id, man] of [[0, 5], [1, 6]]) s.players[id].man = man;
+  at(s, 6, -6, 0); s.players[6].setT = 1;
+  at(s, 0, -5.5, 0); at(s, 5, -6.5, 1.2); at(s, 1, -7, 1.6);
+  screenSwitches(s, [[0, 6]], DT);
+  assert.deepEqual([s.players[0].man, s.players[1].man], [6, 5]);
+});
+
+test('a team being beaten by the pick-and-roll changes its scheme at the next stoppage', () => {
+  const s = scene([0, 1]);
+  for (const p of s.players) p.x = -p.x;
+  giveBall(s, s.players[5]);
+  Object.assign(coachOf(s, 1).memory, { pickRoll: [16, 7], none: [10, 12] });
+  s.possessions = [19, 19];
+  assert.equal(schemeOf(s, 0).screen, 'switch');
+  callTimeout(s, 1);
+  assert.equal(schemeOf(s, 0).screen, 'over', 'it changed at the whistle');
+  adjust(s, 0);
+  assert.equal(schemeOf(s, 0).screen, 'over', 'and not again at once');
+});
+
+test('tighter on shooters once threes are falling, for whichever team is shooting them, if its coach adapts', () => {
+  const s = scene();
+  s.made = [[1, 4], [1, 4]];
+  assert.ok(tightness(s, 0, true) < 1 && tightness(s, 1, true) < 1, 'both coaches adapt in a match nobody plays');
+  s.humans = [0];
+  assert.equal(tightness(s, 0, true), 1, 'your team-mates do as they did');
+  assert.ok(tightness(s, 1, true) < 1);
+});

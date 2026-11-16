@@ -6,6 +6,7 @@ import { carryBall, giveBall, launchShot } from './players.js';
 import { shotFactor } from './stamina.js';
 import { styled } from './styles.js';
 import { freeThrowChance } from './shooting.js';
+import { ownMen } from './matchups.js';
 
 export const newFreeThrow = (shooter, shots) =>
   ({ shooter, left: shots, total: shots, stage: 'aim', meter: 0, dir: 1, t: 0, armed: false, live: false });
@@ -24,6 +25,7 @@ function handBall(state) {
 
 // shortcut: players are placed on their spots directly, as inbounders are; walk them there after the 5v5 option
 export function setupFreeThrow(state) {
+  ownMen(state);   // matched afresh, now that the substitutions of the stoppage are made
   const shooter = state.players[state.freeThrow.shooter];
   const sign = attackSign(shooter.team), hoop = rimCentre(sign);
   const place = (p, [fromBaseline, z]) => Object.assign(p, {

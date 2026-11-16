@@ -9,6 +9,7 @@ import { manOf, guardOf, screenSwitches } from '../src/sim/matchups.js';
 import { aiIntents } from '../src/sim/ai.js';
 import { newFreeThrow, setupFreeThrow } from '../src/sim/freethrow.js';
 import { DT, MATCHUP } from '../src/sim/tuning.js';
+import { coachOf } from '../src/sim/coach.js';
 import { live, at, ai, idle, run } from './helpers.js';
 
 const apart = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -69,9 +70,11 @@ test('the defence guards by the matchup: a defender whose man was changed goes t
 const men = s => s.players.map(p => p.man);
 
 // Five a side in live play, team 1 with the ball (player 9, away from the rest). Defender 0 has run into attacker 6,
-// who stands set; defender 0's own man, player 5, is four metres off, and defender 1 is a metre from that man.
+// who stands set; defender 0's own man, player 5, is four metres off, and defender 1 is a metre from that man. Team 0
+// fights over screens, the game's own way (a switching team's way is in tests/schemes.test.js).
 function screened() {
   const s = live(1, 5);
+  coachOf(s, 0).scheme.screen = 'over';
   giveBall(s, s.players[9]);
   at(s, 9, -3, 6);
   at(s, 6, -6, 0); s.players[6].setT = 1;

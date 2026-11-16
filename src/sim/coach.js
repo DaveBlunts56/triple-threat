@@ -5,7 +5,7 @@
 //
 // A coach's memory: for each kind of possession (a play's key, 'transition' for one over in under 8 s with no play,
 // 'none' otherwise), the points it scored and how many there were. possessions.js writes it as each possession ends.
-import { DIFFICULTY, levelOf } from './tuning.js';
+import { AI, DIFFICULTY, SCHEME, levelOf } from './tuning.js';
 import { COACHES, DEFENCES, PLAYBOOKS } from './teams.js';
 import { styled } from './styles.js';
 import { rated } from './ratings.js';
@@ -79,6 +79,48 @@ export function lastShot(state) {
   if (game <= shot + 0.5) return 'hold';
   if (game <= shot + 16 && game > shot + 4) return '2for1';
   return null;
+}
+
+// ---------- the defence ----------
+
+// The plays that put the ball in a pick-and-roll, for the coach watching his defence against them.
+const PICKS = Object.freeze(['pickRoll', 'pickPop', 'spain', 'horns']);
+// What a coach changes his screen scheme to when the pick-and-roll is beating it.
+const NEXT_SCREEN = Object.freeze({ drop: 'switch', switch: 'over', over: 'switch' });
+
+// At a stoppage, `team`'s coach looks at how his defence is doing and changes what is not working: when the other
+// team's pick-and-roll has scored well above its own average since he last changed, over at least SCHEME.seen of them,
+// he changes how his men play the screen (and gives the change SCHEME.changeEvery possessions before another). The
+// more he adapts, the smaller the gap he acts on.
+export function adjust(state, team) {
+  const adapt = adaptOf(state, team);
+  if (!adapt) return;
+  const c = coachOf(state, team), theirs = coachOf(state, 1 - team).memory;
+  const seen = state.possessions[1 - team];
+  if (seen - c.changed < SCHEME.changeEvery) return;
+  let points = 0, count = 0;
+  for (const kind of PICKS) if (theirs[kind]) { points += theirs[kind][0]; count += theirs[kind][1]; }
+  const [was, wasCount] = c.picksAt ?? [0, 0];
+  points -= was; count -= wasCount;
+  if (count < SCHEME.seen || points / count - pppOf(theirs) <= SCHEME.beaten / adapt) return;
+  c.scheme.screen = NEXT_SCREEN[c.scheme.screen] ?? 'switch';
+  c.changed = seen; c.picksAt = [was + points, wasCount + count];
+}
+
+// How `team`'s men stand off theirs for what the other team has scored with: tighter on a team making threes, and off
+// the ball looser on one scoring inside, as far as the coach adapts, once the other team has made AI.adaptAfter
+// baskets. 1 is no change. (In Play this was the computer's team's alone; now it is any coach who adapts.)
+export function tightness(state, team, hasBall) {
+  const [twos, threes] = state.made[1 - team], made = twos + threes, adapt = adaptOf(state, team);
+  if (!adapt || made < AI.adaptAfter) return 1;
+  const share = threes / made;
+  return share >= 0.45 ? 1 - 0.3 * adapt : share <= 0.2 && !hasBall ? 1 + 0.35 * adapt : 1;
+}
+
+// A defence in foul trouble reaches less: the team at its last foul before the bonus, or the man himself one foul from
+// fouling out. What his reaching is multiplied by.
+export function gambleOf(state, player, person) {
+  return state.teamFouls[player.team] >= state.bonus - 1 || person.fouls >= state.foulLimit - 1 ? 0.6 : 1;
 }
 
 // Notes that `team` is running a play of `key`: what its possession will be remembered as.

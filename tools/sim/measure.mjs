@@ -133,6 +133,7 @@ export function summarise(records, { per48 = false } = {}) {
     const lens = r.lengths[team];
     rows.push({
       pts: line.pts * scale, poss: r.poss[team] * scale, possTool: r.possTool[team] * scale, ppp: line.pts / (r.poss[team] || 1),
+      pppTool: line.pts / (r.possTool[team] || 1),   // against the Stage 0 baseline, which this tool counted
       secs: mean(lens), fast: lens.filter(l => l < 8).length / (lens.length || 1),
       fga: line.fga * scale, fgPct: line.fgm / (line.fga || 1), tpa: line.tpa * scale, tpPct: line.tpm / (line.tpa || 1),
       fta: line.fta * scale, ftPct: line.ftm / (line.fta || 1), tov: line.tov * scale, oreb: r.oreb[team] * scale,

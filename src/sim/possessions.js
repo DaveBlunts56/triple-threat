@@ -18,7 +18,8 @@ export function handOver(state, team) {
     if (back.counted) { state.possessions[team]--; state.lengths[team][0] -= back.used; state.lengths[team][1]--; }
     state.owner = team; state.ownerClock = back.startClock; state.ownerQuarter = back.quarter; state.ownerScore = back.score;
     const c = state.coach?.[team];
-    if (back.counted && c) { const m = c.memory[back.kind]; m[0] -= back.points; m[1]--; c.kind = back.kind === 'none' || back.kind === 'transition' ? null : back.kind; }
+    if (back.remembered) { const m = c.memory[back.kind]; m[0] -= back.points; m[1]--; }
+    if (c && back.kind !== 'none' && back.kind !== 'transition') c.kind = back.kind;
     state.lastEnded = null;
     return;
   }
@@ -40,7 +41,8 @@ export function endPossession(state) {
   const counted = state.ownerClock > 0, points = state.score[team] - (state.ownerScore ?? state.score[team]);
   // What the possession was, for the coach's memory: the play it ran, or a quick one with none, or neither.
   const c = state.coach?.[team], kind = c?.kind ?? (used < 8 ? 'transition' : 'none');
-  state.lastEnded = { team, at: state.gameClock, quarter: state.quarter, startClock: state.ownerClock, used, counted, score: state.ownerScore, points, kind };
+  state.lastEnded = { team, at: state.gameClock, quarter: state.quarter, startClock: state.ownerClock, used, counted, score: state.ownerScore, points, kind,
+    remembered: counted && !!c };
   if (c) c.kind = null;
   if (!counted) return;
   state.possessions[team]++;
