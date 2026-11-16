@@ -1,4 +1,4 @@
-import { AI, BALL, CLOCK, COURT, DT, FINISH, FT, LATE, MOVES, PASS, PLAY, PLAYER, READ, SHOT, STEAL, THREE_PT, TIP, VIOLATION, LEVEL_IQ, SCHEME, levelOf } from './tuning.js';
+import { AI, BALL, CLOCK, COURT, DT, FINISH, FT, LATE, MOVES, PASS, PLAY, PLAYER, READ, SHOT, STEAL, THREE_PT, TIP, VIOLATION, LEVEL_IQ, SCHEME, RATE, levelOf } from './tuning.js';
 import { SHOT_BEST, SHOT_LANDS, gatherOf, isThree, shotBest, shotLands, zoneOf } from './players.js';
 import { canDunk, finishFor } from './finish.js';
 import { lift, drop, rated, starOf, heatOf } from './ratings.js';
@@ -12,6 +12,7 @@ import { offBallSpot, passed } from './offball.js';
 import { OFF } from './tuning.js';
 import { KINDS } from './moves.js';
 import { styled } from './styles.js';
+import { speedFactor } from './stamina.js';
 import { gambleOf, playbookOf, tightness } from './coach.js';
 import { choose } from './choose.js';
 import { contestShare, distanceChance, expectedShot, greenShare, levelFor, rangeShare, shotChance, skillOf, timingShare, windowHalf, zoneFor } from './shooting.js';
@@ -537,13 +538,25 @@ function plan(state, p) {
   else planDefence(state, p);
 }
 
+// Paced by his gaits (see the plan's glide meter): the share of his running speed he asks for to go `d` metres. Far
+// off he runs, at least GAIT.run; nearer he walks, between GAIT.walk[0] and [1], easing in as he arrives; never the
+// speeds between a walk and a run that no clip plays without the feet slipping.
+const GAIT = Object.freeze({ walk: Object.freeze([1.1, 2.0]), run: 3.3, runFrom: 3.5 });
+function gaitShare(state, p, d) {
+  const hasBall = state.ball.holder === p.id, person = personOf(state, p);
+  const top = PLAYER.run * speedFactor(person.energy) * lift(person.ratings.speed, RATE.speed) * (hasBall ? lift(person.ratings.handle, RATE.speed) * PLAYER.dribbleSpeed : 1);
+  const v = d > GAIT.runFrom ? Math.max(GAIT.run, top) : Math.min(GAIT.walk[1], Math.max(GAIT.walk[0], d * 0.8));
+  return Math.min(1, v / top);
+}
+
 // Turns the current plan into this step's intent.
 function act(state, p) {
   const { ai } = p, intent = emptyIntent();
   const dx = ai.targetX - p.x, dz = ai.targetZ - p.z, d = Math.hypot(dx, dz);
   if (d > AI.arrive) {
-    // He eases into a spot instead of stopping dead on it, but goes flat out for a ball that is there to be won.
-    const part = ai.chase ? 1 : Math.min(1, d / AI.slowDist);
+    // He eases into a spot instead of stopping dead on it, but goes flat out for a ball that is there to be won. Where
+    // the style paces him by his gaits, he moves only at speeds his legs can show: a walk, or a run.
+    const part = ai.chase ? 1 : styled(state, 'move.pacing') === 'gaits' ? (ai.sprint ? 1 : gaitShare(state, p, d)) : Math.min(1, d / AI.slowDist);
     intent.moveX = (dx / d) * part; intent.moveZ = (dz / d) * part; intent.sprint = ai.sprint;
   }
 

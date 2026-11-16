@@ -34,7 +34,7 @@ export function jump(player, speed = PLAYER.jumpV) {
 }
 
 // `pace`: what his top speed is multiplied by: his tiredness, his speed rating, and with the ball his handle.
-function moveOne(p, intent, dt, hasBall, pace, accel) {
+function moveOne(p, intent, dt, hasBall, pace, accel, brake = accel) {
   if (p.inbounder) { p.vx = p.vz = 0; return; }
 
   if (grounded(p)) {
@@ -52,7 +52,9 @@ function moveOne(p, intent, dt, hasBall, pace, accel) {
     const len = Math.hypot(moveX, moveZ);
     const scale = ((intent.sprint ? PLAYER.sprint : PLAYER.run) * (hasBall ? PLAYER.dribbleSpeed : 1) * pace) / Math.max(len, 1);
     const dvx = moveX * scale - p.vx, dvz = moveZ * scale - p.vz;
-    const dv = Math.hypot(dvx, dvz), step = accel * dt;
+    // Slowing down or turning back he plants a foot, which is quicker than getting going (where the style says so).
+    const slowing = brake > accel && dvx * p.vx + dvz * p.vz < 0;
+    const dv = Math.hypot(dvx, dvz), step = (slowing ? brake : accel) * dt;
     const k = dv <= step ? 1 : step / dv;
     if (!p.move) { p.vx += dvx * k; p.vz += dvz * k; }
   } else {
@@ -96,12 +98,12 @@ function clampToCourt(p) {
 
 // Moves everyone one step. Returns the pairs of player ids that ran into each other.
 export function movePlayers(state, intents, dt) {
-  const accel = styled(state, 'player.accel');
+  const accel = styled(state, 'player.accel'), brake = styled(state, 'player.brake');
   state.players.forEach((p, i) => {
     const hasBall = state.ball.holder === p.id;
     const pace = speedFactor(personOf(state, p).energy) * lift(rated(state, p, 'speed'), RATE.speed) * (hasBall ? lift(rated(state, p, 'handle'), RATE.speed) : 1);
     if (p.move) stepMove(state, p, dt);
-    moveOne(p, intents[i], dt, hasBall, pace, accel);
+    moveOne(p, intents[i], dt, hasBall, pace, accel, brake);
     finishMove(state, p);
     p.moveWait = Math.max(0, p.moveWait - dt); p.lateT = Math.max(0, p.lateT - dt); p.stumbleT = Math.max(0, p.stumbleT - dt);
     // Once he has picked up his dribble, every metre on the floor counts toward a travel, but not the slide of a gather.

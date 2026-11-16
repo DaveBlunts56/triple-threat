@@ -39,6 +39,8 @@ test('Arcade stays Arcade: points, points per possession, seconds a possession w
       const ratio = now[stat].mean / was[washKey].mean;
       assert.ok(Math.abs(ratio - 1) <= 0.1, `${size} a side, ${stat}: ${now[stat].mean.toFixed(3)} against ${was[washKey].mean.toFixed(3)}`);
     }
-    for (const g of ['glide20', 'glide35']) assert.ok(Math.abs(now[g].mean - was[g].mean) <= 0.015, `${size} a side, ${g}: ${now[g].mean.toFixed(3)} against ${was[g].mean.toFixed(3)}`);
+    // Glide against main's, measured the way the meter now measures (as the renderer draws each player).
+    const glide = baseline.glideRenderer[key];
+    for (const g of ['glide20', 'glide35']) assert.ok(Math.abs(now[g].mean - glide[g]) <= 0.015, `${size} a side, ${g}: ${now[g].mean.toFixed(3)} against ${glide[g]}`);
   }
 });

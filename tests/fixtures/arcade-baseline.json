@@ -449,5 +449,20 @@
    "superstar": 1.233,
    "legend": 1.445
   }
+ },
+ "glideRenderer": {
+  "recorded": "Stage 4 (2026-11-15): main's code (worktree of e355b45) measured with the glide meter judging each player by the renderer's own look (side-steps, back-step, stance)",
+  "three3": {
+   "glide20": 0.102,
+   "glide35": 0.055
+  },
+  "five3": {
+   "glide20": 0.109,
+   "glide35": 0.058
+  },
+  "five12": {
+   "glide20": 0.11,
+   "glide35": 0.059
+  }
  }
 }

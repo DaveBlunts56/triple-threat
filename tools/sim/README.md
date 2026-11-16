@@ -7,7 +7,7 @@
 - **Possession length,** and the share under 8 s.
 - **The shot mix:** at the rim (a finish, or within 1.5 m), close, mid-range, corner three, three above the break.
 - **What else happened:** the plays called, fouls by kind, substitutions, overtime.
-- **The glide meter:** the share of moving player-steps whose feet slip against the floor by more than 20% and 35%, and the share at the 2.3–3.0 m/s jog that no clip plays naturally.
+- **The glide meter:** the share of moving player-steps whose feet slip against the floor by more than 20% and 35%, and the share of steps at a steady 2.3–3.0 m/s jog (held for 0.4 s) that no clip plays naturally. Each player is judged by the leg motion the renderer would draw (its own `noteChanges`, `legLook` and `legMotion`), so a guarding defender's side-steps and back-step count as what they are.
 - **Microseconds per step.**
 
 ```bash

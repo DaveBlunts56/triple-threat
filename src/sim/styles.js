@@ -13,7 +13,7 @@ const f = Object.freeze;
 // that stays above 0), or 'word' (a choice, never scaled). Ranges ([low, high]) are scaled end by end.
 export const KINDS = f({
   'ai.patience': 'positive', 'play.startAt': 'positive', 'ai.contestDelay': 'positive', 'ai.stealRate': 'chance', 'ai.farAway': 'positive',
-  'player.accel': 'positive',
+  'player.accel': 'positive', 'player.brake': 'positive',
   'steal.front': 'chance', 'steal.back': 'chance', 'pass.intercept': 'positive',
   'foul.reachFront': 'chance', 'foul.reachBack': 'chance', 'foul.shooting': 'chance', 'foul.charge': 'chance', 'foul.block': 'chance',
   'stamina.sprint': 'positive', 'stamina.run': 'positive', 'stamina.jump': 'positive', 'stamina.rest': 'positive', 'stamina.bench': 'positive',
@@ -25,13 +25,13 @@ export const KINDS = f({
   'decide.possession': 'positive', 'decide.usage': 'positive', 'decide.diet': 'positive', 'decide.drive': 'positive',
   'decide.pass': 'positive', 'decide.floor': 'positive', 'decide.misread': 'chance', 'decide.foulDraw': 'positive', 'decide.stale': 'positive', 'decide.rhythm': 'positive',
   'decide.scout': 'positive', 'decide.watch': 'chance', 'decide.watchDelay': 'positive', 'decide.fly': 'chance', 'decide.spread': 'positive', 'react.iq': 'chance', 'decide.threes': 'positive',
-  'rules.overtimeShare': 'chance', 'rules.orebClock': 'positive', 'rules.lastTwo': 'word', 'form.sd': 'chance',
+  'rules.overtimeShare': 'chance', 'rules.orebClock': 'positive', 'rules.lastTwo': 'word', 'form.sd': 'chance', 'move.pacing': 'word',
 });
 
 // Arcade: the game as it was, read from tuning.js.
 const ARCADE = f({
   'ai.patience': AI.patience, 'play.startAt': PLAY.startAt, 'ai.contestDelay': AI.contestDelay, 'ai.stealRate': AI.stealRate, 'ai.farAway': AI.farAway,
-  'player.accel': PLAYER.accel,
+  'player.accel': PLAYER.accel, 'player.brake': PLAYER.accel,
   'steal.front': STEAL.frontChance, 'steal.back': STEAL.backChance, 'pass.intercept': PASS.interceptRadius,
   'foul.reachFront': FOUL.reachFront, 'foul.reachBack': FOUL.reachBack, 'foul.shooting': FOUL.shooting, 'foul.charge': FOUL.charge, 'foul.block': FOUL.block,
   'stamina.sprint': STAMINA.sprint, 'stamina.run': STAMINA.run, 'stamina.jump': STAMINA.jump, 'stamina.rest': STAMINA.rest, 'stamina.bench': STAMINA.bench,
@@ -43,13 +43,13 @@ const ARCADE = f({
   'decide.possession': 1.0, 'decide.usage': 0.5, 'decide.diet': 0.6, 'decide.drive': 0.2,
   'decide.pass': 0.15, 'decide.floor': 60, 'decide.misread': 0.25, 'decide.foulDraw': 0.15, 'decide.stale': 0.08, 'decide.rhythm': 0.15,
   'decide.scout': 0.5, 'decide.watch': 0.15, 'decide.watchDelay': 0.5, 'decide.fly': 0.5, 'decide.spread': 0.5, 'react.iq': 0, 'decide.threes': 0.6,
-  'rules.overtimeShare': 0, 'rules.orebClock': CLOCK.shot, 'rules.lastTwo': false, 'form.sd': 0,
+  'rules.overtimeShare': 0, 'rules.orebClock': CLOCK.shot, 'rules.lastTwo': false, 'form.sd': 0, 'move.pacing': 'free',
 });
 
 // Simulation: NBA-like. Its own numbers, written out (Stage 4 tunes them).
 const SIM = f({
-  'ai.patience': f([12, 19]), 'play.startAt': 6, 'ai.contestDelay': 0.05, 'ai.stealRate': 0.03, 'ai.farAway': 2,
-  'player.accel': 30,
+  'ai.patience': f([9, 15]), 'play.startAt': 5, 'ai.contestDelay': 0.05, 'ai.stealRate': 0.03, 'ai.farAway': 6,
+  'player.accel': 14, 'player.brake': 28,
   'steal.front': 0.25, 'steal.back': 0.08, 'pass.intercept': 0.4,
   'foul.reachFront': 0.12, 'foul.reachBack': 0.3, 'foul.shooting': 0.25, 'foul.charge': 0.6, 'foul.block': 0.15,
   'stamina.sprint': 0.025, 'stamina.run': 0.006, 'stamina.jump': 0.015, 'stamina.rest': 0.02, 'stamina.bench': 0.03,
@@ -62,7 +62,7 @@ const SIM = f({
   'decide.possession': 1.0, 'decide.usage': 0.5, 'decide.diet': 0.6, 'decide.drive': 0.2,
   'decide.pass': 0.15, 'decide.floor': 60, 'decide.misread': 0.25, 'decide.foulDraw': 0.15, 'decide.stale': 0.08, 'decide.rhythm': 0.15,
   'decide.scout': 0.5, 'decide.watch': 0.15, 'decide.watchDelay': 0.5, 'decide.fly': 0.5, 'decide.spread': 0.5, 'react.iq': 0, 'decide.threes': 0.6,
-  'rules.overtimeShare': 5 / 12, 'rules.orebClock': 14, 'rules.lastTwo': true, 'form.sd': 0.05,
+  'rules.overtimeShare': 5 / 12, 'rules.orebClock': 14, 'rules.lastTwo': true, 'form.sd': 0.05, 'move.pacing': 'gaits',
 });
 
 export const STYLES = f({ arcade: ARCADE, sim: SIM });

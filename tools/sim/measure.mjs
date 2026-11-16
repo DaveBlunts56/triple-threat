@@ -10,7 +10,7 @@ import { step } from '../../src/sim/step.js';
 import { aiIntents } from '../../src/sim/ai.js';
 import { DT, RIM, THREE_PT } from '../../src/sim/tuning.js';
 import { teamLine } from '../../src/sim/stats.js';
-import { legMotion } from '../../src/render/motion.js';
+import { legLook, legMotion, newMarks, noteChanges } from '../../src/render/motion.js';
 
 const GAITS = JSON.parse(readFileSync(new URL('../../assets/motion.json', import.meta.url))).gaits;
 const FOULS = ['reach', 'shooting', 'charge', 'block', 'looseBall', 'illegalScreen'];
@@ -25,9 +25,11 @@ export function zoneOfShot(x, z, sign, finish, three) {
 }
 
 // The glide meter: for one player on one step, the slip between the ground his feet cover (the leg motion's rate
-// times its gait's natural speed) and the ground he covers. Null when he is not moving on his feet at a rate.
-export function slipOf(player, last) {
-  const motion = legMotion(player, GAITS, last);
+// times its gait's natural speed) and the ground he covers. Null when he is not moving on his feet at a rate. With
+// the renderer's `look` (see playHeadless) the motion is the one the renderer would draw: a guarding defender's
+// side-steps, back-step and stance included.
+export function slipOf(player, last, look = null) {
+  const motion = legMotion(player, GAITS, last, look);
   const speed = Math.hypot(player.vx, player.vz);
   if (!('rate' in motion) || !GAITS[motion.clip] || speed < 0.3) return { clip: motion.clip, slip: null, speed };
   return { clip: motion.clip, slip: Math.abs(motion.rate * GAITS[motion.clip] - speed) / speed, speed };
@@ -49,7 +51,8 @@ export function playHeadless({ seed = 1, size = 5, minutes = 3, setup, observe, 
   rec.seconds = s.rosters.map(r => r.map(() => 0));
   let owner = null, startClock = 0, startQuarter = 1, lastShot = null, lastPlays = [null, null], lastCall = null;
   let lastShotTeam = null, people = s.players.map(p => p.person);
-  const lastClip = s.players.map(() => null);
+  const lastClip = s.players.map(() => null), marks = newMarks();
+  const lastSpeed = s.players.map(() => 0), steady = s.players.map(() => 0);   // for the gap between a walk and a run: seconds at a steady speed
   const rebs = () => s.rosters.map(r => r.map(p => p.stats.reb));
   let before = rebs();
   const endPossession = () => {
@@ -95,16 +98,20 @@ export function playHeadless({ seed = 1, size = 5, minutes = 3, setup, observe, 
     if (s.call && s.call !== lastCall && FOULS.includes(s.call.kind)) rec.fouls[s.call.kind] = (rec.fouls[s.call.kind] ?? 0) + 1;
     lastCall = s.call;
     s.players.forEach((p, i) => { if (p.person !== people[i]) { rec.subs[p.team]++; people[i] = p.person; } });
-    // The glide meter, in live play, for players on their feet.
+    // The glide meter, in live play, for players on their feet, as the renderer would draw them.
+    noteChanges(marks, s, DT);
     if (s.phase === 'live') s.players.forEach((p, i) => {
       if (p.y > 0) { lastClip[i] = 'jump'; return; }
-      const { clip, slip, speed } = slipOf(p, lastClip[i]);
+      const { clip, slip, speed } = slipOf(p, lastClip[i], legLook(s, p, marks));
       lastClip[i] = clip;
       if (slip === null) return;
       rec.glide.moving++;
       if (slip > 0.2) rec.glide.over20++;
       if (slip > 0.35) rec.glide.over35++;
-      if (speed > 2.3 && speed < 3.0) rec.glide.between++;
+      // Between a walk and a run, at a steady speed (not speeding up or slowing through it for 0.4 s).
+      steady[i] = Math.abs(speed - lastSpeed[i]) > 0.05 ? 0 : steady[i] + DT;
+      lastSpeed[i] = speed;
+      if (speed > 2.3 && speed < 3.0 && steady[i] >= 0.4) rec.glide.between++;
     });
     observe?.(s, rec);
   }
