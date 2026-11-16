@@ -644,15 +644,16 @@ test('the Game styles panel and a slider panel say their values, and a slider ro
   assert.match(e.menuHint.textContent, /← → move by 5/);
 });
 
-test('with no human there is no name under a player and no meter', () => {
+test('with no human there is no name under a player, no meter, no player box and no key line', () => {
   const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els;
   s.phase = 'live';
   const meter = { x: 0, z: 0, head: { x: 100, y: 100 }, band: [0.4, 0.6], fill: 0.5, frozen: null, green: false };
   hud.update(s, 'webgl2', { paused: false, pick: null, feet: { x: 10, y: 20 }, meter });
   assert.deepEqual([e.nameTag.hidden, e.shotMeter.hidden], [false, false]);
+  assert.deepEqual([e.whoBox.hidden, e.controls.hidden], [false, false]);
   s.humans = [];
   hud.update(s, 'webgl2', { paused: false, pick: null, feet: { x: 10, y: 20 }, meter });
-  assert.deepEqual([e.nameTag.hidden, e.shotMeter.hidden], [true, true]);
+  assert.deepEqual([e.nameTag.hidden, e.shotMeter.hidden, e.whoBox.hidden, e.controls.hidden], [true, true, true, true]);   // nor his box, nor the keys
 });
 
 test('the result screen shows what was played, the score by period, both full box scores and the team advanced stats', () => {

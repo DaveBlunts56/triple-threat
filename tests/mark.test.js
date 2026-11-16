@@ -54,3 +54,9 @@ test('shown in live play and at inbounds only', () => {
   for (const phase of ['start', 'jumpBall', 'dead', 'freeThrow', 'quarterEnd', 'final']) { s.phase = phase; assert.equal(matchupMark(s), null, phase); }
   for (const phase of ['live', 'inbound']) { s.phase = phase; assert.ok(matchupMark(s), phase); }
 });
+
+test('in a match nobody plays there is no mark: no player of yours, no man of his', async () => {
+  const { createMatch } = await import('../src/sim/state.js');
+  const s = createMatch(1); s.phase = 'live'; s.humans = [];
+  assert.equal(matchupMark(s), null);
+});

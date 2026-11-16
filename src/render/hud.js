@@ -74,9 +74,9 @@ const share = value => `${Math.round(value * 1000) / 10}%`;
 const MENU_WORDS = { play: 'Play', watch: 'Watch', simulate: 'Simulate', teams: 'Teams', controls: 'Controls', settings: 'Settings', keys: 'Keys',
   styles: 'Game styles ▸', arcadeSliders: 'Arcade sliders ▸', simSliders: 'Simulation sliders ▸', reset: 'Reset to 50' };
 const MODE_WORDS = { 3: 'Mode: 3 on 3', 5: 'Mode: 5 on 5' };
-const SLIDER_HINT = '↑ ↓ choose · ← → move by 5 · Enter on Reset · Esc back';
+const SLIDER_HINT = '← → move by 5 · Esc back';   // short, to fit the disc
 const MENU_HINTS = { main: '↑ ↓ choose · Enter select', settings: '↑ ↓ choose · Enter change · Esc back', teams: 'Esc back', controls: 'Esc back',
-  keys: '↑ ↓ choose · Enter change · Esc back', styles: '↑ ↓ choose · ← → or Enter change · Esc back', arcadeSliders: SLIDER_HINT, simSliders: SLIDER_HINT };
+  keys: '↑ ↓ choose · Enter change · Esc back', styles: '← → change · Enter open · Esc back', arcadeSliders: SLIDER_HINT, simSliders: SLIDER_HINT };
 const SLIDER_PANELS = { arcadeSliders: 'arcade', simSliders: 'sim' };
 const SLIDER_LABEL = Object.fromEntries(SLIDERS.map(sl => [sl.key, sl.label]));
 const LISTENING_HINT = 'Press the new key · Esc to leave it as it was';
@@ -171,7 +171,7 @@ export function pauseText(state, menu, row, quality, camera = '2k', prefs = DEFA
 
 export const BOX_HEAD = Object.freeze(['', 'MIN', 'PTS', 'FG', '3PT', 'FT', 'REB', 'AST', 'STL', 'BLK', 'TO', 'PF', '+/-']);
 // Seconds on the court as minutes and seconds: '9:05'.
-const clockOf = secs => `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
+const clockOf = secs => { const whole = Math.round(secs); return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`; };   // to the nearest second: a team's 240 minutes are 240:00
 const signed = n => (n > 0 ? `+${n}` : String(n));
 const boxCells = (name, secs, s, fouls, pm) => [name, clockOf(secs), String(s.pts), `${s.fgm}/${s.fga}`, `${s.tpm}/${s.tpa}`, `${s.ftm}/${s.fta}`, String(s.reb), String(s.ast),
   String(s.stl), String(s.blk), String(s.tov), String(fouls), pm];
@@ -287,9 +287,11 @@ export function createHud(doc) {
       }
       classed('hud', bug.shines ? (bug.shines % 2 ? 'shineA' : 'shineB') : '');
       classed('shotClock', live && state.shotClock <= SHOT_LOW ? 'low' : '');
-      set('who', whoText(state));
-      // His surname under the player you control, at the place on the page the game says his feet are.
-      const human = (state.humans ?? [0]).includes(0);   // with nobody playing there is nobody's name, and no meter
+      // The player you control: his line and energy by the scorebug, and his surname under him, at the place on the page
+      // the game says his feet are. With nobody playing there is nobody's box, name, meter or keys to show.
+      const human = (state.humans ?? [0]).includes(0);
+      hide('whoBox', !human);
+      if (human) { set('who', whoText(state)); bar('energy', personOf(state, state.players[state.controlled]).energy); }
       hide('nameTag', !ui.feet || !human);
       if (ui.feet && human) {
         set('nameTag', surname(personOf(state, state.players[state.controlled])));
@@ -307,7 +309,6 @@ export function createHud(doc) {
         style(`tag${i}`, 'left', pixels(at.x));
         style(`tag${i}`, 'top', pixels(at.y));
       }
-      bar('energy', personOf(state, state.players[state.controlled]).energy);
       set('quarter', periodLabel(state.quarter));
       set('gameClock', clockText(state.gameClock));
       set('shotClock', String(Math.ceil(state.shotClock)));
@@ -394,6 +395,7 @@ export function createHud(doc) {
         set(`ctlK${i}`, label); set(`ctlW${i}`, words); set(`pctlK${i}`, label); set(`pctlW${i}`, words);
       });
       set('controls', hintLine(keys));
+      hide('controls', !human);
 
       // The broadcast (`ui.show`, see broadcast/director.js): a banner for a big moment, a small card and the
       // commentator's caption above the scorebug, and the panels before the tip and between periods.

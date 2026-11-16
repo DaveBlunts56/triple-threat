@@ -118,6 +118,7 @@ export function createActors(scene, people = null) {
       } else ball.position.set(state.ball.x, state.ball.y, state.ball.z);
       const me = state.players[state.controlled];
       ring.position.set(me.x, 0.02, me.z);
+      ring.visible = (state.humans ?? [0]).includes(0);   // the ring under the player you control: none in Watch
       const mark = matchupMark(state);
       manRing.visible = mark !== null;
       arrow.group.visible = !!mark?.arrow;
