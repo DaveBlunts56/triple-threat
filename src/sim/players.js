@@ -1,4 +1,4 @@
-import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FINISH, FOUL, MOVES, PASS, PLAYER, RIM, SHOT, STAT, STEAL, THREE_PT, RATE, DRIVE, levelOf } from './tuning.js';
+import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FINISH, FOUL, MOVES, PASS, PLAYER, RIM, SHOT, STAT, STEAL, THREE_PT, RATE, DRIVE, cpuLevelOf, isHuman, levelOf } from './tuning.js';
 import { attackSign, onFloor as grounded, personOf, rand } from './state.js';
 import { speedFactor, spend } from './stamina.js';
 import { rimCentre, solveShot, stepBall } from './ball.js';
@@ -185,10 +185,11 @@ const cornerAt = player => Math.abs(player.z) > THREE_PT.cornerZ;
 export function makeChance(state, player) {
   const far = dist(player, rimCentre(attackSign(player.team)));
   const base = distanceChance(styled(state, 'shot.curve'), far, zoneFor(far, threeAt(player), cornerAt(player), player.finish));
-  const timing = shotTiming(player.shotT, player.team === 0 ? levelOf(state).timing : SHOT.worstTiming, shotBest(player), shotLands(player));   // a bad release costs you what the level says
+  const human = isHuman(state, player.team);   // your team shoots on the level's numbers; a team nobody plays on the computer's
+  const timing = shotTiming(player.shotT, human ? levelOf(state).timing : SHOT.worstTiming, shotBest(player), shotLands(player));   // a bad release costs you what the level says
   // His rating for a shot from where he stands counts for or against him.
   const person = personOf(state, player);
-  return shotChance({ base, timing, contest: contest(state, player), energy: person.energy, levelMake: player.team === 0 ? levelOf(state).make : levelOf(state).cpuMake,
+  return shotChance({ base, timing, contest: contest(state, player), energy: person.energy, levelMake: human ? levelOf(state).make : cpuLevelOf(state).cpuMake,
     skill: skillOf(rated(state, player, zoneOf(player)), heatOf(person)), fading: player.fading, make: styled(state, 'shot.make'), form: person.form ?? 1 });
 }
 
@@ -204,7 +205,7 @@ export function shotWindow(state, player) {
   return {
     best: shotBest(player),
     // Your window is the level's, and so is the computer's team's; anybody's is wider the better he shoots from there.
-    half: windowHalf({ steps, range, energy: person.energy, levelGreen: player.team === 0 ? levelOf(state).green : levelOf(state).cpuGreen,
+    half: windowHalf({ steps, range, energy: person.energy, levelGreen: isHuman(state, player.team) ? levelOf(state).green : cpuLevelOf(state).cpuGreen,
       rating: rated(state, player, zoneOf(player)), heat: heatOf(person) }),
     level: name,
     inRange: range > 0 && !boardInWay(player),

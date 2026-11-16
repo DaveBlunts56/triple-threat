@@ -1,7 +1,7 @@
 // What a player of the team with the ball does when he does not have it and no play gives him a part: a place that
 // suits what he is, taken up in his own time, and the moves he makes from it: a cut, getting out of the way of a
 // drive, running a lane on a fast break. The rules never read any of this: it only says where he should go.
-import { AI, OFF, RIM } from './tuning.js';
+import { AI, OFF, RIM, isHuman } from './tuning.js';
 import { attackSign, personOf, rand } from './state.js';
 import { choose } from './choose.js';
 import { rated } from './ratings.js';
@@ -73,7 +73,7 @@ const wayClear = (state, player, hoop) => dist(player, hoop) > OFF.cutFrom && st
 // from which he may start a cut. Null for the ball handler and for the player you control.
 export function offBallSpot(state, player) {
   const team = player.team, sign = attackSign(team), hoop = { x: sign * RIM.x, z: 0 }, holder = state.players[state.ball.holder];
-  if (holder === player || (team === 0 && player.id === state.controlled)) return null;
+  if (holder === player || (isHuman(state, team) && player.id === state.controlled)) return null;
   const { ai } = player, mine = holder?.team === team;
 
   const cut = state.cut[team];

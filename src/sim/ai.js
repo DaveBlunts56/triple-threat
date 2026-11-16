@@ -1,4 +1,4 @@
-import { AI, BALL, CLOCK, COURT, DT, FINISH, FT, LATE, MOVES, PASS, PLAY, PLAYER, READ, SHOT, STEAL, THREE_PT, TIP, VIOLATION, LEVEL_IQ, SCHEME, RATE, levelOf } from './tuning.js';
+import { AI, BALL, CLOCK, COURT, DT, FINISH, FT, LATE, MOVES, PASS, PLAY, PLAYER, READ, SHOT, STEAL, THREE_PT, TIP, VIOLATION, LEVEL_IQ, SCHEME, RATE, cpuLevelOf, isHuman, levelOf } from './tuning.js';
 import { SHOT_BEST, SHOT_LANDS, gatherOf, isThree, shotBest, shotLands, zoneOf } from './players.js';
 import { canDunk, finishFor } from './finish.js';
 import { lift, drop, rated, starOf, heatOf } from './ratings.js';
@@ -82,7 +82,7 @@ function planWithBall(state, p) {
   const sit = situation(state, p.team);
   const shoot = (how = 'shoot') => {
     ai.action = how;
-    ai.releaseOff = (rand(state) * 2 - 1) * (p.team === 1 ? levelOf(state).jitter : AI.releaseJitter);   // the computer's team times its shots as the level says
+    ai.releaseOff = (rand(state) * 2 - 1) * (!isHuman(state, p.team) ? cpuLevelOf(state).jitter : AI.releaseJitter);   // a team nobody plays times its shots as the level says
     ai.releaseAt = Math.min(Math.max(SHOT_BEST + ai.releaseOff, SHOT.gather + DT), SHOT_LANDS - 3 * DT);   // in the air, and clear of the landing
   };
   // Driving at the rim from in range, the shot he begins is a finish (see finish.js): a dunk with nobody between him
@@ -140,7 +140,7 @@ function planWithBall(state, p) {
   const moves = right => {
     if (!right || state.time - Math.max(p.moved, ai.triedAt ?? -Infinity) < AI.moveEvery) return false;
     ai.triedAt = state.time;   // one chance at a time: a level that seldom moves does not get there by asking again
-    return rand(state) < (p.team === 1 ? levelOf(state).moves : AI.mateMoves);
+    return rand(state) < (!isHuman(state, p.team) ? cpuLevelOf(state).moves : AI.mateMoves);
   };
   // Early in the shot clock he does not settle for a shot from outside or take on a set defence: the offence is run
   // first. A team behind late in the game has no time for that.
@@ -275,10 +275,11 @@ function iqOf(state, p) {
 const meanTiming = (jitter, worst) => sharedTiming(jitter, worst, SHOT_BEST, SHOT_LANDS, SHOT.gather);
 
 // How a computer shooter of `team` shoots: his release spread, the share a bad release keeps, and the level's make and
-// green-window factors (team 0's computer players shoot on your level's numbers, as makeChance has them).
+// green-window factors. A team nobody plays shoots on the computer's numbers (in a match nobody plays, All-Star's);
+// the computer players of your team shoot on your level's numbers, as makeChance has them.
 function shooterLevel(state, team) {
-  const level = levelOf(state);
-  return team === 1 ? { jitter: level.jitter, worst: SHOT.worstTiming, make: level.cpuMake, green: level.cpuGreen }
+  const level = levelOf(state), cpu = cpuLevelOf(state);
+  return !isHuman(state, team) ? { jitter: cpu.jitter, worst: SHOT.worstTiming, make: cpu.cpuMake, green: cpu.cpuGreen }
     : { jitter: AI.releaseJitter, worst: level.timing, make: level.make, green: level.green };
 }
 
@@ -413,7 +414,7 @@ function planOffBall(state, p) {
   if (p.keyT > AI.keyOut) { spot.x = p.x; spot.z = Math.sign(p.z || 1) * (VIOLATION.keyHalfWidth + 0.9); spot.sprint = true; }
   goTo(ai, spot, spot.sprint || situation(state, p.team).hustle || dist(p, spot) > styled(state, 'ai.farAway'));
   // Open in a place he can score from, he puts a hand up for the ball. (Not the player you control: that is yours to do.)
-  if (holder && holder !== p && holder.team === p.team && !(p.team === 0 && p.id === state.controlled)) {
+  if (holder && holder !== p && holder.team === p.team && !(isHuman(state, p.team) && p.id === state.controlled)) {
     const zone = zoneOf(p), skill = rated(state, p, zone);
     p.calling = skill >= AI.callAt && dist(p, rimCentre(sign)) <= AI.shootRange && space(state, p) > Math.min(AI.openDist, AI.openDist * drop(skill, AI.roomGap));
   }
@@ -531,7 +532,7 @@ function planDefence(state, p) {
   if (shotJump(man) && dist(p, man) < AI.contestDist) ai.action = 'jump';
   else if (sit.foul && state.phase === 'live' && holder && holder.team !== p.team && !holder.inbounder && dist(p, holder) <= STEAL.reach) ai.action = 'foul';
   else if (hasBall && !man.inbounder && p.stealCooldown <= 0 && dist(p, man) <= STEAL.reach
-    && rand(state) < styled(state, 'ai.stealRate') * (p.team === 1 ? levelOf(state).steal : 1) * gambleOf(state, p, personOf(state, p)) * (0.5 + personOf(state, p).tend.gamble)) ai.action = 'steal';
+    && rand(state) < styled(state, 'ai.stealRate') * (!isHuman(state, p.team) ? cpuLevelOf(state).steal : 1) * gambleOf(state, p, personOf(state, p)) * (0.5 + personOf(state, p).tend.gamble)) ai.action = 'steal';
 }
 
 function plan(state, p) {
@@ -649,7 +650,7 @@ export function aiIntents(state, dt) {
     if (p.ai.timer <= 0) {
       plan(state, p);
       // The computer's team thinks as fast as the level says; within a team a sharp player looks again sooner.
-      p.ai.timer = (p.team === 1 ? levelOf(state).interval : AI.interval) * (1 + styled(state, 'decide.spread') * (0.7 - iqOf(state, p))) + rand(state) * AI.jitter;
+      p.ai.timer = (!isHuman(state, p.team) ? cpuLevelOf(state).interval : AI.interval) * (1 + styled(state, 'decide.spread') * (0.7 - iqOf(state, p))) + rand(state) * AI.jitter;
       if (p.ai.soon !== undefined) { p.ai.timer = p.ai.soon; p.ai.soon = undefined; }   // he looks again as his move ends
     }
     return act(state, p);

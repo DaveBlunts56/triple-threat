@@ -215,6 +215,10 @@ export const DIFFICULTY = f({
 export const LEVEL_IQ = f({ rookie: -0.2, starter: -0.1, allstar: 0, superstar: 0.08, legend: 0.15 });
 // What the match's level changes: see DIFFICULTY.levels.
 export const levelOf = state => DIFFICULTY.levels[state.difficulty] ?? DIFFICULTY.levels.allstar;
+// Whether a person plays `team` (in Play, team 0; in a match nobody plays, neither), and the level a team nobody plays
+// plays at: in Play the difficulty; in a match nobody plays, All-Star's for both, whatever the difficulty.
+export const isHuman = (state, team) => (state.humans ?? [0]).includes(team);
+export const cpuLevelOf = state => ((state.humans ?? [0]).length ? levelOf(state) : DIFFICULTY.levels.allstar);
 
 // The end of a period and of a game. closing: the last seconds of the game in which everyone hustles, if it is close.
 // hurry: the last seconds in which the team behind shoots early and the team ahead uses the clock. close: a lead of
