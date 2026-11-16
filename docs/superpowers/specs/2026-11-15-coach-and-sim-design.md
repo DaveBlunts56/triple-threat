@@ -460,7 +460,9 @@ Each item is a band over 1,000 games:
   - overtime in 3–9% of games.
 - **Upsets:** a team whose players are all 5 points worse wins 20–40% of its games against today's teams.
 - **Stars:** a star scores 40 or more in 2–10% of his games.
-- **Usage:** each team's top usage is 26–36%, and every team's usage adds up to 100%.
+- **Usage.** Two different measures, tested apart:
+  - **USG%**, the standard player usage rate: 100 × (FGA + 0.44 × FTA + TOV) × (team minutes ÷ 5) ÷ (his minutes × (team FGA + 0.44 × team FTA + team TOV)). This is a rate while he is on the court, so it does not add up to 100%. Each team's top rotation player is at 26–36%, and the minutes-weighted mean over a team is 20%.
+  - **Play share**, his share of the team's plays: his (FGA + 0.44 × FTA + TOV) over the team's, with the team's own turnovers as a share of their own. These add up to 100% for a team. The star's is 18–30%.
 - **Minutes:**
   - starters average 28–38;
   - every team's minutes add up to 5 × the game's length.
