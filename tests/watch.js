@@ -3,7 +3,7 @@
 // them (no setup, unless `humans` or `flip` is given: a match nobody plays, the teams' data swapped). A record is
 // measure.mjs's (playHeadless) without the match state, which cannot cross between threads; `minutes` keeps each
 // roster's minutes, `people` each player's line, `switchesBy` each team's switches, and with `crash` how many go to
-// the glass after a shot (see crashes), which the tests read.
+// the glass after a shot (see crashes), which the tests read. `glide: false` skips the glide meter (see playHeadless).
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { playHeadless } from '../tools/sim/measure.mjs';
 import { setStyle } from '../src/sim/styles.js';
@@ -23,13 +23,13 @@ function crashes(s, rec) {
   rec.crashShots[team]++;
 }
 
-function play({ seed, size = 5, minutes = 12, style = 'sim', humans = null, flip = false, crash = false }) {
+function play({ seed, size = 5, minutes = 12, style = 'sim', humans = null, flip = false, crash = false, glide = true }) {
   const setup = style === 'sim' || humans || flip ? s => {
     if (style === 'sim') setStyle(s, 'sim');
     if (style === 'sim' || humans) s.humans = humans ?? [];
     if (flip) s.teams = [s.teams[1], s.teams[0]];
   } : undefined;
-  const r = playHeadless({ seed, size, minutes, setup, observe: crash ? crashes : undefined });
+  const r = playHeadless({ seed, size, minutes, setup, observe: crash ? crashes : undefined, glide });
   r.minutes = r.state.rosters.map(roster => roster.map(p => p.secs / 60));
   r.people = r.state.rosters.map(roster => roster.map(p => ({ name: p.name, ratings: p.ratings, line: p.stats, secs: p.secs })));
   r.teamTov = r.state.teamStats.map(t => t.tov);

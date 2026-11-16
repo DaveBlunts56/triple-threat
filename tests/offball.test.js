@@ -66,9 +66,9 @@ test('shooters stand behind the line, a big is low on the weak side, and the sid
 test('a big comes to the high post on the ball\'s side when the ball is on a wing', () => {
   const five = scene(5); at(five, 0, 7.4, 5.4); five.ball.z = 5.4;
   const high = [...places(five, 0).entries()].filter(([id]) => kindOf(five, five.players[id]) === 'big').map(([, spot]) => spot);
-  assert.ok(high.some(spot => Math.abs(spot.x - 8.2) < 0.01 && spot.z > 2), `the bigs are at ${JSON.stringify(high)}`);
+  assert.ok(high.some(spot => Math.abs(spot.x - 8.5) < 0.01 && spot.z > 2), `the bigs are at ${JSON.stringify(high)}`);
   const three = scene(3); at(three, 0, 7.4, 5.4); three.ball.z = 5.4;
-  assert.ok(Math.abs(places(three, 0).get(2).x - 8.2) < 0.01, 'the one big of three a side stayed low');
+  assert.ok(Math.abs(places(three, 0).get(2).x - 8.5) < 0.01, 'the one big of three a side stayed low');
 });
 
 test('nobody takes up a new place in the same instant as a team-mate', () => {
@@ -315,7 +315,7 @@ function wing(style, seed = 1) {
   const s = settled(5, 0); setStyle(s, style); s.seed = seed * 7919 + 1;
   const shooter = s.players.find(p => p.team === 0 && s.rosters[0][p.person].name.endsWith('Okoro'));
   const slasher = s.players.find(p => p.team === 0 && s.rosters[0][p.person].name.endsWith('Marsh'));
-  at(s, shooter.id, 7.6, 5.4); at(s, slasher.id, 5.2, -4);
+  at(s, shooter.id, 7.57, 5.77); at(s, slasher.id, 5.07, -4.24);   // a wing and the top, 0.5 m behind the line
   guard(s, 1.0);
   return { s, shooter };
 }
@@ -323,7 +323,7 @@ function wing(style, seed = 1) {
 test('when a team-mate drives, a good shooter near the arc drifts to an open spot on it, where the style has it; in Arcade he does not', () => {
   for (const style of ['sim', 'arcade']) {
     const { s, shooter } = wing(style);
-    at(s, 0, 8.5, 0.5); Object.assign(s.players[0], { vx: 5, vz: 0 });   // the handler going at the rim
+    at(s, 0, 8.8, 0.5); Object.assign(s.players[0], { vx: 5, vz: 0 });   // the handler going at the rim
     const mine = s.players.find(o => o.man === shooter.id); at(s, mine.id, RIM.x - 2.2, 1.6);   // his man helps
     const spot = offBallSpot(s, shooter);
     if (style === 'sim') {

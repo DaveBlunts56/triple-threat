@@ -52,8 +52,8 @@ test('a rating of 70 changes nothing, and each 10 points changes a thing by its 
 
 test('a shot is inside within three metres, a three behind the line, and mid-range between', () => {
   const s = createMatch(1, 5), zone = (id, x, z) => { at(s, id, x, z); return zoneOf(s.players[id]); };
-  assert.deepEqual([zone(0, RIM.x - 2, 0), zone(0, RIM.x - 4.5, 0), zone(0, RIM.x - 7.2, 0), zone(0, RIM.x - 1, 6.9)], ['inside', 'mid', 'three', 'three']);
-  assert.deepEqual([zone(5, -RIM.x + 2, 0), zone(5, -RIM.x + 7.2, 0), zone(5, RIM.x - 2, 0)], ['inside', 'three', 'three']);   // team 1 shoots at the other hoop
+  assert.deepEqual([zone(0, RIM.x - 2, 0), zone(0, RIM.x - 4.5, 0), zone(0, RIM.x - 7.7, 0), zone(0, RIM.x - 1, 6.9)], ['inside', 'mid', 'three', 'three']);
+  assert.deepEqual([zone(5, -RIM.x + 2, 0), zone(5, -RIM.x + 7.7, 0), zone(5, RIM.x - 2, 0)], ['inside', 'three', 'three']);   // team 1 shoots at the other hoop
 });
 
 test('hot is three makes in a row and cold three misses', () => {
@@ -93,8 +93,8 @@ test('at 70 throughout, every number is the one the game had', () => {
 test('a better shooter makes more and has a wider green window, in the zone the rating is for and no other', () => {
   const chance = (out, ratings) => { const s = shooting(out, 9, ratings); return makeChance(s, s.players[0]); };
   const half = (out, ratings) => { const s = shooting(out, 9, ratings); return shotWindow(s, s.players[0]).half; };
-  near(chance(7.2, { three: 90 }) / chance(7.2, { three: 50 }), lift(90, RATE.shot) / lift(50, RATE.shot), 'threes');
-  near(half(7.2, { three: 90 }) / half(7.2, { three: 50 }), lift(90, RATE.window) / lift(50, RATE.window), 'the window');
+  near(chance(7.7, { three: 90 }) / chance(7.7, { three: 50 }), lift(90, RATE.shot) / lift(50, RATE.shot), 'threes');
+  near(half(7.7, { three: 90 }) / half(7.7, { three: 50 }), lift(90, RATE.window) / lift(50, RATE.window), 'the window');
   near(chance(2, { three: 90 }), chance(2, { three: 50 }), 'inside, the three rating');
   near(chance(2, { inside: 90 }) / chance(2, { inside: 70 }), lift(90, RATE.shot), 'inside');
   near(chance(4.5, { mid: 80 }) / chance(4.5, { mid: 70 }), lift(80, RATE.shot), 'mid-range');
@@ -254,7 +254,7 @@ const plan = s => { s.players.forEach(p => { p.ai.timer = 0; }); return aiIntent
 // A choice is drawn (see choose.js): over many seeds the poor shooter mostly passes the three up and the sharpshooter
 // mostly takes it; with the shot clock short the poor shooter always takes it.
 test('a poor three-point shooter passes up an open three that a sharpshooter takes; with the shot clock short he takes it', () => {
-  const open = (three, seed) => { const s = set(floor(), 0, { three }); s.seed = seed * 13; at(s, 0, RIM.x - 7.2, 0); at(s, 5, RIM.x - 3, 0.2); return s; };   // open behind the line, his lane not clear
+  const open = (three, seed) => { const s = set(floor(), 0, { three }); s.seed = seed * 13; at(s, 0, RIM.x - 7.7, 0); at(s, 5, RIM.x - 3, 0.2); return s; };   // open behind the line, his lane not clear
   let poorShot = 0, goodShot = 0, short = 0;
   for (let seed = 1; seed <= 40; seed++) {
     const poor = open(50, seed), good = open(90, seed);
@@ -269,7 +269,7 @@ test('a poor three-point shooter passes up an open three that a sharpshooter tak
 });
 
 test('early in the shot clock only a great shooter with room takes the three', () => {
-  const open = (three, gap) => { const s = set(floor({ early: true }), 0, { three }); at(s, 0, RIM.x - 7.2, 0); at(s, 5, RIM.x - 7.2 + gap, 0.3); plan(s); return s.players[0].ai.action; };
+  const open = (three, gap) => { const s = set(floor({ early: true }), 0, { three }); at(s, 0, RIM.x - 7.7, 0); at(s, 5, RIM.x - 7.7 + gap, 0.3); plan(s); return s.players[0].ai.action; };
   assert.deepEqual([open(92, 4), open(80, 4), open(92, 2.2)], ['shoot', null, null]);
 });
 

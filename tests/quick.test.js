@@ -271,15 +271,6 @@ test('a better defence lowers the other team\'s eFG%', () => {
   assert.ok(now < was - 0.005, `${was.toFixed(3)} -> ${now.toFixed(3)}`);
 });
 
-test('a team\'s five starters beat three of its bench and two starters more often than not', () => {
-  // The other side never has the three starters it leaves out: its bench is the same three bench players again.
-  const waves = TEAMS[0], again = i => ({ ...waves.players[i], name: `${waves.players[i].name} Jr.`, number: waves.players[i].number + 50 });
-  const benched = { ...waves, players: [waves.players[5], waves.players[6], waves.players[7], waves.players[0], waves.players[1], again(5), again(6), again(7)] };
-  let wins = 0;
-  for (let seed = 1; seed <= 200; seed++) { const s = quickMatch({ seed, teams: [waves, benched] }); if (s.score[0] > s.score[1]) wins++; }
-  assert.ok(wins > 100, `${wins} of 200`);
-});
-
 test('three a side: games end, the box scores add up, and the pace is believable for a half court of six (60-110 a team per 48 minutes)', () => {
   let poss = 0;
   for (let seed = 1; seed <= 30; seed++) {

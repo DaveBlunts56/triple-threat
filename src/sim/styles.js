@@ -26,7 +26,7 @@ export const KINDS = f({
   'decide.possession': 'positive', 'decide.usage': 'positive', 'decide.diet': 'positive', 'decide.drive': 'positive',
   'decide.pass': 'positive', 'decide.floor': 'positive', 'decide.misread': 'chance', 'decide.foulDraw': 'positive', 'decide.stale': 'positive', 'decide.rhythm': 'positive',
   'decide.scout': 'positive', 'decide.watch': 'chance', 'decide.watchDelay': 'positive', 'decide.fly': 'chance', 'decide.spread': 'positive', 'react.iq': 'chance', 'decide.threes': 'positive',
-  'rules.overtimeShare': 'chance', 'rules.orebClock': 'positive', 'rules.lastTwo': 'word', 'rules.madeClock': 'word', 'form.sd': 'chance', 'move.pacing': 'word', 'decide.threeBase': 'chance', 'decide.rimBase': 'chance', 'decide.openKeep': 'positive', 'off.drift': 'word', 'off.threeCut': 'word', 'decide.stars': 'word', 'decide.starLight': 'word', 'decide.attack': 'word', 'decide.starFrom': 'positive', 'decide.openFrom': 'word', 'decide.squareUp': 'word', 'decide.stayHome': 'word', 'decide.readClose': 'word', 'decide.midCost': 'chance',
+  'rules.overtimeShare': 'chance', 'rules.orebClock': 'positive', 'rules.lastTwo': 'word', 'rules.madeClock': 'word', 'form.sd': 'chance', 'move.pacing': 'word', 'decide.threeBase': 'chance', 'decide.rimBase': 'chance', 'decide.openKeep': 'positive', 'off.drift': 'word', 'off.threeCut': 'word', 'decide.stars': 'word', 'decide.starLight': 'word', 'decide.attack': 'word', 'decide.starFrom': 'positive', 'decide.openFrom': 'word', 'decide.squareUp': 'word', 'decide.stayHome': 'word', 'decide.readClose': 'word', 'decide.midCost': 'chance', 'shot.meter': 'word',
 });
 
 // Arcade: the game as it was, read from tuning.js.
@@ -45,7 +45,7 @@ const ARCADE = f({
   'decide.possession': 1.0, 'decide.usage': 0.5, 'decide.diet': 0.6, 'decide.drive': 0.2,
   'decide.pass': 0.15, 'decide.floor': 60, 'decide.misread': 0.25, 'decide.foulDraw': 0.15, 'decide.stale': 0.08, 'decide.rhythm': 0.15,
   'decide.scout': 0.5, 'decide.watch': 0.15, 'decide.watchDelay': 0.5, 'decide.fly': 0.5, 'decide.spread': 0.5, 'react.iq': 0, 'decide.threes': 0.6,
-  'rules.overtimeShare': 0, 'rules.orebClock': CLOCK.shot, 'rules.lastTwo': false, 'rules.madeClock': false, 'form.sd': 0, 'move.pacing': 'free', 'decide.threeBase': 0, 'decide.rimBase': 0, 'decide.openKeep': 1, 'off.drift': false, 'off.threeCut': 1, 'decide.stars': 0.25, 'decide.starLight': false, 'decide.attack': 0, 'decide.starFrom': 24, 'decide.openFrom': 0, 'decide.squareUp': true, 'decide.stayHome': 0, 'decide.readClose': 0, 'decide.midCost': 0,
+  'rules.overtimeShare': 0, 'rules.orebClock': CLOCK.shot, 'rules.lastTwo': false, 'rules.madeClock': false, 'form.sd': 0, 'move.pacing': 'free', 'decide.threeBase': 0, 'decide.rimBase': 0, 'decide.openKeep': 1, 'off.drift': false, 'off.threeCut': 1, 'decide.stars': 0.25, 'decide.starLight': false, 'decide.attack': 0, 'decide.starFrom': 24, 'decide.openFrom': 0, 'decide.squareUp': true, 'decide.stayHome': 0, 'decide.readClose': 0, 'decide.midCost': 0, 'shot.meter': true,
 });
 
 // Simulation: NBA-like. Its own numbers, written out (Stage 4 tunes them).
@@ -62,12 +62,12 @@ const SIM = f({
   'timeout.each': 7, 'timeout.rest': 0.12,
   'shot.make': 1, 'board.offence': 0.25,
   // The chance of an open shot from each zone, before the defender, his rating, tiredness and timing (see shooting.js).
-  'shot.curve': f({ rim: 0.95, close: 0.66, mid: 0.44, corner3: 0.38, arc3: 0.35 }), 'shot.green': 'boost', 'shot.boost': 0.5, 'ft.model': 'touch',
+  'shot.curve': f({ rim: 0.95, close: 0.69, mid: 0.46, corner3: 0.405, arc3: 0.375 }), 'shot.green': 'boost', 'shot.boost': 0.5, 'ft.model': 'touch',
   'decide.temperature': 0.3, 'iq.offence': 1, 'iq.defence': 1, 'coach.adapt': 1, 'coach.rotation': 'plan', 'coach.ease': 1, 'coach.focus': 0.4,
   'decide.possession': 1.6, 'decide.usage': 0.5, 'decide.diet': 0.6, 'decide.drive': 0.2,
   'decide.pass': 0.15, 'decide.floor': 60, 'decide.misread': 0.25, 'decide.foulDraw': 0.15, 'decide.stale': 0.08, 'decide.rhythm': 0.15,
   'decide.scout': 0.5, 'decide.watch': 0.15, 'decide.watchDelay': 0.5, 'decide.fly': 0.5, 'decide.spread': 0.5, 'react.iq': 1, 'decide.threes': 0.5,
-  'rules.overtimeShare': 5 / 12, 'rules.orebClock': 14, 'rules.lastTwo': true, 'rules.madeClock': true, 'form.sd': 0.05, 'move.pacing': 'gaits', 'decide.threeBase': 0, 'decide.rimBase': 0.04, 'decide.openKeep': 1.2, 'off.drift': true, 'off.threeCut': 1, 'decide.stars': 0.3, 'decide.starLight': true, 'decide.attack': 0.45, 'decide.starFrom': 7, 'decide.openFrom': 8, 'decide.squareUp': true, 'decide.stayHome': 0.3, 'decide.readClose': 0.5, 'decide.midCost': 0.04,
+  'rules.overtimeShare': 5 / 12, 'rules.orebClock': 14, 'rules.lastTwo': true, 'rules.madeClock': true, 'form.sd': 0.05, 'move.pacing': 'gaits', 'decide.threeBase': 0.05, 'decide.rimBase': 0.04, 'decide.openKeep': 1.2, 'off.drift': true, 'off.threeCut': 1, 'decide.stars': 0.4, 'decide.starLight': true, 'decide.attack': 0.45, 'decide.starFrom': 7, 'decide.openFrom': 8, 'decide.squareUp': true, 'decide.stayHome': 0.3, 'decide.readClose': 0.5, 'decide.midCost': 0.04, 'shot.meter': false,
 });
 
 export const STYLES = f({ arcade: ARCADE, sim: SIM });

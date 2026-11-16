@@ -9,7 +9,7 @@ import { teamLine } from '../src/sim/stats.js';
 import { watchMatches } from './watch.js';
 
 const TARGET = { poss: 99, pts: 116, fga: 89, tpa: 37, fta: 24, tov: 14.5, secs: 14.5 };
-const records = await watchMatches([1, 2, 3, 4, 5, 6, 7, 8]);
+const records = await watchMatches([1, 2, 3, 4, 5, 6, 7, 8], { glide: false });
 const table = summarise(records, { per48: true });
 
 test('Simulation\'s 3D game is within 15% of the 2025-26 averages in pace, points, shots, threes, free throws, turnovers and possession length', () => {

@@ -5,10 +5,15 @@ const f = Object.freeze;
 
 export const DT = 1 / 60;
 
-export const COURT = f({ halfLength: 14, halfWidth: 7.5, margin: 1.5 });
-export const RIM = f({ x: 12.425, height: 3.05, radius: 0.225, tube: 0.02 });
-export const BOARD = f({ x: 12.8, halfWidth: 0.9, bottom: 2.9, top: 3.95 });
-export const THREE_PT = f({ radius: 6.75, cornerZ: 6.6 });
+// The NBA's court: 28.65 by 15.24 m. The rim's centre 1.6 m in from the baseline and 3.05 m up, 0.457 m across inside;
+// the backboard's face 1.22 m in, 1.83 by 1.07 m. The three-point line 7.24 m from the rim's centre, 6.71 m in the
+// corners. The lane 4.88 m wide, the free-throw line 5.79 m from the baseline; its circle, the centre circle, and
+// the restricted area's arc round the rim (see LANE).
+export const COURT = f({ halfLength: 14.325, halfWidth: 7.62, margin: 1.5 });
+export const RIM = f({ x: 12.725, height: 3.05, radius: 0.2286, tube: 0.02 });
+export const BOARD = f({ x: 13.105, halfWidth: 0.915, bottom: 2.9, top: 3.967 });
+export const THREE_PT = f({ radius: 7.24, cornerZ: 6.71 });
+export const LANE = f({ halfWidth: 2.44, depth: 5.79, circle: 1.83, centre: 1.83, restricted: 1.22 });
 
 export const BALL = f({ radius: 0.12, gravity: 9.81, floorBounce: 0.75, rimBounce: 0.55, boardBounce: 0.6, restSpeed: 0.5, floorGrip: 0.9, rollDecel: 2, substeps: 4 });
 
@@ -112,7 +117,7 @@ export const BLOCK = f({ reach: 1.2, minHeight: 0.3, chance: 0.36, cone: 45, def
 export const CLOCK = f({ quarters: 4, quarter: 180, overtime: 60, shot: 24, shotAfterFoul: 14, dead: 1.5, quarterBreak: 2, timeout: 3 });
 
 export const AI = f({
-  interval: 0.3, openDist: 1.8, shootRange: 7.5, laneWidth: 1.07, panicClock: 4,
+  interval: 0.3, openDist: 1.8, shootRange: 7.99, laneWidth: 1.07, panicClock: 4,
   stealRate: 0.03, inboundDelay: 1, onBallGap: 1.35, offBallGap: 1.8,
   jitter: 0.1,            // random extra seconds between decisions
   arrive: 0.3,            // close enough to a target to stop
@@ -126,7 +131,7 @@ export const AI = f({
   // he drives at a clear lane even early in the shot clock.
   moveAt: 78, moveNear: 1.5, moveEvery: 2.5, stepAt: 82, stepNear: 1.3, fadeAt: 80, fadeNear: 1.5, mateMoves: 0.6, moveFrom: 6, beatFor: 1,
   releaseJitter: 0.16,    // seconds either side of the best moment that a shot may be released
-  driveX: 11.2, topX: 5.2, safetyX: 4,   // distances from centre court: drive target, top of the key, the player who gets back
+  driveX: 11.5, topX: 5.01, safetyX: 4,   // distances from centre court: drive target, top of the key, the player who gets back
   inboundHelp: 4,         // how far into the court a teammate comes to receive an inbound pass
   contestDist: 2,         // jump to contest a shooter this close
   contestDelay: 0.05,     // the longest a defender takes to react to his man leaving the floor
@@ -178,12 +183,12 @@ export const READ = f({ wide: 2.5, onCatch: 0.25, crowd: 2 });
 // moving at the hoop faster than this is driving. clear, clearTo: a
 // team-mate within the first of the drive's line moves the second off it. breakUntil: a fast break is run until the
 // ball is this far up the court. breakWide, breakTrail: the lanes run on it: wide of the ball, and behind it.
-export const OFF = f({ shooterAt: 80, apart: 2.5, sideHold: 1.5, every: f([2.5, 5]), cutGap: 2.4, cutFrom: 4.5, cutWidth: 0.9, cutFor: 1.6, rimAt: 11,
+export const OFF = f({ shooterAt: 80, apart: 2.5, sideHold: 1.5, every: f([2.5, 5]), cutGap: 2.4, cutFrom: 4.5, cutWidth: 0.9, cutFor: 1.6, rimAt: 11.3,
   giveAndGo: 0.8, drivePace: 2.5, clear: 2.2, clearTo: 3, breakUntil: 6, breakWide: 6, breakTrail: 4 });
 // Cutting for three (see offball.js). threeAt: the Three a man needs to go looking for one. openAt: metres from the
 // nearest defender a spot on the arc must be to count as open. driftReach: how far a shooter goes to one when a
 // team-mate drives; relocateReach: how far at his own moments.
-export const ARC = f({ threeAt: 75, openAt: 2.5, driftReach: 4.5, relocateReach: 6.5 });
+export const ARC = f({ threeAt: 75, openAt: 2.5, driftReach: 5, relocateReach: 7 });
 
 // Plays. wait: seconds after a play ends before the coach calls another. minClock: the least shot clock a play is
 // started with. startX: how far past the centre line the ball must be. screenGap: metres between a screener and the
@@ -268,7 +273,7 @@ export const SCHEME = f({ switchReach: 2.5, dropAt: 3.5, changeEvery: 8, beaten:
 // A finish with an opponent this near him (metres) may draw contact on the drive, in a style that calls it.
 export const DRIVE = f({ dist: 1.2 });
 
-export const VIOLATION = f({ backcourt: 8, key: 3, inbound: 5, keyHalfWidth: 2.45, keyDepth: 5.8 });
+export const VIOLATION = f({ backcourt: 8, key: 3, inbound: 5, keyHalfWidth: 2.44, keyDepth: 5.79 });
 
 export const FOUL = f({
   reachFront: 0.12, reachBack: 0.3,          // chance a failed steal is a foul
@@ -279,14 +284,14 @@ export const FOUL = f({
 });
 
 export const FT = f({
-  lineDist: 5.8, sweep: 1.5, centreChance: 0.95, edgeChance: 0.2,
+  lineDist: 5.79, sweep: 1.5, centreChance: 0.95, edgeChance: 0.2,
   limit: 5, aiDelay: 1, aiChance: 0.75, pause: 1,
   // [metres from the baseline, z] for the five other players, mirrored for each hoop
-  defence: f([f([2.3, -2.75]), f([2.3, 2.75]), f([9, 2])]),
+  defence: f([f([2.3, -2.75]), f([2.3, 2.75]), f([9.53, 2])]),
   offence: f([f([3.7, -2.75]), f([3.7, 2.75])]),
   // The same for the nine others of a five-a-side match: along the lane in the rules' order, the rest behind the arc.
-  defence5: f([f([2.3, -2.75]), f([2.3, 2.75]), f([5.1, -2.75]), f([5.1, 2.75]), f([9, 0])]),
-  offence5: f([f([3.7, -2.75]), f([3.7, 2.75]), f([9.5, -3.5]), f([9.5, 3.5])]),
+  defence5: f([f([2.3, -2.75]), f([2.3, 2.75]), f([5.1, -2.75]), f([5.1, 2.75]), f([9.5, 0])]),
+  offence5: f([f([3.7, -2.75]), f([3.7, 2.75]), f([10.05, -3.5]), f([10.05, 3.5])]),
 });
 
 export const STAMINA = f({

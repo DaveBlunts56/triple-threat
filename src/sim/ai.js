@@ -319,11 +319,12 @@ export function shotValue(state, m, { at = m, closing = 0, fading = false } = {}
   const person = personOf(state, m), rating = person.ratings[zone], heat = heatOf(person), lv = shooterLevel(state, m.team);
   const contest = contestShare({ gap, defence: rated(state, nearest, 'defence'), fading });
   const base = distanceChance(styled(state, 'shot.curve'), far, zoneFor(far, three, corner, null));
-  const chance = shotChance({ base, timing: meanTiming(lv.jitter, lv.worst), contest, energy: person.energy, levelMake: lv.make,
+  const meter = styled(state, 'shot.meter');   // without one (Simulation) a release is not judged and is never green
+  const chance = shotChance({ base, timing: meter ? meanTiming(lv.jitter, lv.worst) : 1, contest, energy: person.energy, levelMake: lv.make,
     skill: skillOf(rating, heat), fading, make: styled(state, 'shot.make'), form: person.form ?? 1 });
   const range = rangeShare(far);
   const half = windowHalf({ steps: levelFor(contest).steps, range, energy: person.energy, levelGreen: lv.green, rating, heat });
-  const green = greenShare(half, lv.jitter, range > 0 && sign * (at.x - hoop.x) <= 0);
+  const green = meter ? greenShare(half, lv.jitter, range > 0 && sign * (at.x - hoop.x) <= 0) : 0;
   return expectedShot({ value: three ? 3 : 2, chance, green, rule: styled(state, 'shot.green'), boost: styled(state, 'shot.boost') });
 }
 

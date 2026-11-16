@@ -38,10 +38,10 @@ export function places(state, team) {
   const at = (along, across) => ({ x: sign * along, z: across * S });
   const onWing = holder?.team === team && Math.abs(holder.z) > 4;
   const lists = {
-    shooter: [at(11.6, 6.95), at(7.4, -5.6), at(11.6, -6.95), at(7.4, 5.6), at(5.4, 0)],
-    slasher: [at(7.4, 5.6), at(7.4, -5.6), at(5.4, 0), at(11.6, -6.95), at(11.6, 6.95)],
+    shooter: [at(11.9, 7.06), at(7.37, -5.96), at(11.9, -7.06), at(7.37, 5.96), at(5.21, 0)],
+    slasher: [at(7.37, 5.96), at(7.37, -5.96), at(5.21, 0), at(11.9, -7.06), at(11.9, 7.06)],
     // In three a side the one big comes up to the high post when the ball is on a wing.
-    big: state.size === 3 && onWing ? [at(8.2, 2.7), at(11, -3.2)] : [at(11, -3.2), onWing ? at(8.2, 2.7) : at(11, 3.2), at(8.2, -2.7)],
+    big: state.size === 3 && onWing ? [at(8.5, 2.7), at(11.3, -3.2)] : [at(11.3, -3.2), onWing ? at(8.5, 2.7) : at(11.3, 3.2), at(8.5, -2.7)],
   };
   const order = { big: 0, shooter: 1, slasher: 2 }, taken = holder?.team === team ? [holder] : [], given = new Map();
   const rest = state.players.filter(p => p.team === team && p !== holder).map(p => ({ p, kind: kindOf(state, p) }))
@@ -56,7 +56,7 @@ export function places(state, team) {
 // The spots on the arc a shooter may go to: both corners, both wings above the break, the top. `team` attacking.
 function arcSpots(state, team) {
   const sign = attackSign(team), S = sideOf(state, team);
-  return [[11.6, 6.95], [11.6, -6.95], [7.4, 5.6], [7.4, -5.6], [5.4, 0]].map(([along, across]) => ({ x: sign * along, z: across * S }));
+  return [[11.9, 7.06], [11.9, -7.06], [7.37, 5.96], [7.37, -5.96], [5.21, 0]].map(([along, across]) => ({ x: sign * along, z: across * S }));
 }
 
 // The most open spot on the arc within `reach` metres of `player`, away from his own team-mates and the ball, and not

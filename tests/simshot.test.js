@@ -6,9 +6,10 @@ import { releaseShot, makeChance, shotWindow, SHOT_BEST } from '../src/sim/playe
 import { setStyle, styled } from '../src/sim/styles.js';
 import { startMatch } from '../src/sim/rules.js';
 import { createMatch } from '../src/sim/state.js';
-import { freeThrowChance, formOf, greenChance, touchOf, distanceChance } from '../src/sim/shooting.js';
+import { freeThrowChance, formOf, touchOf, distanceChance } from '../src/sim/shooting.js';
 import { DT, FT, RIM } from '../src/sim/tuning.js';
 import { live, at, run, idle } from './helpers.js';
+import { newFreeThrow, setupFreeThrow, stepFreeThrow } from '../src/sim/freethrow.js';
 
 // Player 0 `far` metres out in front of the hoop, his nearest defender `gap` off him, in the air at the best moment.
 function shot(style, far, gap, seed) {
@@ -20,23 +21,29 @@ function shot(style, far, gap, seed) {
   return s;
 }
 
-test('in Simulation a green release cuts the miss in half; in Arcade it always goes in', () => {
-  for (const style of ['arcade', 'sim']) {
-    let made = 0, green = 0, chance = 0;
-    for (let seed = 1; seed <= 300; seed++) {
-      const s = shot(style, 6.5, 0.9, seed);
+test('in Simulation there is no meter: no release is green and its timing does not change the chance; in Arcade a green one always goes in', () => {
+  // Arcade: a green release always goes in.
+  let made = 0, green = 0;
+  for (let seed = 1; seed <= 300; seed++) {
+    const s = shot('arcade', 6.5, 0.9, seed);
+    releaseShot(s, s.players[0]);
+    if (!s.shot.green) continue;
+    green++;
+    if (run(s, 4, idle(), st => st.score[0] > 0)) made++;
+  }
+  assert.ok(green > 100, `arcade: ${green} green releases`);
+  assert.equal(made, green);
+  // Simulation: released early, at the best moment or late, the chance is the same, and never green.
+  for (let seed = 1; seed <= 100; seed++) {
+    const chances = [SHOT_BEST - 0.2, SHOT_BEST, SHOT_BEST + 0.15].map(t => {
+      const s = shot('sim', 6.5, 0.9, seed);
+      s.players[0].shotT = t;
       const c = makeChance(s, s.players[0]);
       releaseShot(s, s.players[0]);
-      if (!s.shot.green) continue;
-      green++; chance += c;
-      if (run(s, 4, idle(), st => st.score[0] > 0)) made++;
-    }
-    assert.ok(green > 100, `${style}: ${green} green releases`);
-    if (style === 'arcade') assert.equal(made, green);
-    else {
-      const want = greenChance('boost', chance / green, 0.5);
-      assert.ok(made < green && Math.abs(made / green - want) < 0.08, `Simulation: ${made} of ${green} went in, against ${want.toFixed(2)}`);
-    }
+      assert.equal(s.shot.green, false, `sim seed ${seed}: a green release`);
+      return c;
+    });
+    assert.ok(chances.every(c => c === chances[0]), `sim seed ${seed}: ${chances.join(', ')}`);
   }
 });
 
@@ -64,4 +71,15 @@ test('form is drawn once a match, differs between players, and is 1 in Arcade', 
   const arcade = createMatch(5, 5); startMatch(arcade);
   assert.ok(arcade.rosters.flat().every(p => p.form === 1));
   assert.equal(formOf(() => 0.5, 0), 1);
+});
+
+test('in Simulation your free throws have no aim bar: they go up by themselves, as the computer\'s do; in Arcade they wait for you', () => {
+  for (const style of ['sim', 'arcade']) {
+    const s = createMatch(2, 5); setStyle(s, style); s.humans = [0]; startMatch(s);
+    s.freeThrow = newFreeThrow(0, 2); setupFreeThrow(s);
+    const intents = idle(10);
+    for (let t = 0; s.freeThrow.stage === 'aim' && t < FT.aiDelay + 0.5; t += DT) stepFreeThrow(s, intents, [], DT);
+    if (style === 'sim') assert.notEqual(s.freeThrow.stage, 'aim', 'Simulation: still aiming');
+    else assert.equal(s.freeThrow.stage, 'aim', 'Arcade: shot without a press');
+  }
 });

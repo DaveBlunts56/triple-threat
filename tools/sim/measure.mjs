@@ -35,8 +35,10 @@ export function slipOf(player, last, look = null) {
   return { clip: motion.clip, slip: Math.abs(motion.rate * GAITS[motion.clip] - speed) / speed, speed };
 }
 
-// One computer match. `setup(state)` runs before the match starts. `observe(state)` runs after every step.
-export function playHeadless({ seed = 1, size = 5, minutes = 3, setup, observe, limit = 60 * 60 * 120 } = {}) {
+// One computer match. `setup(state)` runs before the match starts. `observe(state)` runs after every step. `glide`:
+// measure the glide (rec.glide), which runs the renderer's motion for everyone every step; the match is the same
+// without it, only quicker to play.
+export function playHeadless({ seed = 1, size = 5, minutes = 3, setup, observe, limit = 60 * 60 * 120, glide = true } = {}) {
   const s = createMatch(seed, size);
   setLength(s, minutes);
   setup?.(s);
@@ -99,8 +101,8 @@ export function playHeadless({ seed = 1, size = 5, minutes = 3, setup, observe, 
     lastCall = s.call;
     s.players.forEach((p, i) => { if (p.person !== people[i]) { rec.subs[p.team]++; people[i] = p.person; } });
     // The glide meter, in live play, for players on their feet, as the renderer would draw them.
-    noteChanges(marks, s, DT);
-    if (s.phase === 'live') s.players.forEach((p, i) => {
+    if (glide) noteChanges(marks, s, DT);
+    if (glide && s.phase === 'live') s.players.forEach((p, i) => {
       if (p.y > 0) { lastClip[i] = 'jump'; return; }
       const { clip, slip, speed } = slipOf(p, lastClip[i], legLook(s, p, marks));
       lastClip[i] = clip;

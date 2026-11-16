@@ -479,7 +479,7 @@ export function createHud(doc) {
       const ft = state.phase === 'freeThrow' ? state.freeThrow : null;
       hide('ftBox', !ft);
       if (ft) {
-        const aiming = ft.stage === 'aim' && state.players[ft.shooter].team === 0;
+        const aiming = ft.stage === 'aim' && state.players[ft.shooter].team === 0 && styled(state, 'shot.meter');   // no aim bar without a meter
         set('ftText', `Free throw ${Math.min(ft.total, ft.total - ft.left + 1)} of ${ft.total}`);
         hide('ftBar', !aiming);
         if (aiming) style('ftMarker', 'left', `${Math.round(ft.meter * 100)}%`);

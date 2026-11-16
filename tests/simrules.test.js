@@ -1,5 +1,6 @@
 // Simulation's rules, each against Arcade's (plan Task 4.1).
 import { test } from 'node:test';
+import { RIM } from '../src/sim/tuning.js';
 import assert from 'node:assert/strict';
 import { createMatch, setLength } from '../src/sim/state.js';
 import { setStyle } from '../src/sim/styles.js';
@@ -28,7 +29,7 @@ test('a shot off the rim resets the shot clock to 14 in Simulation and to 24 in 
   for (const [style, want] of [['sim', 14], ['arcade', 24]]) {
     const s = live(1, 5); setStyle(s, style);
     s.shotClock = 9;
-    shotAt(s, { x: 12.425 - 0.3, y: 3.4, z: 0 });
+    shotAt(s, { x: RIM.x - 0.3, y: 3.4, z: 0 });
     Object.assign(s.ball, { vx: 1.2, vy: -2, vz: 0 });
     run(s, 0.5, idle(10), st => st.shotClock > 9);
     assert.equal(Math.round(s.shotClock), want, style);
