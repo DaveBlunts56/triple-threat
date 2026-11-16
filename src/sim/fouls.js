@@ -17,6 +17,31 @@ export function judgeContacts(state, events, dt) {
   if (shot && shot.defender !== null && !shot.blocked && rand(state) < styled(state, 'foul.shooting')) {
     return { kind: 'shooting', by: shot.defender, on: shot.shooter };
   }
+  // A finish with a defender on him, on the floor or in the air: the contact of a drive (where the style calls it).
+  if (shot && shot.near !== null && shot.near !== undefined && !shot.blocked && rand(state) < styled(state, 'foul.drive')) {
+    return { kind: 'shooting', by: shot.near, on: shot.shooter };
+  }
+
+  // Contacts away from the ball, where the style calls them: a loose-ball foul in the scramble for a rebound (on whoever
+  // runs into a man holding his ground, or either), and an illegal screen (a screener still moving into the defender).
+  for (const [i, j] of events.contacts) {
+    const a = state.players[i], b = state.players[j];
+    if (a.team === b.team || a.foulCooldown > 0 || b.foulCooldown > 0) continue;
+    if (state.board && state.ball.holder === null && styled(state, 'foul.looseBall') > 0) {
+      a.foulCooldown = b.foulCooldown = FOUL.cooldown;
+      if (rand(state) < styled(state, 'foul.looseBall')) {
+        const [by, on] = a.setT >= FOUL.setTime && b.setT < FOUL.setTime ? [b, a] : b.setT >= FOUL.setTime && a.setT < FOUL.setTime ? [a, b] : rand(state) < 0.5 ? [a, b] : [b, a];
+        return { kind: 'looseBall', by: by.id, on: on.id };
+      }
+      continue;
+    }
+    const holder = state.players[state.ball.holder];
+    if (!holder || styled(state, 'foul.illegalScreen') <= 0) continue;
+    const [screener, defender] = a.team === holder.team ? [a, b] : [b, a];
+    if (screener === holder || screener.inbounder || Math.hypot(screener.vx, screener.vz) <= FOUL.setSpeed) continue;
+    screener.foulCooldown = defender.foulCooldown = FOUL.cooldown;
+    if (rand(state) < styled(state, 'foul.illegalScreen')) return { kind: 'illegalScreen', by: screener.id, on: defender.id };
+  }
 
   // A sprinting ball handler who runs into an opponent in his path: a charge if the defender was set, else maybe a block.
   const holder = state.players[state.ball.holder];

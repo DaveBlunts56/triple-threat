@@ -59,10 +59,11 @@ function callFoul(state, foul, shots) {
   const { number, name } = personOf(state, fouler);   // read now: he may be substituted during the stoppage
   const given = recordFoul(state, foul);
   const n = shots ?? given.shots;
+  if (given.ball !== fouler.team && state.possession === fouler.team && state.ball.holder !== null) note(state, fouler, 'tov');   // an offensive foul is a turnover
   if (n) state.freeThrow = newFreeThrow(foul.on, n);
   stopPlay(state, given.ball, sidelineSpot(state.ball), makeCall(foul.kind, fouler.team, { number, name, shots: n }));
   // After a defensive foul the offence has at least 14 seconds left to shoot.
-  if (!n && foul.kind !== 'charge') state.shotClock = Math.max(state.shotClock, CLOCK.shotAfterFoul);
+  if (!n && foul.kind !== 'charge' && foul.kind !== 'illegalScreen') state.shotClock = Math.max(state.shotClock, CLOCK.shotAfterFoul);
   state.pendingFoul = null;
 }
 

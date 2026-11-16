@@ -1,4 +1,4 @@
-import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FINISH, FOUL, MOVES, PASS, PLAYER, RIM, SHOT, STAT, STEAL, THREE_PT, RATE, levelOf } from './tuning.js';
+import { BALL, BLOCK, BOARD, CLOCK, COURT, DT, FINISH, FOUL, MOVES, PASS, PLAYER, RIM, SHOT, STAT, STEAL, THREE_PT, RATE, DRIVE, levelOf } from './tuning.js';
 import { attackSign, onFloor as grounded, personOf, rand } from './state.js';
 import { speedFactor, spend } from './stamina.js';
 import { rimCentre, solveShot, stepBall } from './ball.js';
@@ -298,7 +298,16 @@ export function releaseShot(state, player, { green: mayBeGreen = true } = {}) {
   const how = !made ? (dice < SHOT.tease ? 'tease' : 'clean') : green || player.finish === 'layup' ? 'clean' : ['clean', 'rattle', 'roll', 'bank'][SHOT.ways.findIndex(share => dice < share)];
   launchShot(state, player, made, info.value, how);
   ball.info = info;
-  return { shooter: player.id, defender, blocked: false };
+  return { shooter: player.id, defender, blocked: false, near: finishContact(state, player) };
+}
+
+// For a finish: the opponent within DRIVE.dist of him, on the floor or in the air, who may have made contact on
+// the drive (the rules decide, in a style that calls it), or null.
+function finishContact(state, player) {
+  if (!player.finish) return null;
+  let near = null;
+  for (const o of state.players) if (o.team !== player.team && dist(o, player) <= DRIVE.dist && (!near || dist(o, player) < dist(near, player))) near = o;
+  return near?.id ?? null;
 }
 
 // An open dunk nearly always goes down; a defender on him takes some of that, less than he takes off a shot.
@@ -321,7 +330,7 @@ function releaseDunk(state, player) {
     letGo(state, player, 'shot');
   } else launchShot(state, player, false, 2, 'clean');
   ball.info = info;
-  return { shooter: player.id, defender, blocked: false };
+  return { shooter: player.id, defender, blocked: false, near: finishContact(state, player) };
 }
 
 // A number from 0 to 1 that differs from shot to shot, worked out from where and when the shot is taken: it draws
@@ -423,6 +432,10 @@ export function giveBall(state, player) {
     note(state, player, 'stl'); note(state, passer, 'tov');
     state.last.steal = { by: player.id, on: passer.id, at: state.time };
   }
+  // A fumbled catch the other team picks up is the fumbler's turnover.
+  const fumbler = state.players[state.fumbledBy];
+  if (fumbler && fumbler.team !== player.team && ball.mode !== 'pass') note(state, fumbler, 'tov');
+  state.fumbledBy = null;
   player.fed = passer && passer.team === player.team && passer !== player ? { row: passer.person, at: state.time } : null;
   ball.holder = player.id; ball.mode = 'held'; ball.target = null;
   ball.shooter = null; ball.shotValue = 0;
@@ -434,6 +447,24 @@ export function giveBall(state, player) {
   handOver(state, player.team);
   state.possession = state.lastTouch = player.team;
   if (player.team === 0) state.controlled = player.id;
+}
+
+// A pass caught with a defender right on the catcher can be fumbled, where the style has it: less often the better he
+// handles the ball.
+function fumbles(state, taker) {
+  const rate = styled(state, 'fumble.rate'), { ball } = state;
+  if (!(rate > 0) || ball.mode !== 'pass' || state.lastTouch !== taker.team) return false;
+  const pressed = state.players.some(o => o.team !== taker.team && dist(o, taker) <= 1);
+  return pressed && rand(state) < rate * drop(rated(state, taker, 'handle'), 0.1);
+}
+
+// The ball pops loose from his hands: a free ball, his team's last touch. If the other team takes it, it is his
+// turnover (see giveBall).
+function fumble(state, taker) {
+  const { ball } = state;
+  Object.assign(ball, { holder: null, mode: 'loose', target: null, vx: (rand(state) - 0.5) * 3, vy: 1.5, vz: (rand(state) - 0.5) * 3, noPickupId: taker.id, noPickupT: 0.35 });
+  state.lastTouch = taker.team;
+  state.fumbledBy = taker.id;
 }
 
 // Returns null when no attempt was made, otherwise whether it won the ball and whether it came from in front.
@@ -572,6 +603,7 @@ export function applyActions(state, intents, dt) {
   });
 
   const taker = tryPickup(state);
-  if (taker) giveBall(state, taker);
+  if (taker && fumbles(state, taker)) fumble(state, taker);
+  else if (taker) giveBall(state, taker);
   return report;
 }

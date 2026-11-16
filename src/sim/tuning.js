@@ -253,6 +253,9 @@ export const MATCHUP = f({ lost: 2, save: 6, wait: 2 });
 // closeout aims.
 export const SCHEME = f({ switchReach: 2.5, dropAt: 3.5, changeEvery: 8, beaten: 0.25, seen: 5, doubleAt: 85, doubleWithin: 4, doubleFor: 2.5, doubleGap: 0.9, flyPast: 0.4 });
 
+// A finish with an opponent this near him (metres) may draw contact on the drive, in a style that calls it.
+export const DRIVE = f({ dist: 1.2 });
+
 export const VIOLATION = f({ backcourt: 8, key: 3, inbound: 5, keyHalfWidth: 2.45, keyDepth: 5.8 });
 
 export const FOUL = f({
