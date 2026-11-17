@@ -1,7 +1,7 @@
 // What a player of the team with the ball does when he does not have it and no play gives him a part: a place that
 // suits what he is, taken up in his own time, and the moves he makes from it: a cut, getting out of the way of a
 // drive, running a lane on a fast break. The rules never read any of this: it only says where he should go.
-import { AI, ARC, OFF, RIM, isHuman } from './tuning.js';
+import { AI, ARC, FOUL, OFF, RIM, isHuman } from './tuning.js';
 import { styled } from './styles.js';
 import { attackSign, personOf, rand } from './state.js';
 import { choose } from './choose.js';
@@ -103,6 +103,11 @@ export function offBallSpot(state, player) {
   const cut = state.cut[team];
   if (cut && state.time >= cut.until) state.cut[team] = null;
   if (state.cut[team]?.id === player.id) return { x: sign * OFF.rimAt, z: 0.6 * Math.sign(player.z || 1), sprint: true, why: 'cut' };
+  // A screen away from the ball (see screenFor): the screener's spot, or the shooter's run off it once it is set.
+  const screen = screening(state, team, holder);
+  if (screen?.by === player.id) return { ...screen.spot, sprint: true, why: 'screen' };
+  if (screen?.for === player.id) return screen.arrived !== undefined ? { ...screen.to, sprint: false, why: 'offScreen' }
+    : screen.used ? { ...screen.to, sprint: true, why: 'offScreen' } : { x: player.x, z: player.z, sprint: false, why: 'waitScreen' };
 
   if (mine && driving(holder, hoop)) {
     // Off the handler's line to the hoop, to the side he is already on.
@@ -148,9 +153,16 @@ export function offBallSpot(state, player) {
       const spot = threeMan(state, player) ? openSpot(state, player, ARC.relocateReach) : null;
       const near = dist(defender, player) < OFF.cutGap;
       if (spot) options.push({ key: 'three', spot, value: styled(state, 'off.threeCut') * (0.8 + (rated(state, player, 'three') - ARC.threeAt) / 30 + (near ? 0.35 : 0) + 0.5 * watching + (passed ? 0.3 : 0)) });
+      // A screen for a shooter whose man is on him: a big goes and stands by that man, and the shooter runs off it.
+      const freeing = kind === 'big' && !state.screen[team] && !state.cut[team] ? screenFor(state, player, holder) : null;
+      if (freeing) options.push({ key: 'screen', value: OFF.screen.value + (rated(state, freeing.shooter, 'three') - ARC.threeAt) / 30, ...freeing });
       // A shooter spotted up where he shoots from is worth something where he is, more with his man off him.
       options.push({ key: 'stay', value: kind === 'shooter' ? 1.35 + (lost ? 0.3 : 0) : 1 });
       const go = options.length > 1 ? choose(state, options, personOf(state, player).iq) : options[0];
+      if (go.key === 'screen') {
+        state.screen[team] = { by: player.id, for: go.shooter.id, spot: go.spot, to: go.to, until: state.time + OFF.screen.lasts, used: false };
+        return { ...go.spot, sprint: true, why: 'screen' };
+      }
       if (go.key === 'cut') {
         state.cut[team] = { id: player.id, until: state.time + OFF.cutFor };
         return { x: sign * OFF.rimAt, z: 0.6 * Math.sign(player.z || 1), sprint: true, why: 'cut' };
@@ -159,6 +171,60 @@ export function offBallSpot(state, player) {
     }
   }
   return ai.place ? { sprint: false, why: 'place', ...ai.place } : null;
+}
+
+// A screen `big` may set away from the ball: for the best shooter of his team-mates (not the man with the ball) whose
+// man is on him (within OFF.cutGap) and who has an open spot on the arc to run to. The big stands by that man, on the
+// side the shooter will run, so that the man, following him, runs into the big. { shooter, spot, to }, or null.
+function screenFor(state, big, holder) {
+  const shooters = state.players.filter(m => m.team === big.team && m !== big && m !== holder && threeMan(state, m) && dist(m, big) <= OFF.screen.reach);
+  for (const shooter of shooters.sort((a, b) => rated(state, b, 'three') - rated(state, a, 'three'))) {
+    const man = guardOf(state, shooter);
+    if (!man || dist(man, shooter) > OFF.cutGap) continue;
+    const to = openSpot(state, shooter, ARC.relocateReach);
+    if (!to) continue;
+    const far = Math.hypot(to.x - man.x, to.z - man.z) || 1;
+    return { shooter, to: { x: to.x, z: to.z }, spot: { x: man.x + ((to.x - man.x) / far) * OFF.screen.beside, z: man.z + ((to.z - man.z) / far) * OFF.screen.beside } };
+  }
+  return null;
+}
+
+// The team's screen away from the ball, kept up to date: over once its time is up, the ball is lost or the shooter or
+// the screener has it, or the shooter has stood OFF.screen.look seconds at his spot uncalled for; used (the shooter
+// runs) once the screener is set by his spot, and `arrived` (the time) once the shooter is there. A pass between
+// team-mates does not end it: the ball moved round is how the shooter gets it.
+function screening(state, team, holder) {
+  const s = state.screen[team];
+  if (!s) return null;
+  const by = state.players[s.by], shooter = state.players[s.for];
+  const ours = holder ? holder.team === team : state.ball.mode === 'pass' && state.lastTouch === team;
+  const over = s.arrived !== undefined ? state.time >= s.arrived + OFF.screen.look : state.time >= s.until;
+  if (over || !ours || holder === shooter || holder === by) { state.screen[team] = null; return null; }
+  if (!s.used && dist(by, s.spot) <= OFF.screen.set && by.setT >= FOUL.setTime) s.used = true;
+  if (s.used && s.arrived === undefined && dist(shooter, s.to) < OFF.screen.done) s.arrived = state.time;
+  return s;
+}
+
+// The shooter a screen away from the ball has just freed, at his spot: the man `holder` looks for (see ai.js), or null.
+export function freedBy(state, holder) {
+  const s = state.screen[holder.team];
+  return s && s.arrived !== undefined && s.for !== holder.id ? state.players[s.for] : null;
+}
+
+// The point guard of `team` on the floor: who comes to take the inbound and brings the ball up (see ai.js). Its best
+// handler, a pass-first man before a scorer: his handle and OFF.point.pass by his passFirst. Only a team nobody plays
+// has one: a person brings the ball up as he likes. Null for his.
+export function pointOf(state, team) {
+  if (isHuman(state, team)) return null;
+  const worth = m => rated(state, m, 'handle') + OFF.point.pass * personOf(state, m).tend.passFirst;
+  return state.players.filter(m => m.team === team).reduce((a, b) => (worth(b) > worth(a) ? b : a));
+}
+
+// Who an inbounder throws it to: his point guard, close enough to take it, or else his nearest team-mate.
+export function inboundTo(state, inbounder) {
+  const point = pointOf(state, inbounder.team), mates = state.players.filter(m => m.team === inbounder.team && m !== inbounder);
+  if (point && point !== inbounder && dist(point, inbounder) <= OFF.point.inbound) return point;
+  return mates.reduce((a, b) => (dist(b, inbounder) < dist(a, inbounder) ? b : a));
 }
 
 // Whoever has just passed looks at once for the ball back: his next moment to move is now.

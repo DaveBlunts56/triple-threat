@@ -9,7 +9,7 @@ import { styled } from '../styles.js';
 import { STAR_AT, choose, sharpness, starPull } from '../choose.js';
 import { cast, playsFor, suits } from '../plays.js';
 import { easeOf, focusOf, lastShot, playWeight, playbookOf, running } from '../coach.js';
-import { schemeOf } from '../matchups.js';
+import { hunt, schemeOf } from '../matchups.js';
 import { needOf, situation } from '../late.js';
 import { starOf } from '../ratings.js';
 import { drop, lift, overall } from '../overall.js';
@@ -185,7 +185,7 @@ export function playPossession(state, team, begun) {
     if (!forced) options.push({ key: 'hold', value: keep + (milking || holding ? 0.6 : 0) });
     if (forced && !options.some(o => o.key === 'shoot' || o.key === 'drive' || o.key === 'post')) options.push({ key: 'shoot', value: 0.5, look: look(state, h, jumper(state, h), within(r, QUICK.gap.forced), d) });
 
-    const pickOne = choose(state, lean(state, h, options), iq, 'offence');
+    const pickOne = choose(state, hunt(state, h, lean(state, h, options)), iq, 'offence');
     // Losing the ball on the way: a pass picked off or thrown away, a strip on a drive, a fumble, a charge, an
     // illegal screen in the play.
     const tov = turnoverChance(state, pickOne.key, h, d, pick && play);

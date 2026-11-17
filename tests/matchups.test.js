@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createMatch } from '../src/sim/state.js';
+import { createMatch, personOf } from '../src/sim/state.js';
 import { giveBall } from '../src/sim/players.js';
 import { substitute } from '../src/sim/roster.js';
 import { step } from '../src/sim/step.js';
 import { startMatch } from '../src/sim/rules.js';
-import { manOf, guardOf, screenSwitches } from '../src/sim/matchups.js';
+import { manOf, guardOf, screenSwitches, edgeOf, hunt, MISMATCH } from '../src/sim/matchups.js';
 import { aiIntents } from '../src/sim/ai.js';
 import { newFreeThrow, setupFreeThrow } from '../src/sim/freethrow.js';
 import { DT, MATCHUP } from '../src/sim/tuning.js';
@@ -227,4 +227,45 @@ test('whole matches with switching, three a side and five: they end, both score,
     assert.ok(switches > 0, `${size} a side: nobody ever switched`);
     assert.ok(switches / changes <= 2, `${size} a side: ${switches} switches in ${changes} possessions`);
   }
+});
+
+// ---------- mismatches (overhaul Stage 2): both engines hunt them before choosing ----------
+
+// Five a side with every rating 70 and every man the same size as his: no edges anywhere. `p` is player 0, `g` his man.
+function evenly() {
+  const s = createMatch(1, 5);
+  for (const person of s.rosters.flat()) { for (const k of Object.keys(person.ratings)) person.ratings[k] = 70; person.position = 'SF'; }
+  return { s, p: s.players[0], g: guardOf(s, s.players[0]) };
+}
+
+test('a mismatch is the edge an attacker has on his own man: quickness from handle and speed, size from two positions bigger', () => {
+  const { s, p, g } = evenly();
+  assert.deepEqual(edgeOf(s, p), { quick: 0, size: 0 });
+  Object.assign(personOf(s, p).ratings, { handle: 90, speed: 90 });
+  Object.assign(personOf(s, g).ratings, { defence: 60, speed: 60 });
+  assert.equal(edgeOf(s, p).quick, 3);
+  assert.equal(edgeOf(s, g).quick, 0, 'the slower man has no edge back');
+  personOf(s, p).position = 'C'; personOf(s, g).position = 'SG';
+  assert.equal(edgeOf(s, p).size, 2);
+  personOf(s, g).position = 'PF';
+  assert.equal(edgeOf(s, p).size, 0, 'one position bigger is no mismatch');
+});
+
+test('he hunts the mismatch: a quick man drives his slow one, a big posts a small one, and the ball goes to a team-mate with an edge, each by no more than its cap', () => {
+  const options = to => [{ key: 'shoot', value: 1 }, { key: 'drive', value: 1 }, { key: 'move', value: 1 }, { key: 'post', value: 1 }, { key: 'pass', value: 1, to }, { key: 'hold', value: 0.5 }, { key: 'fade', value: -Infinity }];
+  const { s, p, g } = evenly(), mate = s.players[1];
+  assert.deepEqual(hunt(s, p, options(mate.id)).map(o => o.value), options(mate.id).map(o => o.value), 'no edge, no change');
+  Object.assign(personOf(s, p).ratings, { handle: 90, speed: 90 });
+  Object.assign(personOf(s, g).ratings, { defence: 60, speed: 60 });
+  const quick = hunt(s, p, options(mate.id));
+  assert.ok(quick[1].value > 1 && quick[2].value > 1 && quick[0].value === 1 && quick[3].value === 1 && quick[5].value === 0.5 && quick[6].value === -Infinity);
+  assert.ok(Math.abs(quick[1].value - 1 - MISMATCH.quick * 3) < 1e-9);
+  Object.assign(personOf(s, g).ratings, { defence: 0, speed: 0 });
+  assert.equal(hunt(s, p, options(mate.id))[1].value, 1 + MISMATCH.most, 'capped');
+  personOf(s, p).position = 'C'; personOf(s, g).position = 'PG';
+  assert.ok(hunt(s, p, options(mate.id))[3].value > 1, 'a big on a small man posts him');
+  // A team-mate with the better of his man: the pass to him, as the 3D game names him (an id) and the fast engine (the player).
+  const other = evenly(), mateMan = guardOf(other.s, other.s.players[1]);
+  personOf(other.s, other.s.players[1]).position = 'C'; personOf(other.s, mateMan).position = 'SG';
+  for (const to of [1, other.s.players[1]]) assert.ok(Math.abs(hunt(other.s, other.p, options(to))[4].value - 1 - MISMATCH.feed * 2) < 1e-9);
 });

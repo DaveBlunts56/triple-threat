@@ -10,7 +10,9 @@ const fixture = name => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, im
 
 // arcade-tuning.json: the numbers as Stage 0 left them, changed since only on purpose: in overhaul Stage 1 (the owner chose
 // the smarter AI for both styles) AI.crashOff and AI.crashSide, where a man crashing the glass on a team-mate's shot
-// heads, and LATE.foulUnder, now by how far behind a team is.
+// heads, and LATE.foulUnder, now by how far behind a team is; in overhaul Stage 2 (the smarter AI) two additions, no
+// number changed: AI.lastShotAt, till when a team holds the ball for the last shot of a period; OFF.screen, the screens
+// away from the ball; and OFF.point, the point guard who takes the inbound.
 test('Arcade\'s numbers are today\'s', () => {
   const numbers = JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(tuning).filter(([, v]) => typeof v !== 'function'))));
   const was = fixture('arcade-tuning.json');

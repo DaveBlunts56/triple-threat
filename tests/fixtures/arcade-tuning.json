@@ -83,7 +83,8 @@
   "adaptAfter": 4,
   "vary": 0.3,
   "lowSpotZ": 3.2,
-  "safetyGap": 4
+  "safetyGap": 4,
+  "lastShotAt": 7
  },
  "ARC": {
   "threeAt": 75,
@@ -495,7 +496,21 @@
   "clearTo": 3,
   "breakUntil": 6,
   "breakWide": 6,
-  "breakTrail": 4
+  "breakTrail": 4,
+  "screen": {
+   "value": 1.05,
+   "reach": 9,
+   "beside": 0.75,
+   "set": 0.6,
+   "done": 0.8,
+   "lasts": 5,
+   "look": 1.5,
+   "feed": 0.3
+  },
+  "point": {
+   "pass": 40,
+   "inbound": 7
+  }
  },
  "PASS": {
   "speed": 14,

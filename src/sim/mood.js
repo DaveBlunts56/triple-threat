@@ -55,10 +55,11 @@ export const MOOD = f({
   half: 75, rest: 0.3, leader: 0.06, run: 8, settle: 0.5,
   // What it does. lean: expected points it adds to his options before he chooses (see lean): to his own shot or move,
   // at full confidence (`self`); to a pass, when he doubts himself (`share`); to his own shot against his rival
-  // (`rival`, at full heat). skill: the rating points his confidence is worth on a shot at its fullest. clutch: those
+  // (`rival`, at full heat); to a pass to a team-mate on a roll (`feed`, at his full confidence against his usual), and
+  // from one who is frustrated (`sour`, at its fullest). skill: the rating points his confidence is worth on a shot at its fullest. clutch: those
   // the clutch trait is worth at its ends, when the game is on the line. foul: how much more often a fully frustrated
   // defender's contact is a foul.
-  lean: f({ self: 0.08, share: 0.06, rival: 0.08 }), skill: 1.5, clutch: 5, foul: 0.5,
+  lean: f({ self: 0.08, share: 0.06, rival: 0.08, feed: 0.06, sour: 0.04 }), skill: 1.5, clutch: 5, foul: 0.5,
   // The score's pull (see scorePull): from `from` points ahead a team eases off and the one behind pushes, by up to
   // `ease` and `push` rating points on a shot at `full` points; games between equal sides spread as the league's do.
   lead: f({ from: 8, full: 20, ease: 5, push: 5 }),
@@ -187,7 +188,9 @@ export function feelFoul(state, fouler) {
 const SELF = new Set(['shoot', 'drive', 'move', 'fade', 'step', 'post']);
 // Leans `player`'s options (see choose.js) by his mood, before he chooses: the surer and the angrier he is, the more he
 // looks for his own shot (against his rival more again); the more he doubts himself, the more he passes; an angry
-// player passes less. The style's mood.strength scales it all (0: as if no one felt anything). Returns the options.
+// player passes less. And by his team-mates': a pass goes more to a man on a roll and less to one who is frustrated (a
+// pass option names its man by `to`: an id in the 3D game, the player in the fast engine). The style's mood.strength
+// scales it all (0: as if no one felt anything). Returns the options.
 export function lean(state, player, options) {
   const k = styled(state, 'mood.strength');
   if (!k) return options;
@@ -195,7 +198,18 @@ export function lean(state, player, options) {
   const rival = Math.min(1, heatBetween(state, player, guardOf(state, player)));
   const self = k * (MOOD.lean.self * (confidence + 0.6 * frustration) + MOOD.lean.rival * rival);
   const share = k * MOOD.lean.share * (Math.max(0, -confidence) - 0.6 * frustration);
-  for (const o of options) if (o.value > -Infinity) o.value += SELF.has(o.key) ? self : o.key === 'pass' ? share : 0;
+  for (const o of options) {
+    if (o.value === -Infinity) continue;
+    if (SELF.has(o.key)) o.value += self;
+    else if (o.key === 'pass') {
+      o.value += share;
+      const m = typeof o.to === 'number' ? state.players[o.to] : o.to;
+      if (m) {
+        const them = personOf(state, m), feel = moodOf(state, them), rest = them.traits ? restOf(them.traits) : 0;
+        o.value += k * (MOOD.lean.feed * Math.max(0, feel.confidence - rest) - MOOD.lean.sour * feel.frustration);
+      }
+    }
+  }
   return options;
 }
 
