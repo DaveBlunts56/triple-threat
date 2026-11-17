@@ -35,3 +35,17 @@ node tools/sim/audit.mjs 3d 1 12 audit-3d.json
 ```
 
 The arguments are the engine, games per pairing, minutes per quarter, and a file to save every line to (optional). The fast engine plays 66 pairings in about 1.5 s a game per pairing; the 3D game takes about 3 minutes for one game per pairing. `tests/league-audit.test.js` runs the fast engine's audit twice per pairing and holds it to its bands.
+
+## The gates (`tools/sim/gates/`)
+
+The scripts that measure what the balance tests assert, with more seeds when wanted, so a change can be checked
+before the whole suite runs, and compared with the code before it (set `ROOT` to another checkout and run both
+together). Each prints one or two lines.
+
+```bash
+node tools/sim/gates/arcade-band.mjs 30    # Arcade against its baseline: within 10% (the test plays seeds 1-10)
+node tools/sim/gates/sim-table.mjs 16      # Simulation's 3D game per 48 minutes: within 15% of the 2025-26 averages
+node tools/sim/gates/fast-table.mjs 400    # the fast engine's same table: the two engines must agree (see simplay.test.js)
+node tools/sim/gates/star-usage.mjs 16     # every star's usage over 20%
+node tools/sim/gates/three-point.mjs 150   # better shooters make more of their threes, as the shot model gives them
+```
