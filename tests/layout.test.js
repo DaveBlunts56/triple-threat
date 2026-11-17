@@ -58,7 +58,7 @@ test('each quality level shows its share of the crowd, always the same people, a
 
 test('the boards carry only the game\'s own words, and the scoreboard says the score and the period', () => {
   const words = new Set(boards().map(b => b.words));
-  for (const word of words) assert.ok(['TRIPLE THREAT', 'HARBOR CITY WAVES', 'RED ROCK SCORPIONS', ''].includes(word), word);
+  for (const word of words) assert.ok(['TRIPLE THREAT', ''].includes(word), word);
   assert.ok(words.has('TRIPLE THREAT'));
   const s = createMatch(); s.score = [28, 26]; s.quarter = 3;
   assert.deepEqual(scoreLines(s), { home: 'WAV 28', away: 'SCO 26', period: '3RD' });
@@ -115,17 +115,33 @@ test('the home arena is the Waves\' Tidewater Arena, all of it invented, and eve
   assert.ok(look.banners.length >= 3);
 });
 
-test('a league team\'s home is its own arena by name and city, in its colours, with its own banners; each is made once', () => {
-  const look = arenaOf(2), team = TEAMS[2];
-  assert.deepEqual([look.team, look.name, look.city], [2, 'EMPIRE SQUARE GARDEN', 'NEW YORK']);
-  assert.equal(arenaOf(2), look);
-  for (const key of Object.keys(ARENAS.tidewater.colour)) assert.ok(key in look.colour, key);
-  assert.deepEqual([look.colour.lane, look.colour.accent], [team.colour, team.secondary]);
-  assert.ok(look.banners.length >= 3 && look.banners.every(b => b.top.includes(team.nickname.toUpperCase())));
-  assert.ok(['wave', 'angle'].includes(look.trusses));
-  const names = TEAMS.map((t, id) => arenaOf(id).name);
-  assert.equal(new Set(names).size, TEAMS.length, 'fourteen arenas, all different');
+test('every league team has an arena of its own, named for its venue, in its city, with its own banners', () => {
+  const names = new Set();
+  for (const [id, team] of TEAMS.entries()) {
+    const look = arenaOf(id);
+    assert.equal(look.team, id, team.name);
+    names.add(look.name);
+    if (team.dev) continue;
+    assert.equal(look, ARENAS[team.key.toLowerCase()]);
+    assert.deepEqual([look.name, look.city], [team.venue.name.toUpperCase(), team.city.toUpperCase()]);
+    for (const key of Object.keys(ARENAS.tidewater.colour)) assert.ok(key in look.colour, `${team.key}: ${key}`);
+    assert.ok(look.banners.length >= 2 && look.banners.length <= 8, team.key);
+    assert.ok(look.banners.every(b => b.top.includes(team.nickname.toUpperCase())), team.key);
+    assert.ok(['wave', 'angle'].includes(look.trusses));
+  }
+  assert.equal(names.size, TEAMS.length, 'fourteen arenas, all different');
   assert.equal(arenaOf(99), ARENAS.tidewater, 'a team there is not plays at Tidewater');
+});
+
+test('the arenas are after their teams\' real homes: Boston\'s parquet in red oak, Denver\'s mountains, the rafters fullest in Boston and Los Angeles', () => {
+  const at = key => ARENAS[key];
+  assert.ok(at('bsh').floor.parquet > 1 && at('bsh').floor.tone[0] > at('bsh').floor.tone[2] * 1.5, 'red oak: much redder than it is blue');
+  assert.equal(at('bsh').colour.lane, '#007a33');
+  assert.equal(at('den').floor.art.kind, 'mountains');
+  assert.equal(Object.values(ARENAS).filter(a => a.floor?.parquet).length, 1, 'only Boston plays on parquet');
+  const most = Math.max(...Object.values(ARENAS).map(a => a.banners.length));
+  assert.deepEqual(Object.keys(ARENAS).filter(k => ARENAS[k].banners.length === most), ['bsh', 'lar']);
+  assert.ok(at('bsh').banners.every(b => b.bottom === 'LEAGUE CHAMPIONS'));
 });
 
 test('the Scorpions\' home is Red Rock Pavilion: sandstone and rust, a sunset glow, a folded roof, their own court and banners', () => {

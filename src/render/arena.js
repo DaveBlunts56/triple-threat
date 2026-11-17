@@ -86,13 +86,15 @@ export function createArena(scene, look, away = 1 - look.team) {
   // The boards and the table carry words. (The video board's faces are its own: see videoboard.js.)
   // The boards along the far side and behind the baselines show advertisements, each changing in its turn; the
   // table's face keeps the game's name.
+  // The advertisements are the game's sponsors' and the home team's own.
   const adBoards = ARENA.sideBoards.count + 2 * ARENA.endBoards.count, adPictures = [], adLooks = [];
+  const ads = [...ADS, { words: TEAMS[look.team].name.toUpperCase(), back: TEAMS[look.team].colour, ink: '#ffffff' }];
   boards().forEach((board, i) => {
     if (board.words === '') return;
-    if (i < adBoards && !adPictures.length) for (const ad of ADS) adPictures.push(wordsPicture(ad.words, board.width, board.height, ad.back, ad.ink));
-    const picture = i < adBoards ? adPictures[adAt(i, 0)] : wordsPicture(board.words, board.width, board.height, '#0e2a66', '#f2f5f8');
+    if (i < adBoards && !adPictures.length) for (const ad of ads) adPictures.push(wordsPicture(ad.words, board.width, board.height, ad.back, ad.ink));
+    const picture = i < adBoards ? adPictures[adAt(i, 0, ads.length)] : wordsPicture(board.words, board.width, board.height, '#0e2a66', '#f2f5f8');
     const look = new THREE.MeshBasicMaterial({ map: picture, color: new THREE.Color().setScalar(LOOK.glow) });
-    if (i < adBoards) adLooks.push({ look, board: i, showing: adAt(i, 0) });
+    if (i < adBoards) adLooks.push({ look, board: i, showing: adAt(i, 0, ads.length) });
     hall.add(face(board, look));
   });
   const table = new THREE.Mesh(new THREE.BoxGeometry(ARENA.table.wide, ARENA.table.high, ARENA.table.deep), new THREE.MeshStandardMaterial({ color: 0x14161b, roughness: 0.8 }));
@@ -116,7 +118,7 @@ export function createArena(scene, look, away = 1 - look.team) {
       building.live(now);
       fans.live(life, now, courtside + Math.round(full * (1 - life.left)), side);
       for (const ad of adLooks) {
-        const now_ = adAt(ad.board, now);
+        const now_ = adAt(ad.board, now, ads.length);
         if (now_ !== ad.showing) { ad.showing = now_; ad.look.map = adPictures[now_]; ad.look.needsUpdate = true; }
       }
     },

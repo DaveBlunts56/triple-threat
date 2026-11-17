@@ -253,9 +253,12 @@ export function createBuilding(group, look, team, extra = {}) {
     for (let x = -Math.floor(R.hallX / R.every) * R.every; x <= R.hallX; x += R.every) steel.push(tube([x, R.catwalk, z], [x, chordAt(look, x, z, R.low), z], 0.03));
   }
 
-  // The banners, hung over each end, facing the court.
-  const B = BUILDING.banner, n = look.banners.length;
-  for (const s of [1, -1]) B.z.forEach((z, i) => banners.push({ i: i % n, g: plane(B.wide, B.high, s * B.x, B.top - B.high / 2, z, -s * Math.PI / 2) }));
+  // The banners, hung over each end, facing the court: one to a place, from the middle out, the two ends in turn.
+  const B = BUILDING.banner, places = [...B.z].sort((a, b) => Math.abs(a) - Math.abs(b) || a - b).flatMap(z => [[1, z], [-1, z]]);
+  look.banners.slice(0, places.length).forEach((_, i) => {
+    const [s, z] = places[i];
+    banners.push({ i, g: plane(B.wide, B.high, s * B.x, B.top - B.high / 2, z, -s * Math.PI / 2) });
+  });
 
   // Materials, and the meshes.
   const mesh = (list, material) => { const m = new THREE.Mesh(mergeGeometries(list), material); group.add(m); return m; };

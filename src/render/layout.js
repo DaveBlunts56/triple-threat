@@ -40,7 +40,7 @@ export const ARENA = f({
   roof: f({ y: 31, low: 26.5, high: 29.5, every: 12, catwalk: 25.5, catwalkZ: f([-10, 10]), hallX: 44, hallZ: 39 }),
 });
 
-const WORDS = f(['TRIPLE THREAT', 'HARBOR CITY WAVES', 'RED ROCK SCORPIONS']);
+const WORDS = f(['TRIPLE THREAT']);   // what a board carries (an advertisement board shows the ads instead: see arena.js)
 
 // The places along a row `half` metres each way from its middle, a seat's width apart, leaving the aisles clear.
 function across(half) {

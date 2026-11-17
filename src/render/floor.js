@@ -17,39 +17,79 @@ import { QUALITY } from './quality.js';
 const FLOOR = Object.freeze({ length: 32, width: 19, px: 64, plank: 1.7, full: 2048, paintGloss: 0.4, runOff: 'rgba(52, 34, 20, 0.6)', lift: 0.004,
   tone: Object.freeze([1.55, 1.45, 1.22]), mirror: 0.3, blur: 3 });
 
+// A five-pointed star of radius `r` pixels at (x, y), on `g`, filled.
+function star(g, x, y, r) {
+  g.beginPath();
+  for (let k = 0; k < 10; k++) {
+    const a = -Math.PI / 2 + (k * Math.PI) / 5, d = k % 2 ? r * 0.42 : r;
+    g.lineTo(x + d * Math.cos(a), y + d * Math.sin(a));
+  }
+  g.closePath(); g.fill();
+}
+
 // The court's paint: every line, and a darker stain over the run-off; and the home arena's (`look`, see arenas.js): the
-// lanes and the centre circle stained in its colour, its team's mark at centre court, its city along the baselines
-// and its name along the sidelines. With `wood` the playing surface and the run-off are painted as wood-coloured blocks
-// under the lines (the floor of the game before it had real wood, and still the floor if the wood's pictures cannot
-// be loaded); without it everything but the paint is clear.
+// lanes and the centre circle stained in its colours, its floor's apron, rings and art, its team's mark at centre
+// court, its city along the baselines and its name along the sidelines. With `wood` the playing surface and the
+// run-off are painted as wood-coloured blocks under the lines (the floor of the game before it had real wood, and
+// still the floor if the wood's pictures cannot be loaded); without it everything but the paint is clear.
 function paintCourt(wood, look) {
   const c = document.createElement('canvas');
   c.width = FLOOR.length * FLOOR.px; c.height = FLOOR.width * FLOOR.px;
-  const g = c.getContext('2d'), PX = FLOOR.px;
+  const g = c.getContext('2d'), PX = FLOOR.px, F = look.floor ?? {};
   const X = x => (x + FLOOR.length / 2) * PX, Z = z => (z + FLOOR.width / 2) * PX;
   const court = [X(-COURT.halfLength), Z(-COURT.halfWidth), 2 * COURT.halfLength * PX, 2 * COURT.halfWidth * PX];
 
+  // The run-off: stained darker, or painted in the arena's apron colour (a little of the wood showing through).
   if (wood) {
-    g.fillStyle = '#5b4632'; g.fillRect(0, 0, c.width, c.height);            // run-off
+    g.fillStyle = F.apron ?? '#5b4632'; g.fillRect(0, 0, c.width, c.height);
     g.fillStyle = '#c99a5b'; g.fillRect(...court);                           // playing surface
   } else {
-    g.fillStyle = FLOOR.runOff; g.fillRect(0, 0, c.width, c.height);
+    g.globalAlpha = F.apron ? 0.94 : 1;
+    g.fillStyle = F.apron ?? FLOOR.runOff; g.fillRect(0, 0, c.width, c.height);
+    g.globalAlpha = 1;
     g.clearRect(...court);
   }
+  // A parquet floor's seams, round every block.
+  if (F.parquet) {
+    g.strokeStyle = 'rgba(46, 24, 12, 0.4)'; g.lineWidth = 2;
+    for (let x = -Math.floor(FLOOR.length / 2 / F.parquet) * F.parquet; x <= FLOOR.length / 2; x += F.parquet) { g.beginPath(); g.moveTo(X(x), 0); g.lineTo(X(x), c.height); g.stroke(); }
+    for (let z = -Math.floor(FLOOR.width / 2 / F.parquet) * F.parquet; z <= FLOOR.width / 2; z += F.parquet) { g.beginPath(); g.moveTo(0, Z(z)); g.lineTo(c.width, Z(z)); g.stroke(); }
+  }
 
-  // The lanes and the centre circle, stained in the home team's colour.
+  // The lanes stained in the home team's colour; the rings round the centre circle, and the circle itself.
   const L = COURT.halfLength, W = COURT.halfWidth;
   g.globalAlpha = look.colour.laneShade; g.fillStyle = look.colour.lane;
   for (const s of [1, -1]) g.fillRect(Math.min(X(s * L), X(s * (L - LANE.depth))), Z(-LANE.halfWidth), LANE.depth * PX, 2 * LANE.halfWidth * PX);
-  g.beginPath(); g.arc(X(0), Z(0), LANE.centre * PX, 0, 2 * Math.PI); g.fill();
+  if (F.ring) {
+    g.strokeStyle = F.ring.colour; g.lineWidth = F.ring.width * PX;
+    for (let k = 0; k < (F.ring.count ?? 1); k++) { g.beginPath(); g.arc(X(0), Z(0), (F.ring.r + k * (F.ring.gap ?? 0)) * PX, 0, 2 * Math.PI); g.stroke(); }
+  }
+  if (F.centre !== 'wood') { g.fillStyle = F.centre ?? look.colour.lane; g.beginPath(); g.arc(X(0), Z(0), LANE.centre * PX, 0, 2 * Math.PI); g.fill(); }
   g.globalAlpha = 1;
+  const runEnd = (FLOOR.length / 2 + L) / 2, runSide = (FLOOR.width / 2 + W) / 2;
+  // The art: stars beside the words (along each sideline and behind each baseline), or a mountain skyline behind each
+  // baseline, its peaks toward the court.
+  if (F.art?.kind === 'stars') {
+    g.fillStyle = F.art.colour;
+    for (const s of [1, -1]) for (const at of [7.2, 8.6, 10]) for (const t of [1, -1]) star(g, X(t * at), Z(s * runSide), 0.34 * PX);
+    for (const s of [1, -1]) for (const at of [6.9, 8.3]) for (const t of [1, -1]) star(g, X(s * runEnd), Z(t * at), 0.34 * PX);
+  }
+  if (F.art?.kind === 'mountains') {
+    const edge = FLOOR.length / 2, deep = edge - L, peaks = [0.35, 0.8, 0.5, 0.95, 0.6, 0.3, 0.75, 1, 0.55, 0.85, 0.4, 0.7, 0.45, 0.9, 0.5];
+    for (const s of [1, -1]) {
+      g.beginPath(); g.moveTo(X(s * edge), Z(-FLOOR.width / 2));
+      peaks.forEach((h, k) => g.lineTo(X(s * (edge - deep * 0.92 * h)), Z(-FLOOR.width / 2 + ((k + 0.5) * FLOOR.width) / peaks.length)));
+      g.lineTo(X(s * edge), Z(FLOOR.width / 2)); g.closePath();
+      g.fillStyle = F.art.colour; g.fill();
+      if (F.art.edge) { g.strokeStyle = F.art.edge; g.lineWidth = 0.06 * PX; g.stroke(); }
+    }
+  }
   // The city along the run-off behind each baseline, read from the court; the arena's name along each sideline's.
   const words = (text, x, z, turn, high) => {
     g.save(); g.translate(X(x), Z(z)); g.rotate(turn);
     g.font = `italic 900 ${Math.round(high * PX)}px "Arial Narrow", Arial, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillStyle = look.colour.lane; g.globalAlpha = 0.85; g.fillText(text, 0, 0, 12 * PX); g.restore();
+    g.fillStyle = F.words ?? look.colour.lane; g.globalAlpha = 0.85; g.fillText(text, 0, 0, 12 * PX); g.restore();
   };
-  const runEnd = (FLOOR.length / 2 + L) / 2, runSide = (FLOOR.width / 2 + W) / 2;
   for (const s of [1, -1]) {
     words(look.city, s * runEnd, 0, s * Math.PI / 2, 1.0);
     words(look.name, 0, s * runSide, 0, 0.9);
@@ -77,6 +117,33 @@ function paintCourt(wood, look) {
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
   return texture;
+}
+
+// The floor as parquet: a sheet the size of the floor cut into blocks `block` metres square (from the middle of the
+// court), each laid with the wood's pictures as the plain sheet has them (see wood) or, every other block, turned a
+// quarter: under the pictures' repeat and turn, a block's coordinates are turned about its middle by M = [[0, -W/L],
+// [L/W, 0]] (L, W: the floor's length and width).
+function parquet(block) {
+  const L = FLOOR.length, W = FLOOR.width, position = [], uv = [], index = [];
+  const cuts = half => [-half, ...Array.from({ length: 2 * Math.ceil(half / block) + 1 }, (_, k) => (k - Math.ceil(half / block)) * block).filter(at => at > -half && at < half), half];
+  const xs = cuts(L / 2), ys = cuts(W / 2);
+  for (let i = 0; i + 1 < xs.length; i++) for (let j = 0; j + 1 < ys.length; j++) {
+    const [x0, x1, y0, y1] = [xs[i], xs[i + 1], ys[j], ys[j + 1]];
+    const turned = ((Math.floor((x0 + x1) / 2 / block) + Math.floor((y0 + y1) / 2 / block)) % 2 + 2) % 2 === 1;
+    const cu = (x0 + x1) / 2 / L + 0.5, cv = (y0 + y1) / 2 / W + 0.5, first = position.length / 3;
+    for (const [x, y] of [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]) {
+      const du = x / L + 0.5 - cu, dv = y / W + 0.5 - cv;
+      position.push(x, y, 0);
+      uv.push(...(turned ? [cu - (W / L) * dv, cv + (L / W) * du] : [cu + du, cv + dv]));
+    }
+    index.push(first, first + 1, first + 2, first, first + 2, first + 3);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3));
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(position.map((_, k) => (k % 3 === 2 ? 1 : 0)), 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geometry.setIndex(index);
+  return geometry;
 }
 
 // A flat sheet the size of the floor, `lift` metres above the ground, that takes shadows.
@@ -132,12 +199,19 @@ export async function createFloor(scene, look) {
   }
   const planks = new THREE.MeshStandardNodeMaterial({ color: new THREE.Color(...FLOOR.tone), roughness: 1, metalness: 0 });
   const paint = new THREE.MeshStandardMaterial({ map: paintCourt(false, look), transparent: true, depthWrite: false, roughness: FLOOR.paintGloss });
-  const boards = sheet(planks);
+  const boards = sheet(planks), plain = boards.geometry, blocks = {};
   scene.add(boards, sheet(paint, FLOOR.lift));
+  // The wood as the arena `to` has it: its tone, and plain or parquet.
+  const lay = to => {
+    planks.color.setRGB(...(to.floor?.tone ?? FLOOR.tone));
+    const block = to.floor?.parquet;
+    boards.geometry = block ? (blocks[block] ??= parquet(block)) : plain;
+  };
+  lay(look);
   let mirror = null, smear = null;   // the floor's reflection of the game, on the levels that have one, and its blur
   return {
     // The court's paint for the arena `to`.
-    dress(to) { paint.map.dispose(); paint.map = paintCourt(false, to); paint.needsUpdate = true; },
+    dress(to) { paint.map.dispose(); paint.map = paintCourt(false, to); paint.needsUpdate = true; lay(to); },
     // The wood's pictures and the mirror of a level. Returns the words for what could not be done here, or null.
     setQuality(level) {
       [planks.map, planks.normalMap, planks.roughnessMap] = sizes.get(QUALITY[level].floor);
