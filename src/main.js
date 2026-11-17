@@ -1,3 +1,4 @@
+import { franchiseScreen } from './franchise/controller.js';
 import { attackSign, createMatch, setLength } from './sim/state.js';
 import { step } from './sim/step.js';
 import { callTimeout, startMatch } from './sim/rules.js';
@@ -184,12 +185,44 @@ if (view) {
     const { away, home } = game.menu.select;
     game.result = quickMatch({ seed: Date.now() % 1e6, size: game.menu.size, minutes: game.menu.simulate.minutes, style: 'sim', sliders: game.menu.sliders.sim, teams: [away, home] });
   };
+  const leagueDialog = document.getElementById('ml');
+  const franchise = franchiseScreen(leagueDialog, async (state, mode) => {
+    try { if (people) await loadPlayers(people, state.ids, state.home); }
+    finally { loading.hide(); }
+    state.humans = mode === 'watch' ? [] : [0];
+    state.difficulty = game.menu.difficulty;
+    startMatch(state);
+    state.autoSubs[0] = mode === 'watch' || game.menu.autoSubs;
+    Object.assign(game, { state, mode, paused: false, result: null });
+    clearReplays(replays);
+    view.setTeams(state.ids, state.home);
+    game.camera = mode === 'watch' ? 'broadcast' : prefs.camera;
+    view.setCamera(game.camera);
+    keyboard.drop();
+  });
+  let savedFinal = null;
+  const finalHint = document.getElementById('finalHint'), backToLeague = document.getElementById('backToLeague');
+  const saveFinal = state => {
+    if (savedFinal === state) return;
+    savedFinal = state;
+    franchise.finish(state);
+  };
+  const leaveFinal = () => {
+    if (game.state.phase !== 'final' || !game.state.fixture) return;
+    saveFinal(game.state);
+    quitToMenu(game, keyboard, waiting);
+    savedFinal = null;
+    game.mode = 'play'; game.camera = prefs.camera; view.setCamera(game.camera);
+    franchise.resume();
+  };
+  backToLeague.addEventListener('click', leaveFinal);
   // A key on the start menu, or a click on a row (as Enter).
   const onMenu = code => {
     if (game.loading) return;
     const asked = menuKey(game.menu, code, keys);
     if (asked === 'exhibition') start();
     else if (asked === 'tutorial') startTutorial();
+    else if (asked === 'myleague') franchise.open();
     else if (asked === 'select') game.state = waiting(game.menu.size);
     else if (asked === 'simulate') simulate();
     else if (asked === 'quality') stepQualityByHand();
@@ -215,8 +248,10 @@ if (view) {
     else if (asked === 'sound') stepSound();
     else if (asked === 'info') stepInfo();
     else if (asked === 'quit') {
+      const leftFixture = game.state.fixture;
       game.tutorial = null;
       quitToMenu(game, keyboard, waiting);
+      if (leftFixture) franchise.resume();
       if (game.mode === 'watch') { game.mode = 'play'; game.camera = prefs.camera; view.setCamera(game.camera); }   // back to your own camera
     }
     remember();
@@ -226,6 +261,7 @@ if (view) {
   const held = new Set();   // keys pressed to take a panel down, ignored until they are let go
   window.addEventListener('keyup', e => held.delete(e.code));
   window.addEventListener('keydown', e => {
+    if (leagueDialog.open) return;
     audio.wake();
     // A panel (the line-ups, the end of a period, half-time): any key takes it down, and that key does nothing
     // else, now or while it is held.
@@ -272,7 +308,9 @@ if (view) {
     if (yours && action === 'timeout' && !e.repeat && inPlay(game.state) && !game.tutorial) callTimeout(game.state, 0);   // a timeout, when the rules allow one
     if (e.code === 'Escape' && !e.repeat) pause(true);
     if (e.code === 'Enter' && !e.repeat && game.tutorial && game.tutorial.step >= STEPS.length) endTutorial();   // done: back to the menu
-    if (e.code === 'Enter' && game.state.phase === 'final') start();   // the same again: the same teams, played or watched
+    if (e.code === 'Enter' && game.state.phase === 'final') {
+      if (game.state.fixture) leaveFinal(); else start();
+    }
   });
   // The menu's rows: moving the pointer over a row moves the bar there, a click chooses. mousemove, not mouseenter,
   // which also fires when a row appears under a pointer that is not moving.
@@ -303,6 +341,11 @@ if (view) {
   let slowest = 0, since = last;   // the longest frame since `since`, for the corner label: a stutter the average hides
   const frame = now => {
     const { state } = game;
+    if (leagueDialog.open) { audio.hush(true); last = now; owed = 0; requestAnimationFrame(frame); return; }
+    if (state.phase === 'final') {
+      finalHint.hidden = !!state.fixture; backToLeague.hidden = !state.fixture;
+      if (state.fixture) saveFinal(state);
+    }
     // A stall (a hidden tab) counts as one long frame at most, as it does for the match below.
     if (now > last) game.fps = 1000 / (frameMs = easeFrame(frameMs, Math.min(now - last, MAX_FRAME * 1000)));
     // Real time since the last frame. Never negative: the first frame's time can be earlier than `last`.

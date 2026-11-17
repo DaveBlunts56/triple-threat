@@ -404,6 +404,30 @@
                        font: 700 2.1vmin/1.2 "Arial Narrow", Arial, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #dff3ff; text-shadow: none; }
   #screenStart .floor { position: absolute; left: 10%; right: 10%; top: 101%; height: 9%; border-radius: 50%;
                         background: radial-gradient(closest-side, rgba(120, 210, 255, .55), transparent); filter: blur(6px); }
+
+  #ml { box-sizing: border-box; color-scheme: dark; width: min(960px, 97vw); max-height: 93vh; overflow: auto;
+    padding: clamp(14px, 3vw, 36px); border: 1px solid #455469; border-top: 5px solid var(--club, #5792d1);
+    border-radius: 10px; background: #111a26; color: #ecf1f6; font: 15px/1.45 system-ui, sans-serif; }
+  #ml::backdrop { background: rgba(6, 12, 21, .95); }
+  #ml h1 { font-size: clamp(24px, 4vw, 40px); line-height: 1.1; margin: 4px 0; overflow-wrap: anywhere; }
+  #ml h2 { font-size: 21px; margin: 16px 0 10px; } #ml p { margin: 5px 0; }
+  #ml section, #ml footer { margin-top: 18px; } #ml small { display: block; color: #bdccdc; }
+  #ml header, #ml .ml-match, #ml .ml-slot { display: flex; gap: 18px; align-items: center; }
+  #ml .ml-match { justify-content: space-between; padding: 18px; border-left: 4px solid var(--club); background: #202e40; }
+  #ml .ml-match h2 { font-size: clamp(22px, 4vw, 32px); margin: 3px 0; }
+  #ml .ml-logo { width: 62px; height: 62px; object-fit: contain; } #ml .ml-slot img { width: 36px; height: 36px; }
+  #ml .ml-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(185px, 100%),1fr)); gap: 12px; margin-bottom: 16px; }
+  #ml nav, #ml footer, #ml .ml-actions, #ml-date { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin: 16px 0; }
+  #ml nav, #ml footer { border-top: 1px solid #39495d; padding-top: 12px; }
+  #ml button, #ml input, #ml select { font: inherit; color: inherit; background: #223145; border: 1px solid #48576b; border-radius: 4px; padding: 7px 12px; }
+  #ml label { display: grid; gap: 3px; font-size: 14px; color: #cad5e2; } #ml input, #ml select { min-width: 0; }
+  #ml button { cursor: pointer; } #ml button:hover, #ml button[aria-pressed=true] { background: #374d67; }
+  #ml button.ml-primary { background: #c3e0ff; color: #142338; font-weight: 700; }
+  #ml .ml-slot { margin-bottom: 6px; text-align: left; } #ml .ml-scroll { overflow: auto; }
+  #ml table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  #ml td, #ml th { padding: 6px 9px; border-bottom: 1px solid #314156; text-align: right; white-space: nowrap; }
+  #ml td:first-child, #ml th:first-child { text-align: left; } #ml th { color: #bdccdc; }
+  #ml [role=status]:not(:empty) { padding: 10px; background: #27394d; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -696,9 +720,11 @@
   <h1 id="finalTitle">Final</h1>
   <p id="finalScore"></p>
   <p id="finalPotg"></p>
-  <p>Press Enter to play again</p>
+  <p id="finalHint">Press Enter to play again</p>
+  <button id="backToLeague" hidden>Return to MyLeague</button>
 </section>
 
+<dialog id="ml" aria-label="MyLeague"><main></main><p role="status"></p><button data-stop hidden>Stop after this game</button></dialog>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

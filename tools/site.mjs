@@ -10,7 +10,7 @@ import { graph } from './single-file.mjs';
 const OUT = 'dist/site';
 
 // The paths, under the project at `root`, of every file the site has.
-export const siteFiles = root => ['index.html', ...graph(root).keys(), ...ASSETS, 'assets/CREDITS.md', 'LICENSE'];
+export const siteFiles = root => ['index.html', 'src/franchise/worker.js', ...graph(root).keys(), ...ASSETS, 'assets/CREDITS.md', 'LICENSE'];
 
 // Copies them from `root` into `out`, which is emptied first. A missing one stops it: a site without its players must
 // never go up by accident. Returns how many files, and how many bytes.

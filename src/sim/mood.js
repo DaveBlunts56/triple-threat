@@ -105,7 +105,13 @@ export function moodOf(state, person) {
 // The heat between two opponents (court players) now, cooled since it last grew; 0 if none. Each pair's entry in
 // state.rivals: { heat, at (seconds of play when it last grew), by (who got the better last, as `team:row`) }.
 const keyOf = (state, p) => `${p.team}:${p.person}`;
-const pairOf = (state, a, b) => [keyOf(state, a), keyOf(state, b)].sort().join('|');
+// Side zero always sorts first. Reuse the string for these two roster rows each time someone weighs a shot.
+const pairKeys = [];
+function pairOf(state, a, b) {
+  const first = a.team === 0 ? a : b, second = a.team === 0 ? b : a;
+  const row = pairKeys[first.person] ??= [];
+  return row[second.person] ??= keyOf(state, first) + '|' + keyOf(state, second);
+}
 const cooled = (state, entry) => (entry ? entry.heat * 0.5 ** (Math.max(0, playedOf(state) - entry.at) / MOOD.rival.half) : 0);
 export const heatBetween = (state, a, b) => (a && b && a.team !== b.team ? cooled(state, state.rivals?.[pairOf(state, a, b)]) : 0);
 
