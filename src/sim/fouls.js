@@ -4,23 +4,30 @@ import { styled } from './styles.js';
 import { screenerOn } from './plays.js';
 import { manOf } from './matchups.js';
 
+// The share of the style's chance that a defender's contact is a foul: one in foul trouble plays softer (the style's
+// careful: with two fouls to give, and with one; Arcade's are 1).
+function softer(state, id) {
+  const left = state.foulLimit - personOf(state, state.players[id]).fouls, careful = styled(state, 'foul.careful');
+  return left <= 1 ? careful[1] : left === 2 ? careful[0] : 1;
+}
+
 // Decides whether any of this step's contacts is a foul. Returns the first one found: { kind, by, on } (player ids).
 export function judgeContacts(state, events, dt) {
   for (const p of state.players) p.foulCooldown = Math.max(0, p.foulCooldown - dt);
 
   const shot = events.release;
   for (const miss of events.stealMisses) {
-    if (!miss.sure && rand(state) >= (miss.front ? styled(state, 'foul.reachFront') : styled(state, 'foul.reachBack'))) continue;   // sure: he meant to foul
+    if (!miss.sure && rand(state) >= (miss.front ? styled(state, 'foul.reachFront') : styled(state, 'foul.reachBack')) * softer(state, miss.by)) continue;   // sure: he meant to foul
     // A reach on the step its victim lets a shot go is a foul on the shot: the ball is already in the air.
     const onShot = shot && shot.shooter === miss.on && !shot.blocked;
     return { kind: onShot ? 'shooting' : 'reach', by: miss.by, on: miss.on };
   }
 
-  if (shot && shot.defender !== null && !shot.blocked && rand(state) < styled(state, 'foul.shooting')) {
+  if (shot && shot.defender !== null && !shot.blocked && rand(state) < styled(state, 'foul.shooting') * softer(state, shot.defender)) {
     return { kind: 'shooting', by: shot.defender, on: shot.shooter };
   }
   // A finish with a defender on him, on the floor or in the air: the contact of a drive (where the style calls it).
-  if (shot && shot.near !== null && shot.near !== undefined && !shot.blocked && rand(state) < styled(state, 'foul.drive')) {
+  if (shot && shot.near !== null && shot.near !== undefined && !shot.blocked && rand(state) < styled(state, 'foul.drive') * softer(state, shot.near)) {
     return { kind: 'shooting', by: shot.near, on: shot.shooter };
   }
 
@@ -58,7 +65,7 @@ export function judgeContacts(state, events, dt) {
       o.foulCooldown = FOUL.cooldown;
       if (o.setT >= FOUL.setTime) {
         if (rand(state) < styled(state, 'foul.charge')) return { kind: 'charge', by: holder.id, on: o.id };
-      } else if (rand(state) < styled(state, 'foul.block')) return { kind: 'block', by: o.id, on: holder.id };
+      } else if (rand(state) < styled(state, 'foul.block') * softer(state, o.id)) return { kind: 'block', by: o.id, on: holder.id };
     }
   }
   return null;

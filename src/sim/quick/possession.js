@@ -14,6 +14,7 @@ import { starOf } from '../ratings.js';
 import { drop, lift, overall } from '../overall.js';
 import { QUICK, KIND, within } from './shapes.js';
 import { isThreeZone, look, playFor } from './outcomes.js';
+import { foulShare } from './who.js';
 
 const person = (state, p) => personOf(state, p);
 const mates = (state, p) => state.players.filter(m => m.team === p.team && m !== p);
@@ -184,7 +185,7 @@ export function playPossession(state, team, begun) {
     const tov = turnoverChance(state, pickOne.key, h, d, pick && play);
     if (rand(state) < tov.chance) return { how: 'turnover', by: h, stolenBy: rand(state) < QUICK.turnover.stolen ? d : null, kind: tov.kind };
     // A foul away from the shot: a reach or a block on the ball.
-    if (rand(state) < (QUICK.reach / 3) * (styled(state, 'foul.reachFront') / 0.12)) return { how: 'foul', on: h, by: d };
+    if (rand(state) < (QUICK.reach / 3) * (styled(state, 'foul.reachFront') / 0.12) * foulShare(state, d)) return { how: 'foul', on: h, by: d };
     if (pick || (play && beat >= 2)) ran = true;   // the offence has been run: its action has come
     switch (pickOne.key) {
       case 'shoot': return { how: 'shot', from: begun === 'oreb' && beat === 1 ? 'oreb' : 'jumper', look: pickOne.look, fed: fed && fed.fresh ? { by: fed.by, how: 'catch' } : fed ? { by: fed.by, how: 'drive' } : null, pick, forced };

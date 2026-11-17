@@ -10,6 +10,7 @@ import { note } from '../stats.js';
 import { shotFactor } from '../stamina.js';
 import { contestShare, distanceChance, expectedShot, freeThrowChance, greenChance, greenShare, levelFor, meanTiming, rangeShare, shotChance, skillOf, windowHalf } from '../shooting.js';
 import { QUICK, within } from './shapes.js';
+import { blocker, boardWeight, drawn, fouler, foulShare } from './who.js';
 import { playbookOf } from '../coach.js';
 
 const BEST = SHOT.gather + SHOT.bestAt * 2.2 / 9.81, LANDS = SHOT.gather + 2 * 2.2 / 9.81;   // a jump shot's, as players.js has them
@@ -49,14 +50,15 @@ export function shoot(state, l, { drive = false, post = false } = {}) {
   person.energy = Math.max(0, person.energy - styled(state, 'stamina.jump'));
   // A block: a defender in reach, the more often the better he defends.
   if (rand(state) < QUICK.block[l.zone] * lift(personOf(state, l.defender).ratings.defence, 0.15) * (l.gap < 1.2 ? 1.4 : 0.6)) {
-    note(state, l.defender, 'blk'); streak(person, false);
-    return { result: 'blocked', fouled: false, by: l.defender };
+    const by = blocker(state, l.defender, l.zone);   // at the rim, often the help's
+    note(state, by, 'blk'); streak(person, false);
+    return { result: 'blocked', fouled: false, by };
   }
   // Contact: on a finish where the style calls contact on a drive, on a post move (a man backing his defender down),
   // and on any shot an airborne defender reaches.
   const contact = (drive ? (QUICK.contact.drive[l.zone] ?? 0) * styled(state, 'foul.drive') : 0) + (post ? QUICK.contact.post * styled(state, 'foul.drive') : 0)
     + (QUICK.contact.air[l.zone] ?? 0) * styled(state, 'foul.shooting') * (l.gap < 1 ? 1.5 : 0.7);
-  const fouled = rand(state) < contact;
+  const by = fouler(state, l.defender, l.zone), fouled = rand(state) < contact * foulShare(state, by);
   // A foul on the shot makes it harder; a green release is drawn first, then its chance, as the 3D game draws them.
   const chance = l.chance * (fouled ? 0.55 : 1), rule = styled(state, 'shot.green');
   const made = rand(state) < l.green ? rule === 'sure' || rand(state) < greenChance(rule, chance, styled(state, 'shot.boost')) : rand(state) < chance;
@@ -65,7 +67,7 @@ export function shoot(state, l, { drive = false, post = false } = {}) {
     note(state, l.shooter, 'fgm'); note(state, l.shooter, 'pts', l.value); if (three) note(state, l.shooter, 'tpm');
     addPoints(state, team, l.value);
   }
-  return { result: made ? 'made' : 'missed', fouled, by: fouled ? l.defender : null };
+  return { result: made ? 'made' : 'missed', fouled, by: fouled ? by : null };
 }
 
 // `n` free throws by `shooter`. Returns whether the last one missed (a live rebound), and the points.
@@ -92,10 +94,8 @@ export function rebound(state, team, zone, after = 'shot') {
   if (after === 'ft') chance *= 0.45;
   const offensive = rand(state) < Math.min(0.6, chance);
   const side = offensive ? mine : theirs;
-  // The rebounder, by how well each rebounds and goes to the glass.
-  const weight = p => personOf(state, p).ratings.rebound ** 3 * (offensive ? 0.4 + personOf(state, p).tend.crash : 1);
-  let at = rand(state) * side.reduce((sum, p) => sum + weight(p), 0);
-  const who = side.find(p => (at -= weight(p)) < 0) ?? side[side.length - 1];
+  // The rebounder, by how well each rebounds, where his position stands, and on his own miss how he goes to the glass.
+  const who = drawn(state, side, p => boardWeight(state, p, offensive));
   note(state, who, 'reb'); if (offensive) note(state, who, 'orb');
   personOf(state, who).energy = Math.max(0, personOf(state, who).energy - styled(state, 'stamina.jump'));
   return { offensive, who };

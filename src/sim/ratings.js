@@ -1,6 +1,6 @@
 // What a player is good at. Each person on a roster has eight ratings from 40 to 99 (see ROSTER.ratings); 70 is the
 // player every player used to be, so everything here is 1, or no change, at 70.
-import { HEAT } from './tuning.js';
+import { HEAT, REBOUND_USUAL } from './tuning.js';
 import { personOf } from './state.js';
 import { KEYS, lift, drop, overall } from './overall.js';
 
@@ -8,6 +8,8 @@ export { KEYS, lift, drop, overall };
 
 // The rating `key` of whoever is now in `player`'s place on the court.
 export const rated = (state, player, key) => personOf(state, player).ratings[key];
+// His rebound rating against his position's usual, on the scale lift reads (70: just the usual for his position).
+export const reboundApart = (state, player) => { const person = personOf(state, player); return person.ratings.rebound - (REBOUND_USUAL[person.position] ?? 70) + 70; };
 
 // A team's overall: the mean of its first five players' (its starting five), to the nearest whole number.
 export const teamOverall = players => Math.round(players.slice(0, 5).reduce((sum, p) => sum + overall(p), 0) / Math.min(5, players.length));
