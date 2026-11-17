@@ -14,30 +14,33 @@ import bpy
 from mathutils import Vector
 
 BONE = 'mixamorig:'
-# The kit is cut as basketball kit was in the early 2000s: a long, loose jersey hanging straight from the shoulders,
-# and long, baggy shorts reaching below the knee, in thick, heavy, shiny cloth.
+# The kit is cut as basketball kit is worn today: a jersey with room in it but close to the body, tucked in, and shorts
+# with room in them ending just above the knee, in thin, light knit (the game shades it matte: src/render/materials.js).
 # How loosely the kit hangs: how far each ring of the surface is pushed out from the body, as a share of its radius.
 # The jersey is tucked into the shorts, as the rules of the game ask: its hem is `tuck` metres below the shorts'
 # waistband, narrower there than they are, and roomier just above it, so that it blouses over the waistband.
 # armpit: how far under the shoulder joint its arm holes reach; strap: how far in from the shoulder joint they start.
-JERSEY = {'chest': 0.17, 'hem': 0.10, 'shoulder': 0.04, 'tuck': 0.08, 'armpit': 0.14, 'strap': 0.04}
+JERSEY = {'chest': 0.08, 'hem': 0.06, 'shoulder': 0.03, 'tuck': 0.08, 'armpit': 0.14, 'strap': 0.04}
 # A round neck: the opening dips `front` metres under the neck joint at the front and `back` at the back, and is
 # `wide` metres either side of the middle, on a smooth curve, broad at the bottom (the higher `round`, the broader).
 NECK = {'front': 0.115, 'back': 0.035, 'wide': 0.11, 'round': 2.6, 'spare': 0.03, 'fine': 0.04}
 # spare: the opening is first cut this much smaller; fine: within this far under the curve the cloth is made finer,
 # then trimmed to it, so that the collar's edge is a clean round line (see round_neck).
-# rise: metres the waistband sits above the hip bone's root; below_knee: metres the hems hang below the knee joint.
-SHORTS = {'hip': 0.16, 'hem': 0.55, 'below_knee': 0.06, 'rise': 0.09}
+# rise: metres the waistband sits above the hip bone's root; below_knee: metres the hems hang below the knee joint
+# (less than nothing: they end above it).
+SHORTS = {'hip': 0.10, 'hem': 0.30, 'below_knee': -0.04, 'rise': 0.09}
 # Regions of each garment's picture, as (top, bottom) shares of its height. Must match KIT.layout in src/render/kit.js.
 LAYOUT = {'main': (0.0, 0.8), 'trim': (0.82, 0.9)}
 PANEL = {'front': 0.25, 'back': 0.75, 'width': 0.46}      # the main panels: their middles across the picture, and their width
 # How wide each binding is (metres) — the collar, the arm holes, the shorts' waistband and their hems — how far it
-# stands off the cloth, how far past its edge it wraps, and how many rounds of smoothing its edges get along the loop.
-BINDING = {'collar': 0.025, 'arm': 0.018, 'waist': 0.045, 'hem': 0.03, 'proud': 0.003, 'over': 0.002, 'smooth': 10}
-THICK = 0.006                                             # metres of cloth: heavy, as the cloth of the time was
-# The drape: frames of cloth simulation, how heavy and how stiff to bend the cloth is (heavy cloth falls in a few broad
-# folds), and the most any point may move or go into the body before the drape is thrown away for that garment.
-DRAPE = {'frames': 30, 'mass': 0.3, 'bend': 0.5, 'most': 0.08, 'near': 0.004}
+# stands off the cloth (all along both its edges, so that the cloth does not show through it where it curves), how far
+# past its edge it reaches (just enough to cover the cloth's cut edge), and how many rounds of smoothing its edges get
+# along the loop.
+BINDING = {'collar': 0.025, 'arm': 0.018, 'waist': 0.045, 'hem': 0.03, 'proud': 0.004, 'over': 0.0005, 'smooth': 10}
+THICK = 0.003                                             # metres of cloth: light knit
+# The drape: frames of cloth simulation, how heavy and how stiff to bend the cloth is (light knit, softer than the heavy
+# cloth of old), and the most any point may move or go into the body before the drape is thrown away for that garment.
+DRAPE = {'frames': 30, 'mass': 0.2, 'bend': 0.3, 'most': 0.08, 'near': 0.004}
 # Round the neck the jersey moves with his spine and neck only, not with his shoulders and arms, so that the collar keeps
 # its round shape when he leans or swings his arms: fully within `hold` metres of the collar's edge, blending back to
 # its own weights by `free`; `shoulders` is the share of his shoulders' pull it keeps there.
@@ -162,7 +165,8 @@ def round_neck(jersey, mark):
 
 
 def make_shorts(body, mark, bones, tights):
-    """Long, baggy shorts: the hips and legs of the tights surface down to below the knee, flared toward the hem."""
+    """Shorts: the hips and legs of the tights surface down to just above the knee, with room in them, flared a little
+    toward the hem."""
     hem, waist = mark['knee'] - SHORTS['below_knee'], mark['pelvis'] + SHORTS['rise']
     crotch = mark['hip'] - 0.10
     coords = [body.matrix_world @ v.co for v in body.data.vertices]
@@ -270,10 +274,15 @@ def lay_out(piece, middle, legs=None):
 def bind(piece, bound, width):
     """Sews a binding along each edge of the garment that `bound(point)` says is bound: a strip `width(loop)` metres
     wide (`loop`: the edge's points), standing BINDING['proud'] off the cloth and wrapping just past its edge, in the
-    TRIM region of the picture. Its points take the weights of the edge they are sewn to, so it moves with the garment."""
+    TRIM region of the picture. Its points take the weights of the edge they are sewn to, so it moves with the garment.
+    After smoothing, each point of the strip is lifted back to BINDING['proud'] off the cloth wherever it has come
+    nearer: the cloth curves between the points the strip is smoothed along, and showed through it (the trim looked torn)."""
+    from mathutils.bvhtree import BVHTree
     bm = bmesh.new()
     bm.from_mesh(piece.data)
     bm.verts.ensure_lookup_table()
+    bm.normal_update()
+    cloth = BVHTree.FromBMesh(bm)   # the cloth alone, before any binding is sewn on
     deform = bm.verts.layers.deform.active
     uv_layer = bm.loops.layers.uv.active
     edges = [e for e in bm.edges if e.is_boundary]
@@ -305,7 +314,7 @@ def bind(piece, bound, width):
         for k, v in enumerate(loop):
             n = v.normal.copy()
             into = across[k] if lean >= 0 else -across[k]
-            outer = bm.verts.new(v.co - into * BINDING['over'] + n * BINDING['proud'] * 0.5)
+            outer = bm.verts.new(v.co - into * BINDING['over'] + n * BINDING['proud'])
             inside = bm.verts.new(v.co + into * wide + n * BINDING['proud'])
             for made in (outer, inside):
                 if deform is not None:
@@ -319,16 +328,30 @@ def bind(piece, bound, width):
                 moved = [(points[k - 1][ring].co + 2 * points[k][ring].co + points[(k + 1) % len(points)][ring].co) / 4 for k in range(len(points))]
                 for k, co in enumerate(moved):
                     points[k][ring].co = co
+        for pair in points:
+            for point in pair:
+                at, normal, _, _ = cloth.find_nearest(point.co)
+                if at is not None:
+                    short = BINDING['proud'] - (point.co - at).dot(normal)
+                    if short > 0:
+                        point.co += normal * short
         length, along = 0.0, [0.0]
         for a, b in zip(loop, loop[1:] + loop[:1]):
             length += (a.co - b.co).length
             along.append(length)
+        # Facing out, as the cloth does: the loop may run either way round, and a strip facing in is thickened down
+        # into the cloth (see thicken), under its surface, where the cloth shows through it.
+        outward = sum((points[(i + 1) % len(loop)][0].co - points[i][0].co).cross(points[i][1].co - points[i][0].co).dot(v.normal)
+                      for i, v in enumerate(loop)) >= 0
         for i in range(len(loop)):
             j = (i + 1) % len(loop)
             (o1, i1), (o2, i2) = points[i], points[j]
-            face = bm.faces.new((o1, o2, i2, i1))
             u1, u2 = along[i] / length, along[i + 1] / length
-            for corner, (u, v) in zip(face.loops, ((u1, top), (u2, top), (u2, bottom), (u1, bottom))):
+            corners = [(o1, (u1, top)), (o2, (u2, top)), (i2, (u2, bottom)), (i1, (u1, bottom))]
+            if not outward:
+                corners.reverse()
+            face = bm.faces.new([point for point, _ in corners])
+            for corner, (_, (u, v)) in zip(face.loops, corners):
                 corner[uv_layer].uv = (u, 1 - v)
         sewn += 1
     bm.normal_update()

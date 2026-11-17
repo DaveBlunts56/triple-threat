@@ -266,19 +266,76 @@ test('the kit is cloth with thickness, with bindings, and the jersey is tucked i
     const name = rootName(person), jersey = piece(person, 'jersey'), shorts = piece(person, 'shorts');
     for (const [part, kit] of [['jersey', jersey], ['shorts', shorts]]) {
       assert.ok(kit.uv.filter(uv => inRegion(uv, 'trim')).length > 40, `${name} ${part}: no bindings`);
-      // Thickness: heavy cloth: from a point on the outside, 5 to 7 mm in along its normal, there is a point of the inside.
+      // Thickness: light knit: from a point on the outside, 2 to 4 mm in along its normal, there is a point of the inside.
       let found = 0, tried = 0;
       for (let i = 0; i < kit.at.length && tried < 100; i += 23) {   // enough points that a few near an edge do not decide it
         const [x, y, z] = kit.at[i], [nx, ny, nz] = kit.normal[i];
         if (!inRegion(kit.uv[i], 'main')) continue;
         tried++;
         if (kit.at.some((q, j) => j !== i && kit.normal[j][0] * nx + kit.normal[j][1] * ny + kit.normal[j][2] * nz < -0.5
-          && [5, 5.5, 6, 6.5, 7].some(d => Math.hypot(q[0] - (x - nx * d / 1000), q[1] - (y - ny * d / 1000), q[2] - (z - nz * d / 1000)) < 0.0012))) found++;
+          && [2, 2.5, 3, 3.5, 4].some(d => Math.hypot(q[0] - (x - nx * d / 1000), q[1] - (y - ny * d / 1000), q[2] - (z - nz * d / 1000)) < 0.0012))) found++;
       }
-      assert.ok(found >= tried * 0.7, `${name} ${part}: only ${found} of ${tried} points have cloth 5 to 7 mm behind them`);   // near an edge or a binding the inside is not straight behind
+      assert.ok(found >= tried * 0.7, `${name} ${part}: only ${found} of ${tried} points have cloth 2 to 4 mm behind them`);   // near an edge or a binding the inside is not straight behind
     }
     const lowest = Math.min(...jersey.at.map(p => p[1])), waist = Math.max(...shorts.at.map(p => p[1]));
     assert.ok(lowest < waist - 0.04 && lowest > waist - 0.15, `${name}: the jersey ends ${waist - lowest} m under the shorts' waistband`);
+  }
+});
+
+test('the cloth lies over almost none of a binding: from its outward face, the cloth is met within a centimetre from no more than 8% of it (the trim looked torn)', () => {
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add = (a, b, k = 1) => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const unit = a => { const l = Math.hypot(...a); return l > 1e-12 ? a.map(x => x / l) : null; };
+  // Where a ray from `o` along `d` meets the triangle a, b, c, or Infinity (Moller-Trumbore).
+  const hit = (o, d, a, b, c) => {
+    const e1 = sub(b, a), e2 = sub(c, a), p = cross(d, e2), det = dot(e1, p);
+    if (Math.abs(det) < 1e-12) return Infinity;
+    const t0 = sub(o, a), u = dot(t0, p) / det, q = cross(t0, e1), v = dot(d, q) / det;
+    if (u < 0 || v < 0 || u + v > 1) return Infinity;
+    const t = dot(e2, q) / det;
+    return t > 0 ? t : Infinity;
+  };
+  // The point of the triangle a, b, c nearest to p (Ericson, Real-Time Collision Detection, 5.1.5).
+  const nearest = (p, a, b, c) => {
+    const ab = sub(b, a), ac = sub(c, a), ap = sub(p, a), d1 = dot(ab, ap), d2 = dot(ac, ap);
+    if (d1 <= 0 && d2 <= 0) return a;
+    const bp = sub(p, b), d3 = dot(ab, bp), d4 = dot(ac, bp);
+    if (d3 >= 0 && d4 <= d3) return b;
+    const vc = d1 * d4 - d3 * d2;
+    if (vc <= 0 && d1 >= 0 && d3 <= 0) return add(a, ab, d1 / (d1 - d3));
+    const cp = sub(p, c), d5 = dot(ab, cp), d6 = dot(ac, cp);
+    if (d6 >= 0 && d5 <= d6) return c;
+    const vb = d5 * d2 - d1 * d6;
+    if (vb <= 0 && d2 >= 0 && d6 <= 0) return add(a, ac, d2 / (d2 - d6));
+    const va = d3 * d6 - d5 * d4;
+    if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) return add(b, sub(c, b), (d4 - d3) / ((d4 - d3) + (d5 - d6)));
+    const denom = 1 / (va + vb + vc);
+    return add(add(a, ab, vb * denom), ac, vc * denom);
+  };
+  for (const person of people.slice(0, 4)) for (const name of ['jersey', 'shorts']) {
+    const { at, uv, index } = piece(person, name), tris = [];
+    for (let k = 0; k < index.length; k += 3) tris.push([index[k], index[k + 1], index[k + 2]].map(i => at[i]).concat([[index[k], index[k + 1], index[k + 2]]]));
+    const centre = ([a, b, c]) => [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3, (a[2] + b[2] + c[2]) / 3];
+    const normalOf = ([a, b, c]) => unit(cross(sub(b, a), sub(c, a)));
+    const cloth = tris.filter(t => t[3].every(i => uv[i][1] <= KIT.layout.main[1] + 0.005)).map(t => ({ t, c: centre(t), n: normalOf(t) })).filter(q => q.n);
+    let outward = 0, covered = 0;
+    for (const t of tris.filter(t => t[3].every(i => uv[i][1] >= KIT.layout.trim[0] - 0.005))) {
+      const c = centre(t), n = normalOf(t);
+      if (!n) continue;
+      const close = cloth.filter(q => Math.hypot(...sub(q.c, c)) < 0.04);
+      if (!close.length) continue;
+      // Outward: it faces the way the cloth nearest it does (the strip's underside faces the cloth under it).
+      const best = close.reduce((b, q) => { const d = Math.hypot(...sub(nearest(c, q.t[0], q.t[1], q.t[2]), c)); return d < b.d ? { q, d } : b; }, { q: null, d: Infinity });
+      if (dot(n, best.q.n) < 0.5) continue;
+      outward++;
+      const from = add(c, n, 0.0002);
+      if (close.some(({ t: q }) => hit(from, n, q[0], q[1], q[2]) < 0.01)) covered++;
+    }
+    assert.ok(outward > 50, `${rootName(person)} ${name}: ${outward} outward faces of bindings`);
+    // (The old jerseys' bindings, thickened into the cloth, had it over 13-23% of their faces; these have 1-4%, the
+    // shorts up to 7%: a few faces where a binding's edge just touches the cloth, at the bottom of the arm holes, the
+    // straps and where a loop meets itself.)
+    assert.ok(covered <= outward * 0.08, `${rootName(person)} ${name}: cloth over ${covered} of ${outward} outward faces of its bindings`);
   }
 });
 
@@ -287,12 +344,12 @@ test('the shorts\' hems are bound all round without a fold: no binding hangs bel
     const { at, uv } = piece(person, 'shorts');
     const lowest = region => Math.min(...at.filter((p, i) => region(uv[i][1])).map(p => p[1]));
     const edge = lowest(v => v <= KIT.layout.main[1]), binding = lowest(v => v >= KIT.layout.trim[0] - 0.005);
-    // The binding wraps 2 mm past the edge and the cloth is 4 mm thick: a binding turned off the cloth hangs its own width (16 mm) below.
+    // The binding wraps 2 mm past the edge and stands 4 mm off the cloth: a binding turned off the cloth hangs its own width (30 mm) below.
     assert.ok(binding > edge - 0.008, `${rootName(person)}: the hem's binding hangs ${((edge - binding) * 1000).toFixed(0)} mm below its edge`);
   }
 });
 
-test('early-2000s kit: shorts reaching below the knee, and a round collar dipping 7 to 12 cm under the neck at the front', async () => {
+test('kit as it is worn today: shorts ending just above the knee, and a round collar dipping 7 to 12 cm under the neck at the front', async () => {
   const { Matrix4, Vector3 } = await import('three');
   for (const person of people) {
     const name = rootName(person), root = players.json.nodes.findIndex(n => n.name === name);
@@ -301,7 +358,8 @@ test('early-2000s kit: shorts reaching below the knee, and a round collar dippin
     const joint = bone => { const i = skin.joints.findIndex(j => players.json.nodes[j].name === `mixamorig:${bone}`); return new Vector3().setFromMatrixPosition(new Matrix4().fromArray(bind.slice(16 * i, 16 * i + 16)).invert()); };
     const knee = joint('LeftLeg').y, neck = joint('Neck').y;
     const shorts = piece(person, 'shorts'), jersey = piece(person, 'jersey');
-    assert.ok(Math.min(...shorts.at.map(p => p[1])) < knee - 0.03, `${name}: the shorts end ${(Math.min(...shorts.at.map(p => p[1])) - knee).toFixed(3)} m from the knee`);
+    const hem = Math.min(...shorts.at.map(p => p[1]));
+    assert.ok(hem > knee && hem < knee + 0.08, `${name}: the shorts end ${(hem - knee).toFixed(3)} m from the knee`);
     // The collar: the binding at the front middle of the neck.
     const collar = jersey.at.filter((p, i) => jersey.uv[i][1] >= KIT.layout.trim[0] - 0.005 && Math.abs(p[0]) < 0.02 && p[2] > 0 && p[1] > neck - 0.2);
     assert.ok(collar.length > 4, `${name}: no collar at the front`);
