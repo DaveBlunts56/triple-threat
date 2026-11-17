@@ -59,10 +59,17 @@ export function pixelRatioFor(level, width, height, screen) {
   return Math.min(screen, pixelRatio, Math.sqrt(pixels / Math.max(width * height, 1)));
 }
 
-// Should the game draw with WebGL 2 even where the browser offers WebGPU? Yes in Firefox, whose WebGPU ran the game at
-// a quarter of the speed of its WebGL 2 (Firefox 146 on Linux, measured 2026-11-13). The page's address has the last
-// word: #webgl asks for WebGL 2 in any browser, #webgpu for WebGPU even in Firefox.
-export function prefersWebGL(userAgent = '', hash = '') {
+// The renderers a player may choose in Settings (Graphics: Renderer): the game's own choice, WebGPU, or WebGL 2.
+export const RENDERERS = Object.freeze(['auto', 'webgpu', 'webgl']);
+export const nextRenderer = choice => RENDERERS[(RENDERERS.indexOf(choice) + 1) % RENDERERS.length];
+
+// Should the game draw with WebGL 2 even where the browser offers WebGPU? As the player chose (`choice`, one of
+// RENDERERS). Left to the game ('auto'): yes in Firefox, whose WebGPU ran the game at a quarter of the speed of its
+// WebGL 2 (Firefox 146 on Linux, measured 2026-11-13). The page's address has the last word: #webgl asks for WebGL 2
+// in any browser, #webgpu for WebGPU even in Firefox.
+export function prefersWebGL(userAgent = '', hash = '', choice = 'auto') {
   if (hash.includes('webgpu')) return false;
-  return hash.includes('webgl') || /firefox/i.test(userAgent);
+  if (hash.includes('webgl')) return true;
+  if (choice === 'webgl' || choice === 'webgpu') return choice === 'webgl';
+  return /firefox/i.test(userAgent);
 }

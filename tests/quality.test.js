@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { QUALITY, createQuality, autoQuality, stepQuality, pixelRatioFor, prefersWebGL, modelFor } from '../src/render/quality.js';
+import { QUALITY, createQuality, autoQuality, stepQuality, pixelRatioFor, prefersWebGL, modelFor, RENDERERS, nextRenderer } from '../src/render/quality.js';
 
 // `seconds` of frames `ms` long, playing or not. Returns how many times the level changed.
 const play = (q, ms, seconds, playing = true) => { let changed = 0; for (let t = 0; t < seconds * 1000; t += ms) changed += autoQuality(q, ms, playing); return changed; }
@@ -151,6 +151,16 @@ test('the game draws with WebGL 2 in Firefox, whose WebGPU is slow, and wherever
   assert.deepEqual([prefersWebGL(firefox, ''), prefersWebGL(chrome, '')], [true, false]);
   assert.deepEqual([prefersWebGL(chrome, '#webgl'), prefersWebGL(firefox, '#webgpu')], [true, false]);   // the address has the last word
   assert.equal(prefersWebGL(undefined, undefined), false);
+});
+
+test('the player may choose the renderer: Auto leaves it to the game, WebGPU and WebGL 2 are drawn with in any browser, and the address still has the last word', () => {
+  const firefox = 'Mozilla/5.0 (X11; Linux x86_64; rv:146.0) Gecko/20100101 Firefox/146.0';
+  const safari = 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1';
+  assert.deepEqual(RENDERERS, ['auto', 'webgpu', 'webgl']);
+  assert.deepEqual(RENDERERS.map(nextRenderer), ['webgpu', 'webgl', 'auto']);
+  assert.deepEqual([prefersWebGL(safari, '', 'auto'), prefersWebGL(safari, '', 'webgl'), prefersWebGL(safari, '', 'webgpu')], [false, true, false]);
+  assert.deepEqual([prefersWebGL(firefox, '', 'auto'), prefersWebGL(firefox, '', 'webgpu')], [true, false]);
+  assert.deepEqual([prefersWebGL(safari, '#webgpu', 'webgl'), prefersWebGL(safari, '#webgl', 'webgpu')], [false, true]);
 });
 
 test('High and Ultra draw a player\'s full model within 9 m of the camera and his far one beyond; Low and Medium always the far one', () => {
