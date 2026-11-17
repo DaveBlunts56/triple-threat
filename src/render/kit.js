@@ -1,6 +1,7 @@
 // What is painted on a jersey and a pair of shorts, and the painting, in the manner of early-2000s basketball kit: the
-// team's name arched over a big outlined number, side panels piped in white. No Three.js here, so it can be tested
-// without a browser.
+// team's name arched over a big outlined number, side panels piped in white. A team with home and road uniforms (the
+// league's: see sim/league.js) wears its home whites at home and its road colours away; a dev team wears its one kit.
+// No Three.js here, so it can be tested without a browser.
 import { TEAMS } from '../sim/teams.js';
 
 const f = Object.freeze;
@@ -96,16 +97,16 @@ function lettering(team, number, fill, outline) {
 
 // What to paint on a `part` ('jersey' or 'shorts') of the player of `team` wearing `number`, in the order it is
 // painted: { fill, rect } or { text, at, height, angle?, fill, outline }, placed as in KIT, with `fill` and `outline`
-// naming 'team', 'trim' or 'panel'.
+// naming 'team' (the body), 'panel', 'piping', 'binding', 'letters' or 'outline' (see kitColours).
 export function kitOps(part, number, team = 0) {
   const sides = sideRects(part);
   const ops = [
     { fill: 'team', rect: band(KIT.layout.main) },
     ...sides.map(rect => ({ fill: 'panel', rect })),
-    ...piping(sides).map(rect => ({ fill: 'trim', rect })),
-    { fill: 'trim', rect: band(KIT.layout.trim) },
+    ...piping(sides).map(rect => ({ fill: 'piping', rect })),
+    { fill: 'binding', rect: band(KIT.layout.trim) },
   ];
-  if (part === 'jersey') ops.push(...lettering(team, number, 'trim', 'panel'));
+  if (part === 'jersey') ops.push(...lettering(team, number, 'letters', 'outline'));
   return ops;
 }
 
@@ -132,10 +133,19 @@ export function heightOps(part, number, team = 0) {
   return ops;
 }
 
-// The colours each fill names, for `team` (0 or 1).
-export function kitColours(team) {
-  const rgb = KIT.team[team].slice(1).match(/../g).map(h => Math.round(parseInt(h, 16) * KIT.shade));
-  return { team: KIT.team[team], trim: KIT.trim, panel: `rgb(${rgb.join(', ')})`, high: '#ffffff', low: '#000000' };
+// The kit team `id` wears as side `side` of a match whose home side is `home`: 'home' or 'road' for a team with home
+// and road uniforms, 'own' for one with a single kit (a dev team's), whichever side it is on.
+export const kitName = (id, side, home = 0) => (TEAMS[id]?.uniforms ? (side === home ? 'home' : 'road') : 'own');
+
+// The colours each fill names, for team `team` (its id) in its `kit` (see kitName): the body ('team'), the side panels,
+// the piping down them, the bindings, the lettering and its outline, and the heights' white and black. One kit of the
+// team's uniforms has its jersey's colour on the body and its trim's on the panels and bindings; a single kit has the
+// team's colour on the body, a shade of it on the panels and round the lettering, and white for the rest.
+export function kitColours(team, kit = 'own') {
+  const own = TEAMS[team]?.uniforms?.[kit], heights = { high: '#ffffff', low: '#000000' };
+  if (own) return { team: own.jersey, panel: own.trim, piping: KIT.trim, binding: own.trim, letters: own.letters, outline: own.outline, ...heights };
+  const rgb = KIT.team[team].slice(1).match(/../g).map(h => Math.round(parseInt(h, 16) * KIT.shade)), shade = `rgb(${rgb.join(', ')})`;
+  return { team: KIT.team[team], panel: shade, piping: KIT.trim, binding: KIT.trim, letters: KIT.trim, outline: shade, ...heights };
 }
 
 // Paints `ops` on a 2D canvas context whose picture is `size` pixels each way, in `colours` (see kitColours).

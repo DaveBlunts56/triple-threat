@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BALL, PLAYER } from '../sim/tuning.js';
 import { TEAM_COLOURS } from './kit.js';
+import { sideId } from './checks.js';
 import { ballSpot, blendFrom, carrying } from './hands.js';
 import { matchupMark, MARK } from './mark.js';
 
@@ -98,7 +99,7 @@ export function createActors(scene, people = null) {
       players.forEach((group, i) => { group.visible = i < state.players.length; });
       state.players.forEach((p, i) => {
         if (!people) {
-          players[i].userData.kit.color.setHex(TEAM_COLOURS[p.team]);   // a place holds either team's player, by the match's size
+          players[i].userData.kit.color.setHex(TEAM_COLOURS[sideId(state, p.team)]);   // a place holds either team's player, by the match's size
           players[i].position.set(p.x, p.y, p.z);
           players[i].rotation.y = -p.facing;   // facing is measured from +x toward +z; three.js turns the other way
         }

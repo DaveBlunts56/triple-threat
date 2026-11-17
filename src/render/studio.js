@@ -1,6 +1,7 @@
-// Team Select's picture: each team's star, our own model of him in his kit, standing in the idle motion before his
-// team's mark, lit as in a studio against the two teams' colours: the away team's on the left, the home team's on the
-// right. Drawn in place of the court while Team Select is up; the page's words lie over it (index.html, hud.js).
+// Team Select's picture: each team's star, our own model of him in his kit (road away, home at home), standing in the
+// idle motion before his team's mark, lit as in a studio against the two teams' colours: the away team's on the left,
+// the home team's on the right. Drawn in place of the court while Team Select is up; the page's words lie over it
+// (index.html, hud.js).
 import * as THREE from 'three';
 import { TEAMS } from '../sim/teams.js';
 import { overall } from '../sim/ratings.js';
@@ -73,7 +74,7 @@ export function createStudio(renderer, people, environment) {
   // The star of side `at`'s team, once he is made (asking makes him: see people.portrait).
   const pose = at => {
     if (at.star || !people) return;
-    at.star = people.portrait(at.id, starNumber(at.id));
+    at.star = people.portrait(at.id, starNumber(at.id), at.s < 0 ? 'road' : 'home');
     if (at.star) at.group.add(at.star.model);
   };
   const paintBackdrop = () => {
