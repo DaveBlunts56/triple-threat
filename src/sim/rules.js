@@ -121,10 +121,11 @@ function beginPeriod(state) {
   lineUp(state);
   if (state.quarter === 1) return setupTip(state);
   // The team that lost the opening tip starts quarters 2 and 4, the winner quarter 3; overtime keeps alternating.
+  // It inbounds from its own baseline, under the hoop it defends, as after a basket, and brings the ball up the floor.
   const winner = state.tipWinner ?? 0;
   state.possession = state.quarter % 2 === 1 ? winner : 1 - winner;
   beginPossession(state, state.possession);
-  state.inboundSpot = { x: 0, z: COURT.halfWidth + OUTSIDE };
+  state.inboundSpot = underHoop(-attackSign(state.possession));
   setupInbound(state);
 }
 

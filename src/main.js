@@ -371,6 +371,7 @@ if (view) {
     hud.show(shown ? null : state.phase === 'start' ? (game.result ? 'result' : game.menu.panel === 'teamSelect' ? 'select' : 'start') : state.phase === 'final' ? 'final' : game.paused ? 'pause' : null);   // the final screen waits for a last replay
     requestAnimationFrame(frame);
   };
-  loading.hide();
   requestAnimationFrame(frame);
+  // The splash asks for a key, a click or a tap, and fades into the menu; that first touch wakes the sound too.
+  loading.ready(window, matchMedia('(pointer: coarse)').matches).then(() => audio.wake());
 }

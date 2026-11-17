@@ -272,6 +272,34 @@
   #loadingText { margin: 0; font: 800 3vmin/1.2 system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
   #loading .bar { width: min(60vw, 420px); height: 1.2vmin; min-height: 6px; border-radius: 99px; background: rgba(255, 255, 255, .15); overflow: hidden; }
   #loadingBar { display: block; width: 0; height: 100%; background: #ffd257; transition: width .2s; }
+  /* The splash: the loading screen as the page opens, on the start menu's sky, with the game's name. Once the game can
+     be played the loading gives way to "press any key", and the splash fades into the menu (src/render/loading.js). */
+  #loading .title, #loadingStart[hidden] { display: none; }
+  #loading.splash { font-family: "Arial Narrow", "Helvetica Neue", Arial, system-ui, sans-serif; transition: opacity .35s;
+                    background:
+                      radial-gradient(60vmax 40vmax at 18% 22%, rgba(255, 255, 255, .85), transparent 60%),
+                      radial-gradient(50vmax 36vmax at 85% 78%, rgba(150, 215, 255, .75), transparent 62%),
+                      radial-gradient(70vmax 50vmax at 70% 10%, rgba(90, 170, 240, .55), transparent 65%),
+                      linear-gradient(160deg, #cfeaff 0%, #7fbdea 38%, #2f77bd 70%, #0c2f63 100%); }
+  #loading.splash.going { opacity: 0; pointer-events: none; }
+  #loading.splash .title { display: flex; flex-direction: column; align-items: center; gap: 1.6vmin; margin-bottom: 4vmin; text-align: center; }
+  #loading.splash .ball { width: 13vmin; height: 13vmin; filter: drop-shadow(0 1.2vmin 1.6vmin rgba(4, 30, 70, .45)); }
+  #loading.splash .ball circle { fill: #e8792b; stroke: #2a1406; stroke-width: 3; }
+  #loading.splash .ball path { fill: none; stroke: #2a1406; stroke-width: 3; }
+  #loading.splash .title b { font: italic 900 min(12vmin, 11vw)/.9 "Arial Narrow", "Helvetica Neue", Arial, system-ui, sans-serif; letter-spacing: .01em;
+                             text-transform: uppercase; color: #fff; text-shadow: 0 .5vmin 0 #0c2f63, 0 0 3.5vmin rgba(70, 180, 255, .85); }
+  #loading.splash .title i { font: 700 max(11px, 2.2vmin)/1 "Arial Narrow", "Helvetica Neue", Arial, system-ui, sans-serif; font-style: normal;
+                             letter-spacing: .38em; text-transform: uppercase; color: #eaf6ff; text-shadow: 0 1px 3px rgba(4, 30, 70, .7); }
+  #loading.splash #loadingText { font-size: max(12px, 2.4vmin); text-shadow: 0 1px 3px rgba(4, 30, 70, .7); }
+  #loading.splash .spin { border-color: rgba(255, 255, 255, .3); border-top-color: #fff; }
+  #loading.splash .bar { background: rgba(12, 47, 99, .35); }
+  #loading.splash #loadingBar { background: #fff; }
+  #loading.ready .spin, #loading.ready #loadingText, #loading.ready .bar { display: none; }
+  #loadingStart { padding: 1.3vmin 3.4vmin; border: 2px solid rgba(255, 255, 255, .9); border-radius: 99px; background: rgba(12, 47, 99, .5); color: #fff;
+                  font: 800 max(13px, 2.6vmin)/1 "Arial Narrow", "Helvetica Neue", Arial, system-ui, sans-serif; letter-spacing: .16em; text-transform: uppercase;
+                  cursor: pointer; box-shadow: 0 0 2.4vmin rgba(70, 180, 255, .7); animation: beckon 1.5s ease-in-out infinite; }
+  @keyframes beckon { 50% { opacity: .6; } }
+  @media (prefers-reduced-motion: reduce) { #loadingStart { animation: none; } #loading.splash { transition: none; } }
   section.screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
                    background: rgba(0, 0, 0, .78); text-align: center; }
   section.screen[hidden] { display: none; }
@@ -387,7 +415,11 @@
 </script>
 </head>
 <body>
-<div id="loading"><div class="spin" aria-hidden="true"></div><p id="loadingText">Loading…</p><div class="bar"><i id="loadingBar"></i></div></div>
+<div id="loading" class="splash">
+  <div class="title"><svg class="ball" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45"/><path d="M50 5v90M5 50h90M19 19c17 15 17 47 0 62M81 19c-17 15-17 47 0 62"/></svg><b>Triple Threat</b><i>3 on 3 · 5 on 5 basketball</i></div>
+  <div class="spin" aria-hidden="true"></div><p id="loadingText">Loading…</p><div class="bar"><i id="loadingBar"></i></div>
+  <button id="loadingStart" type="button" hidden>Press any key to start</button>
+</div>
 <canvas id="court"></canvas>
 
 <div id="hud">
