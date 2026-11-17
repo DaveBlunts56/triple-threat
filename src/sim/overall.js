@@ -8,13 +8,12 @@ export const lift = (rating, per10) => 1 + ((rating - 70) / 10) * per10;
 // The same for a thing a better rating makes less of: tiredness, the chance of losing the ball.
 export const drop = (rating, per10) => 1 - ((rating - 70) / 10) * per10;
 
-// A person's overall: the mean of his best five ratings. (All eight less the lowest three: it is asked for often, and
-// this makes no garbage.)
+// A person's overall: the mean of his best five ratings. (All eight less the lowest three: the named fields let the engine
+// read all eight directly.)
 export function overall(person) {
   const r = person.ratings;
   let total = 0, a = Infinity, b = Infinity, c = Infinity;   // the three lowest, a <= b <= c
-  for (const key of KEYS) {
-    const v = r[key];
+  for (const v of [r.inside, r.mid, r.three, r.handle, r.speed, r.defence, r.rebound, r.stamina]) {
     total += v;
     if (v < a) { c = b; b = a; a = v; } else if (v < b) { c = b; b = v; } else if (v < c) c = v;
   }

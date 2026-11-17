@@ -75,7 +75,7 @@ const pixels = value => `${Math.round(value)}px`;
 const share = value => `${Math.round(value * 1000) / 10}%`;
 
 // The start menu: the words of each entry, what the hint line says in each panel, and the two teams' lines.
-const MENU_WORDS = { exhibition: 'Exhibition', tutorial: 'Tutorial', teamSelect: 'Team select', simulate: 'Simulate', teams: 'Teams', controls: 'Controls', settings: 'Settings', keys: 'Keys',
+const MENU_WORDS = { exhibition: 'Exhibition', tutorial: 'Tutorial', teamSelect: 'Team select', simulate: 'Simulate', myleague: 'MyLeague', teams: 'Teams', controls: 'Controls', settings: 'Settings', keys: 'Keys',
   graphics: 'Graphics ▸', styles: 'Game styles ▸', arcadeSliders: 'Arcade sliders ▸', simSliders: 'Simulation sliders ▸', reset: 'Reset to 50' };
 const MODE_WORDS = { 3: 'Mode: 3 on 3', 5: 'Mode: 5 on 5' };
 const SLIDER_HINT = '← → move by 5 · Esc back';   // short, to fit the disc

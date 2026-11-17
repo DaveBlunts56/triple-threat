@@ -30,9 +30,12 @@ export function look(state, shooter, zone, gap, defender, { fading = false, far:
   const meter = styled(state, 'shot.meter');   // without one (Simulation) a release is not judged and is never green, as in the 3D game
   const chance = shotChance({ base: distanceChance(styled(state, 'shot.curve'), far, zone), timing: meter ? TIMING : 1,
     contest, energy: person.energy, levelMake: LEVEL.cpuMake, skill: skillOf(rating, heat), fading, make: styled(state, 'shot.make'), form: person.form ?? 1 });
-  const range = rangeShare(far);
-  const half = windowHalf({ steps: levelFor(contest).steps, range, energy: person.energy, levelGreen: LEVEL.cpuGreen, rating, heat });
-  const green = meter ? greenShare(half, AI.releaseJitter, range > 0) : 0;
+  let green = 0;
+  if (meter) {
+    const range = rangeShare(far);
+    const half = windowHalf({ steps: levelFor(contest).steps, range, energy: person.energy, levelGreen: LEVEL.cpuGreen, rating, heat });
+    green = greenShare(half, AI.releaseJitter, range > 0);
+  }
   const value = isThreeZone(zone) ? 3 : 2;
   return { shooter, defender, zone, far, gap, chance, green, value, ep: expectedShot({ value, chance, green, rule: styled(state, 'shot.green'), boost: styled(state, 'shot.boost') }) };
 }
