@@ -72,7 +72,8 @@ function buildArrow(material) {
 // The players (up to ten: as many are shown as the match has), the ball, the ring under the player you control (a
 // wide yellow ring over a soft yellow disc, to be found in a crowd), the ring and arrow that show him his man, and a
 // small orange ring under whoever has the ball.
-const RINGS = Object.freeze({ you: [0.46, 0.62], glow: 0.46, glowOpacity: 0.22, ball: [0.27, 0.35], ballColour: 0xff8a1f });
+const RINGS = Object.freeze({ you: [0.46, 0.62], glow: 0.46, glowOpacity: 0.22, ball: [0.27, 0.35], ballColour: 0xff8a1f,
+  spot: [0.8, 1.05], spotColour: 0x3fe0ff });   // spot: the tutorial's place to reach, a wide cyan ring
 // `people` are the generated, animated players (see people.js); without them the capsules stand in.
 export function createActors(scene, people = null) {
   const players = people ? people.models : Array.from({ length: 10 }, () => buildPlayer(0));
@@ -88,7 +89,10 @@ export function createActors(scene, people = null) {
   const manRing = new THREE.Mesh(ring.geometry, red);
   manRing.rotation.x = -Math.PI / 2;
   const arrow = buildArrow(red);
-  scene.add(...players, ball, ring, glow, ballRing, manRing, arrow.group);
+  const spotRing = new THREE.Mesh(new THREE.RingGeometry(...RINGS.spot, 48), new THREE.MeshBasicMaterial({ color: RINGS.spotColour, transparent: true, opacity: 0.9 }));
+  spotRing.rotation.x = -Math.PI / 2;
+  spotRing.visible = false;
+  scene.add(...players, ball, ring, glow, ballRing, manRing, arrow.group, spotRing);
   // For drawing the ball across when its holder changes, or the way he carries it: who carried it and how on the last
   // frame (undefined before the first; see carrying), its holder and the phase then, where it was drawn when the way
   // it is carried last changed, and the seconds since.
@@ -98,6 +102,8 @@ export function createActors(scene, people = null) {
     // Forgets what the last frame looked like: the next is drawn as a first one, so that a jump in time (into a
     // replay, or back out of one) is not read as catches, releases and landings, and the ball is not drawn across.
     cut() { carried = undefined; seen = undefined; last = null; since = 0; people?.cut(); },
+    // The tutorial's spot to reach ({ x, z }), drawn as a ring on the floor, or none (null).
+    spot(at) { spotRing.visible = !!at; if (at) spotRing.position.set(at.x, 0.023, at.z); },
     // dt: the match time that passed this frame, which drives the players' motion. show: who the broadcast has
     // celebrating and dejected (see people.update).
     sync(state, dt = 0, show = null) {

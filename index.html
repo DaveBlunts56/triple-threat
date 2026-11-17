@@ -104,6 +104,17 @@
   #nameTag { position: fixed; margin: 0; transform: translate(-50%, calc(14px * var(--k))) scale(var(--k)); transform-origin: 50% 0; pointer-events: none; white-space: nowrap;
              font-size: 16px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #ffe14d;
              text-shadow: 0 1px 2px #000, 0 0 4px #000, 0 0 8px #000; }
+  /* The tutorial's card, top left: the step, what to do in your own keys, and the steps ticked off so far. */
+  #tutorial { position: fixed; z-index: 6; left: calc(14px * var(--k)); top: calc(14px * var(--k)); width: 300px; transform: scale(var(--k)); transform-origin: 0 0;
+              padding: 10px 14px 12px; border-radius: 8px; background: rgba(8, 12, 20, .88); border: 1px solid rgba(63, 224, 255, .55);
+              box-shadow: 0 6px 18px rgba(0, 0, 0, .5); font: 600 13px/1.4 system-ui, sans-serif; }
+  #tutorial .head { display: flex; justify-content: space-between; margin: 0; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #3fe0ff; }
+  #tutTitle { margin: 4px 0 4px; font: 900 20px/1.1 system-ui, sans-serif; color: #fff; }
+  #tutWords { margin: 0 0 8px; font-size: 14px; color: #e8eef4; }
+  #tutSteps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 1px 10px; font-size: 12px; color: #8b95a1; }
+  #tutSteps li.done { color: #6fdc8c; }
+  #tutSteps li.now { color: #ffe14d; font-weight: 800; }
+  #tutorial .foot { margin: 8px 0 0; font-size: 10px; color: #8b95a1; }
   /* Over the head of the player you control: a yellow pointer, bobbing a little, so he is found at once in a crowd. */
   #youMark { position: fixed; width: 22px; height: 18px; margin: 0; transform: translate(-50%, -100%) scale(var(--k)); transform-origin: 50% 100%;
              pointer-events: none; background: #ffe14d; clip-path: polygon(0 0, 100% 0, 50% 100%);
@@ -403,6 +414,13 @@
   <p id="ftText"></p>
   <div id="ftBar"><div id="ftZone"></div><div id="ftMarker"></div></div>
 </div>
+<section id="tutorial" hidden>
+  <p class="head"><b>Tutorial</b><span id="tutCount"></span></p>
+  <h2 id="tutTitle"></h2>
+  <p id="tutWords"></p>
+  <ol id="tutSteps"><li id="tutStep0"></li><li id="tutStep1"></li><li id="tutStep2"></li><li id="tutStep3"></li><li id="tutStep4"></li><li id="tutStep5"></li><li id="tutStep6"></li></ol>
+  <p class="foot">Esc pause · Quit to main menu leaves the tutorial</p>
+</section>
 <p id="nameTag" hidden aria-hidden="true"></p>
 <i id="youMark" hidden aria-hidden="true"></i>
 <i id="tag0" class="tag" hidden aria-hidden="true"></i><i id="tag1" class="tag" hidden aria-hidden="true"></i><i id="tag2" class="tag" hidden aria-hidden="true"></i><i id="tag3" class="tag" hidden aria-hidden="true"></i><i id="tag4" class="tag" hidden aria-hidden="true"></i><i id="tag5" class="tag" hidden aria-hidden="true"></i><i id="tag6" class="tag" hidden aria-hidden="true"></i><i id="tag7" class="tag" hidden aria-hidden="true"></i><i id="tag8" class="tag" hidden aria-hidden="true"></i><i id="tag9" class="tag" hidden aria-hidden="true"></i>

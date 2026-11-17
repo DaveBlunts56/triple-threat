@@ -8,7 +8,7 @@ import { pickable } from './sim/teams.js';
 
 const SLIDER_ROWS = Object.freeze([...SLIDERS.map(s => s.key), 'reset']);
 export const MENU = Object.freeze({
-  main: ['exhibition', 'simulate', 'mode', 'teams', 'controls', 'settings'],
+  main: ['exhibition', 'tutorial', 'simulate', 'mode', 'teams', 'controls', 'settings'],
   teamSelect: [],   // a screen of its own (see selectKey), with no rows
   settings: ['quality', 'autoSubs', 'camera', 'difficulty', 'styles', 'commentary', 'replays', 'sound', 'info', 'keys'],
   styles: ['playStyle', 'playMinutes', 'watchStyle', 'watchMinutes', 'simulateMinutes', 'arcadeSliders', 'simSliders'],
@@ -121,7 +121,7 @@ export function menuKey(menu, code, keys = { ...DEFAULT_KEYS }, random = Math.ra
     else if (style && choice !== 'reset') menu.sliders[style][choice] = Math.min(100, Math.max(0, menu.sliders[style][choice] + 5 * way));
   } else if (code === 'Enter' || code === 'Space') {
     if (menu.panel === 'main') {
-      if (choice === 'simulate') return choice;
+      if (choice === 'simulate' || choice === 'tutorial') return choice;
       if (choice === 'mode') { menu.size = menu.size === 3 ? 5 : 3; return null; }
       if (choice === 'exhibition') { menu.from = menu.row; menu.panel = 'teamSelect'; menu.row = 0; return null; }
       menu.from = menu.row; menu.panel = choice; menu.row = 0;

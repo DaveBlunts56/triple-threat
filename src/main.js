@@ -1,6 +1,8 @@
-import { attackSign, createMatch } from './sim/state.js';
+import { attackSign, createMatch, setLength } from './sim/state.js';
 import { step } from './sim/step.js';
-import { callTimeout } from './sim/rules.js';
+import { callTimeout, startMatch } from './sim/rules.js';
+import { setStyle } from './sim/styles.js';
+import { STEPS, createTutorial, handBack, idle, keepPractising, stepTutorial, tutorialSpot } from './tutorial.js';
 import { aiIntents } from './sim/ai.js';
 import { DT, isHuman } from './sim/tuning.js';
 import { quickMatch } from './sim/quick/engine.js';
@@ -66,11 +68,12 @@ if (view) {
   if (prefs.quality) { quality.level = prefs.quality; quality.settled = true; }   // a level you chose is yours: the game leaves it alone
   // pick: the roster row chosen first on the pause screen. quality: the level the game is drawn at, one of QUALITY.order.
   // meter: the shot meter and where its top is on the page, or null. menu: the start menu. pauseMenu: the pause menu.
-  // loading: Exhibition was chosen and the two teams' players are still being made (see start).
+  // loading: Exhibition was chosen and the two teams' players are still being made (see start). tutorial: the tutorial
+  // on (see tutorial.js), or null.
   // camera: '2k', behind the team with the ball, or 'broadcast', the sideline view. mode: the match on is 'play' (yours)
   // or 'watch' (nobody's). result: a simulated game shown over the menu, or null.
   const game = { state: Object.assign(newMatch(prefs.size, chosen.teams), { home: chosen.home }), paused: false, pick: null, fps: 60, quality: quality.level, camera: prefs.camera, meter: null, menu: createMenu(prefs, devLink()),
-    pauseMenu: createPauseMenu(), playList: createPlayList(), keys, prefs, show: {}, mode: 'play', result: null, loading: false };
+    pauseMenu: createPauseMenu(), playList: createPlayList(), keys, prefs, show: {}, mode: 'play', result: null, loading: false, tutorial: null };
   globalThis.game = game;   // handle for poking at the match from the browser console
   // Adding #dev to the link, or taking it off, shows or hides the dev teams at once.
   window.addEventListener('hashchange', () => { game.menu.dev = devLink(); game.menu.select = pickableSelect(game.menu.select, game.menu.dev); });
@@ -139,6 +142,26 @@ if (view) {
     game.camera = game.mode === 'watch' ? 'broadcast' : prefs.camera;
     view.setCamera(game.camera);
   };
+  // The tutorial: a practice three on three in your team's arena (Team Select's home team), the other team standing
+  // aside, the ball yours, a step at a time (see tutorial.js). It waits for the players as Exhibition does.
+  const startTutorial = async () => {
+    if (game.loading) return;
+    game.loading = true;
+    const teams = [game.menu.select.home, game.menu.select.away];
+    if (people) await loadPlayers(people, teams, 0).catch(error => console.warn(error));
+    loading.hide();
+    game.loading = false;
+    const s = Object.assign(newMatch(3, teams), { home: 0, humans: [0] });
+    setLength(s, 12); setStyle(s, 'arcade', game.menu.sliders.arcade); startMatch(s);
+    Object.assign(s, { autoSubs: [false, false], timeouts: [0, 0], difficulty: game.menu.difficulty });
+    handBack(s);
+    Object.assign(game, { state: s, tutorial: createTutorial(s), mode: 'play', result: null });
+    view.setTeams(s.ids, 0);
+    game.camera = prefs.camera; view.setCamera(game.camera);
+    keyboard.drop();
+  };
+  // Leaves the tutorial for the main menu.
+  const endTutorial = () => { game.tutorial = null; quitToMenu(game, keyboard, waiting); };
   // A match waiting to begin between the teams Team Select has, for the menu (its Teams panel shows them).
   const waiting = size => { const pick = matchTeams(game.menu.select); return Object.assign(newMatch(size, pick.teams), { home: pick.home }); };
   // Simulate: a whole game by the fast engine, Simulation with its sliders, at Simulate's quarters and the menu's mode,
@@ -152,6 +175,7 @@ if (view) {
     if (game.loading) return;
     const asked = menuKey(game.menu, code, keys);
     if (asked === 'exhibition') start();
+    else if (asked === 'tutorial') startTutorial();
     else if (asked === 'select') game.state = waiting(game.menu.size);
     else if (asked === 'simulate') simulate();
     else if (asked === 'quality') stepQualityByHand();
@@ -176,6 +200,7 @@ if (view) {
     else if (asked === 'sound') stepSound();
     else if (asked === 'info') stepInfo();
     else if (asked === 'quit') {
+      game.tutorial = null;
       quitToMenu(game, keyboard, waiting);
       if (game.mode === 'watch') { game.mode = 'play'; game.camera = prefs.camera; view.setCamera(game.camera); }   // back to your own camera
     }
@@ -227,8 +252,9 @@ if (view) {
       keyboard.drop([e.code]);   // a number that called a play is not also a move, if a move was put on it
       return;
     }
-    if (yours && action === 'timeout' && !e.repeat && inPlay(game.state)) callTimeout(game.state, 0);   // a timeout, when the rules allow one
+    if (yours && action === 'timeout' && !e.repeat && inPlay(game.state) && !game.tutorial) callTimeout(game.state, 0);   // a timeout, when the rules allow one
     if (e.code === 'Escape' && !e.repeat) pause(true);
+    if (e.code === 'Enter' && !e.repeat && game.tutorial && game.tutorial.step >= STEPS.length) endTutorial();   // done: back to the menu
     if (e.code === 'Enter' && game.state.phase === 'final') start();   // the same again: the same teams, played or watched
   });
   // The menu's rows: moving the pointer over a row moves the bar there, a click chooses. mousemove, not mouseenter,
@@ -269,11 +295,12 @@ if (view) {
     if (autoQuality(quality, ms, inPlay(state) && !game.paused)) showQuality();
     // The match waits while the line-ups are up, and runs slow for the last of a buzzer-beater's flight.
     // A replay comes first: while one is on, or a moment is about to be set aside for one, a panel waits its turn.
-    const seconds = now / 1000, busy = prefs.replays && !game.paused && !!(replays.playing || replays.waiting || due(replays, state));
+    const replaysOn = prefs.replays && !game.tutorial;   // no replays in the tutorial
+    const seconds = now / 1000, busy = replaysOn && !game.paused && !!(replays.playing || replays.waiting || due(replays, state));
     const panel = broadcast.panel(state, seconds, busy);
     // A replay that is set aside begins once play has stopped; the match waits while it plays.
     const holding = PANELS.includes(panel);
-    if (prefs.replays && !game.paused && due(replays, state)) {
+    if (replaysOn && !game.paused && due(replays, state)) {
       startReplay(replays, state);
       replaySide = decode(replays.playing.frames[replays.playing.frames.length - 1]).ball.z >= 0 ? 1 : -1;
       actors.cut();
@@ -286,15 +313,17 @@ if (view) {
     const before = state.time;
     for (; owed >= DT; owed -= DT) {
       const intents = aiIntents(state, DT);
+      if (game.tutorial) idle(state, intents);   // the other team stands aside
       // The human replaces the computer for one player. His keys follow the camera, and keep their meaning through a
       // swing of the camera until they are let go.
       const keys = keyboard.intent();
       if (!keys.moveX && !keys.moveZ) heading = view.heading();
       if (isHuman(state, 0)) intents[state.controlled] = steer(keys, heading);   // in Watch nobody's keys are read
       const events = step(state, intents, DT);
+      if (game.tutorial) { stepTutorial(game.tutorial, state, keys); keepPractising(game.tutorial, state); }
       broadcast.hear(state, events);
       listen(ears, state, events);
-      if (prefs.replays) { record(replays, state); settle(replays, state); }
+      if (replaysOn) { record(replays, state); settle(replays, state); }
       view.swayNets(state.ball, DT);   // at every step, so a ball moved far in one step is never swept through a net
     }
     // Motion advances by the match time that passed: none while paused. Before and after a match no match time
@@ -302,13 +331,14 @@ if (view) {
     const passed = inPlay(state) ? state.time - before : elapsed;
     const air = broadcast.frame(state, seconds, commentary());
     // A star moment is set aside for a replay: a game-winner from its basket, which came before the call.
-    if (prefs.replays) for (const h of air.heard) if (h.star) mark(replays, h, h.kind === 'winner' ? state.last.score?.at ?? h.at : h.at);
+    if (replaysOn) for (const h of air.heard) if (h.star) mark(replays, h, h.kind === 'winner' ? state.last.score?.at ?? h.at : h.at);
     // Under the pause screen none of it shows.
     game.show = game.paused ? {} : shown ? { replay: true, caption: air.caption } : { banner: air.banner, lower: air.lower, caption: air.caption, panel };
     // In a replay the players and the ball are drawn as that frame has them, and the nets move with that ball.
     const drawn = shown ?? state;
     if (shown) view.swayNets(shown.ball, elapsed * 0.5);
     actors.sync(drawn, shown ? elapsed * 0.5 : passed, shown ? null : air);
+    actors.spot(game.tutorial && !shown ? tutorialSpot(game.tutorial, state) : null);   // the tutorial's spot to reach
     const real = game.paused ? 0 : elapsed;   // the crowd and the referees stand still with a paused game
     const mood = stepLife(life, state, real, air.heard);
     view.live(state, mood, real);
