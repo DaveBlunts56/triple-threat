@@ -11,8 +11,8 @@ export const PAUSE = Object.freeze({
   watch: Object.freeze(['resume', 'box', 'settings', 'quit']),   // the main list in Watch: nobody's team to change, no keys to read
   // Settings in Watch: no automatic substitutions to switch off (the coaches make them) and no difficulty (both sides
   // play at All-Star's).
-  watchSettings: Object.freeze(['quality', 'camera', 'commentary', 'replays', 'sound', 'keys']),
-  settings: Object.freeze(['quality', 'autoSubs', 'camera', 'difficulty', 'commentary', 'replays', 'sound', 'keys']),
+  watchSettings: Object.freeze(['quality', 'camera', 'commentary', 'replays', 'sound', 'info', 'keys']),
+  settings: Object.freeze(['quality', 'autoSubs', 'camera', 'difficulty', 'commentary', 'replays', 'sound', 'info', 'keys']),
   keys: KEY_ROWS,
   quit: Object.freeze(['stay', 'leave']),
 });

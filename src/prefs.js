@@ -14,7 +14,7 @@ export const PREFS_KEY = 'tripleThreat.settings.v1';
 // Simulation's 12). simulate: Simulate's quarter length (it is always Simulation). sliders: each style's nine.
 const f = Object.freeze;
 export const DEFAULT_PREFS = f({ quality: null, camera: '2k', difficulty: 'allstar', size: 3, select: f({ away: 3, home: 2, side: 'home' }),
-  autoSubs: true, commentary: 'voice', replays: true, sound: 'full', keys: f({}),
+  autoSubs: true, commentary: 'voice', replays: true, sound: 'full', info: true, keys: f({}),
   play: f({ style: 'arcade', minutes: 3 }), watch: f({ style: 'sim', minutes: 12 }), simulate: f({ minutes: 12 }),
   sliders: f({ arcade: f(defaultSliders()), sim: f(defaultSliders()) }) });
 
@@ -29,7 +29,7 @@ const VALID = {
   size: oneOf([3, 5]),
   select: value => isObject(value) && [value.away, value.home].every(id => Number.isInteger(id) && id >= 0 && id < TEAMS.length)
     && value.away !== value.home && ['away', 'home', 'none'].includes(value.side),
-  autoSubs: flag, replays: flag,
+  autoSubs: flag, replays: flag, info: flag,
   commentary: oneOf(['voice', 'captions', 'off']),
   sound: oneOf(['full', 'quiet', 'off']),
   keys: isObject,

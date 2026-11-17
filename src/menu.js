@@ -10,7 +10,7 @@ const SLIDER_ROWS = Object.freeze([...SLIDERS.map(s => s.key), 'reset']);
 export const MENU = Object.freeze({
   main: ['exhibition', 'simulate', 'mode', 'teams', 'controls', 'settings'],
   teamSelect: [],   // a screen of its own (see selectKey), with no rows
-  settings: ['quality', 'autoSubs', 'camera', 'difficulty', 'styles', 'commentary', 'replays', 'sound', 'keys'],
+  settings: ['quality', 'autoSubs', 'camera', 'difficulty', 'styles', 'commentary', 'replays', 'sound', 'info', 'keys'],
   styles: ['playStyle', 'playMinutes', 'watchStyle', 'watchMinutes', 'simulateMinutes', 'arcadeSliders', 'simSliders'],
   arcadeSliders: SLIDER_ROWS, simSliders: SLIDER_ROWS,
   keys: KEY_ROWS,
@@ -30,7 +30,7 @@ export const createMenu = (prefs = DEFAULT_PREFS, dev = false) => ({ panel: 'mai
 export const menuRows = menu => MENU[menu.panel] ?? [];
 
 // The settings the page itself changes when their row is chosen: it knows the renderer, the voice and what is saved.
-export const PAGE_ROWS = Object.freeze(['quality', 'camera', 'commentary', 'replays', 'sound']);
+export const PAGE_ROWS = Object.freeze(['quality', 'camera', 'commentary', 'replays', 'sound', 'info']);
 
 const SLIDER_PANELS = Object.freeze({ arcadeSliders: 'arcade', simSliders: 'sim' });
 const LEFT = new Set(['ArrowLeft', 'KeyA']), RIGHT = new Set(['ArrowRight', 'KeyD']);

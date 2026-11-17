@@ -357,8 +357,8 @@ test('Substitutions and Controls open in place of the buttons, and opening one i
 test('Settings shows each setting with its value, and Quit asks before leaving', () => {
   const { e, s, game, show, choose } = pausedHud();
   choose('ArrowUp', 'ArrowUp', 'Enter'); show();                           // up from Resume wraps to Quit, then Settings
-  assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent, e.pauseRow2.textContent, e.pauseRow3.textContent, e.pauseRow4.textContent, e.pauseRow5.textContent, e.pauseRow6.textContent, e.pauseRow7.textContent, e.pauseRow8.hidden, e.pauseHint.textContent],
-    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', 'Commentary: Voice and captions', 'Replays: On', 'Sound: Full', 'Keys', true, '↑ ↓ choose · Enter change · Esc back']);
+  assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent, e.pauseRow2.textContent, e.pauseRow3.textContent, e.pauseRow4.textContent, e.pauseRow5.textContent, e.pauseRow6.textContent, e.pauseRow7.textContent, e.pauseRow8.textContent, e.pauseRow8.hidden, e.pauseHint.textContent],
+    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', 'Commentary: Voice and captions', 'Replays: On', 'Sound: Full', 'FPS and controls: Shown', 'Keys', false, '↑ ↓ choose · Enter change · Esc back']);
   s.autoSubs[0] = false; game.quality = 'low'; show();
   assert.deepEqual([e.pauseRow0.textContent, e.pauseRow1.textContent], ['Quality: Low', 'Automatic substitutions: Off']);
   choose('Escape', 'ArrowDown', 'Enter'); show();
@@ -712,4 +712,18 @@ test('the page has the result screen\'s every cell, and ten menu rows for a slid
   for (const id of ['simResult', 'simTitle', 'simScore0', 'simScore1', 'simTeam0', 'simTeam1', 'menuRow9',
     ...[0, 1].flatMap(t => Array.from({ length: 9 * 15 }, (_, i) => `simBox${t}r${Math.floor(i / 15)}c${i % 15}`)),
     ...Array.from({ length: 24 }, (_, i) => `simAdv${Math.floor(i / 3)}c${i % 3}`)]) assert.match(html, new RegExp(`id="${id}"`), id);
+});
+
+test('Settings can hide the frame rate in the corner and the keys\' line, and show them again', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els;
+  s.phase = 'live';
+  const show = info => hud.update(s, 'webgl2', { paused: false, pick: null, quality: 'high', fps: 60, prefs: { ...DEFAULT_PREFS, info } });
+  show(true);
+  assert.deepEqual([e.backend.hidden, e.controls.hidden], [false, false]);
+  assert.match(e.backend.textContent, /60 fps/);
+  show(false);
+  assert.deepEqual([e.backend.hidden, e.controls.hidden], [true, true]);
+  show(true);
+  assert.deepEqual([e.backend.hidden, e.controls.hidden], [false, false]);
+  assert.equal(menuText({ panel: 'settings' }, MENU.settings.indexOf('info'), 'high', '2k', { ...DEFAULT_PREFS, info: false }), 'FPS and controls: Hidden');
 });

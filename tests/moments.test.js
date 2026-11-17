@@ -48,15 +48,18 @@ test('a plain basket is a happening and no moment', () => {
   assert.deepEqual(watchStep(watch, s), []);                           // once
 });
 
-test('an and-one, a deep three, a poster: each when its condition is met and not when it just misses', () => {
+test('an and-one, a deep three, a poster (a dunk over a defender): each when its condition is met and not when it just misses', () => {
   const one = (more, set) => { const [s, watch] = watched(set); basket(s, more); return moments(watchStep(watch, s)); };
   assert.deepEqual(one({ fouled: true }), ['andOne']);
   assert.deepEqual(one({ points: 3, far: 8.6 }), ['deep']);
   assert.deepEqual(one({ points: 3, far: 8.4 }), []);
   assert.deepEqual(one({ points: 2, far: 8.6 }), []);
-  assert.deepEqual(one({ far: 1.2, gap: 0.8 }), ['poster']);
-  assert.deepEqual(one({ far: 1.2, gap: 1.3 }), []);
-  assert.deepEqual(one({ far: 1.8, gap: 0.8 }), []);
+  assert.deepEqual(one({ far: 1.2, gap: 0.8, finish: 'dunk' }), ['poster']);
+  assert.deepEqual(one({ far: 1.2, gap: 1.3, finish: 'dunk' }), []);
+  assert.deepEqual(one({ far: 1.8, gap: 0.8, finish: 'dunk' }), []);
+  // A layup is never a poster: not one he went up to dunk and laid up instead, nor any other shot from there.
+  assert.deepEqual(one({ far: 1.2, gap: 0.8, finish: 'layup' }), []);
+  assert.deepEqual(one({ far: 1.2, gap: 0.8 }), []);
 });
 
 test('a basket that is two things is both, the bigger first', () => {
