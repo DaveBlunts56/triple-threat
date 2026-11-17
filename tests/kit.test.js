@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { kitOps, heightOps, kitColours, kitName, paintKit, normalFromHeight, gearColour, KIT } from '../src/render/kit.js';
+import { kitOps, heightOps, kitColours, kitName, paintKit, paintSocks, sockColour, chestWord, lightness, normalFromHeight, gearColour, KIT, SOCK } from '../src/render/kit.js';
+import { readGlb, floatsOf } from './glb.js';
 import { TEAMS } from '../src/sim/teams.js';
 import { apart } from '../tools/league/import.mjs';
 import { ROSTER } from '../src/sim/tuning.js';
@@ -45,13 +46,29 @@ test('a jersey: team colour, white bindings, darker side panels piped in white, 
   }
 });
 
-test('shorts carry white bindings and wide darker stripes down their sides, piped in white, and no number', () => {
+test('shorts carry bindings, bold stripes down their sides piped along their edge, a trim line round each hem, and no number', () => {
   const ops = kitOps('shorts', 23, 0);
   assert.equal(ops.some(o => o.text), false);
   const stripes = ops.filter(o => o.rect && o.rect[3] > 0.5 && o.fill === 'panel');
   assert.equal(stripes.length, 4);
-  assert.ok(stripes.every(o => o.rect[2] >= KIT.sides.shorts - 1e-9));
+  assert.ok(stripes.every(o => o.rect[2] >= KIT.sides.shorts - 1e-9) && KIT.sides.shorts >= 0.06, 'bold: each about 10 cm across the seam');
   assert.equal(ops.filter(o => o.rect && o.fill === 'piping' && o.rect[2] <= KIT.piping + 1e-9).length, 4);
+  // The hem's trim: right round the leg, just above the binding at the bottom of the main region.
+  const hem = ops.filter(o => o.rect && o.fill === 'piping' && o.rect[2] === 1);
+  assert.equal(hem.length, 1);
+  assert.ok(hem[0].rect[1] > KIT.layout.main[1] - 0.06 && hem[0].rect[1] + hem[0].rect[3] < KIT.layout.main[1], JSON.stringify(hem[0].rect));
+  assert.equal(kitOps('jersey', 23, 0).filter(o => o.rect && o.fill === 'piping' && o.rect[2] === 1).length, 0, 'not on a jersey');
+});
+
+test('a garment\'s picture is painted from top to bottom, with no clear row next to a binding to fray it when shrunk', () => {
+  for (const part of ['jersey', 'shorts']) {
+    const rows = kitOps(part, 4, 2, 'road').filter(o => o.rect && o.rect[0] === 0 && o.rect[2] === 1).map(o => [o.rect[1], o.rect[1] + o.rect[3]]).sort((a, b) => a[0] - b[0]);
+    let reached = 0;
+    for (const [top, bottom] of rows) { assert.ok(top <= reached + 1e-9, `${part}: nothing painted from ${reached} to ${top}`); reached = Math.max(reached, bottom); }
+    assert.ok(reached >= 1 - 1e-9, `${part}: nothing painted below ${reached}`);
+    const below = kitOps(part, 4, 2, 'road').filter(o => o.rect && o.rect[1] >= KIT.layout.main[1] - 1e-9);
+    assert.ok(below.length && below.every(o => o.fill === 'binding'), `${part}: below the main region only the binding's colour`);
+  }
 });
 
 test('every region is painted edge to edge, a little past its own edges', () => {
@@ -73,7 +90,9 @@ test('a dev team\'s one kit: the team\'s colour, white, and the team\'s darkened
 test('a league team wears its home whites at home and its road colours away, its trim on the panels and bindings', () => {
   assert.deepEqual([kitName(2, 0, 0), kitName(2, 1, 0), kitName(3, 0, 1), kitName(3, 1, 1)], ['home', 'road', 'road', 'home']);
   const ny = TEAMS[2], home = kitColours(2, 'home'), road = kitColours(2, 'road');
-  assert.deepEqual([home.team, home.panel, home.binding, home.piping], ['#ffffff', ny.uniforms.home.trim, ny.uniforms.home.trim, '#ffffff']);
+  assert.deepEqual([home.team, home.panel, home.binding], ['#ffffff', ny.uniforms.home.trim, ny.uniforms.home.trim]);
+  // Piped in a colour that stands out from the panels and the cloth: the outline's blue on the whites, white on the blue.
+  assert.deepEqual([home.piping, road.piping], [ny.uniforms.home.outline, '#ffffff']);
   assert.deepEqual([home.letters, home.outline], [ny.uniforms.home.letters, ny.uniforms.home.outline]);
   assert.deepEqual([road.team, road.panel, road.letters], [ny.uniforms.road.jersey, ny.uniforms.road.trim, '#ffffff']);
   // As the uniform sheets show them: New York, Detroit and Dallas in blue away, San Antonio in black.
@@ -161,4 +180,63 @@ test('gear is white, black or the team\'s colour', () => {
   assert.equal(gearColour('team', 0), KIT.team[0]);
   assert.equal(gearColour('team', 1), KIT.team[1]);
   assert.deepEqual(KIT.gear.order, ['white', 'black', 'team']);
+});
+
+test('the word on the chest: the city on the road colours, the nickname on the home whites and on a dev team\'s one kit', () => {
+  assert.deepEqual([chestWord(2, 'road'), chestWord(2, 'home'), chestWord(0), chestWord(1, 'home')], ['NEW YORK', 'EMPIRE', word(0), word(1)]);
+  const lettersOf = (team, kit) => kitOps('jersey', 11, team, kit).filter(o => o.text && o.text !== '11');
+  assert.equal(lettersOf(2, 'road').map(o => o.text).join(''), 'NEW YORK');
+  assert.equal(lettersOf(2, 'home').map(o => o.text).join(''), 'EMPIRE');
+  // A long city is lettered smaller, to stay within the chest; a short name is lettered at full size.
+  const okc = TEAMS.findIndex(t => t.city === 'Oklahoma City'), long = lettersOf(okc, 'road'), short = lettersOf(0);
+  assert.ok(long[0].height < short[0].height && short[0].height === KIT.name.height, `${long[0].height} against ${short[0].height}`);
+  const across = long.at(-1).at[0] - long[0].at[0] + long[0].height * KIT.digit;
+  assert.ok(across <= KIT.name.widest + 1e-9, `${across}`);
+  // The raised lettering follows the same word.
+  assert.equal(heightOps('jersey', 11, 2, 'road').filter(o => o.text && o.text !== '11').map(o => o.text).join(''), 'NEW YORK');
+});
+
+test('every league kit\'s piping stands out from the panels it edges and from the cloth beside them', () => {
+  const apartOf = (a, b) => Math.hypot(...[1, 3, 5].map(i => parseInt(a.slice(i, i + 2), 16) - parseInt(b.slice(i, i + 2), 16)));
+  for (const [id, team] of TEAMS.entries()) for (const kit of team.uniforms ? ['home', 'road'] : []) {
+    const c = kitColours(id, kit);
+    assert.ok(apartOf(c.piping, c.panel) > 80 && apartOf(c.piping, c.team) > 80, `${team.key} ${kit}: ${c.piping} on ${c.panel} and ${c.team}`);
+  }
+});
+
+test('white socks under a light jersey, black under a dark one; repainted over the sock\'s corner of the shoes\' picture, its knit showing through', () => {
+  assert.deepEqual([sockColour(kitColours(2, 'home')), sockColour(kitColours(2, 'road')), sockColour(kitColours(3, 'road'))], [SOCK.white, SOCK.black, SOCK.black]);
+  assert.ok(Math.abs(lightness('#ffffff') - 1) < 1e-9 && lightness('#000000') === 0);
+  const calls = [];
+  const context = { save() {}, restore() {}, set fillStyle(v) { calls.push(['fill', v]); }, set globalAlpha(v) { calls.push(['alpha', v]); },
+    set globalCompositeOperation(v) { calls.push(['blend', v]); }, fillRect: (...a) => calls.push(['rect', ...a]), drawImage: (...a) => calls.push(['image', ...a.slice(1)]) };
+  paintSocks(context, { width: 512, height: 512 }, [100, 200, 256, 256], SOCK.white);
+  const [u, v, w, h] = SOCK.rect;
+  assert.deepEqual(calls, [['fill', SOCK.white], ['rect', 100 + u * 256, 200 + v * 256, w * 256, h * 256], ['alpha', SOCK.knit], ['blend', 'multiply'],
+    ['image', u * 512, v * 512, w * 512, h * 512, 100 + u * 256, 200 + v * 256, w * 256, h * 256]]);
+  calls.length = 0;
+  paintSocks(context, { width: 512, height: 512 }, [0, 0, 512, 512], SOCK.black);
+  assert.ok(calls.some(c => c[0] === 'blend' && c[1] === 'screen'));
+});
+
+test('the sock\'s corner of the shoes\' picture holds both socks of every model, whole, and no part of a shoe', () => {
+  for (const path of ['assets/players.glb', 'assets/players/nye-11.glb', 'assets/players/dal-30.glb']) {
+    const gltf = readGlb(new URL(`../${path}`, import.meta.url)), { json, bin } = gltf;
+    const inside = (u, v) => u >= SOCK.rect[0] && u <= SOCK.rect[0] + SOCK.rect[2] && v >= SOCK.rect[1] && v <= SOCK.rect[1] + SOCK.rect[3];
+    const shoes = json.meshes.flatMap(m => m.primitives).filter(p => json.materials[p.material].name.startsWith('shoes'));
+    assert.ok(shoes.length >= 2, path);
+    for (const p of shoes) {
+      const uv = floatsOf(gltf, p.attributes.TEXCOORD_0), a = json.accessors[p.indices], view = json.bufferViews[a.bufferView];
+      const size = { 5121: 1, 5123: 2, 5125: 4 }[a.componentType], read = { 1: o => bin.readUInt8(o), 2: o => bin.readUInt16LE(o), 4: o => bin.readUInt32LE(o) }[size];
+      const indices = Array.from({ length: a.count }, (_, k) => read((view.byteOffset ?? 0) + (a.byteOffset ?? 0) + k * size));
+      // The pieces the shoes' mesh is made of, joined where their triangles share a corner.
+      const parent = Array.from({ length: uv.length / 2 }, (_, i) => i), find = i => { while (parent[i] !== i) i = parent[i] = parent[parent[i]]; return i; };
+      for (let k = 0; k < indices.length; k += 3) { parent[find(indices[k + 1])] = find(indices[k]); parent[find(indices[k + 2])] = find(indices[k]); }
+      const pieces = {};
+      parent.forEach((_, i) => (pieces[find(i)] ??= []).push(inside(uv[2 * i], uv[2 * i + 1])));
+      const inCorner = Object.values(pieces).filter(piece => piece.some(Boolean));
+      assert.equal(inCorner.length, 2, `${path}: two socks in the corner`);
+      assert.ok(inCorner.every(piece => piece.every(Boolean)), `${path}: a piece only partly in the corner`);
+    }
+  }
 });

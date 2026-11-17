@@ -13,7 +13,7 @@ import { easeFacing, leanOf, lookTarget, headTurn, easeHead } from './bearing.js
 import { createAnimator, poseClip } from './animator.js';
 import { createFace, faceWants } from './face.js';
 import { createSweat } from './sweat.js';
-import { ATLAS, KIT, atlasPart, atlasRect, atlasUV, gearColour, kitOps, heightOps, kitColours, kitName, paintKit, normalFromHeight } from './kit.js';
+import { ATLAS, KIT, atlasPart, atlasRect, atlasUV, gearColour, kitOps, heightOps, kitColours, kitName, paintKit, paintSocks, sockColour, normalFromHeight } from './kit.js';
 import { MATERIALS, kitMaterial, partMaterial, hairMaterial, gearMaterial, skinMaterial, fabricTiles, isPhysical, isDetailed } from './materials.js';
 import { QUALITY, modelFor } from './quality.js';
 
@@ -87,12 +87,29 @@ export async function loadPeople(camera) {
     return made;
   }
 
-  // What stands out of a garment (its numbers and stitching), as a normal map.
-  function raised(part, number, team, own) {
+  // The file's shoes' picture (`map`) with his socks repainted in `colour` (see paintSocks), as a texture of his own:
+  // the file's is shared with every other copy of the body.
+  function socked(map, colour, own) {
+    const image = map?.image;
+    if (!image) return map;
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width; canvas.height = image.height;
+    const g = canvas.getContext('2d');
+    g.drawImage(image, 0, 0);
+    paintSocks(g, image, [0, 0, canvas.width, canvas.height], colour);
+    const made = new THREE.Texture();
+    Object.assign(made, { flipY: map.flipY, colorSpace: map.colorSpace, wrapS: map.wrapS, wrapT: map.wrapT, anisotropy: 4 });
+    own.textures.push(made);
+    own.pending.push(createImageBitmap(canvas).then(bitmap => { made.image = bitmap; made.needsUpdate = true; }));
+    return made;
+  }
+
+  // What stands out of a garment (its lettering and stitching) in `kit`, as a normal map.
+  function raised(part, number, team, own, kit) {
     const size = KIT.size, canvas = document.createElement('canvas');
     canvas.width = canvas.height = size;
     const g = canvas.getContext('2d');
-    paintKit(g, size, heightOps(part, number, team), kitColours(0));
+    paintKit(g, size, heightOps(part, number, team, kit), kitColours(0));
     const made = new THREE.DataTexture(normalFromHeight(g.getImageData(0, 0, size, size).data, size), size, size, THREE.RGBAFormat);
     made.flipY = false;
     made.colorSpace = THREE.NoColorSpace;
@@ -112,22 +129,29 @@ export async function loadPeople(camera) {
     }));
   };
 
-  // His far model's one picture at `scale` times ATLAS.size: the skin, hair and shoes of the file and his kit in
-  // `colours` (see kitColours), each drawn in its own place (see ATLAS). `drawn` is { part: the file's picture of it }.
-  function onePicture(drawn, team, number, colours, scale, own) {
+  // His far model's one picture at `scale` times ATLAS.size: the skin, hair and shoes of the file (his socks repainted:
+  // see paintSocks) and his `kit` in `colours` (see kitColours), each drawn in its own place (see ATLAS). `drawn` is
+  // { part: the file's picture of it }. A garment's cell is filled to its edges first, its gutter too, so that nothing
+  // clear is blended into its picture's edges when it is shrunk (the picture is drawn only where it is opaque).
+  function onePicture(drawn, team, number, colours, scale, own, kit) {
     const canvas = document.createElement('canvas'), size = Math.round(ATLAS.size * scale);
     canvas.width = canvas.height = size;
     const g = canvas.getContext('2d');
     for (const part of Object.keys(ATLAS.cells)) {
       const [x, y, w, h] = atlasRect(part).map(n => n * size);
       if (part === 'jersey' || part === 'shorts') {
+        const [cx, cy, cw, ch] = ATLAS.cells[part].map(n => n * size);
+        g.fillStyle = colours.team; g.fillRect(cx, cy, cw, ch);
         g.save();
         g.translate(x, y); g.scale(w / KIT.size, h / KIT.size);
-        paintKit(g, KIT.size, kitOps(part, number, team), colours);
+        paintKit(g, KIT.size, kitOps(part, number, team, kit), colours);
         g.restore();
       } else if (part === 'gear') {
         KIT.gear.order.forEach((colour, k) => { g.fillStyle = gearColour(colour, team); g.fillRect(x + (k * w) / 3, y, w / 3, h); });
-      } else if (drawn[part]) g.drawImage(drawn[part], x, y, w, h);
+      } else if (drawn[part]) {
+        g.drawImage(drawn[part], x, y, w, h);
+        if (part === 'shoes') paintSocks(g, drawn[part], [x, y, w, h], sockColour(colours));
+      }
     }
     const made = new THREE.Texture();
     made.flipY = false;
@@ -158,7 +182,7 @@ export async function loadPeople(camera) {
 
   // The far model: `parts` ([mesh, its place in ATLAS, its material's name in the file]) joined into one mesh on the same skeleton, wearing one picture.
   // Each part is one more thing to draw in every pass; joined, the whole player is drawn at once.
-  function farModel(parts, drawn, team, number, colours, own) {
+  function farModel(parts, drawn, team, number, colours, own, kit) {
     const whole = mergeGeometries(parts.map(([part, place, name]) => {
       const from = part.geometry, uv = from.getAttribute('uv'), geometry = new THREE.BufferGeometry();
       // Every part's numbers in the same form, so that they can be joined; its picture's points moved to its place.
@@ -179,7 +203,7 @@ export async function loadPeople(camera) {
     const byScale = {};
     // Cut-outs instead of blending for the hair: no sorting artefacts, and it writes depth like everything else.
     const made = Object.fromEntries(QUALITY.order.map(level => [level, byScale[QUALITY[level].textures] ??= new THREE.MeshStandardMaterial({
-      map: onePicture(drawn, team, number, colours, QUALITY[level].textures, own), roughnessMap: roughness, roughness: 1, metalness: 0, alphaTest: MATERIALS.cutout, side: THREE.DoubleSide,
+      map: onePicture(drawn, team, number, colours, QUALITY[level].textures, own, kit), roughnessMap: roughness, roughness: 1, metalness: 0, alphaTest: MATERIALS.cutout, side: THREE.DoubleSide,
     })]));
     const [first] = parts[0], far = new THREE.SkinnedMesh(whole, made[level]);
     far.name = 'far';
@@ -215,10 +239,10 @@ export async function loadPeople(camera) {
       if (place && part.material.map) drawn[place] = part.material.map.image;
       let made;
       if (kind === 'jersey' || kind === 'shorts') {
-        const normal = raised(kind, number, team, own), sizes = {};
+        const normal = raised(kind, number, team, own, kit), sizes = {};
         made = atEachLevel(level => {
           const pixels = Math.round(GARMENT[kind] * QUALITY[level].textures);
-          sizes[pixels] ??= picture(kitOps(kind, number, team), colours, pixels, own);
+          sizes[pixels] ??= picture(kitOps(kind, number, team, kit), colours, pixels, own);
           return kitMaterial(level, { part: kind, map: sizes[pixels], normal, fabric: kind === 'jersey' ? tiles.knit : tiles.twill });
         });
       } else if (kind === 'skin') {
@@ -228,6 +252,9 @@ export async function loadPeople(camera) {
         made = atEachLevel(level => gearMaterial(level, colour));
       } else if (kind === 'hair' && MODELLED.includes(part.material.name.split('-')[1])) {
         made = atEachLevel(level => hairMaterial(level, { map: part.material.map, strands: tiles.strands }));
+      } else if (kind === 'shoes') {
+        const map = socked(part.material.map, sockColour(colours), own);
+        made = atEachLevel(level => partMaterial(level, kind, map, part.material.normalMap));
       } else made = atEachLevel(level => partMaterial(level, kind, part.material.map, part.material.normalMap));
       part.material = made[level];   // the file's own material is shared with the body's other copies, and left as it is
       part.castShadow = kind !== 'cornea';
@@ -241,7 +268,7 @@ export async function loadPeople(camera) {
     });
     if (!parts.length) throw new Error(`${model.name} has nothing to draw`);
     // His far model is made from the file's simplified parts (or, in a file without them, from these).
-    const far = farModel(simplified.length ? simplified : parts, drawn, team, number, colours, own);
+    const far = farModel(simplified.length ? simplified : parts, drawn, team, number, colours, own, kit);
     for (const [mesh] of simplified) mesh.removeFromParent();   // their shapes are the body's, shared with its other copies
     // His body's size against the player the motions were made on: what the motions are fitted to. Scaled by `size`
     // on top, his strides cover that much more ground.
