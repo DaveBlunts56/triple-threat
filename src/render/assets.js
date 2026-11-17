@@ -11,7 +11,14 @@ export const soundPath = name => `assets/sounds/${name}.ogg`;
 export const MAP_FILES = Object.freeze(['knit-normal', 'knit-rough', 'twill-normal', 'twill-rough', 'strands-normal', 'pores-normal'].map(name => `assets/maps/${name}.png`));
 // The league's marks, as pictures (cut by tools/league/logos.py), one for each team that has one.
 export const LOGO_FILES = Object.freeze(TEAMS.map(team => team.logo?.image).filter(Boolean));
-export const ASSETS = Object.freeze(['assets/players.glb', 'assets/motion.glb', 'assets/motion.json', ...Object.values(FLOOR_FILES), ...SOUNDS.map(soundPath), ...MAP_FILES, ...LOGO_FILES]);
+// The model of a league player (the dev teams' are all in assets/players.glb), by team and number: each player in a
+// file of his own, loaded only when he is wanted (built by tools/blender/build_players.py).
+export const modelFile = (team, number) => `assets/players/${team.key.toLowerCase()}-${number}.glb`;
+export const MODEL_FILES = Object.freeze(TEAMS.filter(team => !team.dev).flatMap(team => team.players.map(p => modelFile(team, p.number))));
+export const ASSETS = Object.freeze(['assets/players.glb', 'assets/motion.glb', 'assets/motion.json', ...Object.values(FLOOR_FILES), ...SOUNDS.map(soundPath), ...MAP_FILES, ...LOGO_FILES, ...MODEL_FILES]);
+// What the one-file build packs: everything but the league players' models, which would make it hundreds of megabytes
+// (the game is a website now: see tools/site.mjs). Opened from disk, a league player there stands in a dev body.
+export const PACKED = Object.freeze(ASSETS.filter(path => !MODEL_FILES.includes(path)));
 
 // Served from a folder, a file is fetched by its own path. In the single-file build the loader has already
 // turned each packed file into a blob: URL and listed it in TT_ASSETS, so nothing is asked of the network.

@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { pack } from '../tools/single-file.mjs';
-import { ASSETS, SOUNDS } from '../src/render/assets.js';
+import { ASSETS, PACKED, MODEL_FILES, SOUNDS } from '../src/render/assets.js';
 
 const INDEX = `<!doctype html><html><head>
 <script type="importmap">
@@ -53,8 +53,9 @@ test('pack embeds every asset, byte for byte', () => {
   const bytes = Buffer.from([0, 1, 2, 250, 251, 60, 47]);          // includes "<" and "/"
   const root = project({ ...assets(), 'assets/players.glb': bytes, 'assets/floor/wood_floor_diff_2k.jpg': bytes });
   const packed = assetsIn(pack(root));
-  assert.deepEqual(Object.keys(packed), [...ASSETS]);
-  assert.equal(Object.keys(packed).length, 6 + SOUNDS.length + 6 + 12);   // the models, the motion, the floor, every sound, the cloth's four tiles, the strands and the pores, the league's logos
+  assert.deepEqual(Object.keys(packed), [...PACKED]);
+  assert.ok(MODEL_FILES.every(path => !(path in packed)), 'a league player\'s model is packed');
+  assert.equal(Object.keys(packed).length, 6 + SOUNDS.length + 6 + 12);   // the models, the motion, the floor, every sound, the cloth's four tiles, the strands and the pores, the league's logos (not its players)
   assert.deepEqual(Buffer.from(packed['assets/players.glb'], 'base64'), bytes);
   assert.deepEqual(Buffer.from(packed['assets/floor/wood_floor_diff_2k.jpg'], 'base64'), bytes);
 });

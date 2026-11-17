@@ -1,8 +1,9 @@
 // Turns the league's CSV files (teams, players, coaches, arenas) into src/sim/league.js, the twelve teams the game
-// plays with besides its two dev teams. Only what the game uses is kept: never the files' columns naming the real
-// players and teams behind the parodies. Usage:
+// plays with besides its two dev teams. The players come from the corrected files (triple_threat_fixed_players) where
+// they are there. Only what the game uses is kept: never the files' columns naming the real players and teams behind
+// the parodies. Usage:
 //   node tools/league/import.mjs [folder]   (default: ~/Documents/Triple-Threat_expansion-teams)
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -108,14 +109,16 @@ function uniforms(t) {
 // The league, from the folder of CSV files: one entry a team, in East then West order as the files list them.
 export function league(folder) {
   const read = name => readCsv(readFileSync(join(folder, name), 'utf8'));
-  const pack = join('triple_threat_league_csv_pack');
-  const teams = read(join(pack, 'triple_threat_teams.csv')), players = read(join(pack, 'triple_threat_players.csv'));
+  const pack = join('triple_threat_league_csv_pack'), fixed = join('triple_threat_fixed_players', 'triple_threat_players_NBA_matched.csv');
+  const teams = read(join(pack, 'triple_threat_teams.csv'));
+  const players = read(existsSync(join(folder, fixed)) ? fixed : join(pack, 'triple_threat_players.csv'));
   const coaches = read(join(pack, 'triple_threat_coaches.csv')), arenas = read('triple_threat_arenas.csv');
   return teams.map(t => {
     const coach = coaches.find(c => c.team_id === t.team_id), arena = arenas.find(a => a.team_id === t.team_id);
     const rows = players.filter(p => p.team_id === t.team_id);
-    const numbers = rows.map(p => Number(p.jersey_number));
-    if (rows.length !== 10 || new Set(numbers).size !== 10) throw new Error(`${t.team_id}: needs ten players with ten different numbers`);
+    // A number is kept as it is worn: 0 and 00 are different numbers.
+    const numbers = rows.map(p => p.jersey_number);
+    if (rows.length !== 10 || new Set(numbers).size !== 10 || numbers.some(n => !/^\d{1,2}$/.test(n))) throw new Error(`${t.team_id}: needs ten players with ten different numbers`);
     // Starters first, the best of them first (a three-a-side match plays the first three); then the bench, best first.
     const order = (a, b) => Number(b.overall) - Number(a.overall);
     const roster = [...rows.filter(p => p.roster_role === 'Starter').sort(order), ...rows.filter(p => p.roster_role !== 'Starter').sort(order)];
@@ -129,12 +132,59 @@ export function league(folder) {
       venue: { name: arena?.arena_name ?? t.arena, short: arena?.arena_short_name ?? t.arena, state: arena?.state ?? '', notes: arena?.arena_design_notes ?? '' },
       logo: { image: `assets/logos/${t.team_id.toLowerCase()}.png`, disc: t.primary_hex.toLowerCase(), rim: '#ffffff' },
       players: roster.map(p => ({
-        name: p.player_name, number: Number(p.jersey_number), position: p.position, role: roleOf(p.archetype, p.position),
+        name: p.player_name, number: p.jersey_number, position: p.position, role: roleOf(p.archetype, p.position),
         archetype: p.archetype, height: Math.round(Number(p.height_inches) * 2.54) / 100, starter: p.roster_role === 'Starter',
         ratings: ratingsOf(p),
       })),
     };
   });
+}
+
+// ---------- the build recipe of each player's model (tools/blender/build_players.py) ----------
+
+// How a player is built, from his file's words: his build, a base skin by tone and age, his hair as one of the
+// build's styles (see tools/blender/hair.py; 'short' and 'afro' are the pack's hair), its colour, and his beard.
+const BUILD = [[/lean|wiry/i, 'slim'], [/heavyset|stocky|strong|muscular|broad/i, 'strong']];
+export const buildOf = words => BUILD.find(([pattern]) => pattern.test(words))?.[1] ?? 'athletic';
+export const skinOf = (tone, age) => `${age >= 32 ? 'middleage' : 'young'}_${/^light/i.test(tone) ? 'caucasian' : 'african'}_male`;
+const HAIR = [
+  [/cornrow|braid\w* back|braids? pulled back|braided twists, pulled back/i, 'cornrows'],
+  [/braids reaching|freeform locs|locs tied/i, 'locs'],
+  [/twist|mini locs|braid/i, 'twists'],
+  [/afro/i, 'afro'],
+  [/buzz|shaved|bald|closely cropped|close-cropped short/i, 'buzz'],
+  [/high.top|curly top|coiled top|coil top|curls? top|top fade|dense|rounded/i, 'curls'],
+];
+// Hair that is not black (straight, wavy, cropped, combed) is the pack's short hair; black hair not otherwise named
+// is a fade.
+export function hairOf(words, colour = 'Black') {
+  const style = HAIR.find(([pattern]) => pattern.test(words))?.[1] ?? (/^black/i.test(colour) ? 'fade' : 'short');
+  // The pack's short hair: combed to the side or straight, short01; cropped or cut close, short02; wavy or swept, short04.
+  const pack = style === 'afro' ? 'afro01' : style !== 'short' ? null : /wavy|swept|brushed|medium/i.test(words) ? 'short04' : /side.part|straight/i.test(words) ? 'short01' : 'short02';
+  return { hairStyle: style, hair: pack };
+}
+export const hairColourOf = (colour, words) => (/^black/i.test(colour) ? '#16110d'
+  : /blond/i.test(words) ? '#a8865a' : /light-brown|light brown/i.test(words) ? '#8a6a45' : /reddish/i.test(words) ? '#6e3a22'
+    : /dark-brown|dark brown|dark/i.test(words) ? '#2b1d14' : '#4a3324');
+// His beard: none, stubble, a mustache, a goatee (with its mustache), a short beard or a full one.
+export const beardOf = words => (/clean/i.test(words) ? null : /stubble/i.test(words) ? 'stubble' : /goatee/i.test(words) ? 'goatee'
+  : /mustache/i.test(words) ? 'mustache' : /full|thick/i.test(words) ? 'full' : /beard/i.test(words) ? 'short' : null);
+
+// Every league player's recipe, by team (its id in TEAMS: the league's come after the two dev teams), from the folder's
+// appearance file: { team, number, height, build, skin, skinHex, hairStyle, hair, hairColour, beard, face, seed, gear,
+// colour }. `face` and `seed` make his face and hair his own (the face is generated, not anybody's).
+export function recipes(folder, teams) {
+  const fixed = join(folder, 'triple_threat_fixed_players', 'triple_threat_player_appearances_NBA_matched.csv');
+  const looks = readCsv(readFileSync(existsSync(fixed) ? fixed : join(folder, 'triple_threat_player_appearances.csv'), 'utf8'));
+  const ages = readCsv(readFileSync(join(folder, existsSync(fixed) ? 'triple_threat_fixed_players/triple_threat_players_NBA_matched.csv' : 'triple_threat_league_csv_pack/triple_threat_players.csv'), 'utf8'));
+  return teams.flatMap((team, t) => team.players.map((p, row) => {
+    const look = looks.find(l => l.team_id === team.key && l.jersey_number === p.number);
+    if (!look) throw new Error(`${team.key} ${p.number}: no appearance`);
+    const age = Number(ages.find(a => a.team_id === team.key && a.jersey_number === p.number).age), id = 2 + t;
+    return { team: id, key: team.key.toLowerCase(), number: p.number, height: p.height, build: buildOf(look.body_build), skin: skinOf(look.skin_tone, age), skinHex: look.skin_hex.toLowerCase(),
+      ...hairOf(look.hairstyle, look.hair_color), hairColour: hairColourOf(look.hair_color, look.hairstyle), beard: beardOf(look.facial_hair),
+      face: 100 + id * 10 + row, seed: 7 + id * 100 + row, gear: [], colour: team.colour };
+  }));
 }
 
 // The module the game imports: the league as frozen data, written out plainly so that it reads as a list.
@@ -157,4 +207,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const teams = league(folder), out = fileURLToPath(new URL('../../src/sim/league.js', import.meta.url));
   writeFileSync(out, moduleText(teams));
   console.log(`src/sim/league.js: ${teams.length} teams, ${teams.reduce((n, t) => n + t.players.length, 0)} players`);
+  const people = recipes(folder, teams), recipe = fileURLToPath(new URL('../../assets/source/league-people.json', import.meta.url));
+  writeFileSync(recipe, `${JSON.stringify({ people }, null, 1)}\n`);
+  console.log(`assets/source/league-people.json: ${people.length} recipes`);
 }

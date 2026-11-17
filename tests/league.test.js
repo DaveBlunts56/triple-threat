@@ -64,7 +64,7 @@ test('a role comes from the archetype\'s words, and the position where the words
     ['Rim protector', 'Lockdown guard', 'Two-way wing', 'Rebounder', 'Role player']);
 });
 
-test('until the league\'s own models are built, each of a team\'s ten plays in a different dev body at his position, scaled to his height', () => {
+test('a league player whose own model cannot be loaded stands in a dev body, a different one for each of his team, at his position, scaled to his height', () => {
   for (const [id, team] of TEAMS.entries()) {
     const bodies = bodiesOf(id);
     assert.deepEqual(bodies.map(b => b.number), team.players.map(p => p.number));
@@ -77,4 +77,13 @@ test('until the league\'s own models are built, each of a team\'s ten plays in a
       assert.ok(Math.abs(b.size * dev.height - team.players[row].height) < 1e-9 && b.size > 0.9 && b.size < 1.12, `${team.players[row].name}: ${b.size}`);
     });
   }
+});
+
+test('a number is kept as it is worn: Philadelphia has a 0 and a 00, and the 00 is lettered 00', async () => {
+  const { kitOps } = await import('../src/render/kit.js');
+  const phi = TEAMS.findIndex(t => t.key === 'PHI'), numbers = TEAMS[phi].players.map(p => p.number);
+  assert.ok(numbers.includes('0') && numbers.includes('00'), numbers.join());
+  assert.ok(LEAGUE.every(t => t.players.every(p => /^\d{1,2}$/.test(p.number))));
+  assert.deepEqual(kitOps('jersey', '00', phi).filter(o => o.text === '00').length, 2, 'on the chest and the back');
+  assert.notEqual(personName(phi, '0'), personName(phi, '00'));
 });

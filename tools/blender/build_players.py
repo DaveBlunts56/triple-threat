@@ -22,7 +22,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import MPFB, bounds, clear_scene, project, service, snapshot  # noqa: E402
 from kit import SHORTS, add_springs, cut_out, make_kit  # noqa: E402
 from hair import PACK, covered, head_frame, make_hair  # noqa: E402
-from gear import high_tops, make_gear, paint_shoes  # noqa: E402
+from gear import high_tops, make_gear, paint_shoes, team_colour  # noqa: E402
+from looks import own_skin, paint_beard  # noqa: E402
 
 BONE = 'mixamorig:'
 # Muscle and weight for each build (MPFB macros, 0 to 1).
@@ -66,8 +67,8 @@ FACE = {'parts': ('head', 'nose', 'chin', 'cheek', 'mouth', 'eyes', 'forehead'),
         'sideways': ('-trans-in', '-trans-out')}
 
 
-def people():
-    with open(project('assets', 'source', 'people.json')) as f:
+def people(path=None):
+    with open(path or project('assets', 'source', 'people.json')) as f:
         return json.load(f)['people']
 
 
@@ -468,6 +469,8 @@ def build_person(row, with_doll=False):
     The doll is the whole body before any skin is removed, for Mixamo; None unless asked for.
     """
     body, rig, parts = make_body(row)
+    if row.get('skinHex'):   # his own skin picture, in his tone (the beard is painted on it below)
+        skin = own_skin(body, f"skin-player-{row['team']}-{row['number']}", row['skinHex'])
     moves = expression_moves(body, row)
     for obj in [body, *parts.values()]:
         bake_shape(obj)
@@ -479,13 +482,13 @@ def build_person(row, with_doll=False):
     parts['cornea'] = make_cornea(parts['eyes'])
     if row['hairStyle'] not in PACK:
         colour = tuple(int(row['hairColour'][i:i + 2], 16) / 255 for i in (1, 3, 5))
-        parts['hair'], under_hair = make_hair(body, rig, row['hairStyle'], colour, skin_tone(body), seed=row['face'] * 31 + row['number'])
+        parts['hair'], under_hair = make_hair(body, rig, row['hairStyle'], colour, skin_tone(body), seed=row['seed'] if 'seed' in row else row['face'] * 31 + row['number'])
     else:   # the pack's afro hides the scalp too (simplified under it, the scalp once spiked through)
         under_hair = covered(body, head_frame(body, rig), row['hairStyle'])
     parts = {name: parts[name] for name in part_names(row)[3:] if name != 'gear'}   # in the order part_names gives
     joint = lambda name: rig.matrix_world @ rig.data.bones[BONE + name].head_local
     high_tops(parts['shoes'], joint('LeftFoot').z)
-    paint_shoes(parts['shoes'], row['team'])
+    paint_shoes(parts['shoes'], team_colour(row))
     mark, bones, tights = landmarks(rig), dominant_bones(body), in_group(body, 'helper-tights')
     is_skin = in_group(body, 'body')
     doll = cut_out(body, 'doll', lambda i: is_skin[i]) if with_doll else None
@@ -506,7 +509,10 @@ def build_person(row, with_doll=False):
     simplify(body, KEEP['body'], protect='keep')
     bake_detail(whole, body, f"detail-player-{row['team']}-{row['number']}")
     add_expressions(body, moves, rest, (rig.matrix_world @ rig.data.bones[BONE + 'Neck'].head_local).z)
-    skin_masks(body, frame, bounds([parts['eyes']])[0].z / 2 + bounds([parts['eyes']])[1].z / 2, bounds([parts['mouth']])[0].z / 2 + bounds([parts['mouth']])[1].z / 2)
+    eyes, mouth = (sum(c.z for c in bounds([parts[name]])) / 2 for name in ('eyes', 'mouth'))
+    skin_masks(body, frame, eyes, mouth)
+    if row.get('beard') and row.get('skinHex'):
+        paint_beard(body, skin, row['beard'], row['hairColour'], frame, eyes, mouth, row.get('seed', 0))
     bpy.data.objects.remove(whole)
     if row['hairStyle'] in PACK:   # the modelled styles are made to their budget
         simplify(parts['hair'], KEEP['hair'])
@@ -669,16 +675,27 @@ def report(name, meshes):
 
 def main():
     args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
-    shots = args[args.index('--shots') + 1] if '--shots' in args else None
-    # --only a,b: build just these people into the .blend given by --blend, to look at; nothing is exported.
-    only = set(args[args.index('--only') + 1].split(',')) if '--only' in args else None
+    given = lambda flag: args[args.index(flag) + 1] if flag in args else None
+    shots = given('--shots')
+    # --only a,b: build just these people; with --blend FILE into that .blend, to look at, and nothing is exported.
+    only = set(given('--only').split(',')) if '--only' in args else None
+    # --people FILE --team ID --out FOLDER --counts FILE.json: build one team of another table (the league's,
+    # assets/source/league-people.json), each player into a file of his own in FOLDER, <key>-<number>.glb.
+    team = int(given('--team')) if '--team' in args else None
+    # --skin-size N: the longest side of the skin's picture. A league player's is his own, not shared with anyone's,
+    # so it ships smaller (see tools/league/build_models.mjs): twenty of them on the court cost what the dev teams' do.
+    if '--skin-size' in args:
+        TEXTURE['skin'] = int(given('--skin-size'))
+    out, counts_at = given('--out') or project('assets', 'players.glb'), given('--counts') or project('assets', 'source', 'counts.json')
+    rows = {}   # each one's recipe, by the name of his skeleton
     clear_scene()
     players = {}   # each finished mesh, by the name of its skeleton
     counts = {}    # the triangles of each one's skin before it was simplified, for the tests
-    for row in people():
-        if only and f"player-{row['team']}-{row['number']}" not in only:
+    for row in people(given('--people')):
+        if (only and f"player-{row['team']}-{row['number']}" not in only) or (team is not None and row['team'] != team):
             continue
         rig, meshes, _ = build_person(row)
+        rows[rig.name] = row
         counts[rig.name] = {'skin': rig['skinTriangles']}
         report(rig.name, meshes)
         body = players[rig.name] = finish(row, rig, meshes)
@@ -701,18 +718,30 @@ def main():
                      box=(Vector((-0.3, lo.y, 0.35)), Vector((0.3, hi.y, 1.15))))
         for body in bodies:
             body.hide_render = False
-    if only:
-        bpy.ops.wm.save_as_mainfile(filepath=args[args.index('--blend') + 1])
+    if only and given('--blend'):   # to look at: nothing is exported
+        bpy.ops.wm.save_as_mainfile(filepath=given('--blend'))
         return
-    with open(project('assets', 'source', 'counts.json'), 'w') as f:
+    with open(counts_at, 'w') as f:
         json.dump(counts, f, indent=2, sort_keys=True)
-    bpy.ops.wm.save_as_mainfile(filepath=project('assets', 'source', 'players.blend'))
-    bpy.ops.export_scene.gltf(
-        filepath=project('assets', 'players.glb'), export_format='GLB', use_selection=False,
+    export = lambda path, selected: bpy.ops.export_scene.gltf(
+        filepath=path, export_format='GLB', use_selection=selected,
         export_animations=False, export_skins=True, export_morph=True, export_morph_normal=False, export_yup=True, export_vertex_color='ACTIVE',
         export_image_format='WEBP', export_image_quality=85, export_materials='EXPORT',
         export_cameras=False, export_lights=False, export_extras=False)
-    print('BUILD wrote assets/players.glb', os.path.getsize(project('assets', 'players.glb')), 'bytes')
+    if team is None:
+        bpy.ops.wm.save_as_mainfile(filepath=project('assets', 'source', 'players.blend'))
+        export(out, False)
+        print('BUILD wrote', out, os.path.getsize(out), 'bytes')
+        return
+    os.makedirs(out, exist_ok=True)
+    for name in players:   # each player alone: his skeleton and everything on it
+        rig, row = bpy.data.objects[name], rows[name]
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj in [rig, *rig.children_recursive]:
+            obj.select_set(True)
+        path = os.path.join(out, f"{row['key']}-{row['number']}.glb")
+        export(path, True)
+        print('BUILD wrote', path, os.path.getsize(path), 'bytes')
 
 
 if __name__ == '__main__':

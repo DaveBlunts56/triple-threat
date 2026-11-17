@@ -5,7 +5,7 @@ import { BALL, MOVES } from '../sim/tuning.js';
 import { TEAMS } from '../sim/teams.js';
 import { clone as cloneRig } from 'three/addons/utils/SkeletonUtils.js';
 import { onFloor } from '../sim/state.js';
-import { assetUrl } from './assets.js';
+import { assetUrl, modelFile } from './assets.js';
 import { MOTION, legMotion, armMotion, legLook, newMarks, noteChanges, drawnFacing, wholeBody } from './motion.js';
 import { BALL_IN_HAND, ballHands, crossFrom, dribbleSpot, moveSpot } from './hands.js';
 import { checkGaits, checkMotions, checkFacts, personName, courtPeople, sideId, sized, missingPeople, checkHands, bodiesOf } from './checks.js';
@@ -249,7 +249,7 @@ export async function loadPeople(camera) {
     const hands = { left: model.getObjectByName('mixamorigLeftHand'), right: model.getObjectByName('mixamorigRightHand') };
     checkHands(model.name, hands);   // so a broken file falls back to capsules at load, not on the first possession
     // arms: the arm motion he was given on the last frame, or null when his arms followed his legs.
-    return { team, kit, outfit: outfitOf(team, kit), model, scale, hands, near, far, wet, own, drawnAs: 'near', face: createFace(skin, team * 100 + number), animator: createAnimator(model, clips, facts, scale, index), gaits: sized(facts.gaits, scale * size), last: 'idle', arms: null };
+    return { team, number, kit, outfit: outfitOf(team, kit), model, scale, hands, near, far, wet, own, drawnAs: 'near', face: createFace(skin, team * 100 + Number(number) + (number === '00' ? 100 : 0)), animator: createAnimator(model, clips, facts, scale, index), gaits: sized(facts.gaits, scale * size), last: 'idle', arms: null };
   }
   // Lets go of a person: his model leaves the court, and what was made for him alone is freed.
   function drop(he) {
@@ -280,15 +280,47 @@ export async function loadPeople(camera) {
   let clock = 0, queue = Promise.resolve(), preparing = null;
   const touch = outfit => used.set(outfit, ++clock);
   const nextTask = () => new Promise(resolve => setTimeout(resolve, 0));
-  // Makes the player numbered `number` of team `id` in `kit`, once; resolves to him. People are made one at a time,
-  // each in a task of his own, so that frames are drawn in between.
+  // A league player's own model, from his own file (see modelFile), loaded once while he is kept: the promise of
+  // { root, gltf }, or of null when the file is missing or broken (he then stands in another's body: see bodiesOf).
+  const files = new Map();   // by personName
+  function fileOf(id, number) {
+    const name = personName(id, number);
+    if (!files.has(name)) {
+      const file = modelFile(TEAMS[id], number);
+      files.set(name, loader.loadAsync(assetUrl(file)).then(gltf => {
+        const root = gltf.scene.children.find(o => o.name.startsWith('player-'));
+        if (!root) throw new Error(`${file} has no player`);
+        return { root, gltf };
+      }).catch(error => { console.warn(`${file} could not be loaded; he stands in another's body.`, error); return null; }));
+    }
+    return files.get(name);
+  }
+  // Frees his file's shapes and pictures once neither of his kits is kept (each copy of him shared them).
+  function unload(he) {
+    const name = personName(he.team, he.number);
+    if (TEAMS[he.team].dev || [...people.values()].some(o => o.team === he.team && o.number === he.number) || [...making.keys()].some(k => k.startsWith(`${name}/`))) return;
+    const file = files.get(name);
+    files.delete(name);
+    file?.then(loaded => loaded?.gltf.scene.traverse(part => {
+      part.geometry?.dispose();
+      for (const material of [part.material ?? []].flat()) {
+        for (const value of Object.values(material)) if (value?.isTexture) value.dispose();
+        material.dispose();
+      }
+    }));
+  }
+  // Makes the player numbered `number` of team `id` in `kit`, once; resolves to him: in his own model, or for a team
+  // without models (or one whose file failed) in a stand-in's body. People are made one at a time, each in a task of
+  // his own, so that frames are drawn in between; a league player's file is fetched meanwhile.
   function make(id, number, kit) {
     const key = keyOf(id, number, kit);
     if (people.has(key)) return Promise.resolve(people.get(key));
     if (!making.has(key)) {
+      const own = TEAMS[id].dev ? null : fileOf(id, number);
       const made = queue.then(nextTask).then(async () => {
-        const row = TEAMS[id].players.findIndex(p => p.number === number), { body, size } = bodiesOf(id)[row];
-        const he = person(cloneRig(rootOf[body]), id, number, id * 10 + row, size, kit);
+        const row = TEAMS[id].players.findIndex(p => p.number === number), file = await own;
+        const { body, size } = file ? { body: null, size: 1 } : bodiesOf(id)[row];
+        const he = person(cloneRig(file ? file.root : rootOf[body]), id, number, id * 10 + row, size, kit);
         await Promise.all(he.own.pending);
         people.set(key, he);
         touch(he.outfit);
@@ -319,7 +351,7 @@ export async function loadPeople(camera) {
     const busy = new Set([...keep, ...shown.filter(Boolean).map(he => he.outfit), ...[...holds].filter(([, n]) => n > 0).map(([outfit]) => outfit)]);
     const spare = [...used].filter(([outfit]) => !busy.has(outfit)).sort((a, b) => a[1] - b[1]);
     for (const [outfit] of spare.slice(0, Math.max(0, used.size - KEEP))) {
-      for (const [key, he] of people) if (he.outfit === outfit) { drop(he); people.delete(key); }
+      for (const [key, he] of people) if (he.outfit === outfit) { drop(he); people.delete(key); unload(he); }
       used.delete(outfit);
     }
   }
