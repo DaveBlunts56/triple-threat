@@ -9,6 +9,7 @@ import { playListRows } from '../playlist.js';
 import { playOn } from '../sim/plays.js';
 import { QUALITY } from './quality.js';
 import { TEAMS, nicknameOf } from '../sim/teams.js';
+import { STEPS, tutorialWords } from '../tutorial.js';
 import { logoSvg } from './arenas.js';
 import { gameScore, playerOfGame, teamLine as teamStats } from '../sim/stats.js';
 import { DEFAULT_PREFS } from '../prefs.js';
@@ -74,7 +75,7 @@ const pixels = value => `${Math.round(value)}px`;
 const share = value => `${Math.round(value * 1000) / 10}%`;
 
 // The start menu: the words of each entry, what the hint line says in each panel, and the two teams' lines.
-const MENU_WORDS = { exhibition: 'Exhibition', teamSelect: 'Team select', simulate: 'Simulate', teams: 'Teams', controls: 'Controls', settings: 'Settings', keys: 'Keys',
+const MENU_WORDS = { exhibition: 'Exhibition', tutorial: 'Tutorial', teamSelect: 'Team select', simulate: 'Simulate', teams: 'Teams', controls: 'Controls', settings: 'Settings', keys: 'Keys',
   styles: 'Game styles ▸', arcadeSliders: 'Arcade sliders ▸', simSliders: 'Simulation sliders ▸', reset: 'Reset to 50' };
 const MODE_WORDS = { 3: 'Mode: 3 on 3', 5: 'Mode: 5 on 5' };
 const SLIDER_HINT = '← → move by 5 · Esc back';   // short, to fit the disc
@@ -455,6 +456,20 @@ export function createHud(doc) {
       });
       set('controls', hintLine(keys));
       hide('controls', !human || !info);
+
+      // The tutorial (`ui.tutorial`, see tutorial.js): the step on, what to do in your keys, and the steps ticked off.
+      const tut = ui.tutorial ?? null;
+      hide('tutorial', !tut || state.phase === 'start');
+      if (tut && state.phase !== 'start') {
+        const n = STEPS.length, at = Math.min(tut.step, n);
+        set('tutCount', at >= n ? 'All done' : `Step ${at + 1} of ${n}`);
+        set('tutTitle', at >= n ? 'Well played!' : STEPS[at].title);
+        set('tutWords', tutorialWords(tut, keys));
+        STEPS.forEach((step, i) => {
+          set(`tutStep${i}`, `${i < at ? '✓' : i === at ? '▸' : '·'} ${step.title}`);
+          classed(`tutStep${i}`, i < at ? 'done' : i === at ? 'now' : '');
+        });
+      }
 
       // The broadcast (`ui.show`, see broadcast/director.js): a banner for a big moment, a small card and the
       // commentator's caption above the scorebug, and the panels before the tip and between periods.

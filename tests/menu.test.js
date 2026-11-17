@@ -17,9 +17,12 @@ const at = name => MENU.main.indexOf(name);   // where an entry is on the main l
 // A menu on a link ending #dev, you playing the Waves at home against the Scorpions: as a match made with no teams.
 const devMenu = (prefs = DEFAULT_PREFS) => createMenu({ ...prefs, select: { away: 1, home: 0, side: 'home' } }, true);
 
-test('the main list is Exhibition, Simulate, Mode, Teams, Controls, Settings, with the bar on Exhibition, the mode on 3 on 3, and you playing New York at home to Boston', () => {
+test('the main list is Exhibition, Tutorial, Simulate, Mode, Teams, Controls, Settings, with the bar on Exhibition, the mode on 3 on 3, and you playing New York at home to Boston', () => {
   const m = createMenu();
-  assert.deepEqual([m.panel, m.row, m.autoSubs, m.size, m.select, menuRows(m)], ['main', 0, true, 3, { away: 3, home: 2, side: 'home' }, ['exhibition', 'simulate', 'mode', 'teams', 'controls', 'settings']]);
+  assert.deepEqual([m.panel, m.row, m.autoSubs, m.size, m.select, menuRows(m)], ['main', 0, true, 3, { away: 3, home: 2, side: 'home' }, ['exhibition', 'tutorial', 'simulate', 'mode', 'teams', 'controls', 'settings']]);
+  m.row = at('tutorial');
+  assert.equal(menuKey(m, 'Enter'), 'tutorial');   // the page starts it
+  assert.equal(m.panel, 'main');
   assert.deepEqual([TEAMS[2].name, TEAMS[3].name], ['New York Empire', 'Boston Shamrocks']);
   assert.deepEqual(MENU.settings, ['quality', 'autoSubs', 'camera', 'difficulty', 'styles', 'commentary', 'replays', 'sound', 'info', 'keys']);
   assert.equal(MENU.settings.length, 10);   // the page has ten rows for them
@@ -34,11 +37,11 @@ test('Settings has Game styles in place of Quarter, and the Game styles panel ha
 test('the bar moves down and up by arrows or W and S, and wraps at both ends', () => {
   const m = createMenu();
   keys(m, 'ArrowDown', 'KeyS'); assert.equal(m.row, 2);
-  keys(m, 'ArrowDown', 'ArrowDown', 'ArrowDown'); assert.equal(m.row, 5);
+  keys(m, 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown'); assert.equal(m.row, 6);
   keys(m, 'ArrowDown'); assert.equal(m.row, 0);
-  keys(m, 'ArrowUp'); assert.equal(m.row, 5);
-  keys(m, 'KeyW'); assert.equal(m.row, 4);
-  assert.deepEqual(keys(m, 'KeyX', 'ArrowLeft'), [null, null]); assert.equal(m.row, 4);
+  keys(m, 'ArrowUp'); assert.equal(m.row, 6);
+  keys(m, 'KeyW'); assert.equal(m.row, 5);
+  assert.deepEqual(keys(m, 'KeyX', 'ArrowLeft'), [null, null]); assert.equal(m.row, 5);
 });
 
 test('Enter or Space on Simulate asks for it and changes nothing; on Exhibition they open Team Select, and Esc goes back', () => {
@@ -107,7 +110,7 @@ test('pointing with the mouse selects a row the panel has, and no other', () => 
 
 test('the mouse acts on a row only before the match, and only on a row the panel shown has', () => {
   const game = { state: createMatch(7), menu: createMenu() };
-  assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(row => menuHasRow(game, row)), [true, true, true, true, true, true, false]);
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(row => menuHasRow(game, row)), [true, true, true, true, true, true, true, false]);
   game.menu.row = at('settings'); menuKey(game.menu, 'Enter');                          // Settings: a row for each setting
   assert.deepEqual([0, MENU.settings.length - 1, MENU.settings.length].map(row => menuHasRow(game, row)), [true, true, false]);
   menuKey(game.menu, 'Escape'); game.menu.row = at('teams'); menuKey(game.menu, 'Enter'); // Teams: none

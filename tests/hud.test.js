@@ -216,14 +216,14 @@ test('the start menu shows its rows with the bar on the selected one, and announ
   const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
   const show = () => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
   show();
-  assert.deepEqual([0, 1, 2, 3, 4, 5].map(i => e[`menuRow${i}`].textContent), ['Exhibition', 'Simulate', 'Mode: 3 on 3', 'Teams', 'Controls', 'Settings']);
-  assert.deepEqual([0, 1, 2, 3, 4, 5].map(i => e[`menuRow${i}`].ariaSelected), ['true', 'false', 'false', 'false', 'false', 'false']);
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(i => e[`menuRow${i}`].textContent), ['Exhibition', 'Tutorial', 'Simulate', 'Mode: 3 on 3', 'Teams', 'Controls', 'Settings']);
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(i => e[`menuRow${i}`].ariaSelected), ['true', 'false', 'false', 'false', 'false', 'false', 'false']);
   assert.deepEqual([e.menuTeams.hidden, e.menuControls.hidden, e.menuHint.textContent, e.announce.textContent],
     [true, true, '↑ ↓ choose · Enter select', 'Exhibition']);
-  keys(menu, 'ArrowDown', 'ArrowDown'); show();
-  assert.deepEqual([e.menuRow0.ariaSelected, e.menuRow2.ariaSelected, e.announce.textContent], ['false', 'true', 'Mode: 3 on 3']);
+  keys(menu, 'ArrowDown', 'ArrowDown', 'ArrowDown'); show();
+  assert.deepEqual([e.menuRow0.ariaSelected, e.menuRow3.ariaSelected, e.announce.textContent], ['false', 'true', 'Mode: 3 on 3']);
   menuKey(menu, 'Enter'); show();                                                       // the mode changes, and says so
-  assert.deepEqual([e.menuRow2.textContent, e.announce.textContent], ['Mode: 5 on 5', 'Mode: 5 on 5']);
+  assert.deepEqual([e.menuRow3.textContent, e.announce.textContent], ['Mode: 5 on 5', 'Mode: 5 on 5']);
 });
 
 test('Team Select shows each side\'s city, nickname and overall in its colours, where your controller is, and says the choice', () => {
@@ -769,4 +769,20 @@ test('the team with the ball is lit on the scorebug, with a ball by its name; th
   s.phase = 'live'; s.possession = 1;
   hud.update(s, 'webgl2', { paused: false, pick: null });
   assert.deepEqual([e.bugTeam0.className, e.bugTeam1.className], ['bugTeam home', 'bugTeam away has']);
+});
+
+test('the tutorial\'s card shows the step on, what to do in your keys, and the steps ticked off; not on the menu', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els;
+  s.phase = 'live';
+  const tutorial = { step: 2, since: 0, lost: null, ticked: {}, playSeen: false };
+  hud.update(s, 'webgl2', { paused: false, pick: null, tutorial });
+  assert.deepEqual([e.tutorial.hidden, e.tutCount.textContent, e.tutTitle.textContent], [false, 'Step 3 of 7', 'Pass']);
+  assert.match(e.tutWords.textContent, /^E passes to a teammate/);
+  assert.deepEqual([0, 2, 3].map(i => [e[`tutStep${i}`].textContent, e[`tutStep${i}`].className]), [['✓ Move', 'done'], ['▸ Pass', 'now'], ['· Shoot', '']]);
+  tutorial.step = 7; hud.update(s, 'webgl2', { paused: false, pick: null, tutorial });
+  assert.deepEqual([e.tutCount.textContent, e.tutTitle.textContent], ['All done', 'Well played!']);
+  s.phase = 'start'; hud.update(s, 'webgl2', { paused: false, pick: null, tutorial, menu: createMenu() });
+  assert.equal(e.tutorial.hidden, true);
+  hud.update(createMatch(), 'webgl2', { paused: false, pick: null });
+  assert.equal(e.tutorial.hidden, true);
 });
