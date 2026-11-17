@@ -1,10 +1,11 @@
 // Which motion a player shows, worked out from the match alone. No Three.js here, so it can be tested without a browser.
 import { styled } from '../sim/styles.js';
-import { BALL, FINISH, PLAYER, SHOT, MOVES } from '../sim/tuning.js';
+import { BALL, DOWN, FINISH, PLAYER, SHOT, MOVES } from '../sim/tuning.js';
 import { finishHand } from '../sim/finish.js';
 import { isJumper, onFloor } from '../sim/state.js';
 import { gathering } from '../sim/players.js';
 import { manOf } from '../sim/matchups.js';
+import { helpSpot, huddleSpot } from '../sim/together.js';
 
 // Speeds in metres per second. stick: how far past an edge he must go before the gait changes.
 // minRate, maxRate: limits on how slow or fast a clip is played; maxRateMove: the upper one in a dribble move, whose
@@ -59,6 +60,13 @@ export const ARM_CLIPS = Object.freeze(['dribble', 'dribbleLeft', 'hold', 'holdL
 
 // Motions the file has only if their clips were downloaded: the game does without any that are missing.
 export const OPTIONAL_CLIPS = Object.freeze(['celebrate', 'dejected', 'stumble']);
+
+// The reactions, made by hand (overhaul Stage 3): celebrations and gestures of the arms (see broadcast/reactions.js),
+// and the motions of the whole body of the team's moments between plays (see sim/together.js).
+export const REACTION_CLIPS = Object.freeze(['fistPump', 'armsUp', 'flex', 'goggles', 'chestThump', 'clap', 'highFive', 'highFiveLeft',
+  'headHands', 'complain', 'fall', 'down', 'getUp', 'helpUp', 'huddle']);
+// Within a huddle's or a helper's spot by this many metres, and slower than this, he is in it.
+const IN_PLACE = Object.freeze({ near: 0.5, slow: 0.6 });
 
 // The motion of each move (see sim/moves.js). The three dribbles are made for a ball that starts in the right hand
 // and have a twin, named with Left, for one that starts in the left.
@@ -180,8 +188,12 @@ export function noteChanges(marks, state, dt) {
   marks.was = now;
 }
 
-// The way he is drawn facing: a defender guarding his man watches him, whichever way he steps. The rules never read it.
+// The way he is drawn facing: a defender guarding his man watches him, whichever way he steps; in a timeout's huddle
+// he faces its middle, and helping a man up, the man. The rules never read it.
 export function drawnFacing(state, player, marks) {
+  const huddle = huddleSpot(state, player), help = !huddle && helpSpot(state, player);
+  const at = huddle ?? help, toward = huddle ? huddle.centre : help && state.players[state.down.id];
+  if (at && dist(player, at) < IN_PLACE.near) return Math.atan2(toward.z - player.z, toward.x - player.x);
   if (!marks.guard[player.id]) return player.facing;
   const man = manOf(state, player);
   return Math.atan2(man.z - player.z, man.x - player.x);
@@ -251,6 +263,22 @@ export function legMotion(player, gaits, last = null, look = null) {
   return { clip, rate: Math.min(MOTION.maxRate, Math.max(slowest, speed / gaits[clip])) };
 }
 
+// The whole body of a man knocked down (see sim/together.js): his fall, on the floor, and getting up; and of the
+// team-mate helping him up, who reaches down a moment before he rises and pulls him up with him. Null for anyone else.
+const REACH_EARLY = 0.35;
+export function floorMotion(player, state) {
+  if (player.downT > 0) {
+    const t = DOWN.time - player.downT;
+    if (t < DOWN.fall) return { clip: 'fall', at: t / DOWN.fall };
+    if (player.downT > DOWN.rise) return { clip: 'down', rate: 1 };
+    return { clip: 'getUp', at: 1 - player.downT / DOWN.rise };
+  }
+  const down = state.down && state.players[state.down.id];
+  if (down && state.down.helper === player.id && down.downT > 0 && down.downT <= DOWN.rise + REACH_EARLY && dist(player, down) <= DOWN.help + IN_PLACE.near)
+    return { clip: 'helpUp', at: 1 - down.downT / (DOWN.rise + REACH_EARLY) };
+  return null;
+}
+
 // Seconds until a pass in the air for `player` is within his reach; Infinity when there is none.
 export function passArrival(state, player) {
   const { ball } = state;
@@ -266,6 +294,9 @@ export function armMotion(player, state, marks, facts) {
   const hasBall = ball.holder === id, inAir = !onFloor(player);
   const length = name => facts.clips[name].duration;
   const sided = name => (marks.hand[id] === 'left' ? `${name}Left` : name);
+  // Down on the floor, getting up, or helping a team-mate up: before anything else.
+  const floor = !hasBall && floorMotion(player, state);
+  if (floor) return floor;
 
   // In a finish: its two steps on the floor, then its jump; and the jump plays on after the ball has gone.
   if (hasBall && player.finish && player.shooting) {
@@ -308,6 +339,14 @@ export function armMotion(player, state, marks, facts) {
   if (marks.reach[id] < length('reach')) return { clip: 'reach', at: marks.reach[id] / length('reach') };
   if (inAir && state.phase === 'jumpBall' && isJumper(state, player)) return { clip: 'tip', at: jumpShare(player) };
   if (inAir) return { clip: 'contest', at: jumpShare(player) };
+  // In a timeout's huddle, once he is in his place in it.
+  const huddle = !hasBall && huddleSpot(state, player);
+  if (huddle && dist(player, huddle) < IN_PLACE.near && Math.hypot(player.vx, player.vz) < IN_PLACE.slow) return { clip: 'huddle', rate: 1 };
+  // A reaction the broadcast has him in (see broadcast/reactions.js): a celebration, a gesture, a team-mate's hand.
+  const reaction = marks.show?.react?.[id];
+  if (reaction && !hasBall && facts.clips[reaction.clip]) {
+    return facts.clips[reaction.clip].loop ? { clip: reaction.clip, rate: 1 } : { clip: reaction.clip, at: Math.min(1, reaction.t / length(reaction.clip)) };
+  }
   // After a big basket the scorer celebrates and the man who guarded him drops his head, if the file has those
   // motions; without them the scorer raises an arm.
   if (marks.show?.celebrate === id && !hasBall) return { clip: facts.clips.celebrate ? 'celebrate' : 'handUp', rate: 1 };
@@ -330,6 +369,20 @@ export function crossFade(weights, chosen, dt) {
   }
   weights[chosen] = 1 - others;
   return weights;
+}
+
+// The shares a layer's motions are shown at (into `into`, which is returned): each motion's share eased, half its own
+// and half a smoothstep of it, so that one coming in or going out starts and ends at half its rate rather than at its
+// full rate, and the lot scaled back to one whole pose. `weights` keep the cross-fade's own, even rates (see
+// crossFade): the timings are read from those. Over the transitions of a possession this takes a fifth off the
+// common jerks of the bones (the 95th percentile) and leaves the rarest and the worst where they were; a full
+// smoothstep took off as much but made the rarer ones worse, it turning half as fast again in the middle of a fade.
+const BLEND = 0.5;   // how much of the smoothstep there is in a share
+export function easedShares(weights, into = {}) {
+  let sum = 0;
+  for (const name in weights) { const w = weights[name]; sum += into[name] = (1 - BLEND) * w + BLEND * w * w * (3 - 2 * w); }
+  for (const name in into) into[name] = sum > 0 ? into[name] / sum : 0;
+  return into;
 }
 
 const LEG_BONES = /^mixamorig(Hips|Spine|(Left|Right)(UpLeg|Leg|Foot|ToeBase))\./;

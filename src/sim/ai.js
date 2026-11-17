@@ -9,6 +9,7 @@ import { hunt, manOf, schemeOf } from './matchups.js';
 import { playHolds, playRan, playSpot, playTarget, screenerOn } from './plays.js';
 import { needOf, situation } from './late.js';
 import { freedBy, inboundTo, offBallSpot, passed, pointOf } from './offball.js';
+import { fiveTarget, helpSpot, huddleSpot, meetSpot } from './together.js';
 import { OFF } from './tuning.js';
 import { KINDS } from './moves.js';
 import { styled } from './styles.js';
@@ -616,6 +617,15 @@ function plan(state, p) {
   const holder = state.players[state.ball.holder];
   p.ai.action = null; p.ai.chase = false;
   p.calling = p.closing = false;
+  // The team's moments while the ball is dead (see together.js): a man knocked down stays where he is; the team-mate
+  // helping him up, the passer going to the scorer and everyone in a timeout's huddle go where those put them.
+  if (p.downT > 0) return goTo(p.ai, p);
+  if (state.phase === 'dead' || state.phase === 'inbound') {
+    const help = holder !== p && (helpSpot(state, p) ?? huddleSpot(state, p));
+    if (help) return goTo(p.ai, help);
+    const meet = holder !== p && meetSpot(state, p);
+    if (meet) return goTo(p.ai, meet, true);
+  }
   if (holder === p) planWithBall(state, p);
   // A dead ball is not chased: the team about to inbound sets up, the other gets back on defence.
   else if (state.phase === 'dead') (p.team === state.possession ? planOffBall : planDefence)(state, p);
@@ -697,8 +707,11 @@ export function aiIntents(state, dt) {
   if (state.phase === 'freeThrow' && !ft.live) {
     // Nobody may move. Team 1's shooter is thrown for by the rules; a computer shooter on team 0 stops the meter
     // himself, a little off centre, so both make about the same share.
-    return state.players.map(p => ({ ...emptyIntent(),
-      shoot: p.id === ft.shooter && ft.armed && ft.t >= FT.aiDelay && ftChance(ft.meter) <= FT.aiChance }));
+    // (But the team-mate who comes in from the lane to slap the shooter's hand: see together.js.)
+    return state.players.map(p => {
+      if (ft.five?.by === p.id) { goTo(p.ai, fiveTarget(ft.five)); return act(state, p); }
+      return { ...emptyIntent(), shoot: p.id === ft.shooter && ft.armed && ft.t >= FT.aiDelay && ftChance(ft.meter) <= FT.aiChance };
+    });
   }
   return state.players.map(p => {
     p.ai.timer -= dt;

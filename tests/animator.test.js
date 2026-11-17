@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createAnimator } from '../src/render/animator.js';
-import { LEG_CLIPS, ARM_CLIPS, MOTION, crossFade, layerOf, outOfStep, stridePhase, wholeBody } from '../src/render/motion.js';
+import { LEG_CLIPS, ARM_CLIPS, REACTION_CLIPS, MOTION, crossFade, layerOf, outOfStep, stridePhase, wholeBody } from '../src/render/motion.js';
 import { checkMotions } from '../src/render/checks.js';
 
 const data = readFileSync('assets/motion.glb');
@@ -32,11 +32,13 @@ test('both layers stay one whole pose through a start, a dribble, a pass, a catc
 
 test('every motion the two tables name has its place on a layer', () => {
   const a = fresh();
-  // The legs play their own motions and those of the whole body: a downloaded clip. None made by hand is one.
-  const whole = ARM_CLIPS.filter(name => wholeBody(facts.clips, name));
-  assert.deepEqual(whole.filter(name => facts.clips[name].from === 'hand'), []);
+  // The legs play their own motions and those of the whole body: a downloaded clip, or a reaction made to be one (a
+  // fall, a huddle: see poses.py). No other motion made by hand is one. The arms have the made-by-hand 'dejected' too.
+  const whole = [...ARM_CLIPS, ...REACTION_CLIPS].filter(name => wholeBody(facts.clips, name));
+  assert.deepEqual(whole.filter(name => facts.clips[name].from === 'hand' && !REACTION_CLIPS.includes(name)), []);
+  assert.deepEqual(whole.filter(name => REACTION_CLIPS.includes(name)).sort(), ['down', 'fall', 'getUp', 'helpUp', 'huddle']);
   assert.deepEqual(Object.keys(a.weights.legs).sort(), [...LEG_CLIPS, ...whole].sort());
-  assert.deepEqual(Object.keys(a.weights.arms).sort(), [...LEG_CLIPS, ...ARM_CLIPS].sort());
+  assert.deepEqual(Object.keys(a.weights.arms).sort(), [...LEG_CLIPS, ...ARM_CLIPS, ...REACTION_CLIPS, 'dejected'].sort());
 });
 
 test('with nothing for the arms to do they follow the legs', () => {
@@ -140,9 +142,10 @@ test('the lower spine goes with the legs; the upper spine, neck, head and arms a
 });
 
 test('a motion file that lacks a motion the tables name is refused', () => {
-  assert.doesNotThrow(() => checkMotions([...LEG_CLIPS, ...ARM_CLIPS]));
+  assert.doesNotThrow(() => checkMotions([...LEG_CLIPS, ...ARM_CLIPS, ...REACTION_CLIPS]));
+  assert.throws(() => checkMotions([...LEG_CLIPS, ...ARM_CLIPS]), /fistPump/);
   assert.throws(() => checkMotions(LEG_CLIPS), /dribble/);
-  assert.throws(() => checkMotions([...LEG_CLIPS, ...ARM_CLIPS].filter(name => name !== 'handUp')), /handUp/);
+  assert.throws(() => checkMotions([...LEG_CLIPS, ...ARM_CLIPS, ...REACTION_CLIPS].filter(name => name !== 'handUp')), /handUp/);
 });
 
 test('no two of the ten people idle in step', () => {

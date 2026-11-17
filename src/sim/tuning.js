@@ -223,6 +223,15 @@ export const ARC = f({ threeAt: 75, openAt: 2.5, driftReach: 5, relocateReach: 7
 // not turn on a pass ends, and the offence is read and played (time enough for the man who caught it to attack). handoff: how near the handler a team-mate coming for a
 // handoff must be to be given it. punish: metres beyond READ.wide a team-mate must be open for the handler to give him
 // the ball while his play is still forming. flareBy: seconds a flare screen may take to be set before the shooter goes.
+// The team's moments between plays (see together.js). A man knocked down: the seconds he is down, of them his fall and
+// his getting up; how far in front of him the team-mate who helps him up stands; the chance that a man who takes a
+// charge goes down, and that a man fouled finishing at the rim does, as he lands.
+export const DOWN = f({ time: 3, fall: 0.7, rise: 1, help: 0.85, charge: 1, finish: 0.35 });
+// The huddle at a timeout: the seconds it adds to the timeout, and of them the last in which everyone goes back; how
+// far from the huddle's middle each man stands, and how far that middle is from his team's middle toward its bench.
+export const HUDDLE = f({ extra: 3, back: 1.2, ring: 0.85, benchward: 1.5 });
+// After an assisted basket the passer goes to the scorer for at most `time` seconds, until he is within `near`.
+export const MEET = f({ time: 2, near: 1 });
 export const PLAY = f({ wait: 1.5, minClock: 9, startX: 1.5, screenGap: 0.66, setDist: 0.9, useBy: 1.6, cut: 4.5, ripeBy: 4, roll: 1.7, feedWidth: 0.65, startAt: 6, roundGap: 1.05, roundBy: 0.3,
   variants: f({ normal: 0.55, reject: 0.15, snake: 0.15, pullup: 0.15 }), cheat: 0.5, snake: 0.9, relocate: 0.3, afterPass: 1.5, handoff: 2.2, punish: 0.6, flareBy: 2.2 });
 
@@ -313,6 +322,10 @@ export const FOUL = f({
 export const FT = f({
   lineDist: 5.79, sweep: 1.5, centreChance: 0.95, edgeChance: 0.2,
   limit: 5, aiDelay: 1, aiChance: 0.75, pause: 1,
+  // After a made free throw that is not the last, a team-mate comes in from the lane to slap the shooter's hand (see
+  // together.js): he stands fiveSide metres to the shooter's side, for fiveHold seconds, and goes back; the whole of it
+  // takes fiveMost seconds at most.
+  fiveSide: 0.8, fiveHold: 0.45, fiveMost: 5,
   // [metres from the baseline, z] for the five other players, mirrored for each hoop
   defence: f([f([2.3, -2.75]), f([2.3, 2.75]), f([9.53, 2])]),
   offence: f([f([3.7, -2.75]), f([3.7, 2.75])]),

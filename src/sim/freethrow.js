@@ -7,6 +7,7 @@ import { shotFactor } from './stamina.js';
 import { styled } from './styles.js';
 import { freeThrowChance, touchOf } from './shooting.js';
 import { ownMen } from './matchups.js';
+import { freeThrowFive, stepFive } from './together.js';
 
 export const newFreeThrow = (shooter, shots) =>
   ({ shooter, left: shots, total: shots, stage: 'aim', meter: 0, dir: 1, t: 0, armed: false, live: false });
@@ -79,12 +80,17 @@ export function stepFreeThrow(state, intents, events, dt) {
   if (ft.stage === 'flight') {
     if (events.scored) { addPoints(state, shooter.team, 1); note(state, shooter, 'ftm'); note(state, shooter, 'pts'); state.board = false; }
     if (ft.live) return events.scored ? 'scored' : ball.holder !== null ? 'live' : null;
-    if (events.scored || events.hitFloor) { ft.left--; ft.stage = 'pause'; ft.t = 0; }
+    if (events.scored || events.hitFloor) {
+      ft.left--; ft.stage = 'pause'; ft.t = 0;
+      // Made, with another to come: a team-mate comes in from the lane to slap his hand (see together.js).
+      if (events.scored && ft.left > 0) ft.five = freeThrowFive(state, shooter);
+    }
     return null;
   }
 
   ft.t += dt;
-  if (ft.t < FT.pause) return null;
+  if (ft.five && !stepFive(state, ft.five, dt)) ft.five = null;
+  if (ft.t < FT.pause || ft.five) return null;   // the next is handed over once he is back in his place
   if (ft.left === 0) return 'over';
   handBall(state);
   return null;

@@ -17,15 +17,16 @@ const anyone = (i, extra = {}) => ({ shirt: pick(TOPS, i, 1), trousers: pick(LEG
 // A row of places `gap` apart from `from` to `to`.
 const row = (from, to) => Array.from({ length: Math.floor((to - from) / SEAT.gap) + 1 }, (_, i) => from + i * SEAT.gap);
 
-// Where everyone sits: { x, z, facing, look, chair, bench }: the benches (`bench`: in their team's colours) and the
-// table on the far side, and the seats at the far side's ends. `ids`: the match's teams, the first on the left bench.
+// Where everyone sits: { x, z, facing, look, chair, bench, player }: the benches (`bench`: in their team's colours;
+// `player`: the match's side, 0 or 1, of a player on it, who is drawn with the fans: see benchSeats) and the table on
+// the far side, and the seats at the far side's ends. `ids`: the match's teams, the first on the left bench.
 export function sidelinePeople(ids = [0, 1]) {
   const all = [];
-  const seat = (x, z, facing, look, chair = SEAT.chair, bench = false) => all.push({ x, z, facing, look: look(all.length), chair, bench });
+  const seat = (x, z, facing, look, chair = SEAT.chair, bench = false, player = undefined) => all.push({ x, z, facing, look: look(all.length), chair, bench, player });
   const suit = i => anyone(i, { shirt: pick(['#20232b', '#2c3440', '#3a2f2a'], i, 5), trousers: '#1b1d23' });
   for (const [team, way] of [[0, -1], [1, 1]]) {
     const colour = KIT.team[ids[team]], bench = i => anyone(i, { shirt: colour, trousers: colour, shoes: '#e8e8ea' });
-    row(4.2, 10.6).forEach((x, i) => seat(way * x, -9.05, 0, i < 2 ? suit : i < 7 ? bench : i2 => anyone(i2, { shirt: '#e9ecef' }), colour, true));
+    row(4.2, 10.6).forEach((x, i) => seat(way * x, -9.05, 0, i < 2 ? suit : i < 7 ? bench : i2 => anyone(i2, { shirt: '#e9ecef' }), colour, true, i >= 2 && i < 7 ? team : undefined));
     for (const x of row(11.4, 13.4)) seat(way * x, -9.05, 0, anyone);
   }
   for (const x of [-2.4, -1.2, 0, 1.2, 2.4]) seat(x, -9.85, 0, suit);                      // the table: three commentators and two officials
@@ -40,6 +41,11 @@ export function courtsideSeats() {
   for (const side of [1, -1]) for (const z of [...row(-7, -2.6), ...row(2.6, 7)]) seat(side * 15.9, z, -side * Math.PI / 2);
   return all;
 }
+
+// The players on the benches, drawn with the fans so that they stand and cheer with their team's (see crowd.js's
+// dressBench): { x, y, z, facing, team }, `y` the chair's height and `team` his team's id.
+export const benchSeats = (ids = [0, 1]) => sidelinePeople(ids).filter(p => p.player !== undefined)
+  .map(p => ({ x: p.x, y: SEAT.high, z: p.z, facing: p.facing, team: ids[p.player] }));
 
 // The photographers, kneeling on the baselines: { x, z, facing }.
 export const photographers = () => [1, -1].flatMap(side => [-6.2, -5, -3.8, 3.8, 5, 6.2].map(z => ({ x: side * 15.05, z, facing: -side * Math.PI / 2 })));
@@ -86,7 +92,8 @@ export function createSideline(scene, ids = [0, 1]) {
     dressedFor = to.join();
     if (benches) { scene.remove(benches); benches.geometry.dispose(); benches.material.dispose(); }
     parts.length = 0;
-    sidelinePeople(to).filter(p => p.bench).forEach(p => { parts.push(bakedFigure(p.look, SEATED, p.x, 0, p.z, p.facing)); chair(p); });
+    // (The players on them are the fans': see benchSeats. Their coaches and trainers, and every chair, are here.)
+    sidelinePeople(to).filter(p => p.bench).forEach(p => { if (p.player === undefined) parts.push(bakedFigure(p.look, SEATED, p.x, 0, p.z, p.facing)); chair(p); });
     benches = bakedMesh(parts);
     benches.receiveShadow = true;
     scene.add(benches);

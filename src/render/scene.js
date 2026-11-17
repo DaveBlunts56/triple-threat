@@ -59,7 +59,7 @@ export async function createScene(canvas, ids = [0, 1], home = 0, drawWith = 'au
 
   await loadLogos();   // the league's marks are pictures, painted into the court, the boards and the scorebug
   const floor = await createFloor(scene, arenaOf(ids[home]));
-  let arena = createArena(scene, arenaOf(ids[home]), ids[1 - home]), builtFor = `${ids[home]}-${ids[1 - home]}`;
+  let arena = createArena(scene, arenaOf(ids[home]), ids[1 - home], ids), builtFor = `${ids[0]}-${ids[1]}-${home}`;
   const sideline = createSideline(scene, ids), refs = createRefs(scene);
   // The nets' picture as its colour and its see-through, unlit, both sides drawn, and not written to the depth buffer.
   const netLook = new THREE.MeshBasicMaterial({ map: paintNet(), transparent: true, side: THREE.DoubleSide, depthWrite: false });
@@ -114,11 +114,11 @@ export async function createScene(canvas, ids = [0, 1], home = 0, drawWith = 'au
     // when the home team or its visitor is another (its crowd wears both teams' colours), and the benches dressed.
     setTeams(ids, home) {
       sideline.setTeams(ids);
-      const want = `${ids[home]}-${ids[1 - home]}`;
+      const want = `${ids[0]}-${ids[1]}-${home}`;   // the benches sit in the teams' order
       if (want === builtFor) return;
       builtFor = want;
       arena.dispose();
-      arena = createArena(scene, arenaOf(ids[home]), ids[1 - home]);
+      arena = createArena(scene, arenaOf(ids[home]), ids[1 - home], ids);
       arena.setQuality(drawnAt);
       floor.dress(arenaOf(ids[home]));
     },

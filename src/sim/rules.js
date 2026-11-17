@@ -1,4 +1,4 @@
-import { CLOCK, COURT, PASS, PLAYER, TIP, VIOLATION } from './tuning.js';
+import { CLOCK, COURT, DOWN, HUDDLE, PASS, PLAYER, TIP, VIOLATION } from './tuning.js';
 import { settle } from './mood.js';
 import { note, noteRow } from './stats.js';
 import { addPoints, attackSign, isJumper, lineUp, onFloor, personOf, rand } from './state.js';
@@ -14,6 +14,7 @@ import { styled } from './styles.js';
 import { beginPossession, endPossession, handOver } from './possessions.js';
 import { adjust } from './coach.js';
 import { formOf } from './shooting.js';
+import { anyoneDown, knockDown, startHuddle } from './together.js';
 
 const OUTSIDE = 0.5;        // how far behind the line an inbounder stands
 const BOARD_CLEAR = 1.5;    // baseline inbounds keep this far from the middle, clear of the backboard
@@ -65,6 +66,8 @@ function callFoul(state, foul, shots) {
   // may have picked up by then.)
   if (foul.kind !== 'shooting' && given.ball !== fouler.team && state.possession === fouler.team && state.ball.holder !== null) note(state, fouler, 'tov');
   if (n) state.freeThrow = newFreeThrow(foul.on, n);
+  // The man who took a charge goes down (see together.js); play waits for him to get up.
+  if (foul.kind === 'charge' && foul.on !== undefined && (DOWN.charge >= 1 || rand(state) < DOWN.charge)) knockDown(state, state.players[foul.on]);
   stopPlay(state, given.ball, sidelineSpot(state.ball), makeCall(foul.kind, fouler.team, { number, name, shots: n }));
   // After a defensive foul the offence has at least 14 seconds left to shoot.
   if (!n && foul.kind !== 'charge' && foul.kind !== 'illegalScreen') state.shotClock = Math.max(state.shotClock, CLOCK.shotAfterFoul);
@@ -195,7 +198,8 @@ export function callTimeout(state, team) {
   const call = { kind: 'timeout', team, ball: state.possession, number: null, shots: 0 };
   if (live) stopPlay(state, state.possession, sidelineSpot(state.ball), call);
   else { deadBall(state); state.call = call; state.phase = 'dead'; }
-  if (state.phase === 'dead') state.phaseT = CLOCK.timeout;
+  // Each team huddles (see together.js), for HUDDLE.extra seconds more than the timeout itself.
+  if (state.phase === 'dead') { state.phaseT = CLOCK.timeout + HUDDLE.extra; startHuddle(state); }
   return true;
 }
 
@@ -276,7 +280,12 @@ function livePlay(state, events, dt) {
     scoreStats(state, team, points, !!fouledShot);
     addPoints(state, team, points);
     ball.shooter = null; ball.shotValue = 0; ball.mode = 'loose';
-    if (fouledShot) return callFoul(state, fouledShot, 1);   // the basket counts, and one free throw
+    if (fouledShot) {
+      // Fouled finishing at the rim, he sometimes goes down: as he lands, or at once if he already has.
+      const shooter = state.players[fouledShot.on];
+      if (shooter && state.last.score?.finish && rand(state) < DOWN.finish) { if (onFloor(shooter)) knockDown(state, shooter); else shooter.fallOnLanding = true; }
+      return callFoul(state, fouledShot, 1);   // the basket counts, and one free throw
+    }
     stopPlay(state, 1 - team, underHoop(events.scored));
     state.shotClock = CLOCK.shot;
     // Where the style has the pro rule, the game clock runs on after a basket, through the inbound, except in the
@@ -348,7 +357,7 @@ export function applyRules(state, events, dt, intents) {
       applySubs(state);
       if (state.clockRuns && !runOn(state, dt)) break;
       state.phaseT -= dt;
-      if (state.phaseT <= 0) (state.freeThrow ? setupFreeThrow : setupInbound)(state);
+      if (state.phaseT <= 0 && !anyoneDown(state)) { state.huddle = null; (state.freeThrow ? setupFreeThrow : setupInbound)(state); }   // a man down is waited for
       break;
     case 'freeThrow': {
       const ft = state.freeThrow, team = state.players[ft.shooter].team;

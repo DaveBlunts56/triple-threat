@@ -8,7 +8,7 @@ import { needOf, situation, wantsTimeout } from '../src/sim/late.js';
 import { newFreeThrow, setupFreeThrow, stepFreeThrow } from '../src/sim/freethrow.js';
 import { aiIntents } from '../src/sim/ai.js';
 import { callText } from '../src/render/hud.js';
-import { AI, CLOCK, DIFFICULTY, DT, FT, LATE, RIM, TIMEOUT, levelOf } from '../src/sim/tuning.js';
+import { AI, CLOCK, DIFFICULTY, DT, FT, HUDDLE, LATE, RIM, TIMEOUT, levelOf } from '../src/sim/tuning.js';
 import { at, ai, idle, run, plain } from './helpers.js';
 
 const apart = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -181,12 +181,13 @@ test('a timeout: a team with the ball, or at a stoppage, may call one of its thr
   for (const person of s.rosters.flat()) person.energy = 0.5;
   assert.equal(callTimeout(s, 1), false, 'the team without the ball');
   assert.equal(callTimeout(s, 0), true);
-  assert.deepEqual([s.phase, s.phaseT, s.possession, s.timeouts, s.call.kind, s.call.team], ['dead', CLOCK.timeout, 0, [2, 3], 'timeout', 0]);
+  // (Play stops for the timeout and the teams' huddles: see together.js.)
+  assert.deepEqual([s.phase, s.phaseT, s.possession, s.timeouts, s.call.kind, s.call.team], ['dead', CLOCK.timeout + HUDDLE.extra, 0, [2, 3], 'timeout', 0]);
   assert.ok(s.rosters.flat().every(person => Math.abs(person.energy - 0.5 - TIMEOUT.rest) < 1e-9));
   assert.equal(callText(s.call), 'Timeout, Harbor City Waves. Your ball');
   assert.equal(callTimeout(s, 1), true, 'either team at a stoppage');
   assert.equal(s.possession, 0);
-  run(s, CLOCK.timeout + 0.1, idle(10));
+  run(s, CLOCK.timeout + HUDDLE.extra + 0.1, idle(10));
   assert.equal(s.phase, 'inbound');
   assert.equal(s.players[s.ball.holder].team, 0);
 });

@@ -76,6 +76,7 @@ export function judgeContacts(state, events, dt) {
 // A shooting foul's free throws depend on the shot, so the caller supplies them.
 export function recordFoul(state, foul) {
   const fouler = state.players[foul.by];
+  state.last.foul = { by: fouler.id, kind: foul.kind, at: state.time };   // for whoever watches (see broadcast/reactions.js)
   personOf(state, fouler).fouls++;
   feelFoul(state, fouler);
   const teamFouls = ++state.teamFouls[fouler.team];
