@@ -44,14 +44,14 @@ function inbounding() {
   return s;
 }
 
-test('a later period starts with an inbound at half court, clocks stopped', () => {
+test('a later period starts with an inbound from the baseline, clocks stopped', () => {
   const s = inbounding();
   assert.equal(s.phase, 'inbound');
   assert.equal(s.possession, 1);
   const inbounders = s.players.filter(p => p.inbounder);
   assert.equal(inbounders.length, 1);
   assert.equal(inbounders[0].team, 1);
-  assert.equal(inbounders[0].z, COURT.halfWidth + OUT);
+  assert.equal(inbounders[0].x, COURT.halfLength + OUT);   // team 1 defends the hoop at +x
   assert.equal(s.ball.holder, inbounders[0].id);
   run(s, 2);
   assert.equal(s.gameClock, 180);
@@ -112,6 +112,19 @@ test('after a basket the other team inbounds from the baseline once the dead tim
   assert.equal(inb.x, COURT.halfLength + OUT);
   assert.equal(s.ball.holder, inb.id);
   assert.equal(s.shotClock, 24);
+});
+
+test('a new quarter starts as after a basket: an inbound from the baseline under the hoop the team with the ball defends', () => {
+  for (const [quarter, tipWinner] of [[2, 0], [3, 0], [2, 1]]) {
+    const s = createMatch();
+    startMatch(s);
+    Object.assign(s, { phase: 'quarterEnd', phaseT: 0, quarter: quarter - 1, tipWinner });
+    step(s, idle(), DT);
+    const team = quarter % 2 === 1 ? tipWinner : 1 - tipWinner, own = team === 0 ? -1 : 1;   // team 0 attacks +x
+    const inb = s.players.find(p => p.inbounder);
+    assert.deepEqual([s.quarter, s.phase, s.possession, inb.team, s.ball.holder], [quarter, 'inbound', team, team, inb.id]);
+    assert.equal(inb.x, own * (COURT.halfLength + OUT), `quarter ${quarter}: from its own baseline`);
+  }
 });
 
 test('loose ball landing out of bounds goes to the team that did not touch it last', () => {

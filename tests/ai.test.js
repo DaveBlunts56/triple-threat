@@ -188,7 +188,7 @@ test('easing is for spots only: a computer player going for a free ball, or runn
 test('the AI inbounder passes within 2 s', () => {
   const s = createMatch();
   startMatch(s);
-  Object.assign(s, { phase: 'quarterEnd', phaseT: 0 });   // the start of quarter 2: an inbound at half court
+  Object.assign(s, { phase: 'quarterEnd', phaseT: 0 });   // the start of quarter 2: an inbound from the baseline
   step(s, Array.from({ length: 6 }, emptyIntent), DT);
   assert.equal(s.phase, 'inbound');
   assert.ok(run(s, 2, null, st => st.ball.mode === 'pass' || st.phase === 'live'));
