@@ -10,7 +10,7 @@ import { playOn } from '../sim/plays.js';
 import { QUALITY } from './quality.js';
 import { TEAMS, nicknameOf } from '../sim/teams.js';
 import { logoSvg } from './arenas.js';
-import { playerOfGame, teamLine as teamStats } from '../sim/stats.js';
+import { gameScore, playerOfGame, teamLine as teamStats } from '../sim/stats.js';
 import { DEFAULT_PREFS } from '../prefs.js';
 import { SLIDERS, STYLE_LABEL, styled } from '../sim/styles.js';
 import { efg, ftRate, orbPct, pace, rating, threeRate, tovPct, ts } from '../sim/advanced.js';
@@ -237,6 +237,19 @@ export function halfLines(state) {
   return [['Field goals', ratio(a.fgm, a.fga), ratio(b.fgm, b.fga)], ['Threes', ratio(a.tpm, a.tpa), ratio(b.tpm, b.tpa)],
     ['Rebounds', String(a.reb), String(b.reb)], ['Turnovers', String(a.tov), String(b.tov)]];
 }
+
+// A player's line for a summary: points, rebounds and assists, what else stands out (three or more blocks or steals,
+// four or more threes), and his shooting.
+export function statLine(person) {
+  const s = person.stats, more = [];
+  if (s.blk >= 3) more.push(`${s.blk} BLK`);
+  if (s.stl >= 3) more.push(`${s.stl} STL`);
+  if (s.tpm >= 4) more.push(`${s.tpm} 3PM`);
+  return [`${s.pts} PTS`, `${s.reb} REB`, `${s.ast} AST`, ...more, `${s.fgm}/${s.fga} FG`].join(' · ');
+}
+// The `n` best lines of team `team` by game score (see stats.js), best first: their rows. Level lines keep roster order.
+export const topPerformers = (state, team, n = 2) => state.rosters[team].map((person, row) => ({ row, score: gameScore(person.stats) }))
+  .sort((a, b) => b.score - a.score || a.row - b.row).slice(0, n).map(p => p.row);
 
 // The player of the game, with his line.
 export function potgLine(state) {
@@ -469,10 +482,15 @@ export function createHud(doc) {
       const result = ui.result ?? null;
       if (result && result !== lastResult) {
         set('simTitle', resultTitle(result));
+        set('simPotg', potgLine(result));
         for (const team of [0, 1]) {
           set(`simScore${team}`, resultScore(result, team));
           set(`simTeam${team}`, result.teams[team].name);
           set(`simAdvHead${team}`, result.teams[team].abbr);
+          // Its two best players, each with his line.
+          topPerformers(result, team).forEach((row, k) => {
+            set(`simTop${team}${k}c0`, result.teams[team].abbr); set(`simTop${team}${k}c1`, result.rosters[team][row].name); set(`simTop${team}${k}c2`, statLine(result.rosters[team][row]));
+          });
           // Each player, then the team's line right under the last of them; the rows past it are hidden.
           const n = result.rosters[team].length;
           for (let row = 0; row < RESULT_ROWS; row++) {

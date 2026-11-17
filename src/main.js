@@ -25,6 +25,7 @@ import { slowFor } from './broadcast/moments.js';
 import { createEars, frameCues, listen } from './audio/cues.js';
 import { createPlayer, nextSound } from './audio/player.js';
 import { SOUNDS, assetUrl, soundPath } from './render/assets.js';
+import { createLoading } from './render/loading.js';
 import { clear as clearReplays, createRecorder, decode, due, frameAt, mark, record, settle, skip as skipReplay, start as startReplay } from './replay.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
@@ -35,11 +36,23 @@ const MENU_ONCE = new Set(['Enter', 'Space', 'Escape', 'Backspace', 'KeyR']);   
 // The dev teams (the Waves and the Scorpions) may be picked only on a link ending #dev.
 const devLink = () => window.location.hash === '#dev';
 const chosen = matchTeams(pickableSelect(readPrefs(storageOf()).select, devLink()));   // the teams Team Select had last time
+// The loading screen, up from the start (index.html) until the game can be played: the arena first, then the players.
+const loading = createLoading(document);
+loading.show('Loading the arena…');
+// Makes the players (`made`, see people.js) of a match between `ids` with side `home` at home, the loading screen
+// counting them as they come. Resolves once all are made; rejects as prepare does.
+const loadPlayers = async (made, ids, home) => {
+  const tick = () => { const { done, total } = made.count(ids, home); loading.show(`Loading the players… ${done} of ${total}`, total ? done / total : 1); };
+  tick();
+  const timer = setInterval(tick, 100);
+  try { await made.prepare(ids, home); } finally { clearInterval(timer); tick(); }
+};
 const view = await createScene(document.getElementById('court'), chosen.teams, chosen.home);
+if (!view) loading.hide();   // the page says why there is no game
 if (view) {
   // The generated players, and those of the two teams Team Select had. If their files are missing or broken the
   // match is still playable, with capsules.
-  const people = await loadPeople(view.camera).then(async made => { await made.prepare(chosen.teams, chosen.home); return made; })
+  const people = await loadPeople(view.camera).then(async made => { await loadPlayers(made, chosen.teams, chosen.home); return made; })
     .catch(error => { console.warn('Players could not be loaded; using capsules.', error); return null; });
   const actors = createActors(view.scene, people);
   const studio = createStudio(view.renderer, people, view.scene.environment);   // Team Select's picture
@@ -117,7 +130,8 @@ if (view) {
     if (game.loading) return;   // already on its way
     game.loading = true;
     const pick = matchTeams(game.menu.select);
-    await people?.prepare(pick.teams, pick.home).catch(error => console.warn(error));
+    if (people) await loadPlayers(people, pick.teams, pick.home).catch(error => console.warn(error));
+    loading.hide();
     game.loading = false;
     game.mode = startFromMenu(game, keyboard, newMatch);
     view.setTeams(game.state.ids, game.state.home);
@@ -324,5 +338,6 @@ if (view) {
     hud.show(shown ? null : state.phase === 'start' ? (game.result ? 'result' : game.menu.panel === 'teamSelect' ? 'select' : 'start') : state.phase === 'final' ? 'final' : game.paused ? 'pause' : null);   // the final screen waits for a last replay
     requestAnimationFrame(frame);
   };
+  loading.hide();
   requestAnimationFrame(frame);
 }
