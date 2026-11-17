@@ -39,10 +39,11 @@ function paintNet() {
 }
 
 // Builds the renderer, court, hoops, lights and camera, for teams `ids` (the match's, by id) with side `home` (0 or 1)
-// at home. Resolves to null (after telling the player) if nothing can draw.
-export async function createScene(canvas, ids = [0, 1], home = 0) {
-  // WebGL 2 where the game prefers it (see prefersWebGL) or the browser has nothing else; WebGPU otherwise.
-  const chosen = prefersWebGL(window.navigator.userAgent, window.location.hash);
+// at home, drawing with the renderer the player chose (`drawWith`, one of RENDERERS in quality.js). Resolves to null
+// (after telling the player) if nothing can draw.
+export async function createScene(canvas, ids = [0, 1], home = 0, drawWith = 'auto') {
+  // WebGL 2 where the player or the game prefers it (see prefersWebGL) or the browser has nothing else; WebGPU otherwise.
+  const chosen = prefersWebGL(window.navigator.userAgent, window.location.hash, drawWith);
   const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, forceWebGL: chosen });
   try {
     await renderer.init();   // falls back to WebGL 2 by itself when WebGPU is missing

@@ -24,8 +24,9 @@ test('the main list is Exhibition, Tutorial, Simulate, Mode, Teams, Controls, Se
   assert.equal(menuKey(m, 'Enter'), 'tutorial');   // the page starts it
   assert.equal(m.panel, 'main');
   assert.deepEqual([TEAMS[2].name, TEAMS[3].name], ['New York Empire', 'Boston Shamrocks']);
-  assert.deepEqual(MENU.settings, ['quality', 'autoSubs', 'camera', 'difficulty', 'styles', 'commentary', 'replays', 'sound', 'info', 'keys']);
-  assert.equal(MENU.settings.length, 10);   // the page has ten rows for them
+  assert.deepEqual(MENU.settings, ['graphics', 'autoSubs', 'camera', 'difficulty', 'styles', 'commentary', 'replays', 'sound', 'keys']);
+  assert.deepEqual(MENU.graphics, ['quality', 'renderer', 'info']);
+  assert.ok(MENU.settings.length <= 10);   // the page has ten rows for them
 });
 
 test('Settings has Game styles in place of Quarter, and the Game styles panel has its seven rows', () => {
@@ -79,9 +80,14 @@ test('a panel with no rows ignores the bar keys and Enter', () => {
   assert.deepEqual([m.panel, m.row], ['teams', 0]);
 });
 
-test('in Settings, Enter on Quality asks for the quality switch and Enter on Automatic substitutions flips the choice', () => {
+test('in Settings, Graphics opens Quality, Renderer and the frame rate, each changed by the page, and Enter on Automatic substitutions flips the choice', () => {
   const m = createMenu(); m.row = at('settings'); menuKey(m, 'Enter');
-  assert.equal(menuKey(m, 'Enter'), 'quality');
+  assert.equal(menuKey(m, 'Enter'), null);
+  assert.equal(m.panel, 'graphics');                                                    // Graphics opens its panel
+  assert.equal(menuKey(m, 'Enter'), 'quality');                                         // the page steps the quality
+  keys(m, 'ArrowDown'); assert.equal(menuKey(m, 'Enter'), 'renderer');                  // and the renderer
+  keys(m, 'ArrowDown'); assert.equal(menuKey(m, 'Enter'), 'info');                      // and shows or hides the frame rate and the keys' line
+  keys(m, 'Escape'); assert.deepEqual([m.panel, MENU.settings[m.row]], ['settings', 'graphics']);   // Esc comes back to it
   assert.equal(m.autoSubs, true);
   assert.deepEqual(keys(m, 'ArrowDown', 'Space'), [null, null]);
   assert.equal(m.autoSubs, false);
@@ -96,7 +102,6 @@ test('in Settings, Enter on Quality asks for the quality switch and Enter on Aut
   keys(m, 'ArrowDown'); assert.equal(menuKey(m, 'Enter'), 'commentary');                // the page changes the commentary
   keys(m, 'ArrowDown'); assert.equal(menuKey(m, 'Enter'), 'replays');                   // and turns replays on and off
   keys(m, 'ArrowDown'); assert.equal(menuKey(m, 'Enter'), 'sound');                     // and the sound up and down
-  keys(m, 'ArrowDown'); assert.equal(menuKey(m, 'Enter'), 'info');                      // and shows or hides the frame rate and the keys' line
   keys(m, 'ArrowDown'); assert.equal(MENU.settings[m.row], 'keys');                     // the last row
   keys(m, 'ArrowDown'); assert.equal(m.row, 0);                                         // and it wraps
 });

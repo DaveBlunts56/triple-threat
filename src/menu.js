@@ -10,7 +10,8 @@ const SLIDER_ROWS = Object.freeze([...SLIDERS.map(s => s.key), 'reset']);
 export const MENU = Object.freeze({
   main: ['exhibition', 'tutorial', 'simulate', 'mode', 'teams', 'controls', 'settings'],
   teamSelect: [],   // a screen of its own (see selectKey), with no rows
-  settings: ['quality', 'autoSubs', 'camera', 'difficulty', 'styles', 'commentary', 'replays', 'sound', 'info', 'keys'],
+  settings: ['graphics', 'autoSubs', 'camera', 'difficulty', 'styles', 'commentary', 'replays', 'sound', 'keys'],
+  graphics: ['quality', 'renderer', 'info'],
   styles: ['playStyle', 'playMinutes', 'watchStyle', 'watchMinutes', 'simulateMinutes', 'arcadeSliders', 'simSliders'],
   arcadeSliders: SLIDER_ROWS, simSliders: SLIDER_ROWS,
   keys: KEY_ROWS,
@@ -30,7 +31,7 @@ export const createMenu = (prefs = DEFAULT_PREFS, dev = false) => ({ panel: 'mai
 export const menuRows = menu => MENU[menu.panel] ?? [];
 
 // The settings the page itself changes when their row is chosen: it knows the renderer, the voice and what is saved.
-export const PAGE_ROWS = Object.freeze(['quality', 'camera', 'commentary', 'replays', 'sound', 'info']);
+export const PAGE_ROWS = Object.freeze(['quality', 'renderer', 'camera', 'commentary', 'replays', 'sound', 'info']);
 
 const SLIDER_PANELS = Object.freeze({ arcadeSliders: 'arcade', simSliders: 'sim' });
 const LEFT = new Set(['ArrowLeft', 'KeyA']), RIGHT = new Set(['ArrowRight', 'KeyD']);
@@ -101,8 +102,8 @@ function selectKey(menu, code, random) {
   return null;
 }
 
-// One key on the menu. Returns 'exhibition', 'select' (the Team Select choice changed), 'simulate', 'quality',
-// 'camera', 'commentary' or 'keys' (the keys were changed) when the page has something to do, else null. `keys` is
+// One key on the menu. Returns 'exhibition', 'select' (the Team Select choice changed), 'simulate', a row the page
+// keeps (see PAGE_ROWS) or 'keys' (the keys were changed) when the page has something to do, else null. `keys` is
 // the table the Keys panel changes. On the Game styles panel and a slider panel ← and → step a choice, and move a
 // slider by 5. `random`: where Team Select's random teams come from.
 export function menuKey(menu, code, keys = { ...DEFAULT_KEYS }, random = Math.random) {
@@ -132,7 +133,7 @@ export function menuKey(menu, code, keys = { ...DEFAULT_KEYS }, random = Math.ra
     } else if (PAGE_ROWS.includes(choice)) return choice;
     else if (choice === 'autoSubs') menu.autoSubs = !menu.autoSubs;
     else if (choice === 'difficulty') menu.difficulty = nextDifficulty(menu.difficulty);
-    else if (choice === 'styles') open(menu, 'styles');
+    else if (choice === 'styles' || choice === 'graphics') open(menu, choice);
     else if (choice === 'keys') Object.assign(menu, { panel: 'keys', row: 0, listening: false });
   } else if ((code === 'Escape' || code === 'Backspace') && menu.panel !== 'main') {
     const back = menu.trail.pop();

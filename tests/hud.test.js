@@ -7,7 +7,7 @@ import { DEFAULT_PREFS } from '../src/prefs.js';
 import { DEFAULT_KEYS, KEY_ROWS, bind, createKeys } from '../src/keys.js';
 import { createMatch } from '../src/sim/state.js';
 import { createPauseMenu, pauseKey } from '../src/pause.js';
-import { MENU, createMenu, menuKey } from '../src/menu.js';
+import { MENU, createMenu, menuKey, menuRows } from '../src/menu.js';
 import { quickMatch } from '../src/sim/quick/engine.js';
 import { surname } from '../src/sim/state.js';
 import { TEAMS } from '../src/sim/teams.js';
@@ -268,19 +268,39 @@ test('the Teams panel lists both teams by overall, name and role, with each team
   assert.equal(writes, moved + 2);                                                      // and only on the frame the panel changes
 });
 
-test('the Settings panel shows each setting with its value, and a change is announced', () => {
+test('the Settings panel shows each setting with its value, and a change is announced; Graphics holds the quality, the renderer and the frame rate', () => {
   const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
   const show = quality => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality });
   menu.row = MENU.main.indexOf('settings'); menuKey(menu, 'Enter'); show('high');
   assert.deepEqual([e.menuRow0.textContent, e.menuRow1.textContent, e.menuRow2.textContent, e.menuRow3.textContent, e.menuRow4.textContent, e.menuHint.textContent],
-    ['Quality: High', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', 'Game styles ▸', '↑ ↓ choose · Enter change · Esc back']);
+    ['Graphics ▸', 'Automatic substitutions: On', 'Camera: 2K', 'Difficulty: All-Star', 'Game styles ▸', '↑ ↓ choose · Enter change · Esc back']);
   hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high', camera: 'broadcast' });
   assert.equal(e.menuRow2.textContent, 'Camera: Broadcast');
-  show('low');
-  assert.deepEqual([e.menuRow0.textContent, e.announce.textContent], ['Quality: Low', 'Quality: Low']);
   menuKey(menu, 'ArrowDown'); menuKey(menu, 'Enter'); show('low');
   assert.deepEqual([e.menuRow1.textContent, e.announce.textContent], ['Automatic substitutions: Off', 'Automatic substitutions: Off']);
+  menuKey(menu, 'ArrowUp'); menuKey(menu, 'Enter'); show('high');
+  assert.deepEqual([menu.panel, e.menuRow0.textContent, e.menuRow1.textContent, e.menuRow2.textContent, e.menuHint.textContent],
+    ['graphics', 'Quality: High', 'Renderer: Auto (WebGL 2)', 'FPS and controls: Shown', '↑ ↓ choose · Enter change · Esc back']);
+  show('low');
+  assert.deepEqual([e.menuRow0.textContent, e.announce.textContent], ['Quality: Low', 'Quality: Low']);
   assert.equal(menuText(menu, 0, 'high'), 'Quality: High');
+  menuKey(menu, 'Escape');
+  assert.deepEqual([menu.panel, menuRows(menu)[menu.row]], ['settings', 'graphics']);
+});
+
+test('every menu panel with rows has its own size of text on the page, so that its rows fit the disc', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  for (const panel of Object.keys(MENU).filter(p => MENU[p].length && p !== 'keys')) assert.match(html, new RegExp(`#menuList\\.${panel} li`), panel);
+});
+
+test('the Renderer row says the choice, what Auto draws with, a choice this browser cannot have, and that the game is restarting for a new one', () => {
+  const graphics = { panel: 'graphics' }, row = MENU.graphics.indexOf('renderer');
+  const words = (renderer, backend, restarting = false) => menuText(graphics, row, 'high', '2k', { ...DEFAULT_PREFS, renderer }, true, { backend, restarting });
+  assert.deepEqual([words('auto', 'webgpu'), words('auto', 'webgl2'), words('webgl', 'webgl2chosen'), words('webgpu', 'webgpu')],
+    ['Renderer: Auto (WebGPU)', 'Renderer: Auto (WebGL 2)', 'Renderer: WebGL 2', 'Renderer: WebGPU']);
+  assert.equal(words('webgpu', 'webgl2'), 'Renderer: WebGPU (not in this browser: WebGL 2)');
+  assert.equal(words('webgl', 'webgpu', true), 'Renderer: WebGL 2 · restarting…');
+  assert.equal(DEFAULT_PREFS.renderer, 'auto');
 });
 
 test('in play the menu writes nothing and the score is announced as before', () => {
@@ -726,7 +746,7 @@ test('Settings can hide the frame rate in the corner and the keys\' line, and sh
   assert.deepEqual([e.backend.hidden, e.controls.hidden], [true, true]);
   show(true);
   assert.deepEqual([e.backend.hidden, e.controls.hidden], [false, false]);
-  assert.equal(menuText({ panel: 'settings' }, MENU.settings.indexOf('info'), 'high', '2k', { ...DEFAULT_PREFS, info: false }), 'FPS and controls: Hidden');
+  assert.equal(menuText({ panel: 'graphics' }, MENU.graphics.indexOf('info'), 'high', '2k', { ...DEFAULT_PREFS, info: false }), 'FPS and controls: Hidden');
 });
 
 test('a simulated game\'s result names the player of the game and each team\'s two best players, with their lines', () => {

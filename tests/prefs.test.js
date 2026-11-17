@@ -84,3 +84,10 @@ test('whether the frame rate and the keys\' line are shown is kept: shown unless
   assert.equal(readPrefs(box('{"info":false}')).info, false);
   assert.equal(readPrefs(box('{"info":"no"}')).info, true);
 });
+
+test('the renderer chosen is kept, Auto unless one was saved, and one the game does not have is dropped', () => {
+  assert.equal(readPrefs(null).renderer, 'auto');
+  assert.deepEqual(['webgl', 'webgpu', 'auto'].map(renderer => readPrefs(box(JSON.stringify({ renderer }))).renderer), ['webgl', 'webgpu', 'auto']);
+  assert.equal(readPrefs(box('{"renderer":"vulkan","camera":"broadcast"}')).renderer, 'auto');
+  assert.equal(readPrefs(box('{"renderer":"vulkan","camera":"broadcast"}')).camera, 'broadcast', 'the others still apply');
+});

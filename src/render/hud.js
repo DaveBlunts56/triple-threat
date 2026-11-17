@@ -76,11 +76,11 @@ const share = value => `${Math.round(value * 1000) / 10}%`;
 
 // The start menu: the words of each entry, what the hint line says in each panel, and the two teams' lines.
 const MENU_WORDS = { exhibition: 'Exhibition', tutorial: 'Tutorial', teamSelect: 'Team select', simulate: 'Simulate', teams: 'Teams', controls: 'Controls', settings: 'Settings', keys: 'Keys',
-  styles: 'Game styles ▸', arcadeSliders: 'Arcade sliders ▸', simSliders: 'Simulation sliders ▸', reset: 'Reset to 50' };
+  graphics: 'Graphics ▸', styles: 'Game styles ▸', arcadeSliders: 'Arcade sliders ▸', simSliders: 'Simulation sliders ▸', reset: 'Reset to 50' };
 const MODE_WORDS = { 3: 'Mode: 3 on 3', 5: 'Mode: 5 on 5' };
 const SLIDER_HINT = '← → move by 5 · Esc back';   // short, to fit the disc
 const MENU_HINTS = { main: '↑ ↓ choose · Enter select', teamSelect: '← → your side · ↑ ↓ change team · R random · Enter play · Esc back', settings: '↑ ↓ choose · Enter change · Esc back', teams: 'Esc back', controls: 'Esc back',
-  keys: '↑ ↓ choose · Enter change · Esc back', styles: '← → change · Enter open · Esc back', arcadeSliders: SLIDER_HINT, simSliders: SLIDER_HINT };
+  keys: '↑ ↓ choose · Enter change · Esc back', graphics: '↑ ↓ choose · Enter change · Esc back', styles: '← → change · Enter open · Esc back', arcadeSliders: SLIDER_HINT, simSliders: SLIDER_HINT };
 const SLIDER_PANELS = { arcadeSliders: 'arcade', simSliders: 'sim' };
 const SLIDER_LABEL = Object.fromEntries(SLIDERS.map(sl => [sl.key, sl.label]));
 const LISTENING_HINT = 'Press the new key · Esc to leave it as it was';
@@ -124,8 +124,18 @@ const CAMERA_WORDS = { '2k': 'Camera: 2K', broadcast: 'Camera: Broadcast' };
 // The Commentary row: what is chosen, or, where the browser has no voice, that it is captions only.
 const commentaryWords = (value, hasVoice) => (value === 'off' ? 'Commentary: Off'
   : !hasVoice ? 'Commentary: Captions only (no voice in this browser)' : value === 'voice' ? 'Commentary: Voice and captions' : 'Commentary: Captions only');
-// The words of a settings row that the page itself keeps (see PAGE_ROWS), or undefined for any other row.
-function pageRowText(choice, quality, camera, prefs, hasVoice) {
+// The Renderer row: the player's choice, and with the game's own choice what it chose (`backend`: what the page draws
+// with now, see scene.js). `restarting`: a new choice is about to take effect, the game restarting for it.
+const DRAWS_WITH = { webgpu: 'WebGPU', webgl2: 'WebGL 2', webgl2chosen: 'WebGL 2' };
+function rendererWords(choice, backend, restarting) {
+  const words = choice === 'auto' ? `Renderer: Auto${backend ? ` (${DRAWS_WITH[backend]})` : ''}` : `Renderer: ${choice === 'webgpu' ? 'WebGPU' : 'WebGL 2'}`;
+  if (restarting) return `${words} · restarting…`;
+  return choice === 'webgpu' && backend && backend !== 'webgpu' ? `${words} (not in this browser: WebGL 2)` : words;
+}
+// The words of a settings row that the page itself keeps (see PAGE_ROWS), or undefined for any other row. `drawing`:
+// { backend, restarting } for the Renderer row.
+function pageRowText(choice, quality, camera, prefs, hasVoice, drawing = {}) {
+  if (choice === 'renderer') return rendererWords(prefs.renderer, drawing.backend, drawing.restarting);
   if (choice === 'camera') return CAMERA_WORDS[camera];
   if (choice === 'quality') return `Quality: ${QUALITY[quality].label}`;
   if (choice === 'commentary') return commentaryWords(prefs.commentary, hasVoice);
@@ -137,8 +147,8 @@ function pageRowText(choice, quality, camera, prefs, hasVoice) {
 
 // The words of row `row` of the panel shown; the settings say their value. quality: one of QUALITY.order. camera:
 // '2k' or 'broadcast'.
-export function menuText(menu, row, quality, camera = '2k', prefs = DEFAULT_PREFS, hasVoice = true) {
-  const choice = menuRows(menu)[row], kept = pageRowText(choice, quality, camera, prefs, hasVoice);
+export function menuText(menu, row, quality, camera = '2k', prefs = DEFAULT_PREFS, hasVoice = true, drawing = {}) {
+  const choice = menuRows(menu)[row], kept = pageRowText(choice, quality, camera, prefs, hasVoice, drawing);
   if (kept !== undefined) return kept;
   if (choice === 'difficulty') return `Difficulty: ${DIFFICULTY.label[menu.difficulty]}`;
   const slid = SLIDER_PANELS[menu.panel];
@@ -371,7 +381,7 @@ export function createHud(doc) {
         classed('menuList', menu.panel);
         for (let row = 0; row < MENU_SLOTS; row++) {
           hide(`menuRow${row}`, row >= rows.length);
-          if (row < rows.length && menu.panel !== 'keys') set(`menuRow${row}`, menuText(menu, row, ui.quality, ui.camera, ui.prefs, ui.hasVoice));
+          if (row < rows.length && menu.panel !== 'keys') set(`menuRow${row}`, menuText(menu, row, ui.quality, ui.camera, ui.prefs, ui.hasVoice, { backend, restarting: ui.restarting }));
           // On a slider panel each slider's row is filled as far as its value goes.
           const slid = SLIDER_PANELS[menu.panel], value = slid && row < rows.length && rows[row] !== 'reset' ? menu.sliders[slid][rows[row]] : 0;
           style(`menuRow${row}`, 'backgroundSize', `${value}% 100%`);
@@ -558,7 +568,7 @@ export function createHud(doc) {
       if (state.call && state.call !== lastCall) set('announce', callText(state.call, state));
       else if (keysPanel) set('announce', keysText(keys, keysPanel.row, keysPanel));
       else if (menu?.panel === 'teamSelect') set('announce', selectText(menu.select));
-      else if (menu) set('announce', menuRows(menu).length ? menuText(menu, menu.row, ui.quality, ui.camera, ui.prefs, ui.hasVoice) : MENU_WORDS[menu.panel]);
+      else if (menu) set('announce', menuRows(menu).length ? menuText(menu, menu.row, ui.quality, ui.camera, ui.prefs, ui.hasVoice, { backend, restarting: ui.restarting }) : MENU_WORDS[menu.panel]);
       else if (pause) set('announce', pauseRows(pause).length ? pauseText(state, pause, pause.row, ui.quality, ui.camera, ui.prefs, ui.hasVoice) : PAUSE_WORDS[pause.panel]);
       else if (score !== lastScore) set('announce', score);
       lastCall = state.call; lastScore = score;

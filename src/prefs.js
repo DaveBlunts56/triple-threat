@@ -1,19 +1,20 @@
 // The settings the game keeps from one visit to the next, in the browser's own storage. Nothing about a match is kept.
 // Everything here is safe to call with no storage at all, or with one that throws: the game then starts from the
 // defaults every time.
-import { QUALITY } from './render/quality.js';
+import { QUALITY, RENDERERS } from './render/quality.js';
 import { DIFFICULTY, MATCH } from './sim/tuning.js';
 import { SLIDERS, STYLE_NAMES, defaultSliders } from './sim/styles.js';
 import { TEAMS } from './sim/teams.js';
 
 export const PREFS_KEY = 'tripleThreat.settings.v1';
 
-// quality: null means the game chooses its own level. select: Team Select's choice (see menu.js's createMenu): the away
+// quality: null means the game chooses its own level. renderer: WebGPU or WebGL 2, or the game's choice ('auto': see
+// prefersWebGL in render/quality.js). select: Team Select's choice (see menu.js's createMenu): the away
 // and home teams by id and your controller's side. keys: { action: key }, what differs from the default keys.
 // play, watch: the style and quarter length each starts at (Play on Arcade's 3 minutes, as before; Watch on
 // Simulation's 12). simulate: Simulate's quarter length (it is always Simulation). sliders: each style's nine.
 const f = Object.freeze;
-export const DEFAULT_PREFS = f({ quality: null, camera: '2k', difficulty: 'allstar', size: 3, select: f({ away: 3, home: 2, side: 'home' }),
+export const DEFAULT_PREFS = f({ quality: null, renderer: 'auto', camera: '2k', difficulty: 'allstar', size: 3, select: f({ away: 3, home: 2, side: 'home' }),
   autoSubs: true, commentary: 'voice', replays: true, sound: 'full', info: true, keys: f({}),
   play: f({ style: 'arcade', minutes: 3 }), watch: f({ style: 'sim', minutes: 12 }), simulate: f({ minutes: 12 }),
   sliders: f({ arcade: f(defaultSliders()), sim: f(defaultSliders()) }) });
@@ -24,6 +25,7 @@ const isObject = value => typeof value === 'object' && value !== null && !Array.
 // What each setting may be. A saved value that fails its check is dropped on its own; the others still apply.
 const VALID = {
   quality: value => value === null || QUALITY.order.includes(value),
+  renderer: oneOf(RENDERERS),
   camera: oneOf(['2k', 'broadcast']),
   difficulty: oneOf(DIFFICULTY.order),
   size: oneOf([3, 5]),

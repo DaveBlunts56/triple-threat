@@ -11,7 +11,7 @@ import { createActors } from './render/actors.js';
 import { shotMeter, SHOT_METER } from './render/meter.js';
 import { loadPeople } from './render/people.js';
 import { createHud, easeFrame } from './render/hud.js';
-import { createQuality, autoQuality, stepQuality } from './render/quality.js';
+import { createQuality, autoQuality, stepQuality, nextRenderer } from './render/quality.js';
 import { createKeyboard, steer } from './input.js';
 import { createPauseMenu, inPlay, pauseKey, pauseHasRow, pausePoint, quitToMenu, setPaused } from './pause.js';
 import { createMenu, matchTeams, menuKey, menuPoint, menuHasRow, pickableSelect, resultKey, startFromMenu } from './menu.js';
@@ -35,6 +35,8 @@ const YOU_MARK = 2.5;    // metres above the floor the pointer over the player y
 const newMatch = (size, teams = [0, 1]) => createMatch(Date.now() % 1e6, size, teams);   // size: 3 or 5 a side (three when not said); teams by id
 const MENU_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyR', 'Enter', 'Space', 'Escape', 'Backspace']);   // R: Team Select's random teams
 const MENU_ONCE = new Set(['Enter', 'Space', 'Escape', 'Backspace', 'KeyR']);   // a held one counts once; the bar keys may repeat
+// How long after the last press of the Renderer row the game restarts with the new renderer (milliseconds).
+const RESTART_WAIT = 1500;
 
 // The dev teams (the Waves and the Scorpions) may be picked only on a link ending #dev.
 const devLink = () => window.location.hash === '#dev';
@@ -50,7 +52,9 @@ const loadPlayers = async (made, ids, home) => {
   const timer = setInterval(tick, 100);
   try { await made.prepare(ids, home); } finally { clearInterval(timer); tick(); }
 };
-const view = await createScene(document.getElementById('court'), chosen.teams, chosen.home);
+// The renderer the player chose in Settings (Graphics), as it was when the page opened: another one needs a fresh page.
+const drawingWith = readPrefs(storageOf()).renderer;
+const view = await createScene(document.getElementById('court'), chosen.teams, chosen.home, drawingWith);
 if (!view) loading.hide();   // the page says why there is no game
 if (view) {
   // The generated players, and those of the two teams Team Select had. If their files are missing or broken the
@@ -119,6 +123,16 @@ if (view) {
   const stepQualityByHand = () => { stepQuality(quality); showQuality(); remember(true); };
   const stepReplays = () => { prefs.replays = !prefs.replays; if (!prefs.replays) clearReplays(replays); };
   const stepInfo = () => { prefs.info = !prefs.info; };   // the frame rate in the corner and the keys' line: shown or hidden
+  // The renderer: Auto, WebGPU or WebGL 2, saved at once. Another one than the page opened with takes a fresh page: the
+  // game restarts RESTART_WAIT ms after the last press, so that stepping past a choice does not restart it twice.
+  let restart = null;
+  const stepRenderer = () => {
+    prefs.renderer = nextRenderer(prefs.renderer);
+    remember();
+    clearTimeout(restart);
+    game.restarting = prefs.renderer !== drawingWith;
+    if (game.restarting) restart = setTimeout(() => window.location.reload(), RESTART_WAIT);
+  };
   const switchCamera = () => { game.camera = game.camera === '2k' ? 'broadcast' : '2k'; view.setCamera(game.camera); remember(); };
   view.setCamera(game.camera);
   const life = createLife();   // the crowd's mood
@@ -184,6 +198,7 @@ if (view) {
     else if (asked === 'replays') stepReplays();
     else if (asked === 'sound') stepSound();
     else if (asked === 'info') stepInfo();
+    else if (asked === 'renderer') stepRenderer();
     remember();
     keyboard.drop();   // a key pressed on a menu, one just given to an action too, does nothing in the match until let go
   };
