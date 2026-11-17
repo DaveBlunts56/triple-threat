@@ -18,7 +18,7 @@ export function franchiseScreen(dialog, launch) {
       const past = tab === 'History' && slot.league.history.length ? await readArchive(slot, archived) : null;
       content.innerHTML = dashboard(slot.league, tab, archived, past);
     }
-    if (pending) content.querySelector('footer')?.insertAdjacentHTML('afterbegin', '<button data-action="retry">Retry saving final score</button><button data-action="recover">Save game to a new slot</button>');
+    if (pending) content.insertAdjacentHTML('afterbegin', '<div class="hub-buttons"><button data-action="retry">Retry saving final score</button><button data-action="recover">Save game to a new slot</button></div>');
   }
   async function run(operation) {
     if (busy) return;
@@ -82,6 +82,11 @@ export function franchiseScreen(dialog, launch) {
   }
 
   async function action(key) {
+    if (key === 'week') return advance('date', nextFixture(slot.league).day + 6);
+    if (key === 'saveExit') {
+      if (pending) await settleFinal(); else await persist(slot.league);
+      dialog.close(); return;
+    }
     if (key === 'retry') return settleFinal();
     if (key === 'close') { dialog.close(); return; }
     if (key === 'library') {

@@ -428,6 +428,35 @@
   #ml td, #ml th { padding: 6px 9px; border-bottom: 1px solid #314156; text-align: right; white-space: nowrap; }
   #ml td:first-child, #ml th:first-child { text-align: left; } #ml th { color: #bdccdc; }
   #ml [role=status]:not(:empty) { padding: 10px; background: #27394d; }
+
+  #ml { width:min(1440px,97vw); max-height:95dvh; background:#080f1c; border:1px solid #7395ab; padding:clamp(12px,1.7vw,28px); scrollbar-gutter:stable; }
+  #ml .hub header,#ml .hub nav,#ml .hub-card { background:linear-gradient(125deg,#142337,#09121e 78%); border:1px solid #7291ab; border-radius:9px; }
+  #ml .hub header { padding:10px 20px; gap:20px; } #ml .hub h1,#ml .hub-card h2,#ml .tt-brand,#ml .feature h3 { font-family:"Arial Narrow",system-ui,sans-serif; font-weight:900; font-style:italic; text-transform:uppercase; }
+  #ml .hub h1 {font-size:clamp(20px,2vw,32px)} #ml .tt-brand {border-left:9px solid #b14dff;padding-left:9px;line-height:.85;letter-spacing:-1px;font-size:22px;}
+  #ml .club-id {margin-left:auto;display:flex;align-items:center;gap:8px} #ml .club-id img {width:38px;height:38px}
+  #ml .hub nav {position:sticky;top:0;z-index:2;display:flex;flex-wrap:nowrap;overflow-x:auto;padding:4px;margin:12px 0;background:#0b1624}
+  #ml .hub nav button {flex:1;border:0;background:transparent;text-transform:uppercase;font-weight:800;}
+  #ml .hub nav button[aria-pressed=true] {background:linear-gradient(120deg,#6b26ba,#a849e3);color:white;}
+  .hub-grid,.hub-bottom {display:grid;gap:12px;} .hub-grid {grid-template-columns:minmax(155px,.8fr) minmax(250px,1.8fr) minmax(220px,1.22fr)}
+  #ml .hub-card {min-width:0;margin:0;padding:14px;overflow:hidden;} #ml .hub-card h2 {font-size:clamp(16px,1.45vw,22px);margin:0 0 12px;border-bottom:1px solid #556b81;padding-bottom:8px;}
+  .quick,.feature {grid-row:span 2;} #ml .quick button {display:block;width:100%;text-align:left;margin:8px 0;}
+  #ml .feature {position:relative;isolation:isolate;display:flex;flex-direction:column;border-color:#b774ef;background:linear-gradient(120deg,#100f21 28%,#392054 74%,#662ca2);box-shadow:inset 0 0 16px #b65eff26;}
+  .spotlight {margin:auto 0;max-width:69%;z-index:1;} #ml .feature h3 {font-size:clamp(28px,3.6vw,62px);line-height:.95;letter-spacing:-.04em;margin:.2em 0;text-shadow:0 2px 8px #10101b}
+  .jersey {position:absolute;right:-3%;top:22%;width:40%;height:65%;transform:rotate(8deg);background:linear-gradient(100deg,#070f20,var(--club));clip-path:polygon(0 20%,23% 0,32% 2%,40% 11%,60% 11%,68% 2%,77% 0,100% 20%,88% 35%,88% 100%,12% 100%,12% 35%);display:flex;align-items:center;justify-content:center;flex-direction:column;}
+  #ml .jersey b {font:italic 900 clamp(32px,4vw,70px)/1 system-ui;color:white;} .statstrip,.versus,.hub-buttons {display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .statstrip {position:relative;margin-top:20px}.statstrip div {border:1px solid #796a94;border-radius:5px;padding:7px 10px;background:#131729}.versus {justify-content:space-around;margin-bottom:8px}.upcoming {text-align:center}.hub-buttons {margin:9px 0}.upcoming .hub-buttons {justify-content:center}
+  #ml .rank td,#ml .rank th {padding:2px 6px;} .hub-bottom {grid-template-columns:repeat(3,minmax(0,1fr));margin-top:12px} #ml .hub-bottom p {padding:6px 0;border-bottom:1px solid #293849}
+  #ml button:focus-visible {outline:3px solid #dcb2ff;outline-offset:-3px}
+  @media(max-width:850px){.hub-grid {grid-template-columns:1fr 1fr}.feature {grid-column:1/-1;grid-row:1;min-height:200px}.quick {grid-row:span 2}.hub-bottom {grid-template-columns:1fr 1fr}.hub-bottom section:last-child {grid-column:1/-1}}
+  @media(max-width:560px){.hub-grid,.hub-bottom {grid-template-columns:1fr}.quick {grid-row:auto}.hub .quick button {min-height:40px}#ml .club-id b {display:none}#ml .hub header {padding:10px;gap:12px}#ml .hub nav {gap:0}#ml .hub nav button {font-size:13px}.hub-card {content-visibility:auto}}
+
+  .story-choice,.story-picks span {position:absolute;width:1px;height:1px;opacity:0}
+  .feature .story {display:none}.story-choice:checked + .story {display:block}
+  .story-picks {display:flex;gap:6px;margin-top:10px;border-top:1px solid #745a92}.story-picks label {cursor:pointer;padding:8px}
+  .story-picks label::before {content:"";width:10px;height:10px;border-radius:50%;background:#818ca9}
+  .feature:has(#story-0:checked) label[for=story-0]::before,.feature:has(#story-1:checked) label[for=story-1]::before,.feature:has(#story-2:checked) label[for=story-2]::before {background:#c075ff}
+  .feature:has(.story-choice:focus-visible) .story-picks {outline:2px solid #ddd}
+  @media(prefers-reduced-motion:no-preference){.story-choice:checked + .story {animation:hub-in .18s ease-out}@keyframes hub-in {from {transform:translateY(3px)}to {transform:none}}}
 </style>
 <script type="importmap">
 { "imports": {
