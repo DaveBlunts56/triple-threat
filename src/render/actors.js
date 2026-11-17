@@ -69,20 +69,26 @@ function buildArrow(material) {
   };
 }
 
-// The players (up to ten: as many are shown as the match has), the ball, the ring under the player you control, and
-// the ring and arrow that show him his man.
+// The players (up to ten: as many are shown as the match has), the ball, the ring under the player you control (a
+// wide yellow ring over a soft yellow disc, to be found in a crowd), the ring and arrow that show him his man, and a
+// small orange ring under whoever has the ball.
+const RINGS = Object.freeze({ you: [0.46, 0.62], glow: 0.46, glowOpacity: 0.22, ball: [0.27, 0.35], ballColour: 0xff8a1f });
 // `people` are the generated, animated players (see people.js); without them the capsules stand in.
 export function createActors(scene, people = null) {
   const players = people ? people.models : Array.from({ length: 10 }, () => buildPlayer(0));
   const ball = new THREE.Mesh(new THREE.SphereGeometry(BALL.radius, 32, 24), new THREE.MeshStandardMaterial({ ...paintBall(), roughness: 0.78 }));
   ball.castShadow = true;
-  const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.52, 32), new THREE.MeshBasicMaterial({ color: 0xffe14d }));
+  const ring = new THREE.Mesh(new THREE.RingGeometry(...RINGS.you, 48), new THREE.MeshBasicMaterial({ color: 0xffe14d }));
   ring.rotation.x = -Math.PI / 2;
+  const glow = new THREE.Mesh(new THREE.CircleGeometry(RINGS.glow, 48), new THREE.MeshBasicMaterial({ color: 0xffe14d, transparent: true, opacity: RINGS.glowOpacity, depthWrite: false }));
+  glow.rotation.x = -Math.PI / 2;
+  const ballRing = new THREE.Mesh(new THREE.RingGeometry(...RINGS.ball, 40), new THREE.MeshBasicMaterial({ color: RINGS.ballColour }));
+  ballRing.rotation.x = -Math.PI / 2;
   const red = new THREE.MeshBasicMaterial({ color: MARK.colour, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
   const manRing = new THREE.Mesh(ring.geometry, red);
   manRing.rotation.x = -Math.PI / 2;
   const arrow = buildArrow(red);
-  scene.add(...players, ball, ring, manRing, arrow.group);
+  scene.add(...players, ball, ring, glow, ballRing, manRing, arrow.group);
   // For drawing the ball across when its holder changes, or the way he carries it: who carried it and how on the last
   // frame (undefined before the first; see carrying), its holder and the phase then, where it was drawn when the way
   // it is carried last changed, and the seconds since.
@@ -119,7 +125,12 @@ export function createActors(scene, people = null) {
       } else ball.position.set(state.ball.x, state.ball.y, state.ball.z);
       const me = state.players[state.controlled];
       ring.position.set(me.x, 0.02, me.z);
-      ring.visible = (state.humans ?? [0]).includes(0);   // the ring under the player you control: none in Watch
+      glow.position.set(me.x, 0.019, me.z);
+      ring.visible = glow.visible = (state.humans ?? [0]).includes(0);   // the ring under the player you control: none in Watch
+      // Under the ball's holder in play, whoever he is (in Watch too).
+      const holder = state.ball.holder === null ? null : state.players[state.ball.holder];
+      ballRing.visible = !!holder && (state.phase === 'live' || state.phase === 'inbound');
+      if (holder) ballRing.position.set(holder.x, 0.022, holder.z);
       const mark = matchupMark(state);
       manRing.visible = mark !== null;
       arrow.group.visible = !!mark?.arrow;

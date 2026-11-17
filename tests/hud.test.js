@@ -746,3 +746,27 @@ test('a simulated game\'s result names the player of the game and each team\'s t
   const big = { stats: { pts: 30, reb: 12, ast: 4, blk: 3, stl: 1, tpm: 5, fgm: 11, fga: 19 } };
   assert.equal(statLine(big), '30 PTS · 12 REB · 4 AST · 3 BLK · 5 3PM · 11/19 FG');
 });
+
+test('a pointer hangs over the head of the player you control, where the page is told that is; none in Watch', () => {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els;
+  s.phase = 'live';
+  hud.update(s, 'webgl2', { paused: false, pick: null, feet: { x: 400, y: 300 }, head: { x: 401.2, y: 180.7 } });
+  assert.deepEqual([e.youMark.hidden, e.youMark.style.left, e.youMark.style.top], [false, '401px', '181px']);
+  hud.update(s, 'webgl2', { paused: false, pick: null });
+  assert.equal(e.youMark.hidden, true);
+  s.humans = [];
+  hud.update(s, 'webgl2', { paused: false, pick: null, head: { x: 1, y: 1 } });
+  assert.equal(e.youMark.hidden, true);
+});
+
+test('the team with the ball is lit on the scorebug, with a ball by its name; the HUD in play is drawn bigger, more on a big screen', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  for (const t of [0, 1]) assert.match(html, new RegExp(`id="bugTeam${t}"[\\s\\S]*?<i class="ball"`));
+  assert.match(html, /#hud \.bugTeam\.has \.ball \{ display: block; \}/);
+  assert.match(html, /:root \{ --k: 1\.33; \}/);
+  for (const id of ['hud', 'call', 'nameTag', 'youMark', 'caption', 'playName']) assert.match(html, new RegExp(`#${id}[^{]*\\{[^}]*scale\\(var\\(--k\\)\\)`), id);
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els;
+  s.phase = 'live'; s.possession = 1;
+  hud.update(s, 'webgl2', { paused: false, pick: null });
+  assert.deepEqual([e.bugTeam0.className, e.bugTeam1.className], ['bugTeam home', 'bugTeam away has']);
+});

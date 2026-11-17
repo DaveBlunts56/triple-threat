@@ -329,6 +329,9 @@ export function createHud(doc) {
       hide('whoBox', !human);
       if (human) { set('who', whoText(state)); bar('energy', personOf(state, state.players[state.controlled]).energy); }
       hide('nameTag', !ui.feet || !human);
+      // And a pointer over his head, where the game says that is on the page.
+      hide('youMark', !ui.head || !human);
+      if (ui.head && human) { style('youMark', 'left', pixels(ui.head.x)); style('youMark', 'top', pixels(ui.head.y)); }
       if (ui.feet && human) {
         set('nameTag', surname(personOf(state, state.players[state.controlled])));
         style('nameTag', 'left', pixels(ui.feet.x));

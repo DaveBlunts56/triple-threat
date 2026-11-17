@@ -29,6 +29,7 @@ import { createLoading } from './render/loading.js';
 import { clear as clearReplays, createRecorder, decode, due, frameAt, mark, record, settle, skip as skipReplay, start as startReplay } from './replay.js';
 
 const MAX_FRAME = 0.1;   // seconds: after a stall, never simulate more than this to catch up
+const YOU_MARK = 2.5;    // metres above the floor the pointer over the player you control is put
 const newMatch = (size, teams = [0, 1]) => createMatch(Date.now() % 1e6, size, teams);   // size: 3 or 5 a side (three when not said); teams by id
 const MENU_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyR', 'Enter', 'Space', 'Escape', 'Backspace']);   // R: Team Select's random teams
 const MENU_ONCE = new Set(['Enter', 'Space', 'Escape', 'Backspace', 'KeyR']);   // a held one counts once; the bar keys may repeat
@@ -329,6 +330,8 @@ if (view) {
     // Where the feet of the player you control are on the page, for his name; nothing before and after a match.
     const me = drawn.players[drawn.controlled];
     game.feet = inPlay(state) && !shown ? view.toScreen(me.x, 0, me.z) : null;
+    // And over his head (YOU_MARK above the floor, over the tallest player's hair, and up with him in a jump).
+    game.head = inPlay(state) && !shown ? view.toScreen(me.x, me.y + YOU_MARK, me.z) : null;
     // And where everyone's feet are, for the star, the flame and the ice cube under those who have one.
     game.spots = inPlay(state) && !shown ? state.players.map(p => view.toScreen(p.x, 0, p.z)) : null;
     const m = shown ? null : shotMeter(state);
