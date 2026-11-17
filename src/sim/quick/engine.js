@@ -3,6 +3,7 @@
 // played as beats (possession.js), and what happens comes from the shared models (outcomes.js). A seed gives the same
 // game every time. See the spec, section 10.
 import { CLOCK, TIP } from '../tuning.js';
+import { feelSteal, settle } from '../mood.js';
 import { createMatch, personOf, rand, setLength } from '../state.js';
 import { setStyle, styled } from '../styles.js';
 import { recordFoul } from '../fouls.js';
@@ -88,7 +89,7 @@ function stoppage(state, team) {
   adjust(state, 0); adjust(state, 1);
   for (const side of [0, 1]) {
     if (state.timeouts[side] > 0 && wantsTimeout(state, side, coachKindOf(state, side).timeouts)) {
-      state.timeouts[side]--; state.lastTimeout = state.time; state.ato = team;
+      state.timeouts[side]--; state.lastTimeout = state.time; state.ato = team; settle(state);
       for (const person of state.rosters.flat()) person.energy = Math.min(1, person.energy + styled(state, 'timeout.rest'));
     }
   }
@@ -105,7 +106,7 @@ function finish(state, team, ended) {
     if (ended.kind === 'shotClock' || !ended.by) { state.teamStats[team].tov++; return { team: other, begun: 'inbound', stoppage: true }; }
     note(state, ended.by, 'tov');
     if (ended.kind === 'charge') { recordFoul(state, { kind: 'charge', by: ended.by.id, on: (state.players.find(o => o.man === ended.by.id) ?? state.players.find(o => o.team !== team)).id }); return { team: other, begun: 'inbound', stoppage: true }; }
-    if (ended.stolenBy) { note(state, stealer(state, ended.stolenBy), 'stl'); return { team: other, begun: 'steal', stoppage: false }; }
+    if (ended.stolenBy) { const thief = stealer(state, ended.stolenBy); note(state, thief, 'stl'); feelSteal(state, thief, ended.by); return { team: other, begun: 'steal', stoppage: false }; }
     return { team: other, begun: 'inbound', stoppage: true };
   }
   if (ended.how === 'foul') {

@@ -6,6 +6,7 @@ import { rematch } from './matchups.js';
 import { lift, drop, rated, reboundApart, heatOf } from './ratings.js';
 import { DRIBBLES, KINDS, startMove, stepMove, finishMove } from './moves.js';
 import { note } from './stats.js';
+import { feelShot, feelSteal, moodSkill } from './mood.js';
 import { behindBoard, finishFor, flairFor, gatherVelocity, jumpVelocity } from './finish.js';
 import { styled } from './styles.js';
 import { handOver } from './possessions.js';
@@ -192,7 +193,7 @@ export function makeChance(state, player) {
   // His rating for a shot from where he stands counts for or against him.
   const person = personOf(state, player);
   return shotChance({ base, timing, contest: contest(state, player), energy: person.energy, levelMake: human ? levelOf(state).make : cpuLevelOf(state).cpuMake,
-    skill: skillOf(rated(state, player, zoneOf(player)), heatOf(person)), fading: player.fading, make: styled(state, 'shot.make'), form: person.form ?? 1 });
+    skill: skillOf(rated(state, player, zoneOf(player)) + moodSkill(state, player), heatOf(person)), fading: player.fading, make: styled(state, 'shot.make'), form: person.form ?? 1 });
 }
 
 // Behind the backboard of the hoop he attacks, with the board between him and the rim.
@@ -217,10 +218,12 @@ export function shotWindow(state, player) {
 // Half a step of slack: a release can only come on a step, so the step nearest the best moment is always green.
 export const greenAt = (window, t) => window.inRange && Math.abs(t - window.best) <= window.half + DT / 2;
 
-// Counts a shot from the floor toward his streak: his makes in a row, or his misses in a row as a negative number.
-function streak(state, player, made) {
+// Counts a shot from the floor toward his streak: his makes in a row, or his misses in a row as a negative number; and
+// toward his mood and his defender's (see mood.js feelShot: `shot` says its worth, a dunk, or the blocker).
+function streak(state, player, made, shot = {}) {
   const person = personOf(state, player);
   person.streak = made ? Math.max(person.streak, 0) + 1 : Math.min(person.streak, 0) - 1;
+  feelShot(state, player, made, shot);
 }
 
 // Whether the pass that found him leads straight to his shot, as a scorer credits an assist: soon enough after the catch
@@ -258,7 +261,7 @@ function blockedBy(state, player) {
   ball.vx = -sign * BLOCK.deflect; ball.vy = 0; ball.vz = 0;
   ball.shooter = null; ball.shotValue = 0;
   state.shot.blocked = true;
-  streak(state, player, false);
+  streak(state, player, false, { blocker });
   // A chase-down: the blocker came from behind him, at a run toward that hoop.
   const toHoop = dist(blocker, hoop) || 1, pace = (blocker.vx * (hoop.x - blocker.x) + blocker.vz * (hoop.z - blocker.z)) / toHoop;
   note(state, blocker, 'blk');
@@ -301,7 +304,7 @@ export function releaseShot(state, player, { green: mayBeGreen = true } = {}) {
   // A green release always goes in, or, where the style has it, has its miss cut (see shooting.js, greenChance).
   const rule = styled(state, 'shot.green');
   const made = green ? rule === 'sure' || rand(state) < greenChance(rule, makeChance(state, player), styled(state, 'shot.boost')) : rand(state) < makeChance(state, player);
-  streak(state, player, made);
+  streak(state, player, made, { value: info.value });
   const dice = made && green ? 1 : rand(state);
   // A layup that goes in is rolled over the front of the rim: it is not banked in, and does not rattle.
   const how = !made ? (dice < SHOT.tease ? 'tease' : 'clean') : green || player.finish === 'layup' ? 'clean' : ['clean', 'rattle', 'roll', 'bank'][SHOT.ways.findIndex(share => dice < share)];
@@ -333,7 +336,7 @@ function releaseDunk(state, player) {
   const defender = contactOf(state, player);
   if (blockedBy(state, player)) return { shooter: player.id, defender, blocked: true };
   const made = rand(state) < dunkChance(state, player);
-  streak(state, player, made);
+  streak(state, player, made, { value: 2, dunk: true });
   if (made) {
     Object.assign(ball, { x: hoop.x, y: RIM.height + BALL.radius + 0.05, z: hoop.z, vx: 0, vy: -FINISH.dunkDrop, vz: 0, shooter: player.id, shotValue: 2, made: true });
     letGo(state, player, 'shot');
@@ -438,7 +441,7 @@ export function giveBall(state, player) {
   if (state.board && state.phase !== 'dead' && !state.pendingFoul) { note(state, player, 'reb'); if (player.team === state.boardTeam) note(state, player, 'orb'); }
   state.board = false;
   if (passer && passer.team !== player.team) {
-    note(state, player, 'stl'); note(state, passer, 'tov');
+    note(state, player, 'stl'); note(state, passer, 'tov'); feelSteal(state, player, passer);
     state.last.steal = { by: player.id, on: passer.id, at: state.time };
   }
   // A fumbled catch the other team picks up is the fumbler's turnover.
@@ -493,7 +496,7 @@ export function trySteal(state, player) {
   const won = rand(state) < clamp((front ? styled(state, 'steal.front') : styled(state, 'steal.back')) * (holder.held ? STEAL.heldFactor : 1) * skill * guarded * gripped, 0, 1);
   if (won) {
     holder.shooting = false; holder.fading = false; holder.finish = null;
-    note(state, player, 'stl'); note(state, holder, 'tov');
+    note(state, player, 'stl'); note(state, holder, 'tov'); feelSteal(state, player, holder);
     state.last.steal = { by: player.id, on: holder.id, at: state.time };
     giveBall(state, player);
   }

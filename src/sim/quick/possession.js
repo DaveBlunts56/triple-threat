@@ -3,6 +3,7 @@
 // the play being run and worth what the shared shot model says; he chooses with the same decision maker as the 3D
 // game's players (choose.js), with the same leanings, rules of patience and clock.
 import { AI, CLOCK, LATE, PLAY } from '../tuning.js';
+import { lean } from '../mood.js';
 import { personOf, rand } from '../state.js';
 import { styled } from '../styles.js';
 import { STAR_AT, choose, sharpness, starPull } from '../choose.js';
@@ -85,9 +86,15 @@ function handlerOf(state, team) {
 export function playPossession(state, team, begun) {
   const r = () => rand(state);   // the match's dice, once for the possession
   const sit = situation(state, team), book = playbookOf(state, team), scheme = schemeOf(state, 1 - team);
+  let h = begun === 'oreb' && state.ball.holder !== null ? state.players[state.ball.holder] : handlerOf(state, team);
+  // The defence fouls on purpose, late and behind: the ball is grabbed at once, as it comes in or is picked up, before
+  // it is brought up (a team chasing the game needs every second; an offensive rebound may still go straight back up).
+  // The foul is given by the defender on the floor with the most fouls to give (his man's guard, if no one has fewer).
+  const fresh = () => state.players.filter(p => p.team !== team).reduce((best, p) => (personOf(state, p).fouls < personOf(state, best).fouls ? p : best), guardOf(state, h));
+  const grab = () => { playFor(state, 1 + rand(state) * 2); return { how: 'foul', on: h, by: fresh(), on_purpose: true }; };
+  if (begun !== 'oreb' && situation(state, 1 - team).foul) return grab();
   // Bringing it up: an inbound is walked up and set; a live ball may be pushed.
   if (begun === 'inbound') playFor(state, (within(r, QUICK.bringUp) / book.pace) * (sit.hurry ? 0.5 : 1));   // behind late: pushed up at once
-  let h = begun === 'oreb' && state.ball.holder !== null ? state.players[state.ball.holder] : handlerOf(state, team);
   // An offensive rebound near the rim goes straight back up, as a man at the rim does in the 3D game; now and then he
   // brings it out instead.
   if (begun === 'oreb' && state.missedNear && rand(state) < QUICK.putback) {
@@ -105,8 +112,7 @@ export function playPossession(state, team, begun) {
     }
     playFor(state, within(r, QUICK.bringUp) * 0.6 / book.pace);
   }
-  // The defence fouls on purpose, late and behind: the ball is grabbed at once.
-  if (situation(state, 1 - team).foul) { playFor(state, 1 + rand(state) * 2); return { how: 'foul', on: h, by: guardOf(state, h), on_purpose: true }; }
+  if (situation(state, 1 - team).foul) return grab();   // (after an offensive rebound brought out)
 
   const wait = (styled(state, 'ai.patience')[0] + rand(state) * (styled(state, 'ai.patience')[1] - styled(state, 'ai.patience')[0])) / book.pace;
   let play = null, ran = false, fed = null, beat = 0;
@@ -179,7 +185,7 @@ export function playPossession(state, team, begun) {
     if (!forced) options.push({ key: 'hold', value: keep + (milking || holding ? 0.6 : 0) });
     if (forced && !options.some(o => o.key === 'shoot' || o.key === 'drive' || o.key === 'post')) options.push({ key: 'shoot', value: 0.5, look: look(state, h, jumper(state, h), within(r, QUICK.gap.forced), d) });
 
-    const pickOne = choose(state, options, iq, 'offence');
+    const pickOne = choose(state, lean(state, h, options), iq, 'offence');
     // Losing the ball on the way: a pass picked off or thrown away, a strip on a drive, a fumble, a charge, an
     // illegal screen in the play.
     const tov = turnoverChance(state, pickOne.key, h, d, pick && play);

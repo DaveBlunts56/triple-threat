@@ -1,4 +1,5 @@
 import { CLOCK, COURT, PASS, PLAYER, TIP, VIOLATION } from './tuning.js';
+import { settle } from './mood.js';
 import { note, noteRow } from './stats.js';
 import { addPoints, attackSign, isJumper, lineUp, onFloor, personOf, rand } from './state.js';
 import { jump } from './players.js';
@@ -186,6 +187,7 @@ export function callTimeout(state, team) {
   const live = state.phase === 'live' && holder?.team === team && !holder.shooting && onFloor(holder);
   if (state.timeouts[team] <= 0 || !(live || state.phase === 'dead' || state.phase === 'inbound')) return false;
   state.timeouts[team]--;
+  settle(state);   // a timeout settles everyone (see mood.js)
   state.clockRuns = false;
   state.lastTimeout = state.time;
   state.ato = state.possession;   // the team with the ball runs what has worked when play starts again

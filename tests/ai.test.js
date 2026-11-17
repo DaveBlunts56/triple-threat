@@ -619,3 +619,19 @@ test('the computer lets a layup go at its best moment, give or take what its lev
     assert.ok(Math.abs(s.shot.t - best) <= DIFFICULTY.levels.legend.jitter + DT + 1e-9, `released ${s.shot.t - best} s from the best moment`);
   }
 });
+
+test('as a team-mate goes up to shoot, those his team sends to the glass head in at once: one Wave, who get back, two Scorpions, who crash', () => {
+  for (const [shooterId, want] of [[0, 1], [3, 2]]) {   // three a side: the Waves (team 0) send one of the other two, the Scorpions both
+    const s = live(shooterId);
+    s.humans = [];
+    const shooter = s.players[shooterId], sign = shooter.team === 0 ? 1 : -1;
+    shooter.shooting = true;
+    aiIntents(s, DT);
+    const spot = sign * (RIM.x - AI.crashOff);
+    const going = s.players.filter(p => p.team === shooter.team && p !== shooter && Math.abs(p.ai.targetX - spot) < 1e-6 && p.ai.sprint);
+    assert.equal(going.length, want, `${shooter.team === 0 ? 'Waves' : 'Scorpions'}: ${going.length} head for the glass`);
+    shooter.shooting = false;
+    aiIntents(s, DT * 40);
+    assert.equal(s.players.filter(p => p.team === shooter.team && p !== shooter && Math.abs(p.ai.targetX - spot) < 1e-6).length, 0, 'and not before the shot');
+  }
+});

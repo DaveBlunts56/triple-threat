@@ -2,13 +2,16 @@
 // bench. Nothing here decides anything: the rules write it and the page reads it.
 // reb is every rebound; orb those of his own team's misses (the rest, reb - orb, are defensive). A person's seconds on
 // the court (secs) and his plus-minus (pm) are kept beside his line, not in it.
+import { feelNote } from './mood.js';
+
 export const STAT_KEYS = Object.freeze(['pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'reb', 'ast', 'stl', 'blk', 'tov', 'orb']);
 
 export const emptyLine = () => Object.fromEntries(STAT_KEYS.map(key => [key, 0]));
 
-// Adds `n` of `key` to the line of the person in `row` of `team`'s roster.
+// Adds `n` of `key` to the line of the person in `row` of `team`'s roster; what he did moves his mood (see mood.js).
 export function noteRow(state, team, row, key, n = 1) {
   state.rosters[team][row].stats[key] += n;
+  feelNote(state, team, row, key, n);
 }
 
 // The same, for the person a court player is now.

@@ -9,7 +9,7 @@ export const PANELS = Object.freeze(['lineups', 'period', 'half']);
 
 export const BANNER_WORDS = Object.freeze({ ankle: 'ANKLE-BREAKER', block: 'BLOCKED', andOne: 'AND ONE', buzzer: 'BUZZER-BEATER', winner: 'GAME-WINNER',
   poster: 'POSTER', stealScore: 'STEAL AND SCORE', deep: 'FROM DEEP', clutch: 'CLUTCH', heatingUp: 'HEATING UP', onFire: 'ON FIRE',
-  run: '{n}-0 RUN', comeback: 'COMEBACK', perfect: 'PERFECT RELEASE' });
+  run: '{n}-0 RUN', comeback: 'COMEBACK', rivalry: 'RIVALRY', perfect: 'PERFECT RELEASE' });
 const BASKETS = ['ankle', 'andOne', 'buzzer', 'poster', 'stealScore', 'deep', 'clutch', 'heatingUp', 'onFire', 'perfect'];   // moments that are a basket
 
 const short = (state, team) => nicknameOf(state.teams[team]);

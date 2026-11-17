@@ -12,6 +12,7 @@ import { offBallSpot, passed } from './offball.js';
 import { OFF } from './tuning.js';
 import { KINDS } from './moves.js';
 import { styled } from './styles.js';
+import { lean, moodSkill } from './mood.js';
 import { speedFactor } from './stamina.js';
 import { easeOf, focusOf, gambleOf, playbookOf, tightness } from './coach.js';
 import { STAR_AT, choose, sharpness, starPull } from './choose.js';
@@ -239,7 +240,7 @@ function planWithBall(state, p) {
     if (!options.length) return goTo(ai, { x: p.x, z: Math.sign(p.z || 1) * (VIOLATION.keyHalfWidth + 0.9) }, true);
   }
 
-  const pick = choose(state, options, iqOf(state, p), 'offence');
+  const pick = choose(state, lean(state, p, options), iqOf(state, p), 'offence');
   ai.chose = pick.key; ai.options = options;   // what he chose and from what, for whoever watches (the tests)
   switch (pick.key) {
     case 'shoot': return shoot();
@@ -337,7 +338,7 @@ export function shotValue(state, m, { at = m, closing = 0, fading = false } = {}
   gap = Math.max(0.2, gap - closing - toward * read);
   const three = isThree(at.x, at.z, sign), corner = Math.abs(at.z) > THREE_PT.cornerZ;
   const zone = three ? 'three' : far < SHOT.insideDist ? 'inside' : 'mid';
-  const person = personOf(state, m), rating = person.ratings[zone], heat = heatOf(person), lv = shooterLevel(state, m.team);
+  const person = personOf(state, m), rating = person.ratings[zone] + moodSkill(state, m), heat = heatOf(person), lv = shooterLevel(state, m.team);
   const contest = contestShare({ gap, defence: rated(state, nearest, 'defence'), fading });
   const base = distanceChance(styled(state, 'shot.curve'), far, zoneFor(far, three, corner, null));
   const meter = styled(state, 'shot.meter');   // without one (Simulation) a release is not judged and is never green
@@ -379,6 +380,23 @@ function passValue(state, p, m, keep) {
 // down and a shot must be got up whatever it is.
 const holdValue = state => styled(state, 'decide.possession') * Math.min(1, Math.max(0.2, (state.shotClock - 3) / 9));
 
+// How many of `team` (of `size` on the floor) go to the glass on its own shot: its playbook's choice (two for a team like
+// any other; a team that gets back sends one, one that crashes three); and how much each wants to: who rebounds and
+// likes to (see planFreeBall, and planCrash).
+const crashCount = (state, team, size) => Math.min(size - 1, Math.max(1, Math.round(((2 * playbookOf(state, team).crash) / 0.4) * styled(state, 'board.crash'))));
+const crashPull = (state, m) => rated(state, m, 'rebound') * (0.5 + personOf(state, m).tend.crash);
+
+// A team-mate is going up for a shot: those his team sends to the glass do not wait for the ball to leave his hand, as
+// offensive rebounders read a shot coming; each heads in to his side of the rim. Returns whether `p` is one of them.
+function planCrash(state, p, shooter) {
+  const team = state.players.filter(m => m.team === p.team && m !== shooter && !m.inbounder);
+  const crashers = [...team].sort((a, b) => crashPull(state, b) - crashPull(state, a)).slice(0, crashCount(state, p.team, team.length + 1));
+  if (!crashers.includes(p)) return false;
+  const sign = attackSign(p.team), hoop = rimCentre(sign);
+  goTo(p.ai, { x: hoop.x - sign * AI.crashOff, z: Math.max(-AI.crashSide, Math.min(AI.crashSide, p.z * 0.5)) }, true);
+  return true;
+}
+
 // Chasing a ball nobody holds. Two per team go for it, the rest get back on defence, side by side.
 function planFreeBall(state, p) {
   const { ai } = p, { ball } = state, sign = attackSign(p.team);
@@ -413,8 +431,8 @@ function planFreeBall(state, p) {
   const shot = ball.mode === 'shot' && ball.shooter !== null, ours = shot && state.players[ball.shooter].team === p.team;
   // How many of the team that shot go to the glass is its playbook's choice (two for a team like any other; a team
   // that gets back sends one, one that crashes three), and who goes is who rebounds and likes to.
-  const crash = playbookOf(state, p.team).crash, crashers = Math.min(team.length - 1, Math.max(1, Math.round(((2 * crash) / 0.4) * styled(state, 'board.crash'))));
-  const pull = m => rated(state, m, 'rebound') * (0.5 + personOf(state, m).tend.crash);
+  const crashers = crashCount(state, p.team, team.length);
+  const pull = m => crashPull(state, m);
   const order = ours ? (a, b) => pull(b) - pull(a) || dist(a, focus) - dist(b, focus) : (a, b) => dist(a, focus) - dist(b, focus);
   const chasers = [...team].sort(order).slice(0, !shot ? 2 : ours ? crashers : styled(state, 'board.defence'));
   if (!chasers.includes(p)) {
@@ -591,7 +609,7 @@ function plan(state, p) {
   // A dead ball is not chased: the team about to inbound sets up, the other gets back on defence.
   else if (state.phase === 'dead') (p.team === state.possession ? planOffBall : planDefence)(state, p);
   else if (!holder) planFreeBall(state, p);
-  else if (holder.team === p.team) planOffBall(state, p);
+  else if (holder.team === p.team) { if (!(holder.shooting && planCrash(state, p, holder))) planOffBall(state, p); }
   else planDefence(state, p);
 }
 

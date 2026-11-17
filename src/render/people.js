@@ -4,7 +4,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BALL, MOVES } from '../sim/tuning.js';
 import { TEAMS } from '../sim/teams.js';
 import { clone as cloneRig } from 'three/addons/utils/SkeletonUtils.js';
-import { onFloor } from '../sim/state.js';
+import { onFloor, personOf } from '../sim/state.js';
+import { moodOf } from '../sim/mood.js';
 import { assetUrl, modelFile } from './assets.js';
 import { MOTION, legMotion, armMotion, legLook, newMarks, noteChanges, drawnFacing, wholeBody } from './motion.js';
 import { BALL_IN_HAND, ballHands, crossFrom, dribbleSpot, moveSpot } from './hands.js';
@@ -481,7 +482,7 @@ export async function loadPeople(camera) {
         // A downloaded clip of the whole body (a move, a stumble) is played by the legs as well.
         const whole = he.arms && 'at' in he.arms && wholeBody(facts.clips, he.arms.clip) ? he.arms : null;
         he.animator.update(whole ?? legs, he.arms, dt, standing ? null : bearing.head, !standing && onFloor(player));
-        he.face.update(dt, standing ? {} : faceWants(player, marks));
+        he.face.update(dt, standing ? {} : faceWants(player, marks, { mood: moodOf(state, personOf(state, player)), defending: player.team !== state.possession, dead: state.phase !== 'live' }));
         for (const u of he.wet) u.value = sweat.of(who);
       });
     },

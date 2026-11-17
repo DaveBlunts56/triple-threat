@@ -2,6 +2,7 @@
 // rebound, the tiredness of the seconds played. Chances come from the shared models (shooting.js, the ratings, the
 // style's numbers), and the box score is kept with the same notes as the 3D game's (stats.js).
 import { AI, DIFFICULTY, RATE, SHOT } from '../tuning.js';
+import { feelShot, moodSkill } from '../mood.js';
 import { addPoints, personOf, rand } from '../state.js';
 import { styled } from '../styles.js';
 import { lift, drop } from '../overall.js';
@@ -24,7 +25,7 @@ export const isThreeZone = zone => zone === 'corner3' || zone === 'arc3';
 // and its worth in expected points, as the shared shot model has them for a computer shooter.
 export function look(state, shooter, zone, gap, defender, { fading = false, far: span = null } = {}) {
   const person = personOf(state, shooter), far = within(state.dice ??= () => rand(state), span ?? QUICK.far[zone]);
-  const rating = person.ratings[ratingFor(zone)], heat = heatOf(person);
+  const rating = person.ratings[ratingFor(zone)] + moodSkill(state, shooter), heat = heatOf(person);
   const contest = contestShare({ gap, defence: personOf(state, defender).ratings.defence, fading });
   const meter = styled(state, 'shot.meter');   // without one (Simulation) a release is not judged and is never green, as in the 3D game
   const chance = shotChance({ base: distanceChance(styled(state, 'shot.curve'), far, zone), timing: meter ? TIMING : 1,
@@ -51,7 +52,7 @@ export function shoot(state, l, { drive = false, post = false } = {}) {
   // A block: a defender in reach, the more often the better he defends.
   if (rand(state) < QUICK.block[l.zone] * lift(personOf(state, l.defender).ratings.defence, 0.15) * (l.gap < 1.2 ? 1.4 : 0.6)) {
     const by = blocker(state, l.defender, l.zone);   // at the rim, often the help's
-    note(state, by, 'blk'); streak(person, false);
+    note(state, by, 'blk'); streak(person, false); feelShot(state, l.shooter, false, { blocker: by });
     return { result: 'blocked', fouled: false, by };
   }
   // Contact: on a finish where the style calls contact on a drive, on a post move (a man backing his defender down),
@@ -62,7 +63,7 @@ export function shoot(state, l, { drive = false, post = false } = {}) {
   // A foul on the shot makes it harder; a green release is drawn first, then its chance, as the 3D game draws them.
   const chance = l.chance * (fouled ? 0.55 : 1), rule = styled(state, 'shot.green');
   const made = rand(state) < l.green ? rule === 'sure' || rand(state) < greenChance(rule, chance, styled(state, 'shot.boost')) : rand(state) < chance;
-  streak(person, made);
+  streak(person, made); feelShot(state, l.shooter, made, { value: l.value });
   if (made) {
     note(state, l.shooter, 'fgm'); note(state, l.shooter, 'pts', l.value); if (three) note(state, l.shooter, 'tpm');
     addPoints(state, team, l.value);

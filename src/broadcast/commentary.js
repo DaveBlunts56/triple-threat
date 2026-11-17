@@ -46,6 +46,8 @@ export const LINES = Object.freeze({
   clutch: ['{name}, when it matters most!', 'A huge basket by {name}!', 'Ice in his veins: {name}.'],
   onFire: ['{name} is on fire! Five in a row.', 'He cannot miss! {name} has five straight.', 'Five in a row for {name}. Get him the ball.'],
   heatingUp: ['{name} is heating up.', 'Three in a row for {name}.', '{name} has found his touch.'],
+  rivalry: ['A real battle out there: {name}.', 'These two have been going at it all night: {name}.', '{name}. Neither one is backing down.'],
+  rattled: ['{name} looks rattled.', '{name} is getting frustrated out there.', 'You can see it on {name}. He is not happy.'],
   run: ['{team} are on a {n} to nothing run.', 'Make it {n} unanswered for {team}.', 'A {n} to nothing run for {team}.'],
   comeback: ['{team} have come all the way back!', 'What a comeback by {team}!', '{team} have wiped out the deficit.'],
   perfect: ['Perfect release from {name}.', 'Nothing but net for {name}.', 'That was pure, {name}.'],
