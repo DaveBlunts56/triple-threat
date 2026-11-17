@@ -215,7 +215,16 @@ export const ARC = f({ threeAt: 75, openAt: 2.5, driftReach: 5, relocateReach: 7
 // man the play is for a defender must be to stop it being thrown: less than for other passes. startAt: seconds into
 // the shot clock before the coach calls a play. roundGap: how wide of the screener's centre the handler goes to get
 // round him. roundBy: how far past the screener he must be before he turns for the hoop.
-export const PLAY = f({ wait: 1.5, minClock: 9, startX: 1.5, screenGap: 0.66, setDist: 0.9, useBy: 1.6, cut: 4.5, ripeBy: 4, roll: 1.7, feedWidth: 0.65, startAt: 6, roundGap: 1.05, roundBy: 0.3 });
+// variants: how often the handler of a pick play takes its screen each way (see plays.js): on to the rim; rejecting it,
+// the other way; snaking round it and back across the lane; or pulling up off it at the elbow (only a man who shoots
+// from there: see SUIT in plays.js). cheat: metres his defender must be over toward the screen, as it is set, for him
+// to reject it whatever was drawn. snake: seconds he goes on round it before he turns back. relocate: seconds after the
+// screen is used before the corners move. afterPass: seconds after the ball has been passed on that a play which does
+// not turn on a pass ends, and the offence is read and played (time enough for the man who caught it to attack). handoff: how near the handler a team-mate coming for a
+// handoff must be to be given it. punish: metres beyond READ.wide a team-mate must be open for the handler to give him
+// the ball while his play is still forming. flareBy: seconds a flare screen may take to be set before the shooter goes.
+export const PLAY = f({ wait: 1.5, minClock: 9, startX: 1.5, screenGap: 0.66, setDist: 0.9, useBy: 1.6, cut: 4.5, ripeBy: 4, roll: 1.7, feedWidth: 0.65, startAt: 6, roundGap: 1.05, roundBy: 0.3,
+  variants: f({ normal: 0.55, reject: 0.15, snake: 0.15, pullup: 0.15 }), cheat: 0.5, snake: 0.9, relocate: 0.3, afterPass: 1.5, handoff: 2.2, punish: 0.6, flareBy: 2.2 });
 
 // The difficulty levels, easiest first, what the menus call them, and what each changes. For you (team 0): green: how
 // wide the green window of your shots is, against All-Star's; make: the share of its chance a shot of yours that is

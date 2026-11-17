@@ -532,7 +532,20 @@
   "feedWidth": 0.65,
   "startAt": 6,
   "roundGap": 1.05,
-  "roundBy": 0.3
+  "roundBy": 0.3,
+  "variants": {
+   "normal": 0.55,
+   "reject": 0.15,
+   "snake": 0.15,
+   "pullup": 0.15
+  },
+  "cheat": 0.5,
+  "snake": 0.9,
+  "relocate": 0.3,
+  "afterPass": 1.5,
+  "handoff": 2.2,
+  "punish": 0.6,
+  "flareBy": 2.2
  },
  "PLAYER": {
   "radius": 0.3,

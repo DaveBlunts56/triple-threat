@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import { createMatch, emptyIntent } from '../src/sim/state.js';
 import { giveBall } from '../src/sim/players.js';
 import { step } from '../src/sim/step.js';
-import { PLAYS, playsFor, callPlay, stepPlays, playSpot, playOn } from '../src/sim/plays.js';
+import { PLAYS, playsFor, callPlay, stepPlays, playSpot, playOn, playTarget, screenerOn } from '../src/sim/plays.js';
+import { aiIntents } from '../src/sim/ai.js';
+import { personOf } from '../src/sim/state.js';
 import { keyContains } from '../src/sim/violations.js';
 import { guardOf } from '../src/sim/matchups.js';
-import { AI, CLOCK, COURT, DT, FOUL, PLAY, PLAYER, RIM, VIOLATION } from '../src/sim/tuning.js';
+import { AI, ARC, CLOCK, COURT, DT, FOUL, PLAY, PLAYER, READ, RIM, VIOLATION } from '../src/sim/tuning.js';
 import { at, ai, idle } from './helpers.js';
 
 const apart = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -25,11 +27,12 @@ function scene(size = 5) {
   giveBall(s, s.players[0]);
   return s;
 }
-const run = (s, key) => { assert.equal(callPlay(s, 0, key), true); stepPlays(s, DT); assert.equal(playOn(s, 0)?.key, key, `${key} did not start`); return s.plays[0]; };
+// Starts `key` for team 0, its screen to be taken the plain way (the variants have their own test).
+const run = (s, key) => { assert.equal(callPlay(s, 0, key), true); stepPlays(s, DT); assert.equal(playOn(s, 0)?.key, key, `${key} did not start`); s.plays[0].variant = 'normal'; return s.plays[0]; };
 
 test('each size of match has its plays, and every play has a name and a line for the player', () => {
-  assert.deepEqual(playsFor(3), ['pickRoll', 'pickPop', 'iso', 'postUp', 'giveGo']);
-  assert.deepEqual(playsFor(5), ['pickRoll', 'pickPop', 'iso', 'horns', 'fiveOut', 'postUp', 'floppy', 'spain', 'giveGo', 'ucla']);
+  assert.deepEqual(playsFor(3), ['pickRoll', 'pickPop', 'iso', 'postUp', 'giveGo', 'dho', 'flare']);
+  assert.deepEqual(playsFor(5), ['pickRoll', 'pickPop', 'iso', 'horns', 'fiveOut', 'postUp', 'floppy', 'spain', 'giveGo', 'ucla', 'dho', 'flare']);
   for (const play of Object.values(PLAYS)) assert.ok(play.name && play.hint && play.long > 0);
 });
 
@@ -50,8 +53,9 @@ test('through every play, everyone is sent somewhere on the court, the spots are
       // Part of the way through the screen is set and then used, and the ball is passed on, so that every stage is seen.
       if (play.t > PLAYS[key].long * 0.3) {
         play.setAt ??= play.t;
-        // The plays that turn on a pass: the ball goes to the wing on the play's side.
-        if (['giveGo', 'ucla'].includes(key) && s.ball.holder === 0) { giveBall(s, s.players[play.ids.shooter ?? play.ids.wing]); stepPlays(s, 0); }
+        // The plays that turn on a pass: the ball goes to the wing on the play's side (to the man coming for a handoff,
+        // or flaring).
+        if (['giveGo', 'ucla', 'dho', 'flare'].includes(key) && s.ball.holder === 0) { giveBall(s, s.players[play.ids.shooter ?? play.ids.wing]); stepPlays(s, 0); }
       }
       if (play.t > PLAYS[key].long * 0.45) play.usedAt ??= play.t;
       const spots = mates.map(p => ({ p, spot: playSpot(s, p) })).filter(e => e.spot);
@@ -63,7 +67,7 @@ test('through every play, everyone is sent somewhere on the court, the spots are
         assert.ok(inKey[p.id] <= VIOLATION.key - 0.3 || s.ball.holder === p.id, `${key}: player ${p.id} is left in the key`);
       }
       // A screener stands against a defender, and so near whoever that defender guards; the rest keep apart.
-      const free = spots.filter(e => e.p.id !== play.ids[PLAYS[key].screener] && !(key === 'spain' && e.p.id === play.ids.shooter));
+      const free = spots.filter(e => e.p.id !== play.ids[PLAYS[key].screener] && e.p.id !== play.ids[PLAYS[key].screens] && !(key === 'spain' && e.p.id === play.ids.shooter));
       free.forEach((a, i) => free.slice(i + 1).forEach(b => assert.ok(apart(a.spot, b.spot) >= 1.2,
         `${key} at ${play.t.toFixed(1)}: players ${a.p.id} and ${b.p.id} are sent to the same place`)));
     }
@@ -279,4 +283,149 @@ test('the handler goes round the screener, not through him: his way to where he 
     assert.ok(nearest >= 2 * PLAYER.radius + 0.1, `${key}: his way passes ${nearest.toFixed(2)} m from the screener's middle`);
     assert.ok((handler.z - big.z) * play.side > 0.5, `${key}: he went round the wrong side`);
   }
+});
+
+// ---------- variety in the plays (after overhaul Stage 2) ----------
+
+// A pick play with its screen set (the big put on his spot), on the play's side 1.
+function setUp(key, variant = 'normal', size = 5) {
+  const s = scene(size), play = run(s, key), big = s.players[play.ids.big];
+  play.side = 1; play.variant = variant;
+  const screen = playSpot(s, big);
+  at(s, big.id, screen.x, screen.z); big.setT = FOUL.setTime;
+  stepPlays(s, DT);
+  assert.notEqual(play.setAt, null, `${key}: the screen was not set`);
+  return { s, play, big };
+}
+const use = (s, play) => { play.usedAt = play.t; play.t += 0.01; };
+const along = (s, spot) => spot.x;   // team 0 attacks +x: a spot's x is how far along the court it is
+
+test('a pick play is taken four ways, as drawn: on to the rim, rejected, snaked back across the lane, or pulled up at the elbow; only a man who shoots from there pulls up', () => {
+  const drawn = { normal: 0, reject: 0, snake: 0, pullup: 0 };
+  for (let seed = 1; seed <= 80; seed++) {
+    const s = scene(5); s.seed = seed * 7919;
+    callPlay(s, 0, 'pickRoll'); stepPlays(s, DT);
+    drawn[s.plays[0].variant]++;
+  }
+  assert.ok(Object.values(drawn).every(n => n >= 4) && drawn.normal > drawn.reject, JSON.stringify(drawn));
+  let pulled = 0;
+  for (let seed = 1; seed <= 80; seed++) {
+    const s = scene(5); s.seed = seed * 7919; personOf(s, s.players[0]).ratings.mid = 60;
+    callPlay(s, 0, 'pickRoll'); stepPlays(s, DT);
+    if (s.plays[0].variant === 'pullup') pulled++;
+  }
+  assert.equal(pulled, 0, 'a poor mid-range shooter pulled up');
+  // Where each takes the ball once the screen is used.
+  const after = (variant, wait = 0) => { const { s, play } = setUp('pickRoll', variant); use(s, play); play.t += wait; return playSpot(s, s.players[0]); };
+  const rim = after('normal'), pull = after('pullup'), early = after('snake'), late = after('snake', PLAY.snake + 0.1);
+  assert.ok(apart(rim, { x: RIM.x, z: 0 }) < AI.layupDist && rim.z > 0, `to the rim: ${JSON.stringify(rim)}`);
+  assert.ok(apart(pull, { x: RIM.x, z: 0 }) > 3.5 && apart(pull, { x: RIM.x, z: 0 }) < 5.5 && pull.z > 0, `the pull-up is at the elbow: ${JSON.stringify(pull)}`);
+  assert.ok(early.z > 0 && late.z < 0, `the snake goes round and then back across: ${JSON.stringify([early, late])}`);
+});
+
+test('the handler rejects the screen when that was drawn, or when his man has jumped over toward it as it is set: he goes the other way', () => {
+  const drawn = setUp('pickRoll', 'reject');
+  assert.equal(drawn.play.reject, true);
+  assert.ok(playSpot(drawn.s, drawn.s.players[0]).z < 0, 'away from the screen');
+  // Drawn to take it, but his man is over on the screen's side by PLAY.cheat as it is set.
+  const s = scene(5), play = run(s, 'pickRoll'), big = s.players[play.ids.big], man = guardOf(s, s.players[0]);
+  play.side = 1;
+  at(s, man.id, man.x, s.players[0].z + PLAY.cheat + 0.2);
+  const screen = playSpot(s, big); at(s, big.id, screen.x, screen.z); big.setT = FOUL.setTime;
+  stepPlays(s, DT);
+  assert.deepEqual([play.setAt !== null, play.reject], [true, true]);
+  assert.ok(playSpot(s, s.players[0]).z < 0);
+  use(s, play);
+  assert.ok(playSpot(s, s.players[0]).z < 0, 'to the rim on the other side');
+  // Played straight, he takes it.
+  assert.equal(setUp('pickRoll').play.reject, false);
+});
+
+test('as the screen is used the corners move: the man on the ball\'s side lifts to the wing, a shooter on the other stays in his corner, and when the big pops a wing who is no shooter takes the dunker spot', () => {
+  const roll = setUp('pickRoll'), shooter = roll.s.players[roll.play.ids.shooter], wing = roll.s.players[roll.play.ids.wing];
+  const home = [playSpot(roll.s, shooter), playSpot(roll.s, wing)];
+  assert.deepEqual(home.map(p => [p.x, p.z]), [[11.9, 7.06], [11.9, -7.06]], 'in the corners till the screen is used');
+  use(roll.s, roll.play); roll.play.t += PLAY.relocate;
+  personOf(roll.s, wing).ratings.three = ARC.threeAt + 5;
+  const lifted = playSpot(roll.s, shooter), stays = playSpot(roll.s, wing);
+  assert.ok(lifted.x < 10 && lifted.z > 5, `the ball-side corner lifts: ${JSON.stringify(lifted)}`);
+  assert.deepEqual([stays.x, stays.z], [11.9, -7.06], 'a shooter on the far side stays in his corner');
+  const pop = setUp('pickPop'), popWing = pop.s.players[pop.play.ids.wing];
+  personOf(pop.s, popWing).ratings.three = ARC.threeAt - 10;
+  use(pop.s, pop.play); pop.play.t += PLAY.relocate;
+  const dunker = playSpot(pop.s, popWing);
+  assert.ok(dunker.x > 12.5 && Math.abs(dunker.z) > VIOLATION.keyHalfWidth && Math.abs(dunker.z) < 3.5, `the dunker spot: ${JSON.stringify(dunker)}`);
+  // Three a side: the wing on the far side, a shooter, drops to the corner.
+  const three = setUp('pickRoll', 'normal', 3), w3 = three.s.players[three.play.ids.wing];
+  personOf(three.s, w3).ratings.three = ARC.threeAt + 5;
+  use(three.s, three.play); three.play.t += PLAY.relocate;
+  assert.deepEqual([playSpot(three.s, w3).x, playSpot(three.s, w3).z], [11.9, -7.06]);
+});
+
+test('a play that does not turn on a pass is over PLAY.afterPass after the ball is passed on, and the offence is read from there; one that turns on a pass goes on', () => {
+  for (const [key, goesOn] of [['pickRoll', false], ['iso', false], ['giveGo', true], ['dho', true]]) {
+    const s = scene(5), play = run(s, key);
+    giveBall(s, s.players[play.ids.shooter]); stepPlays(s, DT);
+    assert.notEqual(play.passAt, null, key);
+    for (let t = 0; t < PLAY.afterPass + 0.1; t += DT) stepPlays(s, DT);
+    assert.equal(s.plays[0] !== null, goesOn, key);
+  }
+});
+
+test('while his play is still forming the handler punishes help that has gone too far: a team-mate left wide open by READ.wide + PLAY.punish gets the ball, one open by less does not', () => {
+  const forming = (seed, gap) => {
+    const s = scene(5); s.seed = seed * 7919; s.frontcourt = true; s.shotClock = 18;
+    run(s, 'pickRoll');
+    at(s, 6, 7.5 + gap * 0.6, -5.5 + gap * 0.8);   // the wing's man has gone to help, toward the lane
+    Object.assign(s.players[0].ai, { heldT: 2, had: true, timer: 0 });
+    return s;
+  };
+  const toWing = intent => intent.pass && Math.abs(intent.moveX - (7.5 - 5.2) / Math.hypot(2.3, 6)) < 0.05;
+  let open = 0, wide = 0;
+  for (let seed = 1; seed <= 20; seed++) {
+    if (toWing(aiIntents(forming(seed, READ.wide + 0.2), DT)[0])) open++;
+    if (toWing(aiIntents(forming(seed, READ.wide + PLAY.punish + 0.9), DT)[0])) wide++;
+  }
+  assert.ok(open === 0 && wide >= 16, `open ${open}/20, wide open ${wide}/20`);
+});
+
+test('a handoff: the handler dribbles at the wing, who comes up for it and is given it; then the big screens the wing\'s man and rolls, and the handler spaces out', () => {
+  for (const size of [3, 5]) {
+    const s = scene(size), play = run(s, 'dho'), handler = s.players[0], big = s.players[play.ids.big], taker = s.players[play.ids[size === 5 ? 'shooter' : 'wing']];
+    play.side = 1;
+    const dribble = playSpot(s, handler), comes = playSpot(s, taker);
+    assert.ok(dribble.z > 2 && dribble.x > 6, `he dribbles at the wing: ${JSON.stringify(dribble)}`);
+    assert.ok(comes.x > 10 && comes.z > 5, `the wing first sinks low on the play's side: ${JSON.stringify(comes)}`);
+    play.t = 1.2;
+    at(s, 0, dribble.x, dribble.z); at(s, taker.id, playSpot(s, taker).x, playSpot(s, taker).z);
+    assert.equal(playTarget(s, handler), taker, 'close enough: the handoff');
+    giveBall(s, taker); stepPlays(s, DT);
+    const screen = playSpot(s, big), man = guardOf(s, taker), out = playSpot(s, handler);
+    assert.ok(Math.abs(apart(screen, man) - PLAY.screenGap) < 0.15, 'the big screens the wing\'s man');
+    assert.equal(screenerOn(s, 0), big.id);
+    assert.ok(out.x > 11 && out.z > 6, `the handler spaces to the corner: ${JSON.stringify(out)}`);
+    use(s, play);
+    assert.ok(apart(playSpot(s, big), { x: RIM.x, z: 0 }) < AI.layupDist, 'the big rolls');
+  }
+});
+
+test('a flare screen: the big goes to the shooter\'s man, on his way out to the weak side; once it is set the shooter flares to the arc there and is looked for', () => {
+  for (const size of [3, 5]) {
+    const s = scene(size), play = run(s, 'flare'), big = s.players[play.ids.big], taker = s.players[play.ids[size === 5 ? 'shooter' : 'wing']];
+    play.side = 1;
+    const waits = playSpot(s, taker), screen = playSpot(s, big), man = guardOf(s, taker), to = { x: 7.4, z: -6.3 };
+    assert.ok(waits.z < -2, `he starts on the weak side: ${JSON.stringify(waits)}`);
+    assert.ok(Math.abs(apart(screen, man) - PLAY.screenGap) < 0.05 && apart(screen, to) < apart(man, to), 'the screen is by his man, on his way');
+    assert.equal(playTarget(s, s.players[0]), null);
+    at(s, big.id, screen.x, screen.z); big.setT = FOUL.setTime; stepPlays(s, DT);
+    assert.notEqual(play.usedAt, null, 'set, and he goes');
+    const flares = playSpot(s, taker);
+    assert.deepEqual([flares.x, flares.z, flares.sprint], [7.4, -6.3, true]);
+    at(s, taker.id, 7.4, -6.3);
+    assert.equal(playTarget(s, s.players[0]), taker);
+  }
+  // A screen never set: the shooter goes after PLAY.flareBy anyway.
+  const late = scene(5), play = run(late, 'flare');
+  for (let t = 0; t < PLAY.flareBy + 0.1; t += DT) stepPlays(late, DT);
+  assert.notEqual(play.usedAt, null);
 });

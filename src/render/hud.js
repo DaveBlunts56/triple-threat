@@ -170,7 +170,7 @@ const PAUSE_HINTS = { main: '↑ ↓ choose · Enter select · Esc resume', sett
   subs: 'swap two players · A automatic substitutions · Esc back', controls: 'Esc back', box: 'Esc back', quit: '↑ ↓ choose · Enter select · Esc back',
   keys: '↑ ↓ choose · Enter change · Esc back' };
 const TAG_SLOTS = 10;     // tag0 to tag9 on the page: one under each player
-const PLAY_SLOTS = 10;    // playRow0 to playRow9 on the page
+const PLAY_SLOTS = 12;    // playRow0 to playRow11 on the page
 const PAUSE_SLOTS = 9;   // pauseRow0 to pauseRow8 on the page
 
 // The words of row `row` of the pause menu's panel shown; the settings say their value.
