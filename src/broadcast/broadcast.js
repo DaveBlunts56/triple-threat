@@ -5,13 +5,14 @@ import { createBooth, lineFor, quietLine, rankOf, say } from './commentary.js';
 import { createDirector, direct, panelFor, skipPanel } from './director.js';
 import { createVoice } from './voice.js';
 import { createReactions, react } from './reactions.js';
+import { closeCard, closeUp, createCinema, cue, skipClose } from './cinema.js';
 
 export function createBroadcast(voice = createVoice()) {
-  let match = null, watch, booth, director, heard, caption, reactions;
+  let match = null, watch, booth, director, heard, caption, reactions, cinema;
   // A new match (the page makes a new state for each) starts everything afresh.
   const sync = state => {
     if (state === match) return;
-    [match, watch, booth, director, heard, caption, reactions] = [state, createWatch(), createBooth(), createDirector(), [], null, createReactions()];
+    [match, watch, booth, director, heard, caption, reactions, cinema] = [state, createWatch(), createBooth(), createDirector(), [], null, createReactions(), createCinema()];
     voice.stop();
   };
   return {
@@ -23,14 +24,18 @@ export function createBroadcast(voice = createVoice()) {
     panel(state, now, busy = false) { sync(state); return panelFor(director, state, now, busy); },
     // Any key while a panel is up.
     skip() { if (director) skipPanel(director); },
+    // Any key while a close-up is on (see cinema.js): it ends, and the key does what it does.
+    skipClose() { if (cinema) skipClose(cinema); },
     // Once a frame, at real time `now` (seconds). `commentary` is the setting: 'voice', 'captions' or 'off'.
-    // Returns { banner, lower, celebrate, dejected, react, caption, heard }: `heard` is everything since the last frame,
-    // `react` each reacting player's reaction (see reactions.js).
-    frame(state, now, commentary) {
+    // Returns { banner, lower, celebrate, dejected, react, close, card, caption, heard }: `heard` is everything since the
+    // last frame, `react` each reacting player's reaction (see reactions.js), `close` the close-up's camera and `card`
+    // its card (see cinema.js), or null. `blocked`: a replay or a pause has the screen, and no close-up is on.
+    frame(state, now, commentary, blocked = false) {
       sync(state);
       const list = heard;
       heard = [];
       const show = direct(director, list, state, now), reacting = react(reactions, list, state, now);
+      cue(cinema, state, now, reacting, blocked);
       if (commentary === 'off' || state.phase === 'start') caption = null;
       else {
         // The biggest thing heard is what gets said; a line that would only be dropped is not worded at all, so its
@@ -49,7 +54,7 @@ export function createBroadcast(voice = createVoice()) {
         }
       }
       if (caption && now >= caption.until) caption = null;
-      return { ...show, react: reacting, caption: caption?.text ?? null, heard: list };
+      return { ...show, react: reacting, close: closeUp(cinema, state, now), card: closeCard(cinema, state), caption: caption?.text ?? null, heard: list };
     },
     // Pausing: the voice stops in the middle of its line.
     hush() { voice.stop(); },

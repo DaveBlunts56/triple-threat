@@ -90,11 +90,14 @@ export async function createScene(canvas, ids = [0, 1], home = 0, drawWith = 'au
   // and how it frames it (see framing.js). size: the match's, three or five a side.
   let mode = '2k', shake = 0, clock = 0, size = 3;
   const follow = createFollow();
-  const aim = () => {
-    const pose = poseOf(follow, mode, camera.aspect, size);
-    camera.position.set(...pose.at);
-    camera.lookAt(...pose.look);
-    if (Math.abs(camera.fov - pose.fov) > 1e-3) { camera.fov = pose.fov; camera.updateProjectionMatrix(); }
+  // The game's camera; with a close-up (see broadcast/cinema.js), that far of the way from it to the close-up's.
+  const aim = (close = null) => {
+    const pose = poseOf(follow, mode, camera.aspect, size), k = close?.blend ?? 0;
+    const mix = (a, b) => a.map((v, i) => v + (b[i] - v) * k);
+    camera.position.set(...(k ? mix(pose.at, close.at) : pose.at));
+    camera.lookAt(...(k ? mix(pose.look, close.look) : pose.look));
+    const fov = pose.fov + ((close?.fov ?? pose.fov) - pose.fov) * k;
+    if (Math.abs(camera.fov - fov) > 1e-3) { camera.fov = fov; camera.updateProjectionMatrix(); }
   };
   // The picture shakes while the crowd puts off a free-throw shooter.
   const jolt = () => { if (shake) { camera.position.x += shake * Math.sin(clock * 47); camera.position.y += shake * Math.sin(clock * 61 + 1); } };
@@ -144,11 +147,12 @@ export async function createScene(canvas, ids = [0, 1], home = 0, drawWith = 'au
     missing: post.missing,   // the effects of the current level that this browser could not run, in words
     // Eases the camera toward the play round the ball: along the sideline, or behind the team that has the ball, looking
     // at the hoop it attacks (`sign`: +1 for the hoop at +x) and swinging round when the ball changes teams; framing
-    // the players who matter in `state`, the match (see framing.js).
-    follow(ball, sign, state) {
+    // the players who matter in `state`, the match (see framing.js). `close`: a close-up the camera is easing to or
+    // from (see broadcast/cinema.js), or null; the game's camera goes on following underneath it.
+    follow(ball, sign, state, close = null) {
       size = state.size;
       stepFollow(follow, mode, state, ball, sign);
-      aim(); jolt();
+      aim(close); jolt();
     },
     // Changes the camera: 'broadcast' or '2k'.
     setCamera(to) { mode = to; follow.z = 0; resize(); aim(); },

@@ -232,6 +232,8 @@ if (view) {
     if (PANELS.includes(game.show.panel)) { e.preventDefault(); broadcast.skip(); keyboard.drop(); held.add(e.code); return; }
     // A replay: any key ends it, and does nothing else.
     if (replays.playing) { e.preventDefault(); endReplay(); keyboard.drop(); held.add(e.code); return; }
+    // A close-up in dead time (see broadcast/cinema.js): any key ends it, and does what it does.
+    broadcast.skipClose();
     if (held.has(e.code)) { e.preventDefault(); keyboard.drop([e.code]); return; }
     const action = actionOf(keys, e.code);
     const onAMenu = game.state.phase === 'start' || game.paused;
@@ -344,11 +346,11 @@ if (view) {
     // Motion advances by the match time that passed: none while paused. Before and after a match no match time
     // passes, so it advances by real time and the players stand breathing.
     const passed = inPlay(state) ? state.time - before : elapsed;
-    const air = broadcast.frame(state, seconds, commentary());
+    const air = broadcast.frame(state, seconds, commentary(), busy || !!shown || game.paused || !!game.tutorial);
     // A star moment is set aside for a replay: a game-winner from its basket, which came before the call.
     if (replaysOn) for (const h of air.heard) if (h.star) mark(replays, h, h.kind === 'winner' ? state.last.score?.at ?? h.at : h.at);
     // Under the pause screen none of it shows.
-    game.show = game.paused ? {} : shown ? { replay: true, caption: air.caption } : { banner: air.banner, lower: air.lower, caption: air.caption, panel };
+    game.show = game.paused ? {} : shown ? { replay: true, caption: air.caption } : { banner: air.banner, lower: air.card ?? air.lower, caption: air.caption, panel };   // a close-up's card in place of the small card
     // In a replay the players and the ball are drawn as that frame has them, and the nets move with that ball.
     const drawn = shown ?? state;
     if (shown) view.swayNets(shown.ball, elapsed * 0.5);
@@ -364,7 +366,7 @@ if (view) {
     audio.loop('murmur', cues.bed); audio.loop('distract', cues.distract);
     // From beside the hoop it happened at: the one the moment's team attacks, or for a block the one it defends.
     if (shown) view.replay(shown.ball, attackSign(replays.playing ? (replays.playing.kind === 'block' ? 1 - replays.playing.team : replays.playing.team) : shown.possession), replaySide);
-    else view.follow(state.ball, attackSign(state.possession), state);
+    else view.follow(state.ball, attackSign(state.possession), state, air.close);   // with a close-up, the camera eases to it and back
     view.watch(state);
     if (state.phase === 'start' && game.menu.panel === 'teamSelect' && !game.result) studio.render(game.menu.select, elapsed);   // the two teams' stars
     else {
