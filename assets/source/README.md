@@ -65,7 +65,7 @@ Eight more clips are optional. If its file is in `assets/source/mixamo/`, the bu
 | `fade.fbx` | A jump shot leaning back | The same |
 | `celebrate.fbx`, `dejected.fbx`, `stumble.fbx` | After a big basket, and a defender beaten by a move | A raised arm; nothing; a low stagger |
 
-They are downloaded with the same settings as the others. A downloaded clip is played by the whole body, so his feet stand where the clip puts them and slide if he is moving; a hand-made one moves the arms and the upper trunk and leaves the legs to the step he is taking, so his feet do not slide. (A hand-made motion that keys the legs would be played by the whole body too, and says `"whole": true` in `assets/motion.json`; none does.) In a dribble move the game draws the ball itself: out of the hand it starts in, off the floor (in front of him, between his legs or behind him) and up into the other, so a clip only has to put the two hands in the right places. The build makes the left-handed twin of each dribble move in a mirror. A clip whose rest pose is not the player's is refused with a line `MOTION refused <name>.fbx: ...` and treated as absent. `assets/motion.json` says for each of these where it came from: `"from": "clip"` or `"from": "hand"`.
+They are downloaded with the same settings as the others. A downloaded clip is played by the whole body, so his feet stand where the clip puts them and slide if he is moving; a hand-made one moves the arms and the upper trunk and leaves the legs to the step he is taking, so his feet do not slide. (A hand-made motion that keys the legs is played by the whole body too, and says `"whole": true` in `assets/motion.json`: of them only the reactions `fall`, `down`, `getUp`, `helpUp` and `huddle`, played standing still.) In a dribble move the game draws the ball itself: out of the hand it starts in, off the floor (in front of him, between his legs or behind him) and up into the other, so a clip only has to put the two hands in the right places. The build makes the left-handed twin of each dribble move in a mirror. A clip whose rest pose is not the player's is refused with a line `MOTION refused <name>.fbx: ...` and treated as absent. `assets/motion.json` says for each of these where it came from: `"from": "clip"` or `"from": "hand"`.
 
 `--strips crossover,fade` with `--shots` draws only those motions' film strips.
 
@@ -87,7 +87,9 @@ What `assets/motion.json` says about each clip, besides how long it is:
 
 ## The motions made by hand
 
-`tools/blender/poses.py` holds the motions that are not downloaded: `stance`, `gather`, `hold`, `shoot`, `follow`, `freeThrow`, `pass`, `catch`, `reach`, `handUp`, `contest` and `tip`. It also holds `crossover`, `betweenLegs`, `behindBack`, `stepBack` and `fade`, used until a clip of that name is downloaded. The build makes `holdLeft` from `hold` in a mirror. Each is a few key poses; nothing is posed in Blender's window.
+`tools/blender/poses.py` holds the motions that are not downloaded: `stance`, `gather`, `hold`, `shoot`, `follow`, `freeThrow`, `pass`, `catch`, `reach`, `handUp`, `contest` and `tip`. It also holds `crossover`, `betweenLegs`, `behindBack`, `stepBack` and `fade`, used until a clip of that name is downloaded, and `dejected`, used unless a clip of it is. The build makes `holdLeft` from `hold` in a mirror. Each is a few key poses; nothing is posed in Blender's window.
+
+The reactions (overhaul Stage 3) are made by hand too, and say `"reaction": True`: the celebrations `fistPump`, `armsUp`, `flex`, `goggles` and `chestThump`; `clap`, `highFive` (and `highFiveLeft`, made from it in a mirror), `headHands` and `complain`; and, of the whole body, `fall`, `down` and `getUp` for a man knocked down, `helpUp` for the team-mate who helps him, and `huddle`. `assets/motion.json` says `"from": "hand"` for each.
 
 How a pose is written:
 
@@ -95,7 +97,8 @@ How a pose is written:
 - A bone's turn is on top of its parent's: a raised upper arm carries the forearm with it. A bone the pose leaves out is at rest, and at rest the arms hang out to the sides with the forearms forward, not straight down.
 - `both({...})` takes the turns of his right side and adds the same for his left.
 - A motion is `{ 'kind', 'seconds', 'keys': [(share of the length, key pose), ...] }`. The first key is at 0 and the last at 1; for a loop they are the same pose. Between keys each bone turns the short way round, easing in and out, so every key is a moment of rest.
-- When a pose turns a leg bone, `pose_frames` moves the hips down or up so that the lower toe stays at the height it rests at. A pose cannot move the hips sideways.
+- In place of turns for an upper arm and its forearm, a key may give `'RightArm': Reach(hand, elbow)`: the wrist goes to `hand` and the elbow bends toward `elbow`, each a bone and an offset in metres from where that bone is in the key's pose (`('Head', (-0.07, -0.02, 0.2))` is on top of his head, a little to his right). The build works out the two turns (two-bone IK), the least turns that do it. `both` and `flip` mirror a Reach too.
+- When a pose turns a leg bone, `pose_frames` moves the hips down or up so that the lower toe stays at the height it rests at; a motion with a `seat` (`{'Hips': 0.13}`) puts whichever of the toes and those bones is lowest on the floor, those bones at their heights above it, so that a man sits on the floor. A pose cannot move the hips sideways.
 
 What to keep to when changing one:
 

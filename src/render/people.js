@@ -7,7 +7,7 @@ import { clone as cloneRig } from 'three/addons/utils/SkeletonUtils.js';
 import { onFloor, personOf } from '../sim/state.js';
 import { moodOf } from '../sim/mood.js';
 import { assetUrl, modelFile } from './assets.js';
-import { MOTION, legMotion, armMotion, legLook, newMarks, noteChanges, drawnFacing, wholeBody } from './motion.js';
+import { MOTION, REACTION_CLIPS, legMotion, armMotion, legLook, newMarks, noteChanges, drawnFacing, wholeBody } from './motion.js';
 import { BALL_IN_HAND, ballHands, crossFrom, dribbleSpot, moveSpot } from './hands.js';
 import { checkGaits, checkMotions, checkFacts, personName, courtPeople, sideId, sized, missingPeople, checkHands, bodiesOf } from './checks.js';
 import { easeFacing, leanOf, lookTarget, headTurn, easeHead } from './bearing.js';
@@ -479,9 +479,11 @@ export async function loadPeople(camera) {
         // The model tips inside the group, about his feet, so the number over his head stays where it is.
         he.model.rotation.set(bearing.lean.forward, 0, -bearing.lean.side);
         he.arms = standing ? null : armMotion(player, state, marks, facts);
-        // A downloaded clip of the whole body (a move, a stumble) is played by the legs as well.
-        const whole = he.arms && 'at' in he.arms && wholeBody(facts.clips, he.arms.clip) ? he.arms : null;
-        he.animator.update(whole ?? legs, he.arms, dt, standing ? null : bearing.head, !standing && onFloor(player));
+        // A downloaded clip of the whole body (a move, a stumble) is played by the legs as well, as is a reaction of the
+        // whole body (a fall, a huddle), whose feet are not held to the court: they move with it.
+        const reacting = he.arms && REACTION_CLIPS.includes(he.arms.clip);
+        const whole = he.arms && ('at' in he.arms || reacting) && wholeBody(facts.clips, he.arms.clip) ? he.arms : null;
+        he.animator.update(whole ?? legs, he.arms, dt, standing ? null : bearing.head, !standing && onFloor(player) && !(whole && reacting));
         he.face.update(dt, standing ? {} : faceWants(player, marks, { mood: moodOf(state, personOf(state, player)), defending: player.team !== state.possession, dead: state.phase !== 'live' }));
         for (const u of he.wet) u.value = sweat.of(who);
       });

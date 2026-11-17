@@ -96,6 +96,22 @@ export function dressFan(seat, i, { upper = false, courtside = false, home = 0, 
   };
 }
 
+// A player on his team's bench (see sideline.js's benchSeats: `seat.team` his team's id), drawn as a fan of his team
+// is: in its kit, on its side (0 for the home team, `home`, 1 for the visitors), so that he stands and cheers when its
+// fans do; a third of them wave a white towel. `i` makes them who they are.
+export const BENCH = f({ towel: 0.35, width: 1.04, height: 1.1 });
+export function dressBench(seat, i, home = 0) {
+  const r = dice(300000 + i), pick = list => at(list, Math.floor(r() * list.length));
+  const colour = COLOURS[seat.team], skin = pick(SKINS), towel = r() < BENCH.towel;
+  return {
+    ...seat, turn: seat.facing, width: BENCH.width, height: BENCH.height, rise: CROWD.rise.floor, dim: 1,
+    side: seat.team === home ? 0 : 1, end: 0, seed: r(),
+    style: towel ? STYLE.wave : [STYLE.armsUp, STYLE.fistPump, STYLE.clap][Math.floor(r() * 3)],
+    skin, shirt: colour, pants: colour, hair: pick(HAIRS), upper: skin, fore: skin, propColour: WHITE,
+    hairStyle: r() < 0.3 ? HAIR.bald : HAIR.short, prop: towel ? PROP.towel : PROP.none, sign: 0,
+  };
+}
+
 // The whole crowd: the courtside fans first (always shown), then the stands' in `stands` order (see layout.js's
 // shown: the first so many fill the stands evenly). `upperFrom`: the height from which a seat is on the upper deck.
 // `home`, `away`: the teams' ids.

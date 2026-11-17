@@ -9,7 +9,7 @@ Which way a turn goes (he faces -Y, and at rest his arms hang out to the sides w
     y: plus tips him to his left, lowers his left arm and raises his right
     z: plus turns him, or a limb held out in front, to his left
 """
-from math import radians
+from math import radians, sqrt
 
 from mathutils import Euler, Matrix, Quaternion, Vector
 
@@ -18,15 +18,34 @@ TOES = (PREFIX + 'LeftToeBase', PREFIX + 'RightToeBase')
 LEG_BONES = tuple(side + part for side in ('Left', 'Right') for part in ('UpLeg', 'Leg', 'Foot', 'ToeBase'))
 
 
+class Reach:
+    """An arm placed by where its hand goes, in place of turns for the upper arm and the forearm: under 'RightArm' or
+    'LeftArm' in a key. `hand` and `elbow` are each (bone, (x, y, z)): a bone's head, where the key's trunk puts it, and
+    metres from there in the rig's frame at rest (X his left, Y his back, Z up). The wrist goes to `hand` (or as near as
+    the arm reaches), and the elbow bends toward `elbow`. The hand's own turn, if the key gives one, is kept."""
+
+    def __init__(self, hand, elbow):
+        self.hand, self.elbow = hand, elbow
+
+
 def both(turns):
     """The turns, which name bones of his right side, with the same turns in a mirror for his left side."""
-    return {**turns, **{bone.replace('Right', 'Left'): (x, -y, -z) for bone, (x, y, z) in turns.items()}}
+    return {**turns, **{bone.replace('Right', 'Left'): mirror(turn) for bone, turn in turns.items()}}
 
 
 def flip(turns):
     """The pose seen in a mirror: what his right side did his left does, and a lean or a turn goes the other way."""
     swap = lambda bone: bone.replace('Right', '\0').replace('Left', 'Right').replace('\0', 'Left')
-    return {swap(bone): (x, -y, -z) for bone, (x, y, z) in turns.items()}
+    return {swap(bone): mirror(turn) for bone, turn in turns.items()}
+
+
+def mirror(turn):
+    """A turn of one side as the other side's: a Reach's points are mirrored across his middle."""
+    if isinstance(turn, Reach):
+        across = lambda spec: (spec[0].replace('Right', '\0').replace('Left', 'Right').replace('\0', 'Left'), (-spec[1][0], spec[1][1], spec[1][2]))
+        return Reach(across(turn.hand), across(turn.elbow))
+    x, y, z = turn
+    return (x, -y, -z)
 
 
 # ---- The key poses. Each names only the bones it turns. ----
@@ -136,6 +155,81 @@ TUCKED = {**DIP, 'Spine1': (14, 0, 0), 'Spine2': (10, 0, 0), 'Neck': (-10, 0, 0)
 # A fade's set point: the set point with the trunk leaning back 12 degrees more at each of the two joints.
 SET_BACK = {**SET, 'Spine1': (-14, 0, 0), 'Spine2': (-14, 0, 0), 'Neck': (6, 0, 0), 'Head': (8, 0, 0)}
 
+# ---- The reactions (overhaul Stage 3): celebrations, frustration and the team's moments. Most place a hand with a
+# Reach: a point on the body (the hips, the chest, the head) and the way the elbow goes. ----
+
+FINGERS = ('Index', 'Middle', 'Ring', 'Pinky')
+
+
+def fist(side='Right', curl=80):
+    """The fingers of one hand curled in, the thumb over them."""
+    return {**{f'{side}Hand{finger}{joint}': (curl, 0, 0) for finger in FINGERS for joint in (1, 2, 3)},
+            f'{side}HandThumb2': (30, 0, 0), f'{side}HandThumb3': (30, 0, 0)}
+
+
+def trunk(bend=0, lean=0, head=0):
+    """The upper trunk bent `bend` degrees forward (back if less than 0), tipped `lean` to his left, the head down `head`."""
+    return {'Spine1': (bend * 0.6, lean * 0.6, 0), 'Spine2': (bend * 0.4, lean * 0.4, 0), 'Neck': (head * 0.5, 0, 0), 'Head': (head * 0.5, 0, 0)}
+
+
+# A fist raised by the head, elbow out and down; then pumped down to the waist, the trunk crunching over it.
+FIST_UP = {**SIDES, 'RightArm': Reach(('RightArm', (-0.15, -0.15, 0.3)), ('RightArm', (-0.3, -0.05, -0.1))), **fist(), **trunk(-4, 0, -10)}
+PUMPED = {**SIDES, 'RightArm': Reach(('Hips', (-0.15, -0.3, 0.05)), ('RightArm', (-0.15, 0.25, -0.3))), **fist(), **trunk(16, 0, 12)}
+# Both fists up in a V, the chest out and the head back; and the same a little wider, for the shake.
+V_UP = {**both({'RightArm': Reach(('Head', (-0.45, -0.1, 0.55)), ('RightArm', (-0.5, 0.1, 0.0)))}), **fist(), **fist('Left'), **trunk(-8, 0, -18)}
+V_WIDE = {**both({'RightArm': Reach(('Head', (-0.55, -0.05, 0.45)), ('RightArm', (-0.55, 0.1, 0.0)))}), **fist(), **fist('Left'), **trunk(-10, 0, -22)}
+# Both arms flexed, elbows out at the shoulders, fists by the head; and roaring, the chest pushed out further.
+FLEX = {**both({'RightArm': Reach(('RightArm', (-0.32, 0.0, 0.3)), ('RightArm', (-0.5, 0.0, -0.05)))}), **fist(), **fist('Left'), **trunk(-6, 0, -10)}
+ROAR = {**both({'RightArm': Reach(('RightArm', (-0.36, 0.02, 0.26)), ('RightArm', (-0.55, 0.0, -0.08)))}), **fist(), **fist('Left'), **trunk(-14, 0, -24)}
+# A three: the right hand made a ring and held in front of the right eye, the head tipped to it.
+GOGGLES = {**SIDES, 'RightArm': Reach(('Head', (-0.04, -0.14, 0.08)), ('RightArm', (-0.45, -0.1, 0.0))), **fist('Right', 35), 'Head': (0, 6, 0)}
+# A fist on the left of the chest, and pulled a hand's length off it.
+ON_CHEST = {**SIDES, 'RightArm': Reach(('Spine2', (0.06, -0.14, 0.12)), ('RightArm', (-0.2, -0.1, -0.3))), **fist(), **trunk(-6)}
+OFF_CHEST = {**SIDES, 'RightArm': Reach(('Spine2', (-0.02, -0.3, 0.14)), ('RightArm', (-0.25, -0.05, -0.3))), **fist(), **trunk(-6)}
+# A clap: the hands together in front of the chest, and apart.
+CLAPPED = both({'RightArm': Reach(('Spine2', (-0.02, -0.38, 0.0)), ('RightArm', (-0.25, 0.0, -0.25)))})
+CLAP_OPEN = both({'RightArm': Reach(('Spine2', (-0.17, -0.36, 0.02)), ('RightArm', (-0.3, 0.0, -0.25)))})
+# A high five: the right hand up and forward, open; and on through the slap.
+FIVE_UP = {**SIDES, 'RightArm': Reach(('Head', (-0.3, -0.35, 0.3)), ('RightArm', (-0.3, 0.0, -0.1)))}
+FIVE_SLAP = {**SIDES, 'RightArm': Reach(('Head', (-0.28, -0.45, 0.18)), ('RightArm', (-0.3, 0.0, -0.15)))}
+# Hands on the hips, head down; and lower, the sway of a man who has let one go.
+ON_HIPS = {**both({'RightArm': Reach(('Hips', (-0.19, 0.0, 0.08)), ('RightArm', (-0.35, 0.15, -0.2)))}), **trunk(6, 0, 26)}
+ON_HIPS_LOW = {**both({'RightArm': Reach(('Hips', (-0.19, 0.0, 0.07)), ('RightArm', (-0.35, 0.15, -0.21)))}), **trunk(9, 0, 32)}
+# Both hands on top of the head; and the head tipped back under them.
+ON_HEAD = {**both({'RightArm': Reach(('Head', (-0.07, -0.02, 0.2)), ('RightArm', (-0.4, -0.1, 0.25)))}), **trunk(0, 0, -4)}
+ON_HEAD_BACK = {**both({'RightArm': Reach(('Head', (-0.07, 0.0, 0.2)), ('RightArm', (-0.4, -0.05, 0.25)))}), **trunk(-8, 0, -20)}
+# At the referee: both arms out low and wide, the palms up, the shoulders raised; and wider still.
+PALMS_UP = {**both({'RightArm': Reach(('Hips', (-0.32, -0.38, 0.12)), ('RightArm', (-0.25, 0.05, -0.35))), 'RightShoulder': (0, 10, 0)}), 'Head': (0, 8, 0)}
+PALMS_WIDE = {**both({'RightArm': Reach(('Hips', (-0.45, -0.32, 0.16)), ('RightArm', (-0.3, 0.05, -0.35))), 'RightShoulder': (0, 14, 0)}), **trunk(-4, 0, -6)}
+
+# The legs, for the motions of the whole body. Knees a little bent, feet flat; deeper, as for helping a man up; a
+# deep squat, rising from the floor.
+KNEES_EASED = both({'RightUpLeg': (-18, 0, 0), 'RightLeg': (30, 0, 0), 'RightFoot': (-12, 0, 0)})
+KNEES_DEEP = both({'RightUpLeg': (-45, 4, 0), 'RightLeg': (75, 0, 0), 'RightFoot': (-28, 0, 0)})
+SQUAT = both({'RightUpLeg': (-95, 8, -4), 'RightLeg': (120, 0, 0), 'RightFoot': (-25, 0, 0)})
+# Sitting on the floor: the thighs out in front, the knees a little bent, the trunk back, propped on the hands behind.
+SAT_LEGS = both({'RightUpLeg': (-96, 6, -6), 'RightLeg': (6, 0, 0), 'RightFoot': (-4, 0, 0)})
+PROPPED = both({'RightArm': Reach(('Hips', (-0.24, 0.3, -0.1)), ('RightArm', (-0.25, 0.3, -0.15)))})
+SAT = {**SAT_LEGS, **PROPPED, 'Spine': (-20, 0, 0), **trunk(4, 0, 6)}
+# Sitting, the right hand up to be taken; and falling: the knees going, the arms reaching back.
+SAT_HAND_UP = {**SAT_LEGS, 'Spine': (-12, 0, 0), **trunk(8, 0, -6), 'LeftArm': PROPPED['LeftArm'],
+               'RightArm': Reach(('Hips', (-0.15, -0.5, 0.55)), ('RightArm', (-0.35, 0.0, -0.1)))}
+FALLING = {**both({'RightUpLeg': (-55, 6, -4), 'RightLeg': (55, 0, 0), 'RightFoot': (-15, 0, 0),
+                   'RightArm': Reach(('Hips', (-0.32, 0.25, 0.25)), ('RightArm', (-0.3, 0.3, 0.0)))}), 'Spine': (-15, 0, 0), **trunk(-10, 0, 10)}
+RISING = {**SQUAT, **trunk(34, 0, -20), 'LeftArm': SIDES['LeftArm'], 'LeftForeArm': SIDES['LeftForeArm'],
+          'RightArm': Reach(('Hips', (-0.15, -0.55, 0.45)), ('RightArm', (-0.35, 0.0, -0.1)))}
+HALF_UP = {**KNEES_DEEP, **trunk(22, 0, -10), 'LeftArm': SIDES['LeftArm'], 'LeftForeArm': SIDES['LeftForeArm'],
+           'RightArm': Reach(('Hips', (-0.15, -0.45, 0.6)), ('RightArm', (-0.35, 0.0, -0.1)))}
+STOOD = {**SIDES, **both({'RightUpLeg': (0, 0, 0), 'RightLeg': (0, 0, 0), 'RightFoot': (0, 0, 0)})}
+# Helping a man up: the knees bent, the trunk over, the right hand down to his; then pulling it back and up.
+REACH_DOWN = {**KNEES_DEEP, **trunk(34, 0, -24), 'LeftArm': SIDES['LeftArm'], 'LeftForeArm': SIDES['LeftForeArm'],
+              'RightArm': Reach(('Hips', (-0.12, -0.62, -0.3)), ('RightArm', (-0.3, 0.0, -0.2)))}
+PULLING = {**KNEES_EASED, **trunk(14, 0, -10), 'LeftArm': SIDES['LeftArm'], 'LeftForeArm': SIDES['LeftForeArm'],
+           'RightArm': Reach(('Hips', (-0.15, -0.42, 0.15)), ('RightArm', (-0.3, 0.1, -0.2)))}
+# In the huddle: knees eased, bent in over the middle, the arms out over the team-mates' shoulders.
+HUDDLED = {**KNEES_EASED, **both({'RightArm': Reach(('Spine2', (-0.6, -0.25, 0.1)), ('RightArm', (-0.3, 0.1, -0.1)))}), **trunk(26, 0, 14)}
+HUDDLED_LOW = {**KNEES_EASED, **both({'RightArm': Reach(('Spine2', (-0.6, -0.25, 0.08)), ('RightArm', (-0.3, 0.1, -0.1)))}), **trunk(30, 0, 18)}
+
 # ---- The motions. name: kind (as in motion.json), length in seconds, and keys: (share of the length, key pose). ----
 # `pass` and `reach` show what follows the action, which the rules have already taken: neither has a wind-up, and the
 # reach is fully out at 0.16 of its 0.4 s, inside 0.07 s. A loop's middle key is its first with the trunk a degree or
@@ -160,6 +254,27 @@ POSES = {
     'betweenLegs': {'kind': 'once', 'seconds': 0.4, 'keys': [(0, LEGS_FROM), (0.5, LEGS_MID), (1, LEGS_TO)]},
     'behindBack': {'kind': 'once', 'seconds': 0.5, 'keys': [(0, BACK_FROM), (0.35, BACK_WRAP), (0.7, BACK_TAKE), (1, BACK_TO)]},
     'stepBack': {'kind': 'once', 'seconds': 0.35, 'keys': [(0, LOW), (0.5, TUCKED), (1, LIFT)]},
+    # The reactions (see REACTIONS). A celebration or a gesture of the arms plays on whatever the legs do; a motion of
+    # the whole body (the fall, the help, the huddle) is played standing.
+    'fistPump': {'kind': 'once', 'seconds': 1.1, 'reaction': True, 'keys': [
+        (0, {**SIDES, **fist()}), (0.2, FIST_UP), (0.38, PUMPED), (0.54, FIST_UP), (0.72, PUMPED), (1, {**SIDES, **fist()})]},
+    'armsUp': {'kind': 'once', 'seconds': 1.6, 'reaction': True, 'keys': [
+        (0, SIDES), (0.18, V_UP), (0.36, V_WIDE), (0.54, V_UP), (0.72, V_WIDE), (1, SIDES)]},
+    'flex': {'kind': 'once', 'seconds': 1.5, 'reaction': True, 'keys': [(0, SIDES), (0.2, FLEX), (0.45, ROAR), (0.75, FLEX), (1, SIDES)]},
+    'goggles': {'kind': 'once', 'seconds': 1.3, 'reaction': True, 'keys': [(0, SIDES), (0.25, GOGGLES), (0.75, {**GOGGLES, 'Head': (0, 10, 4)}), (1, SIDES)]},
+    'chestThump': {'kind': 'once', 'seconds': 1.0, 'reaction': True, 'keys': [
+        (0, SIDES), (0.2, OFF_CHEST), (0.36, ON_CHEST), (0.52, OFF_CHEST), (0.68, ON_CHEST), (1, SIDES)]},
+    'clap': {'kind': 'loop', 'seconds': 0.6, 'reaction': True, 'keys': [(0, CLAP_OPEN), (0.5, CLAPPED), (1, CLAP_OPEN)]},
+    'highFive': {'kind': 'once', 'seconds': 0.8, 'reaction': True, 'keys': [(0, SIDES), (0.42, FIVE_UP), (0.58, FIVE_SLAP), (1, SIDES)]},
+    'dejected': {'kind': 'loop', 'seconds': 2, 'keys': [(0, ON_HIPS), (0.5, ON_HIPS_LOW), (1, ON_HIPS)]},
+    'headHands': {'kind': 'once', 'seconds': 1.6, 'reaction': True, 'keys': [(0, SIDES), (0.2, ON_HEAD), (0.65, ON_HEAD_BACK), (0.82, ON_HEAD), (1, SIDES)]},
+    'complain': {'kind': 'once', 'seconds': 1.3, 'reaction': True, 'keys': [(0, SIDES), (0.25, PALMS_UP), (0.55, PALMS_WIDE), (0.8, PALMS_UP), (1, SIDES)]},
+    'fall': {'kind': 'held', 'seconds': 0.7, 'reaction': True, 'seat': {'Hips': 0.13}, 'keys': [(0, STOOD), (0.45, FALLING), (1, SAT)]},
+    'down': {'kind': 'loop', 'seconds': 1.5, 'reaction': True, 'seat': {'Hips': 0.13}, 'keys': [(0, SAT), (0.5, {**SAT, **trunk(8, 0, 10)}), (1, SAT)]},
+    'getUp': {'kind': 'held', 'seconds': 1.0, 'reaction': True, 'seat': {'Hips': 0.13}, 'keys': [
+        (0, SAT_HAND_UP), (0.4, RISING), (0.7, HALF_UP), (1, STOOD)]},
+    'helpUp': {'kind': 'held', 'seconds': 1.0, 'reaction': True, 'keys': [(0, STOOD), (0.35, REACH_DOWN), (0.55, REACH_DOWN), (0.8, PULLING), (1, STOOD)]},
+    'huddle': {'kind': 'loop', 'seconds': 2, 'reaction': True, 'keys': [(0, HUDDLED), (0.5, HUDDLED_LOW), (1, HUDDLED)]},
 }
 # The fade made by hand, kept for reference and as the source of the trunk's lean below: the clip is filmed from high
 # in the stands, where a lean away from the camera cannot be told from standing upright.
@@ -264,17 +379,53 @@ def stand(rig, turns):
     return pose
 
 
+def turn_of(turn):
+    """A turn as a Quaternion: (x, y, z) degrees, or a Quaternion as it is (a measured pose: see tracked.py)."""
+    return turn if isinstance(turn, Quaternion) else Euler([radians(v) for v in turn], 'XYZ').to_quaternion()
+
+
+def reached(rig, turns):
+    """The key's turns (bone names without the prefix) with each Reach worked out: the upper arm and forearm turned so
+    the wrist is at the Reach's point and the elbow toward its other point, each by the least turn that does it."""
+    reaches = {arm: r for arm, r in turns.items() if isinstance(r, Reach)}
+    fixed = {bone: turn_of(t) for bone, t in turns.items() if not isinstance(t, Reach)}
+    for arm, r in reaches.items():
+        side = arm[:-len('Arm')]
+        fore = side + 'ForeArm'
+        fixed.pop(fore, None)
+        posed = stand(rig, {PREFIX + bone: t for bone, t in fixed.items()})   # the trunk as the key has it, this arm at rest
+        at = lambda bone: posed[PREFIX + bone].translation
+        point = lambda spec: at(spec[0]) + Vector(spec[1])
+        shoulder, elbow, wrist = at(arm), at(fore), at(side + 'Hand')
+        upper, lower = (elbow - shoulder).length, (wrist - elbow).length
+        reach = point(r.hand) - shoulder
+        far = min(reach.length, (upper + lower) * 0.999)
+        along = reach.normalized()
+        bend = point(r.elbow) - shoulder
+        bend = (bend - along * bend.dot(along)).normalized()
+        out = (upper * upper - lower * lower + far * far) / (2 * far)
+        new_elbow = shoulder + along * out + bend * sqrt(max(0.0, upper * upper - out * out))
+        new_wrist = shoulder + along * far
+        # The turn the arm's parents carry it by, and the least turns from where it hangs to where it goes.
+        carried = posed[PREFIX + arm].to_quaternion() @ rig.data.bones[PREFIX + arm].matrix_local.to_quaternion().inverted()
+        first = (elbow - shoulder).rotation_difference(new_elbow - shoulder)
+        fixed[arm] = carried.inverted() @ first @ carried
+        now = first @ carried
+        second = (first @ (wrist - elbow)).rotation_difference(new_wrist - new_elbow)
+        fixed[fore] = now.inverted() @ second @ now
+    return fixed
+
+
 def pose_frames(rig, pose, fps):
     """The pose's keys as frames `fps` to the second, in the form read_clip returns. Its length is rounded to whole frames.
 
     Between two keys each bone's turn goes the short way round, easing in and out. If a leg bone turns, the hips are
-    then moved down or up on every frame so that the lower of the two toes is at the height it rests at.
+    then moved down or up on every frame so that the lower of the two toes is at the height it rests at (or, with a
+    `seat`, whatever of the toes and the seat's bones is lowest against the floor).
     """
     unknown = {bone for _, turns in pose['keys'] for bone in turns if PREFIX + bone not in rig.data.bones}
     assert not unknown, f'the rig has no bone called {", ".join(sorted(unknown))}'
-    # A turn is (x, y, z) degrees, or a Quaternion as it is (a measured pose: see tracked.py).
-    quaternion = lambda turn: turn if isinstance(turn, Quaternion) else Euler([radians(v) for v in turn], 'XYZ').to_quaternion()
-    keys = [(share, {PREFIX + bone: quaternion(turn) for bone, turn in turns.items()}) for share, turns in pose['keys']]
+    keys = [(share, {PREFIX + bone: turn for bone, turn in reached(rig, turns).items()}) for share, turns in pose['keys']]
     shares = [share for share, _ in keys]
     assert shares[0] == 0 and shares[-1] == 1 and shares == sorted(shares), f'keys must run from 0 to 1 in order: {shares}'
     last = round(pose['seconds'] * fps)
@@ -294,9 +445,12 @@ def pose_frames(rig, pose, fps):
         frames.append(stand(rig, turns))
 
     if whole_body(pose):
+        # What touches the floor: the toes, at the height they rest at, and in a motion with a `seat` the bones it
+        # names, at their heights above the floor (the hips of a man sitting on it).
         rest = min(rig.data.bones[toe].head_local.z for toe in TOES)
+        contacts = {**{toe: rest for toe in TOES}, **{PREFIX + bone: height for bone, height in pose.get('seat', {}).items()}}
         for frame in frames:
-            above = min(frame[toe].translation.z for toe in TOES) - rest
+            above = min(frame[bone].translation.z - height for bone, height in contacts.items())
             for matrix in frame.values():
                 matrix.translation = matrix.translation - Vector((0, 0, above))
     return frames

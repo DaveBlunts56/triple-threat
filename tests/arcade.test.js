@@ -14,7 +14,8 @@ const fixture = name => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, im
 // number changed: AI.lastShotAt, till when a team holds the ball for the last shot of a period; OFF.screen, the screens
 // away from the ball; and OFF.point, the point guard who takes the inbound. After it, the plays' variety added to PLAY,
 // no number changed: the ways a screen is taken, the corners moving, the play ending after a pass, the handoff and the
-// flare screen, and the pass a forming play's handler makes to a man left wide open.
+// flare screen, and the pass a forming play's handler makes to a man left wide open. In overhaul Stage 3 (animations)
+// the team's moments between plays, no number changed: DOWN, HUDDLE and MEET added, and FT's high five.
 test('Arcade\'s numbers are today\'s', () => {
   const numbers = JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(tuning).filter(([, v]) => typeof v !== 'function'))));
   const was = fixture('arcade-tuning.json');

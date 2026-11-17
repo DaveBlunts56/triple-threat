@@ -1,5 +1,6 @@
 import { ASSIST, BALL, BLOCK, BOARD, CLOCK, COURT, DT, FINISH, FOUL, MOVES, PASS, PLAYER, RIM, SHOT, STAT, STEAL, THREE_PT, RATE, DRIVE, cpuLevelOf, isHuman, levelOf } from './tuning.js';
-import { attackSign, onFloor as grounded, personOf, rand } from './state.js';
+import { attackSign, emptyIntent, onFloor as grounded, personOf, rand } from './state.js';
+import { stepDown } from './together.js';
 import { speedFactor, spend } from './stamina.js';
 import { rimCentre, solveShot, stepBall } from './ball.js';
 import { rematch } from './matchups.js';
@@ -98,14 +99,18 @@ function clampToCourt(p) {
 }
 
 // Moves everyone one step. Returns the pairs of player ids that ran into each other.
+const STILL = emptyIntent();
+
 export function movePlayers(state, intents, dt) {
   const accel = styled(state, 'player.accel'), brake = styled(state, 'player.brake');
   state.players.forEach((p, i) => {
     const hasBall = state.ball.holder === p.id;
     const pace = speedFactor(personOf(state, p).energy) * lift(rated(state, p, 'speed'), RATE.speed) * (hasBall ? lift(rated(state, p, 'handle'), RATE.speed) : 1);
     if (p.move) stepMove(state, p, dt);
-    moveOne(p, intents[i], dt, hasBall, pace, accel, brake);
+    const airborne = !grounded(p);
+    moveOne(p, p.downT > 0 ? STILL : intents[i], dt, hasBall, pace, accel, brake);   // a man down stays down
     finishMove(state, p);
+    stepDown(state, p, dt, airborne && grounded(p));
     p.moveWait = Math.max(0, p.moveWait - dt); p.lateT = Math.max(0, p.lateT - dt); p.stumbleT = Math.max(0, p.stumbleT - dt);
     // Once he has picked up his dribble, every metre on the floor counts toward a travel, but not the slide of a gather.
     const speed = Math.hypot(p.vx, p.vz);

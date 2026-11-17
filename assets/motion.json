@@ -187,6 +187,107 @@
       "kind": "once",
       "from": "hand"
     },
+    "fistPump": {
+      "duration": 1.1,
+      "loop": false,
+      "kind": "once",
+      "from": "hand"
+    },
+    "armsUp": {
+      "duration": 1.6,
+      "loop": false,
+      "kind": "once",
+      "from": "hand"
+    },
+    "flex": {
+      "duration": 1.5,
+      "loop": false,
+      "kind": "once",
+      "from": "hand"
+    },
+    "goggles": {
+      "duration": 1.3,
+      "loop": false,
+      "kind": "once",
+      "from": "hand"
+    },
+    "chestThump": {
+      "duration": 1.0,
+      "loop": false,
+      "kind": "once",
+      "from": "hand"
+    },
+    "clap": {
+      "duration": 0.6,
+      "loop": true,
+      "kind": "loop",
+      "from": "hand"
+    },
+    "highFive": {
+      "duration": 0.8,
+      "loop": false,
+      "kind": "once",
+      "from": "hand"
+    },
+    "highFiveLeft": {
+      "duration": 0.8,
+      "loop": false,
+      "kind": "once",
+      "from": "hand"
+    },
+    "dejected": {
+      "duration": 2.0,
+      "loop": true,
+      "kind": "loop",
+      "from": "hand"
+    },
+    "headHands": {
+      "duration": 1.6,
+      "loop": false,
+      "kind": "once",
+      "from": "hand"
+    },
+    "complain": {
+      "duration": 1.3,
+      "loop": false,
+      "kind": "once",
+      "from": "hand"
+    },
+    "fall": {
+      "duration": 0.7,
+      "loop": false,
+      "kind": "held",
+      "from": "hand",
+      "whole": true
+    },
+    "down": {
+      "duration": 1.5,
+      "loop": true,
+      "kind": "loop",
+      "from": "hand",
+      "whole": true
+    },
+    "getUp": {
+      "duration": 1.0,
+      "loop": false,
+      "kind": "held",
+      "from": "hand",
+      "whole": true
+    },
+    "helpUp": {
+      "duration": 1.0,
+      "loop": false,
+      "kind": "held",
+      "from": "hand",
+      "whole": true
+    },
+    "huddle": {
+      "duration": 2.0,
+      "loop": true,
+      "kind": "loop",
+      "from": "hand",
+      "whole": true
+    },
     "fade": {
       "duration": 0.3,
       "loop": false,

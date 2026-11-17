@@ -281,6 +281,9 @@
   "aiDelay": 1,
   "aiChance": 0.75,
   "pause": 1,
+  "fiveSide": 0.8,
+  "fiveHold": 0.45,
+  "fiveMost": 5,
   "defence": [
    [
     2.3,
@@ -996,5 +999,23 @@
   "inbound": 5,
   "keyHalfWidth": 2.44,
   "keyDepth": 5.79
+ },
+ "DOWN": {
+  "time": 3,
+  "fall": 0.7,
+  "rise": 1,
+  "help": 0.85,
+  "charge": 1,
+  "finish": 0.35
+ },
+ "HUDDLE": {
+  "extra": 3,
+  "back": 1.2,
+  "ring": 0.85,
+  "benchward": 1.5
+ },
+ "MEET": {
+  "time": 2,
+  "near": 1
  }
 }

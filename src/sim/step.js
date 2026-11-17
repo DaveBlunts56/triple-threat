@@ -27,7 +27,9 @@ export function step(state, intents, dt) {
 
   // Everything that happened this step, for the rules to judge.
   const events = emptyEvents();
-  events.contacts = movePlayers(state, frozen ? intents.map(emptyIntent) : intents, dt);   // frozen players still come down from a jump
+  // Frozen players still come down from a jump; between free throws the team-mate slapping the shooter's hand walks.
+  const walking = frozen && state.freeThrow?.five?.by;
+  events.contacts = movePlayers(state, frozen ? intents.map((intent, i) => (i === walking ? intent : emptyIntent())) : intents, dt);
   if (state.phase === 'live') { screenSwitches(state, events.contacts, dt); schemeSwitches(state); }
   tire(state, intents, dt);
   if (!stopped && !frozen) Object.assign(events, applyActions(state, intents, dt));

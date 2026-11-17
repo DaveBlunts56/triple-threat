@@ -1,6 +1,6 @@
 // Checks of the players' and the motions' files at load, and who is who among the people. No Three.js here.
 import { TEAMS } from '../sim/teams.js';
-import { LEG_CLIPS, ARM_CLIPS, GAITS, STRIDES } from './motion.js';
+import { LEG_CLIPS, ARM_CLIPS, REACTION_CLIPS, GAITS, STRIDES } from './motion.js';
 
 // Throws unless `facts` (assets/motion.json) gives every gait and every guarding step a speed: without one a moving
 // player cannot be drawn.
@@ -12,7 +12,7 @@ export function checkGaits(facts) {
 
 // Throws, naming it, for the first motion of the two tables that is not among `names`, the motions in assets/motion.glb.
 export function checkMotions(names) {
-  const missing = [...LEG_CLIPS, ...ARM_CLIPS].find(name => !names.includes(name));
+  const missing = [...LEG_CLIPS, ...ARM_CLIPS, ...REACTION_CLIPS].find(name => !names.includes(name));
   if (missing) throw new Error(`assets/motion.glb has no "${missing}" motion`);
 }
 
@@ -21,7 +21,7 @@ export function checkMotions(names) {
 // foot lands.
 export function checkFacts(facts) {
   const clips = facts?.clips ?? {};
-  for (const name of [...LEG_CLIPS, ...ARM_CLIPS]) {
+  for (const name of [...LEG_CLIPS, ...ARM_CLIPS, ...REACTION_CLIPS]) {
     if (!(clips[name]?.duration > 0)) throw new Error(`assets/motion.json has no length for "${name}"`);
   }
   const { push, bounces } = clips.dribble;

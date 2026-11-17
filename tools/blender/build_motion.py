@@ -29,7 +29,8 @@ CLIPS = {'idle': 'loop', 'walk': 'loop', 'run': 'loop', 'sprint': 'loop', 'jump'
 # Motions the build makes: another one in a mirror.
 MIRRORS = {'strafeRight': 'strafeLeft', 'dribbleLeft': 'dribble', 'holdLeft': 'hold',
            'crossoverLeft': 'crossover', 'betweenLegsLeft': 'betweenLegs', 'behindBackLeft': 'behindBack',
-           'finishGatherLeft': 'finishGather', 'dunkLeft': 'dunk', 'layupLeft': 'layup', 'windmillLeft': 'windmill'}
+           'finishGatherLeft': 'finishGather', 'dunkLeft': 'dunk', 'layupLeft': 'layup', 'windmillLeft': 'windmill',
+           'highFiveLeft': 'highFive'}
 # Clips that are taken if their file is in assets/source/mixamo/, and done without if it is not: the first five have a
 # hand-made motion of the same name in poses.py, which is used until the clip is there.
 OPTIONAL = {'crossover': 'once', 'betweenLegs': 'once', 'behindBack': 'once', 'stepBack': 'once', 'fade': 'held',
@@ -348,7 +349,8 @@ def main():
         if name in found or name in TRACKED:
             continue
         for made, frames in with_mirrors(name, pose_frames(rig, pose, FPS)):
-            more = {'from': 'hand', **({'whole': True} if whole_body(pose) else {})} if name in OPTIONAL else {}
+            # An optional motion made by hand, or a reaction (poses.py), says so, and whether it is of the whole body.
+            more = {'from': 'hand', **({'whole': True} if whole_body(pose) else {})} if name in OPTIONAL or pose.get('reaction') else {}
             add(made, pose['kind'], frames, framed=MADE_BOX, **more)
         if name in OPTIONAL:
             found[name] = 'hand'

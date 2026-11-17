@@ -68,6 +68,7 @@ function createPlayer(id, size) {
     // last began is made, 'windmill' or null.
     move: null, moveWait: 0, moved: -Infinity, lateT: 0, stumbleT: 0, fading: false, shotKey: 'shoot', finish: null, flair: null,
     fed: null,   // the pass he caught last: { row, at }, the passer's roster row and when; null if the ball came some other way
+    downT: 0, fallOnLanding: false,   // seconds left of being down on the floor; he goes down as he lands (see together.js)
     man: (id + size) % (2 * size), switchWait: 0,   // the id of the opponent he guards (see matchups.js); seconds until he may be switched again
     prev: emptyIntent(),
     ai: { timer: 0, targetX: 0, targetZ: 0, sprint: false, action: null },
@@ -83,7 +84,7 @@ export function lineUp(state) {
       facing: s === 1 ? 0 : Math.PI,
       shooting: false, shotT: 0, letGo: false, jumpT: 0, inbounder: false,
       held: false, steps: 0, keyT: 0, setT: 0,
-      move: null, moveWait: 0, lateT: 0, stumbleT: 0, fading: false, shotKey: 'shoot', finish: null, flair: null,
+      move: null, moveWait: 0, lateT: 0, stumbleT: 0, fading: false, shotKey: 'shoot', finish: null, flair: null, downT: 0, fallOnLanding: false,
     });
   }
 }
@@ -133,7 +134,9 @@ export function createMatch(seed = 1, size = 3, teams = [0, 1]) {
     // score: a basket from the floor, { team, by, row, points, at, shotAt, clock, x, z, far, gap, green, assist, fouled,
     // tied, lead }: row his roster row; shotAt and clock the match time and the game clock when it left his hand; far
     // metres from the hoop; gap metres to the nearest opponent then; assist the roster row of who fed him, or null.
-    last: { stumble: null, score: null, block: null, steal: null, rivals: null },
+    last: { stumble: null, score: null, block: null, steal: null, rivals: null, foul: null },   // foul: the last called, { by, kind, at }
+    down: null,     // a man knocked down and the team-mate who helps him up: { id, helper } (see together.js)
+    huddle: null,   // the huddle of a timeout: { centres: [team 0's, team 1's] }, each { x, z }, while it is on
     rivals: {},   // the heat between opponents who keep getting the better of each other, by their pair (see mood.js)
     teamStats: [{ lead: 0, run: 0, tov: 0 }, { lead: 0, run: 0, tov: 0 }],   // each team's biggest lead, longest run, and turnovers that are nobody's
     board: false,             // a missed or blocked shot is loose: whoever takes it has a rebound

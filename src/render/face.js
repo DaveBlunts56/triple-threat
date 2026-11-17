@@ -2,6 +2,7 @@
 // expressions are morph targets on his skin (made in tools/blender/build_players.py from the generator's expression
 // units); this sets how much of each shows. No Three.js here, so it can be tested without a browser.
 import { STEAL } from '../sim/tuning.js';
+import { CELEBRATIONS } from '../broadcast/reactions.js';
 
 // blinkEvery: the seconds between blinks, at least and at most, different for each player. blinkFor: how long a
 // blink lasts. ease: the seconds an expression takes to come in or go out. reach: for this many seconds after a
@@ -60,7 +61,7 @@ export function faceWants(player, marks, feel = {}) {
   return {
     effort: (player.shooting && (player.finish !== null || player.fading)) || player.move?.kind === 'stepBack'
       || player.stealCooldown > STEAL.cooldown - FACE.reach || (!!feel.defending && mood.frustration >= FACE.grimace),
-    shout: marks?.show?.celebrate === player.id,
-    dejected: marks?.show?.dejected === player.id || (!!feel.dead && mood.confidence <= FACE.down),
+    shout: marks?.show?.celebrate === player.id || CELEBRATIONS.includes(marks?.show?.react?.[player.id]?.clip),
+    dejected: marks?.show?.dejected === player.id || ['dejected', 'headHands'].includes(marks?.show?.react?.[player.id]?.clip) || (!!feel.dead && mood.confidence <= FACE.down),
   };
 }

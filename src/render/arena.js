@@ -6,9 +6,9 @@ import { BUILDING, createBuilding } from './building.js';
 import { createVideoBoard } from './videoboard.js';
 import { QUALITY } from './quality.js';
 import { ADS, adAt } from './life.js';
-import { dressCrowd } from './crowd.js';
+import { dressBench, dressCrowd } from './crowd.js';
 import { createFans } from './fans.js';
-import { courtsideSeats } from './sideline.js';
+import { benchSeats, courtsideSeats } from './sideline.js';
 
 // panels: the roof's lights, as in light.js's hidden hall, drawn here so the floor has them to mirror. glow: how much
 // brighter than white the lit boards and the roof's lights are, so that they bloom.
@@ -58,7 +58,7 @@ function steps() {
 // live(life, now, side), feed(renderer, camera, picture), dispose() }: how full the stands are at a quality level, the
 // match for the video board to show, the crowd's mood (`side`: the match's side at home), the frame just drawn for its
 // screens, and taking it all down again (for another arena).
-export function createArena(scene, look, away = 1 - look.team) {
+export function createArena(scene, look, away = 1 - look.team, ids = [look.team, away]) {
   const hall = new THREE.Group(), R = ARENA.roof;
   // The dark shell round everything, its top the roof's underside.
   const shell = new THREE.Mesh(new THREE.BoxGeometry(2 * R.hallX, R.y, 2 * R.hallZ),
@@ -80,7 +80,9 @@ export function createArena(scene, look, away = 1 - look.team) {
   hall.add(shell);
   // The fans: the courtside seats always filled, then the stands, the first so many of them in a fixed shuffled order.
   const stands = shown([...seats(), ...upperSeats()], 1);
-  const fans = createFans(hall, dressCrowd(stands, courtsideSeats(), ARENA.upper.height - 0.1, look.team, away), look.team, away);
+  // The players on the benches first, as fans of their teams (see crowd.js's dressBench): always shown.
+  const bench = benchSeats(ids).map((seat, i) => dressBench(seat, i, look.team));
+  const fans = createFans(hall, [...bench, ...dressCrowd(stands, courtsideSeats(), ARENA.upper.height - 0.1, look.team, away)], look.team, away);
   const courtside = fans.seats - stands.length;
 
   // The boards and the table carry words. (The video board's faces are its own: see videoboard.js.)

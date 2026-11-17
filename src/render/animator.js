@@ -1,6 +1,6 @@
 // Plays one person's motions on two layers, the legs and the arms, and cross-fades each layer on its own.
 import * as THREE from 'three';
-import { LEG_CLIPS, ARM_CLIPS, OPTIONAL_CLIPS, STRIDES, crossFade, layerOf, outOfStep, stridePhase, wholeBody } from './motion.js';
+import { LEG_CLIPS, ARM_CLIPS, OPTIONAL_CLIPS, REACTION_CLIPS, STRIDES, crossFade, easedShares, layerOf, outOfStep, stridePhase, wholeBody } from './motion.js';
 import { chestTip } from './bearing.js';
 import { keepTrack } from './checks.js';
 import { createFeet } from './feet.js';
@@ -84,7 +84,7 @@ export function createAnimator(model, clips, facts, scale, index = 0) {
   const held = (name, keep) => Object.assign(mixer.clipAction(part(clips[name], keep, scale)).play(), { timeScale: 0 });
   // The arms' motions, with those the file may or may not have; and among them the downloaded clips of the whole
   // body, which the legs play too.
-  const armOnly = [...ARM_CLIPS, ...OPTIONAL_CLIPS.filter(name => name in clips)];
+  const armOnly = [...ARM_CLIPS, ...[...OPTIONAL_CLIPS, ...REACTION_CLIPS].filter(name => name in clips)];
   const wholeNames = armOnly.filter(name => wholeBody(facts.clips, name));
   const legNames = [...LEG_CLIPS, ...wholeNames];
   const actions = {
@@ -94,6 +94,7 @@ export function createAnimator(model, clips, facts, scale, index = 0) {
   // Each arm alone, in every leg motion: what the arm a dribble leaves out shows.
   const offArm = Object.fromEntries(Object.entries(OFF_ARM).map(([dribble, side]) => [dribble, Object.fromEntries(LEG_CLIPS.map(name => [name, held(name, track => armOf(track) === side)]))]));
   const weights = { legs: {}, arms: {} };   // each motion's share of its layer's pose
+  const shown = { legs: {}, arms: {} };     // and the share it is shown at, eased (see easedShares)
   const at = {};     // how far through itself each motion is, 0 to 1: the two halves of a leg motion are always at the same moment
   const pace = {};   // the rate each was last played at: one that is no longer chosen carries on at it. 0 once placed by hand
   for (const name in actions.arms) [at[name], pace[name]] = [STANDING.includes(name) ? own.start : 0, 0];
@@ -179,9 +180,12 @@ export function createAnimator(model, clips, facts, scale, index = 0) {
       crossFade(weights.legs, legs.clip, dt);
       crossFade(weights.arms, arms ? arms.clip : legs.clip, dt);
       const show = (action, name, share) => { action.time = at[name] * clips[name].duration; action.setEffectiveWeight(share); };
-      for (const layer of LAYERS) for (const name in actions[layer]) show(actions[layer][name], name, weights[layer][name]);
+      for (const layer of LAYERS) {
+        easedShares(weights[layer], shown[layer]);
+        for (const name in actions[layer]) show(actions[layer][name], name, shown[layer][name]);
+      }
       // The dribble's share of the arm it leaves out goes to the leg motions, as the legs share it among themselves.
-      for (const dribble in offArm) for (const name of LEG_CLIPS) show(offArm[dribble][name], name, weights.arms[dribble] * weights.legs[name]);
+      for (const dribble in offArm) for (const name of LEG_CLIPS) show(offArm[dribble][name], name, shown.arms[dribble] * shown.legs[name]);
       turned.forEach((joint, i) => joint.quaternion.copy(given[i]));
       feet.hips.position.copy(hipsAt);
       mixer.update(0);
