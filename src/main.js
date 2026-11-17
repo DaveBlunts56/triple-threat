@@ -319,7 +319,7 @@ if (view) {
     audio.loop('murmur', cues.bed); audio.loop('distract', cues.distract);
     // From beside the hoop it happened at: the one the moment's team attacks, or for a block the one it defends.
     if (shown) view.replay(shown.ball, attackSign(replays.playing ? (replays.playing.kind === 'block' ? 1 - replays.playing.team : replays.playing.team) : shown.possession), replaySide);
-    else view.follow(state.ball, attackSign(state.possession));
+    else view.follow(state.ball, attackSign(state.possession), state);
     view.watch(state);
     if (state.phase === 'start' && game.menu.panel === 'teamSelect' && !game.result) studio.render(game.menu.select, elapsed);   // the two teams' stars
     else {
