@@ -130,6 +130,7 @@ function pageRowText(choice, quality, camera, prefs, hasVoice) {
   if (choice === 'commentary') return commentaryWords(prefs.commentary, hasVoice);
   if (choice === 'replays') return `Replays: ${prefs.replays ? 'On' : 'Off'}`;
   if (choice === 'sound') return `Sound: ${{ full: 'Full', quiet: 'Quiet', off: 'Off' }[prefs.sound]}`;
+  if (choice === 'info') return `FPS and controls: ${prefs.info ? 'Shown' : 'Hidden'}`;
   return undefined;
 }
 
@@ -338,6 +339,9 @@ export function createHud(doc) {
       const without = (ui.missing ?? []).map(words => ` · no ${words}`).join('');   // effects this browser could not run
       const slowest = typeof ui.worst === 'number' ? ` · slowest frame ${Math.round(ui.worst)} ms` : '';   // of the last second: a stutter shows here
       set('backend', BACKEND_NAMES[backend] + level + without + (typeof ui.fps === 'number' ? ` · ${Math.round(ui.fps)} fps` : '') + slowest);
+      // The corner's renderer and frame rate, and the keys' line, are shown unless Settings hides them (prefs.info).
+      const info = ui.prefs?.info ?? true;
+      hide('backend', !info);
 
       // The start menu (`ui.menu`), before the match: the rows of the panel shown with the bar on one, or a panel with
       // no rows (Teams, Controls), and the hint line. Screen readers hear the selected row, or the panel's name.
@@ -434,7 +438,7 @@ export function createHud(doc) {
         set(`ctlK${i}`, label); set(`ctlW${i}`, words); set(`pctlK${i}`, label); set(`pctlW${i}`, words);
       });
       set('controls', hintLine(keys));
-      hide('controls', !human);
+      hide('controls', !human || !info);
 
       // The broadcast (`ui.show`, see broadcast/director.js): a banner for a big moment, a small card and the
       // commentator's caption above the scorebug, and the panels before the tip and between periods.

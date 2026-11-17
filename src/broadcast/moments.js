@@ -8,7 +8,8 @@ import { playOn } from '../sim/plays.js';
 // ankleWithin: seconds after a stumble in which a basket by the handler, or set up by him, makes it an ankle-breaker.
 // stealWithin: seconds after a steal for a basket to count with it. deep: metres beyond which a three is from deep.
 // clutchClock, winnerClock: seconds left in the fourth period or overtime. buzzer: seconds left in any period when
-// the ball left the hand. poster, posterNear: metres from the hoop, and to the nearest defender. run: points in a row
+// the ball left the hand. poster, posterNear: for a dunk (not a layup, even one that began as a dunk), metres from the
+// hoop, and to the nearest defender. run: points in a row
 // that make a run, and runStep: each further step of it. comeback: the deficit a comeback comes back from.
 // perfect: metres from which your own green shot is marked. slow: the speed the picture slows to for a buzzer-beater
 // or a game-winner, over the last slowWithin metres of the ball's flight.
@@ -57,7 +58,7 @@ export function watchStep(watch, state, events = null) {
     const stumble = state.last.stumble, steal = now.steal;
     if (stumble && sc.at - stumble.at <= MOMENT.ankleWithin && state.players[stumble.by]?.team === sc.team
       && (stumble.by === sc.by || state.players[stumble.by].person === sc.assist)) moment('ankle', sc.team, state.players[stumble.by].person);
-    if (sc.far <= MOMENT.poster && sc.gap <= MOMENT.posterNear) moment('poster', sc.team, sc.row);
+    if (sc.finish === 'dunk' && sc.far <= MOMENT.poster && sc.gap <= MOMENT.posterNear) moment('poster', sc.team, sc.row);
     if (steal && state.players[steal.by]?.team === sc.team && sc.at - steal.at <= MOMENT.stealWithin) moment('stealScore', sc.team, sc.row);
     if (sc.points === 3 && sc.far > MOMENT.deep) moment('deep', sc.team, sc.row);
     if ((sc.tied || sc.lead) && late(state, sc.clock, MOMENT.clutchClock)) moment('clutch', sc.team, sc.row);

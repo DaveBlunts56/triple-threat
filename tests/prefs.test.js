@@ -78,3 +78,9 @@ test('reading never hands out the defaults themselves', () => {
 test('node has no browser storage', () => {
   assert.equal(storageOf(), null);
 });
+
+test('whether the frame rate and the keys\' line are shown is kept: shown unless it was saved hidden', () => {
+  assert.equal(DEFAULT_PREFS.info, true);
+  assert.equal(readPrefs(box('{"info":false}')).info, false);
+  assert.equal(readPrefs(box('{"info":"no"}')).info, true);
+});

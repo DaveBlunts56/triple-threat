@@ -21,8 +21,8 @@ test('the main list is Exhibition, Simulate, Mode, Teams, Controls, Settings, wi
   const m = createMenu();
   assert.deepEqual([m.panel, m.row, m.autoSubs, m.size, m.select, menuRows(m)], ['main', 0, true, 3, { away: 3, home: 2, side: 'home' }, ['exhibition', 'simulate', 'mode', 'teams', 'controls', 'settings']]);
   assert.deepEqual([TEAMS[2].name, TEAMS[3].name], ['New York Empire', 'Boston Shamrocks']);
-  assert.deepEqual(MENU.settings, ['quality', 'autoSubs', 'camera', 'difficulty', 'styles', 'commentary', 'replays', 'sound', 'keys']);
-  assert.equal(MENU.settings.length, 9);   // the page has nine rows for them
+  assert.deepEqual(MENU.settings, ['quality', 'autoSubs', 'camera', 'difficulty', 'styles', 'commentary', 'replays', 'sound', 'info', 'keys']);
+  assert.equal(MENU.settings.length, 10);   // the page has ten rows for them
 });
 
 test('Settings has Game styles in place of Quarter, and the Game styles panel has its seven rows', () => {
@@ -93,6 +93,7 @@ test('in Settings, Enter on Quality asks for the quality switch and Enter on Aut
   keys(m, 'ArrowDown'); assert.equal(menuKey(m, 'Enter'), 'commentary');                // the page changes the commentary
   keys(m, 'ArrowDown'); assert.equal(menuKey(m, 'Enter'), 'replays');                   // and turns replays on and off
   keys(m, 'ArrowDown'); assert.equal(menuKey(m, 'Enter'), 'sound');                     // and the sound up and down
+  keys(m, 'ArrowDown'); assert.equal(menuKey(m, 'Enter'), 'info');                      // and shows or hides the frame rate and the keys' line
   keys(m, 'ArrowDown'); assert.equal(MENU.settings[m.row], 'keys');                     // the last row
   keys(m, 'ArrowDown'); assert.equal(m.row, 0);                                         // and it wraps
 });

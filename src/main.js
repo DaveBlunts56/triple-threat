@@ -101,6 +101,7 @@ if (view) {
   };
   const stepQualityByHand = () => { stepQuality(quality); showQuality(); remember(true); };
   const stepReplays = () => { prefs.replays = !prefs.replays; if (!prefs.replays) clearReplays(replays); };
+  const stepInfo = () => { prefs.info = !prefs.info; };   // the frame rate in the corner and the keys' line: shown or hidden
   const switchCamera = () => { game.camera = game.camera === '2k' ? 'broadcast' : '2k'; view.setCamera(game.camera); remember(); };
   view.setCamera(game.camera);
   const life = createLife();   // the crowd's mood
@@ -143,6 +144,7 @@ if (view) {
     else if (asked === 'commentary') stepCommentary();
     else if (asked === 'replays') stepReplays();
     else if (asked === 'sound') stepSound();
+    else if (asked === 'info') stepInfo();
     remember();
     keyboard.drop();   // a key pressed on a menu, one just given to an action too, does nothing in the match until let go
   };
@@ -157,6 +159,7 @@ if (view) {
     else if (asked === 'commentary') stepCommentary();
     else if (asked === 'replays') stepReplays();
     else if (asked === 'sound') stepSound();
+    else if (asked === 'info') stepInfo();
     else if (asked === 'quit') {
       quitToMenu(game, keyboard, waiting);
       if (game.mode === 'watch') { game.mode = 'play'; game.camera = prefs.camera; view.setCamera(game.camera); }   // back to your own camera
