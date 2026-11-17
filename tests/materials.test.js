@@ -115,7 +115,8 @@ test('a jersey on High and Ultra darkens with sweat at the middle of the chest a
   assert.deepEqual(MATERIALS.jerseySweat, { darker: 0.12, chest: [0.25, 0.45, 0.12, 0.2], back: [0.75, 0.3, 0.12, 0.15] });
 });
 
-test('the kit is shiny, as the heavy mesh and satin of early-2000s kit were: neither garment rougher than 0.45', () => {
-  assert.ok(MATERIALS.rough.jersey <= 0.45 && MATERIALS.rough.shorts <= 0.45, JSON.stringify(MATERIALS.rough));
-  assert.ok(MATERIALS.rough.shorts < MATERIALS.rough.jersey, 'the satin shorts are the glossier');
+test('the kit is matte, as today\'s knit uniforms are: both garments 0.7 rough or more, the shorts a little smoother, with a soft sheen', () => {
+  assert.ok(MATERIALS.rough.jersey >= 0.7 && MATERIALS.rough.shorts >= 0.7, JSON.stringify(MATERIALS.rough));
+  assert.ok(MATERIALS.rough.shorts < MATERIALS.rough.jersey, 'the shorts are the smoother');
+  assert.ok(MATERIALS.sheen > 0 && MATERIALS.sheen <= 0.5, `sheen ${MATERIALS.sheen}`);
 });

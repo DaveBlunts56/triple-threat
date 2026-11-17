@@ -9,7 +9,7 @@ const f = Object.freeze;
 // whose cloth also has sheen, which costs more to draw (measured: High in physical materials took 27% longer a frame
 // than before, with the physical kit's sheen most of it). kitRepeat: how many times the fabric tile is repeated across
 // a garment's picture, across and down (a tile is about 4 cm of cloth). rough: each garment's roughness, before its
-// fabric's own: glossy, as the heavy mesh jerseys and satin shorts of the early 2000s were. sheen: how strongly cloth catches light at a grazing angle. detail: how strongly the fabric's weave
+// fabric's own: matte, as today's knit uniforms are, the shorts a little smoother. sheen: how strongly cloth catches light at a grazing angle. detail: how strongly the fabric's weave
 // shows in its normals. cutout: hair, brows and lashes are drawn where their picture is at least this opaque. hair,
 // shoes, skin, cornea, gear: their roughness. strands: the modelled hair's roughness, how many times the strands tile is
 // repeated across and up its picture, how strongly they show, and its sheen on Ultra. jerseySweat: how much darker a
@@ -20,7 +20,7 @@ const f = Object.freeze;
 // by fade[1]; the roughest the regions' map may make it glossy (floor); sweat at its fullest lowers the roughness by
 // `wet` and darkens it by `darker` where it gathers, but never below `least`.
 export const MATERIALS = f({
-  detailed: f(['high', 'ultra']), physical: f(['ultra']), kitRepeat: f([32, 47]), rough: f({ jersey: 0.42, shorts: 0.38 }), sheen: 0.3, detail: 0.6,
+  detailed: f(['high', 'ultra']), physical: f(['ultra']), kitRepeat: f([32, 47]), rough: f({ jersey: 0.8, shorts: 0.74 }), sheen: 0.35, detail: 0.6,
   cutout: 0.4, hair: 0.65, shoes: 0.4, skin: 0.55, cornea: 0.05, gear: 0.7,
   strands: f({ rough: 0.5, repeat: f([24, 48]), detail: 0.8, sheen: 0.5 }),
   jerseySweat: f({ darker: 0.12, chest: f([0.25, 0.45, 0.12, 0.2]), back: f([0.75, 0.3, 0.12, 0.15]) }),
