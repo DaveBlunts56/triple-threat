@@ -57,8 +57,8 @@ export function sized(gaits, scale) {
   return Object.fromEntries(Object.entries(gaits).map(([gait, speed]) => [gait, Math.round(speed * scale * 1000) / 1000]));
 }
 
-// The teams whose players have models of their own in assets/players.glb: the dev teams. (The league's play in
-// stand-in bodies until theirs are built: see people.js.)
+// The teams whose players have models in assets/players.glb: the dev teams. (Each league player has a file of his own,
+// and stands in a dev body only if it cannot be loaded: see people.js.)
 export const modelled = id => !!TEAMS[id]?.dev;
 // The body each player of team `id` is drawn in, in roster order: { number, body, size }, `body` being the name of a
 // model in assets/players.glb and `size` how much it is scaled by. A modelled team's players are their own. Each of

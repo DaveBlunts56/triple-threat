@@ -28,6 +28,18 @@ npm test
 
 `build_players.py` reads `people.json` and writes `assets/players.glb`. With `--shots` it also renders each player from four sides, his head and his legs, so the result can be looked at. Blender runs without a window.
 
+## The league's players
+
+```bash
+node tools/league/import.mjs
+node tools/league/build_models.mjs --jobs 3
+npm test
+```
+
+1. `import.mjs` reads the league's files (by default from `~/Documents/Triple-Threat_expansion-teams`, the players from its corrected `triple_threat_fixed_players` folder) and writes `src/sim/league.js` and each player's recipe, `assets/source/league-people.json`. A recipe has his build, a base skin (by his tone and age) and his tone as a colour, his hair as one of the build's styles, its colour, and his beard, all read from the appearance file's words. His face is generated from his `face` number, not modelled on anyone. Nothing in the recipes names the real players the parodies are of.
+2. `build_models.mjs` runs `build_players.py` once for each player (`--people`, `--only`, `--team`, `--out assets/players`, `--skin-size 1024`), a few at a time, and writes `assets/players/<team key>-<number>.glb`: one file a player, so the game loads only the players it shows. A player whose file is there is skipped unless `--force`.
+3. Each league player's skin picture is his own (`tools/blender/looks.py`): the base skin tinted to his tone, with his beard painted on it, so the beard moves with his face. It ships at 1024 pixels, against the dev players' shared 2048, so a match of twenty costs the graphics card about what the dev teams' sixteen do.
+
 ## Motion
 
 ```bash

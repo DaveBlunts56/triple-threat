@@ -28,11 +28,12 @@ BAND = {'off': 0.0025, 'thick': 0.002, 'headband': (0.025, 0.04, 0.008), 'should
 SHOES = {'raise': 0.06, 'below': 0.03, 'out': 0.08}
 
 
-def team_colours():
-    """The teams' colours as (r, g, b) from 0 to 1, as the game paints the kit (src/render/kit.js KIT.team)."""
-    text = open(project('src', 'render', 'kit.js')).read()
-    hexes = re.search(r"team: f\(\[\s*'(#[0-9a-f]{6})',\s*'(#[0-9a-f]{6})'\s*\]\)", text).groups()
-    return [tuple(int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)) for h in hexes]
+def team_colour(row):
+    """His team's colour, '#rrggbb': the recipe's `colour`, or for a dev team its colour in src/sim/teams.js (the
+    first two `colour:` there are the dev teams')."""
+    if row.get('colour'):
+        return row['colour']
+    return re.findall(r"colour: '(#[0-9a-f]{6})'", open(project('src', 'sim', 'teams.js')).read())[row['team']]
 
 
 def band_points(body, item, mark, bones, frame, shoe_top, joint):
@@ -130,8 +131,9 @@ def high_tops(shoes, ankle_height):
     bm.free()
 
 
-def paint_shoes(shoes, team):
-    """The shoes' picture in his team's colour: the dark stripes set in the white upper, and the green accents."""
+def paint_shoes(shoes, colour):
+    """The shoes' picture in his team's colour ('#rrggbb'): the dark stripes set in the white upper, and the green
+    accents."""
     image = next(n.image for n in shoes.data.materials[0].node_tree.nodes if n.type == 'TEX_IMAGE' and n.image)
     w, h = image.size
     px = np.array(image.pixels[:], dtype=np.float32).reshape(h, w, 4)
@@ -146,10 +148,9 @@ def paint_shoes(shoes, team):
         for dx in range(-reach, reach + 1):
             total += padded[reach + dy:reach + dy + h, reach + dx:reach + dx + w]
     stripes = dark & (total / (2 * reach + 1) ** 2 > 0.2)
-    colour = np.array(team_colours()[team], dtype=np.float32)
     paint = stripes | green
-    rgb[paint] = colour * 0.9
-    name = f'shoes-team-{team}'
+    rgb[paint] = np.array([int(colour[i:i + 2], 16) / 255 for i in (1, 3, 5)], dtype=np.float32) * 0.9
+    name = f'shoes-{colour[1:]}'
     if name in bpy.data.images:   # made once for each team
         copy = bpy.data.images[name]
         for node in shoes.data.materials[0].node_tree.nodes:

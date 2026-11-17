@@ -3,7 +3,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, posix, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { ASSETS } from '../src/render/assets.js';
+import { PACKED as ASSETS } from '../src/render/assets.js';
 
 const OUT = 'dist/triple-threat.html';
 // The bare names the game imports, as in index.html's import map.
