@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createMatch, emptyIntent } from '../src/sim/state.js';
+import { createMatch, emptyIntent, personOf } from '../src/sim/state.js';
 import { giveBall } from '../src/sim/players.js';
-import { kindOf, places, offBallSpot, passed } from '../src/sim/offball.js';
+import { kindOf, places, offBallSpot, passed, freedBy, pointOf, inboundTo } from '../src/sim/offball.js';
 import { aiIntents } from '../src/sim/ai.js';
 import { isThree } from '../src/sim/players.js';
-import { AI, DT, OFF, RIM } from '../src/sim/tuning.js';
+import { AI, DT, FOUL, OFF, RIM } from '../src/sim/tuning.js';
+import { step } from '../src/sim/step.js';
 import { at } from './helpers.js';
 
 const apart = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -347,4 +348,128 @@ test('a good shooter with his man on him sometimes cuts for three: to an open sp
     }
   }
   assert.ok(cuts > 0 && cuts < 40, `${cuts} cuts for three in 40`);
+});
+
+// ---------- screens away from the ball (overhaul Stage 2) ----------
+
+// The settled scene with a wing cleared (Marsh, the slasher, and his man sent up the court): an open spot on the arc for
+// Okoro (3), the sharpshooter in the corner, whose man is on him. The bigs are Stone (2) and Volkov (4), beside him.
+function wingOpen(seed = 1) {
+  const s = settled(); s.seed = seed * 7; s.frontcourt = true;
+  at(s, 1, 3, -7); at(s, 6, 4, -6.5);
+  return s;
+}
+const WING = { x: 7.37, z: 5.96 };
+
+test('a big screens away from the ball for a covered shooter with an open spot to go to: beside his man, on his way; one screen a team at a time, none during a cut, none with nowhere open', () => {
+  let screens = 0, during = 0, cutting = 0, covered = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const s = wingOpen(seed), go = offBallSpot(s, s.players[4]);
+    if (go.why === 'screen') {
+      screens++;
+      const sc = s.screen[0];
+      const guard = s.players.find(o => o.team === 1 && o.man === sc.for);
+      assert.equal(sc.by, 4);
+      assert.ok(Math.abs(apart(sc.spot, guard) - OFF.screen.beside) < 1e-9 && apart(sc.spot, sc.to) < apart(guard, sc.to), 'beside his man, on the way to the spot');
+      assert.deepEqual({ x: go.x, z: go.z, sprint: go.sprint }, { ...sc.spot, sprint: true });
+      if (offBallSpot(s, s.players[2]).why === 'screen' || s.screen[0].by !== 4) during++;
+    }
+    const cut = wingOpen(seed); cut.cut[0] = { id: 1, until: cut.time + 1 };
+    if (offBallSpot(cut, cut.players[4]).why === 'screen') cutting++;
+    const tight = settled(); tight.seed = seed * 7;
+    if (offBallSpot(tight, tight.players[4]).why === 'screen') covered++;
+  }
+  assert.ok(screens >= 12, `he screened ${screens} times of 40`);
+  assert.deepEqual([during, cutting, covered], [0, 0, 0]);
+});
+
+test('the shooter waits for the screen, runs off it once it is set, then stands at his spot for the ball; a pass round does not end it, his catch, the ball lost or the look running out does', () => {
+  const begin = () => {
+    const s = wingOpen();
+    s.screen[0] = { by: 4, for: 3, spot: { x: 11.3, z: 5.76 }, to: { ...WING }, until: s.time + OFF.screen.lasts, used: false };
+    return s;
+  };
+  const s = begin(), shooter = s.players[3], big = s.players[4], holder = s.players[0];
+  assert.equal(offBallSpot(s, shooter).why, 'waitScreen');
+  assert.deepEqual(offBallSpot(s, big), { x: 11.3, z: 5.76, sprint: true, why: 'screen' });
+  at(s, 4, 11.3, 5.76); big.setT = FOUL.setTime;
+  assert.deepEqual(offBallSpot(s, shooter), { ...WING, sprint: true, why: 'offScreen' });
+  assert.equal(freedBy(s, holder), null, 'not free till he is there');
+  at(s, 3, WING.x, WING.z);
+  assert.deepEqual(offBallSpot(s, shooter), { ...WING, sprint: false, why: 'offScreen' });
+  assert.equal(freedBy(s, holder), shooter);
+  assert.equal(freedBy(s, shooter), null);
+  // The ball swung to another team-mate on the way: still on.
+  Object.assign(s.ball, { holder: null, mode: 'pass' }); s.lastTouch = 0;
+  assert.equal(offBallSpot(s, shooter).why, 'offScreen');
+  giveBall(s, s.players[1]);
+  assert.equal(offBallSpot(s, shooter).why, 'offScreen');
+  // Nobody comes: after the look he goes back to his places.
+  s.time += OFF.screen.look + 0.01;
+  assert.notEqual(offBallSpot(s, shooter).why, 'offScreen');
+  assert.equal(s.screen[0], null);
+  // He catches it, or the other team has the ball: over.
+  const caught = begin(); giveBall(caught, caught.players[3]);
+  assert.equal(offBallSpot(caught, caught.players[4]).why === 'screen', false); assert.equal(caught.screen[0], null);
+  const lost = begin(); giveBall(lost, lost.players[5]);
+  assert.notEqual(offBallSpot(lost, lost.players[3]).why, 'waitScreen'); assert.equal(lost.screen[0], null);
+});
+
+test('the ball handler finds the shooter a screen has just freed, where he would not look for him there without it', () => {
+  const toward = (s, m) => { const v = Math.hypot(s.ball.vx, s.ball.vz) || 1, d = Math.hypot(m.x - s.ball.x, m.z - s.ball.z) || 1; return (s.ball.vx * (m.x - s.ball.x) + s.ball.vz * (m.z - s.ball.z)) / (v * d) > 0.97; };
+  const counts = [0, 0];
+  for (let seed = 1; seed <= 20; seed++) for (const screened of [1, 0]) {
+    const s = wingOpen(seed);
+    Object.assign(s.players[0].ai, { heldT: 1, had: true }); s.shotClock = 14;
+    at(s, 3, WING.x, WING.z); at(s, 8, 11.6, 6.4); at(s, 4, 11.3, 5.76); s.players[4].setT = FOUL.setTime;   // his man caught on the screen
+    if (screened) s.screen[0] = { by: 4, for: 3, spot: { x: 11.3, z: 5.76 }, to: { ...WING }, until: s.time + 5, used: true, arrived: s.time };
+    for (let t = 0; t < 1.2 && s.ball.mode !== 'pass' && !s.players[0].shooting; t += DT) step(s, aiIntents(s, DT).map((x, i) => (i === 0 ? x : emptyIntent())), DT);
+    if (s.ball.mode === 'pass' && toward(s, s.players[3])) counts[1 - screened]++;
+  }
+  assert.ok(counts[0] >= 16 && counts[1] <= 12, `to the freed shooter ${counts[0]}/20; to the same man there without the screen ${counts[1]}/20`);
+});
+
+// ---------- the point guard (overhaul Stage 2) ----------
+
+test('the point guard is the best handler on the floor, a pass-first man before a scorer; a team a person plays has none', () => {
+  const s = createMatch(1, 5); s.humans = [];
+  assert.equal(personOf(s, pointOf(s, 0)).role, 'Playmaker');
+  const best = pointOf(s, 1), worth = m => personOf(s, m).ratings.handle + OFF.point.pass * personOf(s, m).tend.passFirst;
+  assert.ok(s.players.filter(m => m.team === 1).every(m => worth(m) <= worth(best)));
+  s.humans = [0];
+  assert.equal(pointOf(s, 0), null);
+});
+
+test('the inbound goes to the point guard when he is near enough to take it, and else to the nearest team-mate; a person\'s team gives it to the nearest', () => {
+  const s = createMatch(1, 5); s.humans = [];
+  const point = pointOf(s, 0), inbounder = s.players.find(m => m.team === 0 && m !== point);
+  s.players.forEach((p, i) => at(s, p.id, -10 + i, p.team === 0 ? -6 : 6));
+  at(s, inbounder.id, -14.3, 0);
+  const near = s.players.find(m => m.team === 0 && m !== point && m !== inbounder);
+  at(s, near.id, -13, 1); at(s, point.id, -14.3 + OFF.point.inbound - 0.5, 0);
+  assert.equal(inboundTo(s, inbounder), point);
+  at(s, point.id, -14.3 + OFF.point.inbound + 0.5, 0);
+  assert.equal(inboundTo(s, inbounder), near);
+  s.humans = [0];
+  at(s, point.id, -10, 0);
+  assert.equal(inboundTo(s, inbounder), near);
+});
+
+test('while the ball is dead the nearest man but the point guard goes to take the inbound, and the point guard comes to receive it; a person\'s team as ever', () => {
+  const dead = humans => {
+    const s = createMatch(1, 5); s.humans = humans;
+    Object.assign(s, { phase: 'dead', possession: 0, inboundSpot: { x: -14.3, z: 0 } });
+    s.players.forEach((p, i) => at(s, p.id, -6 + i, p.team === 0 ? -5 : 5));
+    return s;
+  };
+  const s = dead([]), point = pointOf(s, 0);
+  at(s, point.id, -13, 0.5);                        // he is the nearest of all
+  const next = s.players.filter(m => m.team === 0 && m !== point).reduce((a, b) => (apart(b, s.inboundSpot) < apart(a, s.inboundSpot) ? b : a));
+  aiIntents(s, DT);
+  assert.ok(apart(target(next), s.inboundSpot) < 0.5, 'the next nearest takes the ball out');
+  assert.ok(Math.abs(apart(target(point), s.inboundSpot) - AI.inboundHelp) < 1e-9, 'the point guard comes to receive it');
+  const theirs = dead([0]), first = theirs.players[point.id];
+  at(theirs, first.id, -13, 0.5);
+  aiIntents(theirs, DT);
+  assert.ok(apart(target(first), theirs.inboundSpot) < 0.5, 'a person\'s team: the nearest takes it out');
 });

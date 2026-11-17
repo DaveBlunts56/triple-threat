@@ -18,6 +18,40 @@ export const guardOf = (state, player) => state.players.find(o => o.man === play
 
 // How far apart two players are in size, by position (a guard against a centre is far apart).
 const SIZE = Object.freeze({ PG: 1, SG: 2, SF: 3, PF: 4, C: 5 });
+
+// Mismatches, as the offence reads them (both engines: see hunt). quick: expected points a drive or a move gains for
+// each 10 rating points by which a man's handle and speed beat his defender's defence and speed. size: what a post-up
+// gains for each position bigger he is than his defender (only from two up: a forward on a guard). feed: what a pass
+// to a man gains for each unit of his own edge, so team-mates get the ball to the mismatch. most: the most of each.
+export const MISMATCH = Object.freeze({ quick: 0.05, size: 0.07, feed: 0.05, most: 0.15 });
+
+// How far `player` has the better of the man guarding him: { quick, size }. quick: 10s of rating points by which his
+// handle and speed beat his man's defence and speed (0 if they do not); size: positions bigger than his man, from two.
+export function edgeOf(state, player) {
+  const guard = guardOf(state, player);
+  if (!guard) return { quick: 0, size: 0 };
+  const me = personOf(state, player), him = personOf(state, guard);
+  const quick = Math.max(0, (me.ratings.handle + me.ratings.speed - him.ratings.defence - him.ratings.speed) / 2) / 10;
+  const apart = (SIZE[me.position] ?? 3) - (SIZE[him.position] ?? 3);
+  return { quick, size: apart >= 2 ? apart - 1 : 0 };
+}
+
+// Hunts the mismatches among `player`'s options (see choose.js), before he chooses: a drive or a move against a man he
+// is quicker than, a post-up against a smaller man, a pass to a team-mate who has the better of his. A pass option
+// names its man by `to` (an id in the 3D game, the player in the fast engine). Returns the options.
+export function hunt(state, player, options) {
+  const mine = edgeOf(state, player), cap = v => Math.min(MISMATCH.most, v);
+  for (const o of options) {
+    if (o.value === -Infinity) continue;
+    if (o.key === 'drive' || o.key === 'move') o.value += cap(MISMATCH.quick * mine.quick);
+    else if (o.key === 'post') o.value += cap(MISMATCH.size * mine.size);
+    else if (o.key === 'pass' && o.to !== undefined) {
+      const m = typeof o.to === 'number' ? state.players[o.to] : o.to, theirs = edgeOf(state, m);
+      o.value += cap(MISMATCH.feed * (theirs.quick + theirs.size));
+    }
+  }
+  return options;
+}
 // How much of a threat an attacker is: how good he is, how much he looks for his shot, and whether he is hot.
 const threatOf = person => overall(person) * (0.5 + (person.tend?.usage ?? 0.5)) * (person.streak >= HEAT.after ? 1.2 : 1);
 

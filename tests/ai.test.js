@@ -503,6 +503,28 @@ test('wide open, the shot goes up on the catch; open by less, he gathers the bal
   assert.ok(t.time - then >= AI.holdTime, `he began the shot ${t.time - then} s after the catch`);
 });
 
+// The end of a period (overhaul Stage 2; see coach.js lastShot). Player 3 is of team 1.
+test('the last shot of a period: when the shot clock cannot run out first he holds it, wide open or not, and goes at AI.lastShotAt; down more than two late, at once', () => {
+  const ending = (quarter, score) => { const s = handler(TOP, 3); Object.assign(s, { quarter, score, gameClock: 15, shotClock: 20 }); return s; };
+  for (const quarter of [2, 4]) {
+    const s = ending(quarter, [50, 50]);
+    assert.ok(run(s, 15, [3], st => st.players[3].shooting));
+    assert.ok(s.gameClock <= AI.lastShotAt && s.gameClock > AI.lastShotAt - 1.5, `quarter ${quarter}: he went with ${s.gameClock.toFixed(2)} s left`);
+  }
+  const behind = ending(4, [55, 50]);
+  assert.ok(run(behind, 1, [3], st => st.players[3].shooting), 'down five he does not wait');
+});
+
+test('two for one: with a quick shot leaving time for another possession, an open man takes his look without waiting for the offence', () => {
+  const look = (seed, gameClock) => { const s = earlyOn(handler(TOP, READ.wide - 0.4, { seed })); Object.assign(s, { quarter: 2, score: [40, 40], gameClock }); return s; };
+  let twoForOne = 0, otherwise = 0;
+  for (let seed = 1; seed <= 10; seed++) {
+    if (run(look(seed, 26), 2, [3], st => st.players[3].shooting)) twoForOne++;
+    if (run(look(seed, 200), 2, [3], st => st.players[3].shooting)) otherwise++;
+  }
+  assert.ok(twoForOne >= 8 && otherwise === 0, `two for one ${twoForOne}/10, otherwise ${otherwise}/10`);
+});
+
 test('a play that has not formed does not keep the ball from a man it has already got wide open', () => {
   const s = handler(TOP, 3);
   assert.ok(callPlay(s, 1, 'iso'));

@@ -10,7 +10,7 @@ import { teamLine } from '../src/sim/stats.js';
 import { situation } from '../src/sim/late.js';
 import { starOf } from '../src/sim/ratings.js';
 import { CLOCK } from '../src/sim/tuning.js';
-import { contestShare, shotChance } from '../src/sim/shooting.js';
+import { contestShare, expectedShot, shotChance } from '../src/sim/shooting.js';
 import { TEAMS } from '../src/sim/teams.js';
 
 // A match ready to play: its style set, nobody playing it. `change(state)` may alter it before the tip.
@@ -259,9 +259,22 @@ const lineOf = (s, t) => teamLine(s, t);
 
 test('better three-point shooters make more of their threes, and take more', () => {
   // Over 150 games: a team ten points better from three is guarded tighter for it, and still makes more and takes more.
-  const of = up => { let made = 0, taken = 0; over(150, s => { for (const p of s.rosters[0]) p.ratings.three += up; }, s => { const l = lineOf(s, 0); made += l.tpm; taken += l.tpa; return 0; }); return { pct: made / taken, taken }; };
+  // Makes are counted as the shot model gives them: each three's chance, its contest and any green release in it
+  // (expectedShot), before the draw. The draws themselves, over 150 games, move the percentage made about as much as
+  // the ten points do (by as much as two points either way), so a count of made threes says more about the seeds than
+  // about the shooters.
+  const of = up => {
+    let chance = 0, looks = 0, taken = 0;
+    const watch = (s, what, { ended } = {}) => {
+      const l = ended?.look;
+      if (what !== 'end' || !l || ended.how === 'turnover' || ended.how === 'foul' || l.shooter.team !== 0 || l.value !== 3) return;
+      looks++; chance += expectedShot({ value: 1, chance: l.chance, green: l.green, rule: styled(s, 'shot.green'), boost: styled(s, 'shot.boost') });
+    };
+    for (let seed = 1; seed <= 150; seed++) taken += lineOf(simulate(ready(seed, { change: s => { for (const p of s.rosters[0]) p.ratings.three += up; } }), watch), 0).tpa;
+    return { pct: chance / looks, taken };
+  };
   const was = of(0), now = of(10);
-  assert.ok(now.pct > was.pct, `3P% ${was.pct.toFixed(4)} -> ${now.pct.toFixed(4)}`);
+  assert.ok(now.pct > was.pct + 0.005, `3P% expected ${was.pct.toFixed(4)} -> ${now.pct.toFixed(4)}`);
   assert.ok(now.taken > was.taken, `3PA ${was.taken} -> ${now.taken}`);
 });
 

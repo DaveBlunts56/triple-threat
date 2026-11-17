@@ -103,6 +103,18 @@ test('his mood leans his choices: sure of himself, he looks for his own shot; do
   assert.deepEqual(lean(s, p, options()).map(o => o.value), options().map(o => o.value));
 });
 
+test('he looks for the team-mate on a roll, and less for one who is rattled, as either engine names him', () => {
+  const s = match(10), p = s.players[0], hot = s.players[1], sour = s.players[2], even = s.players[3];
+  for (const m of [p, hot, sour, even]) { const person = personOf(s, m); person.mood = { confidence: restOf(person.traits), frustration: 0, at: playedOf(s) }; }
+  personOf(s, hot).mood.confidence += 0.5;
+  personOf(s, sour).mood.frustration = 1;
+  for (const named of [m => m.id, m => m]) {
+    const [toHot, toSour, toEven] = lean(s, p, [hot, sour, even].map(m => ({ key: 'pass', value: 1, to: named(m) })));
+    assert.ok(Math.abs(toHot.value - toEven.value - MOOD.lean.feed * 0.5) < 1e-9, 'the hot hand is fed');
+    assert.ok(Math.abs(toEven.value - toSour.value - MOOD.lean.sour) < 1e-9, 'the rattled man is looked for less');
+  }
+});
+
 test('a shot is a little better on a roll and worse off it, against his own usual; the clutch trait counts only with the game on the line; anger fouls', () => {
   const s = match(10), p = s.players[0], person = personOf(s, p);
   person.traits = { ...person.traits, swagger: 0.9, clutch: 1 };

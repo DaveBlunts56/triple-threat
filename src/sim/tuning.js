@@ -117,8 +117,9 @@ export const BLOCK = f({ reach: 1.2, minHeight: 0.3, chance: 0.36, cone: 45, def
 export const CLOCK = f({ quarters: 4, quarter: 180, overtime: 60, shot: 24, shotAfterFoul: 14, dead: 1.5, quarterBreak: 2, timeout: 3 });
 
 export const AI = f({
-  interval: 0.3, openDist: 1.8, shootRange: 7.99, laneWidth: 1.07, panicClock: 4,
+  interval: 0.3, openDist: 1.8, shootRange: 7.99, laneWidth: 1.07, panicClock: 4, lastShotAt: 7,
   stealRate: 0.03, inboundDelay: 1, onBallGap: 1.35, offBallGap: 1.8,
+  // lastShotAt: holding for the last shot of a period (see ai.js), the seconds left at which the offence goes.
   jitter: 0.1,            // random extra seconds between decisions
   arrive: 0.3,            // close enough to a target to stop
   slowDist: 1.5,          // within this of a target a player asks for part speed, in proportion to the distance left
@@ -190,6 +191,15 @@ export const READ = f({ wide: 2.5, onCatch: 0.25, crowd: 2 });
 // team-mate within the first of the drive's line moves the second off it. breakUntil: a fast break is run until the
 // ball is this far up the court. breakWide, breakTrail: the lanes run on it: wide of the ball, and behind it.
 export const OFF = f({ shooterAt: 80, apart: 2.5, sideHold: 1.5, every: f([2.5, 5]), cutGap: 2.4, cutFrom: 4.5, cutWidth: 0.9, cutFor: 1.6, rimAt: 11.3,
+  // A screen away from the ball (see offball.js): what it is worth to a big against staying (plus a shooter's three
+  // rating's tenths above ARC.threeAt, by 3), how far from the shooter the big may be, how far beside the shooter's
+  // man he stands, how near his spot he must be to count as set, how near his spot the shooter must get to be there,
+  // the most seconds it lasts before he is, how long he then stands there for the ball, and what a pass to him is
+  // worth over others (the man the screen was for: the ball handler looks for him).
+  screen: f({ value: 1.05, reach: 9, beside: 0.75, set: 0.6, done: 0.8, lasts: 5, look: 1.5, feed: 0.3 }),
+  // The point guard (see offball.js pointOf): what a pass-first tendency of 1 is worth against handle in choosing him,
+  // and how near the inbounder he must be to be given the inbound.
+  point: f({ pass: 40, inbound: 7 }),
   giveAndGo: 0.8, drivePace: 2.5, clear: 2.2, clearTo: 3, breakUntil: 6, breakWide: 6, breakTrail: 4 });
 // Cutting for three (see offball.js). threeAt: the Three a man needs to go looking for one. openAt: metres from the
 // nearest defender a spot on the arc must be to count as open. driftReach: how far a shooter goes to one when a

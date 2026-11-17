@@ -141,6 +141,7 @@ export function createMatch(seed = 1, size = 3, teams = [0, 1]) {
     tempo: { clock: 0, wait: 0, fed: false },   // how patient this possession is, and the shot clock when that was last looked at (see ai.js)
     side: [1, 1],             // the side of the court each team's offence is set to (see offball.js)
     cut: [null, null],        // each team's player cutting to the hoop, { id, until }, or null
+    screen: [null, null],     // each team's screen away from the ball: { by, for, spot, to, until, used, arrived? }, or null (see offball.js)
     plays: [null, null],      // the play each team is running (see plays.js), or null
     coach: [null, null],      // each team's coach (see coach.js), made when first asked for
     humans: [0],              // the teams a person plays: [0] in Play, [] in a match with nobody playing
