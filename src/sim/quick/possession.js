@@ -3,6 +3,7 @@
 // the play being run and worth what the shared shot model says; he chooses with the same decision maker as the 3D
 // game's players (choose.js), with the same leanings, rules of patience and clock.
 import { AI, CLOCK, LATE, PLAY } from '../tuning.js';
+import { lean } from '../mood.js';
 import { personOf, rand } from '../state.js';
 import { styled } from '../styles.js';
 import { STAR_AT, choose, sharpness, starPull } from '../choose.js';
@@ -179,7 +180,7 @@ export function playPossession(state, team, begun) {
     if (!forced) options.push({ key: 'hold', value: keep + (milking || holding ? 0.6 : 0) });
     if (forced && !options.some(o => o.key === 'shoot' || o.key === 'drive' || o.key === 'post')) options.push({ key: 'shoot', value: 0.5, look: look(state, h, jumper(state, h), within(r, QUICK.gap.forced), d) });
 
-    const pickOne = choose(state, options, iq, 'offence');
+    const pickOne = choose(state, lean(state, h, options), iq, 'offence');
     // Losing the ball on the way: a pass picked off or thrown away, a strip on a drive, a fumble, a charge, an
     // illegal screen in the play.
     const tov = turnoverChance(state, pickOne.key, h, d, pick && play);

@@ -4,6 +4,7 @@ import { CLOCK } from '../sim/tuning.js';
 import { attackSign } from '../sim/state.js';
 import { rimCentre } from '../sim/ball.js';
 import { playOn } from '../sim/plays.js';
+import { moodOf } from '../sim/mood.js';
 
 // ankleWithin: seconds after a stumble in which a basket by the handler, or set up by him, makes it an ankle-breaker.
 // stealWithin: seconds after a steal for a basket to count with it. deep: metres beyond which a three is from deep.
@@ -12,13 +13,14 @@ import { playOn } from '../sim/plays.js';
 // hoop, and to the nearest defender. run: points in a row
 // that make a run, and runStep: each further step of it. comeback: the deficit a comeback comes back from.
 // perfect: metres from which your own green shot is marked. slow: the speed the picture slows to for a buzzer-beater
-// or a game-winner, over the last slowWithin metres of the ball's flight.
+// or a game-winner, over the last slowWithin metres of the ball's flight. rattled, calmed: the frustration at which a
+// player is said to be rattled (see mood.js), and below which he may be said to be again.
 export const MOMENT = Object.freeze({ ankleWithin: 4, stealWithin: 5, deep: 8.5, clutchClock: 60, winnerClock: 10, buzzer: 1, poster: 1.5,
-  posterNear: 1, run: 8, runStep: 4, comeback: 10, perfect: 7, slow: 0.25, slowWithin: 0.5 });
+  posterNear: 1, run: 8, runStep: 4, comeback: 10, perfect: 7, slow: 0.25, slowWithin: 0.5, rattled: 0.75, calmed: 0.4 });
 
 // The moments, biggest first. The stars get a replay.
 export const KINDS = Object.freeze(['winner', 'buzzer', 'ankle', 'block', 'andOne', 'poster', 'stealScore', 'deep', 'clutch', 'onFire',
-  'heatingUp', 'run', 'comeback', 'perfect']);
+  'heatingUp', 'run', 'comeback', 'rivalry', 'perfect']);
 export const STARS = new Set(['winner', 'buzzer', 'ankle', 'block', 'andOne', 'poster']);
 
 const FOULS = ['shooting', 'reach', 'block', 'charge'];
@@ -28,10 +30,10 @@ const late = (state, clock, within) => state.quarter >= CLOCK.quarters && clock 
 const reached = run => (run >= MOMENT.run ? MOMENT.run + MOMENT.runStep * Math.floor((run - MOMENT.run) / MOMENT.runStep) : 0);
 
 // What the watcher remembers from step to step. `seen` is null until its first look, which marks nothing.
-export const createWatch = () => ({ seen: null, behind: [0, 0], runAt: [0, 0], winner: null, board: false });
+export const createWatch = () => ({ seen: null, behind: [0, 0], runAt: [0, 0], winner: null, board: false, rattled: {} });
 
 function look(state) {
-  return { score: state.last.score, block: state.last.block, steal: state.last.steal, call: state.call, phase: state.phase, quarter: state.quarter,
+  return { score: state.last.score, block: state.last.block, steal: state.last.steal, rivals: state.last.rivals, call: state.call, phase: state.phase, quarter: state.quarter,
     points: [...state.score], plays: [state.plays[0]?.key ?? null, state.plays[1]?.key ?? null], persons: state.players.map(p => p.person),
     freeThrow: state.freeThrow, holder: state.ball.holder };
 }
@@ -39,7 +41,8 @@ function look(state) {
 // One step of watching. Returns what happened in it, the moments first and biggest first, then the plain happenings.
 // A moment: { kind, moment: true, star, rank, team, row, name, at, ... }. A plain happening: { kind, moment: false,
 // team, row, name, at, ... } with kind 'made', 'miss', 'rebound', 'steal', 'foul', 'violation', 'out', 'timeout',
-// 'periodEnd', 'tip', 'play', 'sub' or 'freeThrow'. `row` and `name` are null when it is a team's and nobody's.
+// 'periodEnd', 'tip', 'play', 'sub', 'freeThrow' or 'rattled' (a player's frustration has boiled over: see mood.js).
+// `row` and `name` are null when it is a team's and nobody's. A rivalry's `name` is both players', its `rival` the other's.
 export function watchStep(watch, state, events = null) {
   const was = watch.seen, now = look(state), out = [];
   watch.seen = now;
@@ -76,6 +79,17 @@ export function watchStep(watch, state, events = null) {
     moment('block', blocker.team, blocker.person, { chase: now.block.chase });
   }
   if (now.steal && now.steal !== was.steal) { const thief = state.players[now.steal.by]; plain('steal', thief.team, thief.person); }
+
+  // Two opponents become rivals; a player on court is rattled (said once, until he has calmed down).
+  if (now.rivals && now.rivals !== was.rivals) {
+    const { a: [ta, ra], b: [tb, rb] } = now.rivals, them = [surname(state.rosters[ta][ra]), surname(state.rosters[tb][rb])];
+    moment('rivalry', ta, ra, { name: `${them[0]} vs ${them[1]}`, rival: them[1] });
+  }
+  for (const p of state.players) {
+    const key = `${p.team}:${p.person}`, { frustration } = moodOf(state, state.rosters[p.team][p.person]);
+    if (frustration >= MOMENT.rattled && !watch.rattled[key]) { watch.rattled[key] = true; plain('rattled', p.team, p.person); }
+    else if (frustration < MOMENT.calmed) watch.rattled[key] = false;
+  }
 
   // Runs and comebacks, from the score alone, so that free throws count.
   for (const team of [0, 1]) {

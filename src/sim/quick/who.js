@@ -3,6 +3,7 @@
 // court; and each choice keeps the team's totals as they were (see QUICK.who).
 import { personOf, rand } from '../state.js';
 import { QUICK } from './shapes.js';
+import { foulLean } from '../mood.js';
 
 const W = QUICK.who;
 const isNear = zone => zone === 'rim' || zone === 'close';
@@ -75,7 +76,7 @@ export function fouler(state, defender, zone) {
 // when he is in foul trouble and plays softer.
 export function foulShare(state, p) {
   const left = state.foulLimit - personOf(state, p).fouls, careful = left <= 1 ? W.careful[1] : left === 2 ? W.careful[0] : 1;
-  return careful * (traitsOf(state, p).foul / floorOf(state, p.team).foul) ** W.foul;
+  return careful * (traitsOf(state, p).foul / floorOf(state, p.team).foul) ** W.foul * foulLean(state, p);   // harder when frustrated (see mood.js)
 }
 
 // The defender whose steal it is when the ball is taken from a man guarded by `onBall`: the on-ball man most often,

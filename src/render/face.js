@@ -5,8 +5,9 @@ import { STEAL } from '../sim/tuning.js';
 
 // blinkEvery: the seconds between blinks, at least and at most, different for each player. blinkFor: how long a
 // blink lasts. ease: the seconds an expression takes to come in or go out. reach: for this many seconds after a
-// swipe at the ball he shows effort.
-export const FACE = Object.freeze({ blinkEvery: Object.freeze([2, 6]), blinkFor: 0.12, ease: 0.15, reach: 0.4 });
+// swipe at the ball he shows effort. grimace, down: the frustration at which a defender grimaces, and the confidence
+// at or below which he hangs his head while the ball is dead (see faceWants).
+export const FACE = Object.freeze({ blinkEvery: Object.freeze([2, 6]), blinkFor: 0.12, ease: 0.15, reach: 0.4, grimace: 0.6, down: -0.5 });
 
 const MOODS = ['effort', 'shout', 'dejected'];
 
@@ -52,11 +53,14 @@ export function createFace(mesh, seed) {
 // What the face of `player` shows on this frame: effort while he gathers and rises for a finish or a fade, in a
 // step-back, and just after a swipe at the ball; a shout while the broadcast has him celebrating and dejection while it
 // has him beaten (`marks.show`, see motion.js).
-export function faceWants(player, marks) {
+// His mood shows as well (see mood.js), given `feel`: { mood, defending, dead }: a frustrated man grimaces on defence,
+// and one whose confidence is gone hangs his head while the ball is dead.
+export function faceWants(player, marks, feel = {}) {
+  const mood = feel.mood ?? { confidence: 0, frustration: 0 };
   return {
     effort: (player.shooting && (player.finish !== null || player.fading)) || player.move?.kind === 'stepBack'
-      || player.stealCooldown > STEAL.cooldown - FACE.reach,
+      || player.stealCooldown > STEAL.cooldown - FACE.reach || (!!feel.defending && mood.frustration >= FACE.grimace),
     shout: marks?.show?.celebrate === player.id,
-    dejected: marks?.show?.dejected === player.id,
+    dejected: marks?.show?.dejected === player.id || (!!feel.dead && mood.confidence <= FACE.down),
   };
 }

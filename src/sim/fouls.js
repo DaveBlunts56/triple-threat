@@ -3,12 +3,13 @@ import { onFloor, personOf, rand } from './state.js';
 import { styled } from './styles.js';
 import { screenerOn } from './plays.js';
 import { manOf } from './matchups.js';
+import { feelFoul, foulLean } from './mood.js';
 
 // The share of the style's chance that a defender's contact is a foul: one in foul trouble plays softer (the style's
-// careful: with two fouls to give, and with one; Arcade's are 1).
+// careful: with two fouls to give, and with one; Arcade's are 1), one frustrated plays harder (see mood.js foulLean).
 function softer(state, id) {
   const left = state.foulLimit - personOf(state, state.players[id]).fouls, careful = styled(state, 'foul.careful');
-  return left <= 1 ? careful[1] : left === 2 ? careful[0] : 1;
+  return (left <= 1 ? careful[1] : left === 2 ? careful[0] : 1) * foulLean(state, state.players[id]);   // and harder when he is frustrated
 }
 
 // Decides whether any of this step's contacts is a foul. Returns the first one found: { kind, by, on } (player ids).
@@ -76,6 +77,7 @@ export function judgeContacts(state, events, dt) {
 export function recordFoul(state, foul) {
   const fouler = state.players[foul.by];
   personOf(state, fouler).fouls++;
+  feelFoul(state, fouler);
   const teamFouls = ++state.teamFouls[fouler.team];
   const defensive = foul.kind === 'reach' || foul.kind === 'block' || foul.kind === 'looseBall';
   // In the last two minutes of a period, a team's second foul there is shot even short of the bonus (where the style

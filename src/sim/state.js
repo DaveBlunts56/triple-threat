@@ -1,6 +1,7 @@
 import { BALL, CLOCK, FOUL, LINEUP, MATCH, TIP } from './tuning.js';
 import { TEAMS } from './teams.js';
 import { iqOf, tendenciesOf } from './tendencies.js';
+import { freshMood, traitsOf } from './mood.js';
 import { emptyLine } from './stats.js';
 import { setStyle, styled } from './styles.js';
 
@@ -132,7 +133,8 @@ export function createMatch(seed = 1, size = 3, teams = [0, 1]) {
     // score: a basket from the floor, { team, by, row, points, at, shotAt, clock, x, z, far, gap, green, assist, fouled,
     // tied, lead }: row his roster row; shotAt and clock the match time and the game clock when it left his hand; far
     // metres from the hoop; gap metres to the nearest opponent then; assist the roster row of who fed him, or null.
-    last: { stumble: null, score: null, block: null, steal: null },
+    last: { stumble: null, score: null, block: null, steal: null, rivals: null },
+    rivals: {},   // the heat between opponents who keep getting the better of each other, by their pair (see mood.js)
     teamStats: [{ lead: 0, run: 0, tov: 0 }, { lead: 0, run: 0, tov: 0 }],   // each team's biggest lead, longest run, and turnovers that are nobody's
     board: false,             // a missed or blocked shot is loose: whoever takes it has a rebound
     boardTeam: null,          // the team whose miss it is: a rebound by them is offensive
@@ -160,11 +162,14 @@ export function createMatch(seed = 1, size = 3, teams = [0, 1]) {
       target: null,   // the id of the team-mate a pass in the air is for
     },
   };
-  // What each player likes to do and how well he decides (see tendencies.js), from his role and ratings or his own.
+  // What each player likes to do and how well he decides (see tendencies.js), from his role and ratings or his own;
+  // who he is (his traits) and how he feels, fresh for the match (see mood.js).
   sidesOf(teams).forEach((side, t) => side.players.forEach((p, row) => {
     const person = state.rosters[t][row];
     person.tend = tendenciesOf(person, p.tendencies);
     person.iq = iqOf(person, p.iq);
+    person.traits = traitsOf(person, p.traits);
+    person.mood = freshMood(person.traits);
   }));
   setStyle(state);   // Arcade with every slider at 50 until the page says otherwise (see styles.js)
   state.timeouts = [styled(state, 'timeout.each'), styled(state, 'timeout.each')];

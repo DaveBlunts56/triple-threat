@@ -12,6 +12,7 @@ import { offBallSpot, passed } from './offball.js';
 import { OFF } from './tuning.js';
 import { KINDS } from './moves.js';
 import { styled } from './styles.js';
+import { lean, moodSkill } from './mood.js';
 import { speedFactor } from './stamina.js';
 import { easeOf, focusOf, gambleOf, playbookOf, tightness } from './coach.js';
 import { STAR_AT, choose, sharpness, starPull } from './choose.js';
@@ -239,7 +240,7 @@ function planWithBall(state, p) {
     if (!options.length) return goTo(ai, { x: p.x, z: Math.sign(p.z || 1) * (VIOLATION.keyHalfWidth + 0.9) }, true);
   }
 
-  const pick = choose(state, options, iqOf(state, p), 'offence');
+  const pick = choose(state, lean(state, p, options), iqOf(state, p), 'offence');
   ai.chose = pick.key; ai.options = options;   // what he chose and from what, for whoever watches (the tests)
   switch (pick.key) {
     case 'shoot': return shoot();
@@ -337,7 +338,7 @@ export function shotValue(state, m, { at = m, closing = 0, fading = false } = {}
   gap = Math.max(0.2, gap - closing - toward * read);
   const three = isThree(at.x, at.z, sign), corner = Math.abs(at.z) > THREE_PT.cornerZ;
   const zone = three ? 'three' : far < SHOT.insideDist ? 'inside' : 'mid';
-  const person = personOf(state, m), rating = person.ratings[zone], heat = heatOf(person), lv = shooterLevel(state, m.team);
+  const person = personOf(state, m), rating = person.ratings[zone] + moodSkill(state, m), heat = heatOf(person), lv = shooterLevel(state, m.team);
   const contest = contestShare({ gap, defence: rated(state, nearest, 'defence'), fading });
   const base = distanceChance(styled(state, 'shot.curve'), far, zoneFor(far, three, corner, null));
   const meter = styled(state, 'shot.meter');   // without one (Simulation) a release is not judged and is never green
