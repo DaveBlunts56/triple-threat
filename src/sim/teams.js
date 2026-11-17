@@ -94,9 +94,9 @@ export const ROLES = f({
 // inside. run: how often it pushes the ball after a stop. crash: how much of the team goes to the offensive glass
 // rather than back on defence (0 to 1).
 export const PLAYBOOKS = f({
-  paceSpace: f({ plays: f({ pickRoll: 3, pickPop: 2.2, iso: 0.8, horns: 1.2, fiveOut: 2.2, postUp: 0.4, floppy: 1.2, spain: 1.6, giveGo: 1.2, ucla: 0.8 }),
+  paceSpace: f({ plays: f({ pickRoll: 3, pickPop: 2.2, iso: 0.8, horns: 1.2, fiveOut: 2.2, postUp: 0.4, floppy: 1.2, spain: 1.6, giveGo: 1.2, ucla: 0.8, dho: 1.6, flare: 1.2 }),
     pace: 1.1, threes: 1.25, run: 1.35, crash: 0.25 }),
-  insideOut: f({ plays: f({ pickRoll: 1.3, pickPop: 0.6, iso: 2.2, horns: 1.8, fiveOut: 0.6, postUp: 3, floppy: 1.2, spain: 0.8, giveGo: 0.9, ucla: 1.4 }),
+  insideOut: f({ plays: f({ pickRoll: 1.3, pickPop: 0.6, iso: 2.2, horns: 1.8, fiveOut: 0.6, postUp: 3, floppy: 1.2, spain: 0.8, giveGo: 0.9, ucla: 1.4, dho: 0.8, flare: 0.8 }),
     pace: 0.92, threes: 0.8, run: 0.8, crash: 0.6 }),
   balanced: f({ plays: f({}), pace: 1, threes: 1, run: 1, crash: 0.4 }),
 });

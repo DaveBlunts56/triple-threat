@@ -162,7 +162,7 @@ function planWithBall(state, p) {
   const beat = state.time - p.moved < AI.beatFor;
   // His play has not formed yet: he keeps the ball rather than shoot from outside or pass. So does a team ahead late
   // in the game, until the shot clock is nearly out. A team behind late waits for nothing.
-  const waits = (!sit.hurry && playHolds(state, p)) || milking || holding;
+  const forming = !sit.hurry && playHolds(state, p), waits = forming || milking || holding;
   const reaches = m => m && m !== p && legal(m) && dist(m, p) <= AI.passRange && laneClear(state, p, m, untouchable, PLAY.feedWidth);
   const star = state.players.find(m => m.team === p.team && m.person === starOf(state, p.team));
 
@@ -205,11 +205,14 @@ function planWithBall(state, p) {
   const pressured = !isOpen(state, p), wanted = playTarget(state, p), freed = freedBy(state, p);
   for (const m of mates(state, p)) {
     if (!legal(m) || back(m) || dist(m, p) > AI.passRange) continue;
+    // A play still forming does not keep the ball from a man the defence has left wide open, or from a cutter: the
+    // help has come over too far, and that is punished at once. (Holding for the clock or the last shot still does.)
+    const punish = forming && !milking && !holding && mayPass && (space(state, m) >= READ.wide + PLAY.punish || m.id === cutter);
     const want = m === wanted, sprung = m === freed && mayPass;
-    if (waits || !(settled && (mayPass || dist(m, hoop) < AI.layupDist || want))) continue;
+    if ((waits && !punish) || !(settled && (mayPass || dist(m, hoop) < AI.layupDist || want))) continue;
     // (A star near the hoop is fed early too, where the style gives stars the green light.)
     const inEarly = early && dist(m, hoop) < AI.insideDist && !(styled(state, 'decide.starLight') && overall(personOf(state, m)) >= STAR_AT && CLOCK.shot - state.shotClock >= styled(state, 'decide.starFrom'));
-    if (!want && !sprung && (inEarly || !(pressured || dist(m, hoop) < toHoop))) continue;
+    if (!want && !sprung && !punish && (inEarly || !(pressured || dist(m, hoop) < toHoop))) continue;
     // A lane he can see is not clear he does not throw into: unless he does not see the defender in it, which a
     // poor decision-maker sometimes does not (and the defender then picks it off, as passes are picked off).
     const clear = laneClear(state, p, m, untouchable, want ? PLAY.feedWidth : AI.laneWidth);

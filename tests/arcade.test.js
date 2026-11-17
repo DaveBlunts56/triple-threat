@@ -12,7 +12,9 @@ const fixture = name => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, im
 // the smarter AI for both styles) AI.crashOff and AI.crashSide, where a man crashing the glass on a team-mate's shot
 // heads, and LATE.foulUnder, now by how far behind a team is; in overhaul Stage 2 (the smarter AI) two additions, no
 // number changed: AI.lastShotAt, till when a team holds the ball for the last shot of a period; OFF.screen, the screens
-// away from the ball; and OFF.point, the point guard who takes the inbound.
+// away from the ball; and OFF.point, the point guard who takes the inbound. After it, the plays' variety added to PLAY,
+// no number changed: the ways a screen is taken, the corners moving, the play ending after a pass, the handoff and the
+// flare screen, and the pass a forming play's handler makes to a man left wide open.
 test('Arcade\'s numbers are today\'s', () => {
   const numbers = JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(tuning).filter(([, v]) => typeof v !== 'function'))));
   const was = fixture('arcade-tuning.json');

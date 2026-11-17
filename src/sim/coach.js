@@ -85,7 +85,7 @@ export function lastShot(state) {
 // ---------- the defence ----------
 
 // The plays that put the ball in a pick-and-roll, for the coach watching his defence against them.
-const PICKS = Object.freeze(['pickRoll', 'pickPop', 'spain', 'horns']);
+const PICKS = Object.freeze(['pickRoll', 'pickPop', 'spain', 'horns', 'dho']);
 // What a coach changes his screen scheme to when the pick-and-roll is beating it.
 const NEXT_SCREEN = Object.freeze({ drop: 'switch', switch: 'over', over: 'switch' });
 

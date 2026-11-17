@@ -60,8 +60,9 @@ export const QUICK = f({
   // Fouls away from a shot, a possession: on the ball (a reach or a block), and in the scramble for a rebound.
   reach: 0.043, looseBall: 0.02,
   // The share of baskets assisted, by how the scorer got the ball: off a catch he shot, a pass that put him at the rim,
-  // a drive or post move of his own after a catch.
-  assist: f({ catch: 0.81, feed: 0.81, drive: 0.32, post: 0.25 }),
+  // a drive or post move of his own after a catch. (Raised by an eighth in overhaul Stage 2, with the 3D game's ball
+  // movement: handoffs, flares, the pass to a man left open while a play forms.)
+  assist: f({ catch: 0.87, feed: 0.87, drive: 0.35, post: 0.27 }),
   // Who on the floor each event goes to, so that a player's own profile, more than his position, decides his line
   // (see who.js). board: a rebounder is weighed by his rebounding (`rating`: its power, against 70) and by where his
   // position stands when the shot goes up (`near`, kept mild). rim: how near the rim each position stands, for a help
@@ -82,8 +83,8 @@ export const QUICK = f({
 
 // Which plays bring which looks: whom the ball goes to, and what he gets. pick: a pick and roll (the handler, and the
 // screener rolling or popping). post: a post-up for the big. catch: shooters coming off screens or cutting. iso: the
-// handler alone.
-export const KIND = f({ pickRoll: 'pick', pickPop: 'pop', spain: 'pick', horns: 'pick', iso: 'iso', postUp: 'post', floppy: 'catch', ucla: 'catch', giveGo: 'catch', fiveOut: 'catch' });
+// handler alone. (A handoff is the wing coming to take the ball on the move, as a catch.)
+export const KIND = f({ pickRoll: 'pick', pickPop: 'pop', spain: 'pick', horns: 'pick', iso: 'iso', postUp: 'post', floppy: 'catch', ucla: 'catch', giveGo: 'catch', fiveOut: 'catch', dho: 'catch', flare: 'catch' });
 
 // A number between two, drawn from the match's dice.
 export const within = (rand, [lo, hi]) => lo + rand() * (hi - lo);
