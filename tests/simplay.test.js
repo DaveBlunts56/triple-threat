@@ -1,5 +1,5 @@
 // The 3D game in Simulation against the 2025-26 averages (plan Task 4.7), and against the fast engine (Task 5.4):
-// eight computer matches of five a side and 12-minute quarters, per team per 48 minutes, played at once in worker
+// sixteen computer matches of five a side and 12-minute quarters, per team per 48 minutes, played at once in worker
 // threads. Nothing here sets a number: these come from the decisions and chances of Simulation's style.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,7 +9,7 @@ import { teamLine } from '../src/sim/stats.js';
 import { watchMatches } from './watch.js';
 
 const TARGET = { poss: 99, pts: 116, fga: 89, tpa: 37, fta: 24, tov: 14.5, secs: 14.5 };
-const records = await watchMatches([1, 2, 3, 4, 5, 6, 7, 8], { glide: false });
+const records = await watchMatches(Array.from({ length: 16 }, (_, i) => i + 1), { glide: false });
 const table = summarise(records, { per48: true });
 
 test('Simulation\'s 3D game is within 15% of the 2025-26 averages in pace, points, shots, threes, free throws, turnovers and possession length', () => {
@@ -45,7 +45,7 @@ test('corner threes are a real part of Simulation\'s shot mix: 6-20% of shots (s
   assert.ok(table.corner3.mean >= 0.06 && table.corner3.mean <= 0.2, `${(100 * table.corner3.mean).toFixed(1)}% of shots`);
 });
 
-test('in the 3D game, stars (83 or better) use more than 20% of their team\'s plays while on court (USG%, over the eight matches)', async () => {
+test('in the 3D game, stars (83 or better) use more than 20% of their team\'s plays while on court (USG%, over the sixteen matches)', async () => {
   const { usg } = await import('../src/sim/advanced.js');
   const { overall } = await import('../src/sim/overall.js');
   const { STAR_AT } = await import('../src/sim/choose.js');
