@@ -57,7 +57,27 @@ export function sized(gaits, scale) {
   return Object.fromEntries(Object.entries(gaits).map(([gait, speed]) => [gait, Math.round(speed * scale * 1000) / 1000]));
 }
 
-// Every person on a roster who has no model among `names`.
+// The teams whose players have models of their own in assets/players.glb: the dev teams. (The league's play in
+// stand-in bodies until theirs are built: see people.js.)
+export const modelled = id => !!TEAMS[id]?.dev;
+// The body each player of team `id` is drawn in, in roster order: { number, body, size }, `body` being the name of a
+// model in assets/players.glb and `size` how much it is scaled by. A modelled team's players are their own. Each of
+// another team's stands in a dev player's body: one at his position (any, once those are used) nearest his height,
+// a different one for each player of the team while there are any, scaled to his height.
+export function bodiesOf(id) {
+  const team = TEAMS[id];
+  if (modelled(id)) return team.players.map(p => ({ number: p.number, body: personName(id, p.number), size: 1 }));
+  const dev = TEAMS.flatMap((t, d) => (modelled(d) ? t.players.map(p => ({ ...p, id: d })) : []));
+  const used = new Set();
+  return team.players.map(p => {
+    const free = dev.filter(q => !used.has(q)), off = q => Math.abs(q.height - p.height);
+    const pool = [free.filter(q => q.position === p.position), free, dev].find(list => list.length);
+    const body = pool.reduce((a, b) => (off(b) < off(a) ? b : a));
+    used.add(body);
+    return { number: p.number, body: personName(body.id, body.number), size: p.height && body.height ? p.height / body.height : 1 };
+  });
+}
+// Every person of a team with models who has no model among `names`.
 export function missingPeople(names) {
-  return TEAMS.flatMap((team, id) => team.players.map(p => personName(id, p.number))).filter(name => !names.includes(name));
+  return TEAMS.flatMap((team, id) => (modelled(id) ? team.players.map(p => personName(id, p.number)) : [])).filter(name => !names.includes(name));
 }

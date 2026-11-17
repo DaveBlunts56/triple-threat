@@ -8,7 +8,7 @@ import { onFloor } from '../sim/state.js';
 import { assetUrl } from './assets.js';
 import { MOTION, legMotion, armMotion, legLook, newMarks, noteChanges, drawnFacing, wholeBody } from './motion.js';
 import { BALL_IN_HAND, ballHands, crossFrom, dribbleSpot, moveSpot } from './hands.js';
-import { checkGaits, checkMotions, checkFacts, personName, courtPeople, sized, missingPeople, checkHands } from './checks.js';
+import { checkGaits, checkMotions, checkFacts, personName, courtPeople, sized, missingPeople, checkHands, bodiesOf } from './checks.js';
 import { easeFacing, leanOf, lookTarget, headTurn, easeHead } from './bearing.js';
 import { createAnimator, poseClip } from './animator.js';
 import { createFace, faceWants } from './face.js';
@@ -22,6 +22,7 @@ const GARMENT = Object.freeze({ jersey: 1024, shorts: 512 });
 // The hair styles modelled in the build, named in their material (hair-fade-player-0-4); the rest are the pack's.
 const MODELLED = Object.freeze(['buzz', 'fade', 'curls', 'twists', 'locs', 'cornrows']);
 
+const KEEP = 4;   // the most teams whose people are kept made, besides those in use
 const IDLE = Object.freeze({ clip: 'idle', rate: 1 });   // what everyone's legs do before and after a match
 const UPRIGHT = Object.freeze({ forward: 0, side: 0 }), AHEAD = Object.freeze({ yaw: 0, pitch: 0 });
 const hipsOf = root => root.getObjectByProperty('isBone', true);   // the first bone under a root: the others hang from it
@@ -43,9 +44,10 @@ async function json(path) {
   return response.json();
 }
 
-// Loads the generated players and their motions. Resolves to six groups, one per court player, an `update` that
+// Loads the generated players and their motions. Resolves to ten groups, one per court player, a `prepare` that makes
+// the people of the teams a match is between (each in his own body or a stand-in's: see bodiesOf), an `update` that
 // places each from the match, puts the model of whoever plays there in it and plays the motions his state calls for,
-// and a `setQuality` that dresses all ten for a quality level. Each is drawn in full near `camera` and as his far
+// and a `setQuality` that dresses them for a quality level. Each is drawn in full near `camera` and as his far
 // model, one mesh in one picture, beyond (see modelFor). Rejects if a file is missing or incomplete.
 export async function loadPeople(camera) {
   const loader = new GLTFLoader();
@@ -55,6 +57,7 @@ export async function loadPeople(camera) {
     json('assets/motion.json'),
   ]);
   const roots = players.scene.children.filter(o => o.name.startsWith('player-'));
+  const rootOf = Object.fromEntries(roots.map(root => [root.name, root]));
   const missing = missingPeople(roots.map(root => root.name));
   if (missing.length) throw new Error(`assets/players.glb lacks ${missing.join(', ')}`);
   const clips = Object.fromEntries(motion.animations.map(clip => [clip.name, clip]));
@@ -63,13 +66,15 @@ export async function loadPeople(camera) {
   checkFacts(facts);
   const hipHeight = hipsOf(motion.scene).position.y;   // of the player the motions were made on, standing at rest
 
-  const pending = [];   // the pictures still being made
-  const dressed = [];   // [mesh, its material at each quality level], for every mesh of every person
   const tiles = fabricTiles(path => new THREE.TextureLoader().load(assetUrl(path)));
 
+  // What is made for one person, to be let go of with him: `dressed`, [mesh, its material at each quality level] for
+  // each of his meshes; the `textures` and `geometries` made for him; and `pending`, his pictures still being made.
+  const madeFor = () => ({ dressed: [], textures: [], geometries: [], pending: [] });
+
   // A picture painted with `ops` in `colours`, `size` pixels each way, as a texture: handed over as an image made off
-  // the main thread, so that showing a player for the first time does not stall.
-  function picture(ops, colours, size) {
+  // the main thread, so that showing a player for the first time does not stall. Kept in `own` (see madeFor).
+  function picture(ops, colours, size, own) {
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = size;
     paintKit(canvas.getContext('2d'), size, ops, colours);
@@ -77,12 +82,13 @@ export async function loadPeople(camera) {
     made.flipY = false;   // as in the file, where the top row of a picture is v = 0
     made.colorSpace = THREE.SRGBColorSpace;
     made.anisotropy = 4;
-    pending.push(createImageBitmap(canvas).then(image => { made.image = image; made.needsUpdate = true; }));
+    own.textures.push(made);
+    own.pending.push(createImageBitmap(canvas).then(image => { made.image = image; made.needsUpdate = true; }));
     return made;
   }
 
   // What stands out of a garment (its numbers and stitching), as a normal map.
-  function raised(part, number, team) {
+  function raised(part, number, team, own) {
     const size = KIT.size, canvas = document.createElement('canvas');
     canvas.width = canvas.height = size;
     const g = canvas.getContext('2d');
@@ -92,6 +98,7 @@ export async function loadPeople(camera) {
     made.colorSpace = THREE.NoColorSpace;
     made.magFilter = THREE.LinearFilter; made.minFilter = THREE.LinearMipmapLinearFilter; made.generateMipmaps = true;
     made.needsUpdate = true;
+    own.textures.push(made);
     return made;
   }
 
@@ -107,7 +114,7 @@ export async function loadPeople(camera) {
 
   // His far model's one picture at `scale` times ATLAS.size: the skin, hair and shoes of the file and his kit, each
   // drawn in its own place (see ATLAS). `drawn` is { part: the file's picture of it }.
-  function onePicture(drawn, team, number, scale) {
+  function onePicture(drawn, team, number, scale, own) {
     const canvas = document.createElement('canvas'), size = Math.round(ATLAS.size * scale);
     canvas.width = canvas.height = size;
     const g = canvas.getContext('2d');
@@ -126,7 +133,8 @@ export async function loadPeople(camera) {
     made.flipY = false;
     made.colorSpace = THREE.SRGBColorSpace;
     made.anisotropy = 4;
-    pending.push(createImageBitmap(canvas).then(image => { made.image = image; made.needsUpdate = true; }));
+    own.textures.push(made);
+    own.pending.push(createImageBitmap(canvas).then(image => { made.image = image; made.needsUpdate = true; }));
     return made;
   }
 
@@ -150,7 +158,7 @@ export async function loadPeople(camera) {
 
   // The far model: `parts` ([mesh, its place in ATLAS, its material's name in the file]) joined into one mesh on the same skeleton, wearing one picture.
   // Each part is one more thing to draw in every pass; joined, the whole player is drawn at once.
-  function farModel(parts, drawn, team, number) {
+  function farModel(parts, drawn, team, number, own) {
     const whole = mergeGeometries(parts.map(([part, place, name]) => {
       const from = part.geometry, uv = from.getAttribute('uv'), geometry = new THREE.BufferGeometry();
       // Every part's numbers in the same form, so that they can be joined; its picture's points moved to its place.
@@ -167,27 +175,31 @@ export async function loadPeople(camera) {
       return geometry;
     }));
     if (!whole) throw new Error('the parts of a player could not be joined');
+    own.geometries.push(whole);
     const byScale = {};
     // Cut-outs instead of blending for the hair: no sorting artefacts, and it writes depth like everything else.
     const made = Object.fromEntries(QUALITY.order.map(level => [level, byScale[QUALITY[level].textures] ??= new THREE.MeshStandardMaterial({
-      map: onePicture(drawn, team, number, QUALITY[level].textures), roughnessMap: roughness, roughness: 1, metalness: 0, alphaTest: MATERIALS.cutout, side: THREE.DoubleSide,
+      map: onePicture(drawn, team, number, QUALITY[level].textures, own), roughnessMap: roughness, roughness: 1, metalness: 0, alphaTest: MATERIALS.cutout, side: THREE.DoubleSide,
     })]));
-    const [first] = parts[0], far = new THREE.SkinnedMesh(whole, made.high);
+    const [first] = parts[0], far = new THREE.SkinnedMesh(whole, made[level]);
     far.name = 'far';
     far.bind(first.skeleton, first.bindMatrix);
     far.castShadow = true;
     far.frustumCulled = false;
     far.visible = false;
     first.parent.add(far);
-    dressed.push([far, made]);
+    own.dressed.push([far, made]);
     return far;
   }
 
-  // One model and animator per person, made once: a substitution only changes who is shown. `index` is his place
-  // among the ten. His skin, kit, hair and shoes are meshes of their own on his skeleton, each in its own material:
-  // that is his near model. His far model is the same parts joined.
-  function person(model, team, number, index) {
-    const near = [], parts = [], drawn = {}, simplified = [];   // simplified: the parts of his far level of detail in the file
+  // One model and animator per person, made once for as long as his team is kept: a substitution only changes who is
+  // shown. `model` is his own copy of a body from the file, `size` times as tall as it is drawn; `index` tells him
+  // from the others. His skin, kit, hair and shoes are meshes of their own on his skeleton, each in its own material:
+  // that is his near model. His far model is the same parts joined. The body's shapes and the file's pictures are
+  // shared with every other copy of it; what is made for him alone is in `own` (see madeFor).
+  function person(model, team, number, index, size = 1) {
+    const near = [], parts = [], drawn = {}, simplified = [], own = madeFor();
+    model.scale.multiplyScalar(size);   // simplified: the parts of his far level of detail in the file
     // A mesh of the file's far level of detail: under the node named <player>-far.
     const ofFar = mesh => { for (let o = mesh; o && o !== model; o = o.parent) if (o.name.endsWith('-far')) return true; return false; };
     let skin = null;   // the mesh that carries his expressions
@@ -203,11 +215,11 @@ export async function loadPeople(camera) {
       if (place && part.material.map) drawn[place] = part.material.map.image;
       let made;
       if (kind === 'jersey' || kind === 'shorts') {
-        const normal = raised(kind, number, team), colours = kitColours(team), sizes = {};
+        const normal = raised(kind, number, team, own), colours = kitColours(team), sizes = {};
         made = atEachLevel(level => {
-          const size = Math.round(GARMENT[kind] * QUALITY[level].textures);
-          sizes[size] ??= picture(kitOps(kind, number, team), colours, size);
-          return kitMaterial(level, { part: kind, map: sizes[size], normal, fabric: kind === 'jersey' ? tiles.knit : tiles.twill });
+          const pixels = Math.round(GARMENT[kind] * QUALITY[level].textures);
+          sizes[pixels] ??= picture(kitOps(kind, number, team), colours, pixels, own);
+          return kitMaterial(level, { part: kind, map: sizes[pixels], normal, fabric: kind === 'jersey' ? tiles.knit : tiles.twill });
         });
       } else if (kind === 'skin') {
         made = atEachLevel(level => skinMaterial(level, { map: part.material.map, normalMap: part.material.normalMap, pores: tiles.pores.normal }));
@@ -217,11 +229,10 @@ export async function loadPeople(camera) {
       } else if (kind === 'hair' && MODELLED.includes(part.material.name.split('-')[1])) {
         made = atEachLevel(level => hairMaterial(level, { map: part.material.map, strands: tiles.strands }));
       } else made = atEachLevel(level => partMaterial(level, kind, part.material.map, part.material.normalMap));
-      part.material.dispose();
-      part.material = made.high;
+      part.material = made[level];   // the file's own material is shared with the body's other copies, and left as it is
       part.castShadow = kind !== 'cornea';
       part.frustumCulled = false;   // its bounds are those of the rest pose, not of where the motion puts it
-      dressed.push([part, made]);
+      own.dressed.push([part, made]);
       near.push(part);
       for (const m of new Set(Object.values(made))) if (m.userData.sweat?.isNode) wet.push(m.userData.sweat);
       // The file gives every part the expressions' targets, all still but the skin's: only the skin keeps them.
@@ -230,13 +241,23 @@ export async function loadPeople(camera) {
     });
     if (!parts.length) throw new Error(`${model.name} has nothing to draw`);
     // His far model is made from the file's simplified parts (or, in a file without them, from these).
-    const far = farModel(simplified.length ? simplified : parts, drawn, team, number);
-    for (const [mesh] of simplified) { mesh.removeFromParent(); mesh.geometry.dispose(); }
-    const scale = hipsOf(model).position.y / hipHeight;   // his size against the player the motions were made on
+    const far = farModel(simplified.length ? simplified : parts, drawn, team, number, own);
+    for (const [mesh] of simplified) mesh.removeFromParent();   // their shapes are the body's, shared with its other copies
+    // His body's size against the player the motions were made on: what the motions are fitted to. Scaled by `size`
+    // on top, his strides cover that much more ground.
+    const scale = hipsOf(model).position.y / hipHeight;
     const hands = { left: model.getObjectByName('mixamorigLeftHand'), right: model.getObjectByName('mixamorigRightHand') };
     checkHands(model.name, hands);   // so a broken file falls back to capsules at load, not on the first possession
     // arms: the arm motion he was given on the last frame, or null when his arms followed his legs.
-    return { model, scale, hands, near, far, wet, drawnAs: 'near', face: createFace(skin, team * 100 + number), animator: createAnimator(model, clips, facts, scale, index), gaits: sized(facts.gaits, scale), last: 'idle', arms: null };
+    return { team, model, scale, hands, near, far, wet, own, drawnAs: 'near', face: createFace(skin, team * 100 + number), animator: createAnimator(model, clips, facts, scale, index), gaits: sized(facts.gaits, scale * size), last: 'idle', arms: null };
+  }
+  // Lets go of a person: his model leaves the court, and what was made for him alone is freed.
+  function drop(he) {
+    he.model.removeFromParent();
+    for (const [, made] of he.own.dressed) for (const material of new Set(Object.values(made))) material.dispose();
+    for (const texture of he.own.textures) texture.dispose();
+    for (const geometry of he.own.geometries) geometry.dispose();
+    he.model.traverse(part => part.skeleton?.dispose());
   }
   // Shows his `which` model ('near' or 'far') and hides the other.
   const wear = (he, which) => {
@@ -247,12 +268,32 @@ export async function loadPeople(camera) {
   };
   let level = 'high';   // the quality level the players are dressed for
   const sweat = createSweat();
-  const people = {};
-  TEAMS.forEach((team, id) => team.players.forEach(({ number }, row) => {
+  const people = new Map();   // every person made, by name (see personName)
+  const used = new Map();     // when each team (by id) with people made was last used, by `clock`
+  const making = new Map();   // the people being made, by name: the promise of each
+  const holds = new Map();    // how many pictures of a team's people are out (see portrait), by team id
+  let clock = 0, queue = Promise.resolve(), preparing = null;
+  const touch = id => used.set(id, ++clock);
+  const nextTask = () => new Promise(resolve => setTimeout(resolve, 0));
+  // Makes the player numbered `number` of team `id`, once; resolves to him. People are made one at a time, each in a
+  // task of his own, so that frames are drawn in between.
+  function make(id, number) {
     const name = personName(id, number);
-    people[name] = person(roots.find(root => root.name === name), id, number, id * team.players.length + row);
-  }));
-  await Promise.all(pending);
+    if (people.has(name)) return Promise.resolve(people.get(name));
+    if (!making.has(name)) {
+      const made = queue.then(nextTask).then(async () => {
+        const row = TEAMS[id].players.findIndex(p => p.number === number), { body, size } = bodiesOf(id)[row];
+        const he = person(cloneRig(rootOf[body]), id, number, id * 10 + row, size);
+        await Promise.all(he.own.pending);
+        people.set(name, he);
+        touch(id);
+        return he;
+      }).finally(() => making.delete(name));
+      queue = made.catch(() => {});
+      making.set(name, made);
+    }
+    return making.get(name);
+  }
 
   const models = Array.from({ length: 10 }, () => new THREE.Group());   // one for each player a match can have; a smaller match uses the first of them
   const shown = [];   // the person whose model is in each group
@@ -265,26 +306,54 @@ export async function loadPeople(camera) {
   // on the start and final screens, where it is not drawn in them.
   const handsOf = state => {
     const id = state.ball.holder;
-    return id === null || state.phase === 'start' || state.phase === 'final' ? null : ballHands(shown[id].arms.clip);
+    return id === null || state.phase === 'start' || state.phase === 'final' || !shown[id] ? null : ballHands(shown[id].arms.clip);
   };
+  // Lets go of the people of the teams used longest ago while more than KEEP teams have people made; never of the
+  // teams `keep` (ids), those on the court, or those with a picture out.
+  function trim(keep) {
+    const busy = new Set([...keep, ...shown.filter(Boolean).map(he => he.team), ...[...holds].filter(([, n]) => n > 0).map(([id]) => id)]);
+    const spare = [...used].filter(([id]) => !busy.has(id)).sort((a, b) => a[1] - b[1]);
+    for (const [id] of spare.slice(0, Math.max(0, used.size - KEEP))) {
+      for (const [name, he] of people) if (he.team === id) { drop(he); people.delete(name); }
+      used.delete(id);
+    }
+  }
 
   return {
     models,
+    // Makes every player of the teams `ids` (team ids) not made yet, one at a time between frames, and resolves once
+    // all are; then lets go of the teams used longest ago (see trim). Asked again for the same teams, it is the same.
+    prepare(ids) {
+      const key = ids.join();
+      if (preparing?.key !== key || preparing.failed) {
+        const done = Promise.all(ids.flatMap(id => TEAMS[id].players.map(p => make(id, p.number)))).then(() => trim(ids));
+        preparing = { key, done };
+        done.catch(() => { preparing.failed = true; });
+      }
+      return preparing.done;
+    },
+    // Whether every player of the teams `ids` is made.
+    ready: ids => ids.every(id => TEAMS[id].players.every(p => people.has(personName(id, p.number)))),
     // A copy of the player numbered `number` of team `id` (its place in TEAMS), dressed as he is and standing in the
-    // idle motion, for a picture of him off the court (see studio.js). Returns { model, mixer }: the copy, and what
-    // moves it, to be moved on each frame. The copy shares his geometry and his pictures.
+    // idle motion, for a picture of him off the court (see studio.js); or null while he is still being made (asking
+    // makes him). Returns { model, mixer, release }: the copy, what moves it, to be moved on each frame, and what lets
+    // go of it. The copy shares his geometry and his pictures, so his team is kept while it is out.
     portrait(id, number) {
-      const he = people[personName(id, number)], model = cloneRig(he.model);
+      const he = people.get(personName(id, number));
+      if (!he) { make(id, number).catch(error => console.warn(error)); return null; }
+      const model = cloneRig(he.model);
       model.traverse(part => { if (part.isMesh) part.visible = part.name !== 'far'; });
       model.position.set(0, 0, 0); model.rotation.set(0, 0, 0);
       const mixer = new THREE.AnimationMixer(model);
       mixer.clipAction(poseClip(clips.idle, he.scale)).play();
-      return { model, mixer };
+      touch(id);
+      holds.set(id, (holds.get(id) ?? 0) + 1);
+      return { model, mixer, release() { holds.set(id, holds.get(id) - 1); model.traverse(part => part.skeleton?.dispose()); } };
     },
     // level: one of QUALITY.order. The bench changes too, so a substitute comes on in the right pictures.
     setQuality(now) {
       level = now;
-      for (const [mesh, made] of dressed) mesh.material = made[level];
+      for (const he of people.values()) for (const [mesh, made] of he.own.dressed) mesh.material = made[level];
     },
     // dt: the time that passed this frame, in seconds (zero while paused, so the motion pauses too).
     // `show`: who the broadcast has celebrating and dejected, { celebrate, dejected } by player id, or null.
@@ -297,7 +366,14 @@ export async function loadPeople(camera) {
       marks.show = show;
       sweat.update(state);
       courtPeople(state).forEach((who, i) => {
-        const player = state.players[i], group = models[i], he = people[who];
+        const player = state.players[i], group = models[i], he = people.get(who);
+        // Someone not made yet (see prepare) is not drawn.
+        if (!he) {
+          if (shown[i]?.model.parent === group) group.remove(shown[i].model);
+          shown[i] = null;
+          return;
+        }
+        if (used.has(he.team)) used.set(he.team, clock);
         // The first frame, a substitution, or a match of another size, whose players stand in other places: he
         // comes on standing. (A model can be in one place only: adding it here takes it from where it was.)
         if (shown[i] !== he || he.model.parent !== group) {
@@ -339,7 +415,7 @@ export async function loadPeople(camera) {
       });
     },
     // Forgets what is remembered from frame to frame (see actors.cut).
-    cut() { marks = newMarks(); cross = null; for (const he of Object.values(people)) he.animator.unplant(); },
+    cut() { marks = newMarks(); cross = null; for (const he of people.values()) he.animator.unplant(); },
     // The hands the holder carries the ball in on this frame (see handsOf). To be asked after `update`.
     hands: handsOf,
     // Where the ball is in its holder's hands on this frame, { x, y, z }, or null when nobody holds it and on the

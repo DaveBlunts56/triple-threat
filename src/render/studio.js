@@ -52,15 +52,14 @@ export function createStudio(renderer, people, environment) {
     scene.add(group, rim, mark);
     return { s, group, rim, mark, id: null, star: null };
   });
-  // Puts team `id` on side `side`: its star, its mark, and its colour in the rim light.
+  // Puts team `id` on side `side`: its mark, and its colour in the rim light. Its star comes once he is made (see pose).
   const dress = (side, id) => {
     const at = sides[side];
     if (at.star) {
       at.group.remove(at.star.model);
-      at.star.model.traverse(part => part.skeleton?.dispose());
+      at.star.release();
     }
-    at.star = people ? people.portrait(id, starNumber(id)) : null;
-    if (at.star) at.group.add(at.star.model);
+    at.star = null;
     const c = document.createElement('canvas');
     c.width = c.height = 512;
     drawLogo(c.getContext('2d'), id, 256, 256, 500);
@@ -70,6 +69,12 @@ export function createStudio(renderer, people, environment) {
     at.mark.material.needsUpdate = true;
     at.rim.color.set(TEAMS[id].colour).lerp(new THREE.Color(0xffffff), STUDIO.light.rimWhite);
     at.id = id;
+  };
+  // The star of side `at`'s team, once he is made (asking makes him: see people.portrait).
+  const pose = at => {
+    if (at.star || !people) return;
+    at.star = people.portrait(at.id, starNumber(at.id));
+    if (at.star) at.group.add(at.star.model);
   };
   const paintBackdrop = () => {
     const g = back.getContext('2d'), fill = g.createLinearGradient(0, 0, back.width, 0);
@@ -94,6 +99,7 @@ export function createStudio(renderer, people, environment) {
       const half = (STUDIO.eye[2] * Math.tan(THREE.MathUtils.degToRad(STUDIO.fov / 2))) * camera.aspect;
       const x = Math.min(STUDIO.x, half * STUDIO.wide);
       for (const at of sides) {
+        pose(at);
         at.group.position.set(at.s * x, 0, 0);
         at.group.rotation.y = -at.s * STUDIO.turn;
         at.mark.position.set(at.s * (x + STUDIO.mark.out), STUDIO.mark.y, STUDIO.mark.z);
