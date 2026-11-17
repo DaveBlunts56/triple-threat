@@ -5,7 +5,7 @@
 //
 // A match holds its style, its sliders and the table resolved from them (state.styleTable). Everything reads a styled
 // number through `styled(state, key)`.
-import { AI, CLOCK, FOUL, PASS, PLAY, PLAYER, STAMINA, STEAL, TIMEOUT } from './tuning.js';
+import { AI, CLOCK, FOUL, PASS, PLAY, PLAYER, RATE, STAMINA, STEAL, TIMEOUT } from './tuning.js';
 
 const f = Object.freeze;
 
@@ -13,10 +13,10 @@ const f = Object.freeze;
 // that stays above 0), or 'word' (a choice, never scaled). Ranges ([low, high]) are scaled end by end.
 export const KINDS = f({
   'ai.patience': 'positive', 'play.startAt': 'positive', 'ai.contestDelay': 'positive', 'ai.stealRate': 'chance', 'ai.farAway': 'positive',
-  'player.accel': 'positive', 'player.brake': 'positive', 'decide.earlyThree': 'positive', 'decide.earlyRoom': 'positive', 'board.boxHold': 'word', 'board.selfWait': 'word', 'board.defence': 'word', 'board.crash': 'positive', 'board.lead': 'word',
+  'player.accel': 'positive', 'player.brake': 'positive', 'decide.earlyThree': 'positive', 'decide.earlyRoom': 'positive', 'board.boxHold': 'word', 'board.selfWait': 'word', 'board.defence': 'word', 'board.crash': 'positive', 'board.lead': 'word', 'board.reach': 'word', 'board.pull': 'word',
   'steal.front': 'chance', 'steal.back': 'chance', 'pass.intercept': 'positive',
   'foul.reachFront': 'chance', 'foul.reachBack': 'chance', 'foul.shooting': 'chance', 'foul.charge': 'chance', 'foul.block': 'chance',
-  'foul.looseBall': 'chance', 'foul.illegalScreen': 'chance', 'foul.drive': 'chance', 'fumble.rate': 'chance',
+  'foul.looseBall': 'chance', 'foul.illegalScreen': 'chance', 'foul.drive': 'chance', 'fumble.rate': 'chance', 'foul.careful': 'word',
   'stamina.sprint': 'positive', 'stamina.run': 'positive', 'stamina.jump': 'positive', 'stamina.rest': 'positive', 'stamina.bench': 'positive',
   'stamina.subOut': 'chance', 'stamina.subIn': 'chance',
   'timeout.each': 'positive', 'timeout.rest': 'chance',
@@ -32,10 +32,10 @@ export const KINDS = f({
 // Arcade: the game as it was, read from tuning.js.
 const ARCADE = f({
   'ai.patience': AI.patience, 'play.startAt': PLAY.startAt, 'ai.contestDelay': AI.contestDelay, 'ai.stealRate': AI.stealRate, 'ai.farAway': AI.farAway,
-  'player.accel': PLAYER.accel, 'player.brake': PLAYER.accel, 'decide.earlyThree': AI.earlyThree, 'decide.earlyRoom': AI.roomFor, 'board.boxHold': false, 'board.selfWait': 0, 'board.defence': AI.boards, 'board.crash': 1, 'board.lead': 0,
+  'player.accel': PLAYER.accel, 'player.brake': PLAYER.accel, 'decide.earlyThree': AI.earlyThree, 'decide.earlyRoom': AI.roomFor, 'board.boxHold': false, 'board.selfWait': 0, 'board.defence': AI.boards, 'board.crash': 1, 'board.lead': 0, 'board.reach': 0, 'board.pull': RATE.rebound,
   'steal.front': STEAL.frontChance, 'steal.back': STEAL.backChance, 'pass.intercept': PASS.interceptRadius,
   'foul.reachFront': FOUL.reachFront, 'foul.reachBack': FOUL.reachBack, 'foul.shooting': FOUL.shooting, 'foul.charge': FOUL.charge, 'foul.block': FOUL.block,
-  'foul.looseBall': 0, 'foul.illegalScreen': 0, 'foul.drive': 0, 'fumble.rate': 0,
+  'foul.looseBall': 0, 'foul.illegalScreen': 0, 'foul.drive': 0, 'fumble.rate': 0, 'foul.careful': f([1, 1]),
   'stamina.sprint': STAMINA.sprint, 'stamina.run': STAMINA.run, 'stamina.jump': STAMINA.jump, 'stamina.rest': STAMINA.rest, 'stamina.bench': STAMINA.bench,
   'stamina.subOut': STAMINA.subOut, 'stamina.subIn': STAMINA.subIn,
   'timeout.each': TIMEOUT.each, 'timeout.rest': TIMEOUT.rest,
@@ -52,9 +52,15 @@ const ARCADE = f({
 const SIM = f({
   'ai.patience': f([19, 24]), 'play.startAt': 11, 'ai.contestDelay': 0.3, 'ai.stealRate': 0.01, 'ai.farAway': 6,
   'player.accel': 14, 'player.brake': 28, 'decide.earlyThree': 80, 'decide.earlyRoom': 2, 'board.boxHold': true, 'board.selfWait': 1.2, 'board.defence': 4, 'board.crash': 0.4, 'board.lead': 1,
+  // A better rebounder is nearer the ball than he stands: he takes a loose ball from further than his position's usual
+  // (reach), and wins one two can reach more often (pull); each per 10 rebound points (see lift, and reboundApart).
+  'board.reach': 0.25, 'board.pull': 0.15,
   'steal.front': 0.25, 'steal.back': 0.08, 'pass.intercept': 0.2,
   'foul.reachFront': 0.12, 'foul.reachBack': 0.3, 'foul.shooting': 1, 'foul.charge': 0.6, 'foul.block': 0.15,
   'foul.looseBall': 0.02, 'foul.illegalScreen': 0.05, 'foul.drive': 0.9, 'fumble.rate': 0.005,
+  // A defender in foul trouble plays softer: his contact is a foul this share as often with two fouls to give, and with
+  // one.
+  'foul.careful': f([0.45, 0.2]),
   // Sized for 12-minute quarters: a starter tires over 8-12 minutes of play, and a man on the bench is ready again
   // after about 4.
   'stamina.sprint': 0.003, 'stamina.run': 0.0008, 'stamina.jump': 0.004, 'stamina.rest': 0.0015, 'stamina.bench': 0.0015,

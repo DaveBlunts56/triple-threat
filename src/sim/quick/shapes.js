@@ -24,8 +24,9 @@ export const QUICK = f({
   // The chance a team-mate can be reached by a pass on a beat: a clear lane, within range. Measured from the 3D game,
   // where a man with the ball who may pass has about 1.2 team-mates he can pass to.
   passLane: 0.55,
-  // How much of a man's jump-shot diet that is not mid-range is threes (the rest of a jumper is mid-range).
-  threeShare: 1.05,
+  // How much of a man's jump-shot diet that is not mid-range is threes (the rest of a jumper is mid-range): just what
+  // his diet says, which keeps the fast engine's threes beside the 3D game's.
+  threeShare: 1,
   // The share of a jump-shooter's threes taken from the corner (the 3D game's, now that shooters fill and square up
   // in the corners).
   cornerShare: 0.35,
@@ -61,6 +62,20 @@ export const QUICK = f({
   // The share of baskets assisted, by how the scorer got the ball: off a catch he shot, a pass that put him at the rim,
   // a drive or post move of his own after a catch.
   assist: f({ catch: 0.81, feed: 0.81, drive: 0.32, post: 0.25 }),
+  // Who on the floor each event goes to, so that a player's own profile, more than his position, decides his line
+  // (see who.js). board: a rebounder is weighed by his rebounding (`rating`: its power, against 70) and by where his
+  // position stands when the shot goes up (`near`, kept mild). rim: how near the rim each position stands, for a help
+  // defender's block or foul on a shot there, and `help`: the share of those that are a help defender's. steal: how
+  // much more often the man on the ball gets the steal than a man in the lane. foul: how strongly a man's foul
+  // tendency (against his team's) moves his share of the fouls; careful: how much less he fouls with two fouls left
+  // to give, and with one (a man in foul trouble plays softer). assist: the power of a passer's
+  // creating (his pass-first tendency and his handle) in whether his pass is an assist, and `scale` keeps the share of
+  // baskets assisted where it was (the floor's passes are more often its creators'). Each keeps the team's totals.
+  who: f({
+    board: f({ rating: 0.65, near: f({ PG: 0.86, SG: 0.88, SF: 0.97, PF: 1.08, C: 1.2 }) }),
+    rim: f({ PG: 0.2, SG: 0.25, SF: 0.5, PF: 0.9, C: 1.3 }), help: f({ block: 0.55, foul: 0.2 }), foul: 1, careful: f([0.6, 0.35]),
+    steal: f({ onBall: 2 }), assist: f({ power: 1.5, scale: 1.2 }),
+  }),
   // How a possession's seconds are spent, for tiredness: sprinting, running, standing (the 3D game's own shares).
   effort: f({ sprint: 0.29, run: 0.49, rest: 0.22 }),
 });

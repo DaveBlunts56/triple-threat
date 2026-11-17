@@ -15,6 +15,7 @@ import { beginPossession, endPossession, handOver } from '../possessions.js';
 import { formOf } from '../shooting.js';
 import { QUICK } from './shapes.js';
 import { freeThrows, rebound, shoot } from './outcomes.js';
+import { assistShare, stealer } from './who.js';
 import { playPossession } from './possession.js';
 
 // A finished match: `seed`, `size` a side, quarters of `minutes`, in `style` with its `sliders`, between `teams`.
@@ -104,7 +105,7 @@ function finish(state, team, ended) {
     if (ended.kind === 'shotClock' || !ended.by) { state.teamStats[team].tov++; return { team: other, begun: 'inbound', stoppage: true }; }
     note(state, ended.by, 'tov');
     if (ended.kind === 'charge') { recordFoul(state, { kind: 'charge', by: ended.by.id, on: (state.players.find(o => o.man === ended.by.id) ?? state.players.find(o => o.team !== team)).id }); return { team: other, begun: 'inbound', stoppage: true }; }
-    if (ended.stolenBy) { note(state, ended.stolenBy, 'stl'); return { team: other, begun: 'steal', stoppage: false }; }
+    if (ended.stolenBy) { note(state, stealer(state, ended.stolenBy), 'stl'); return { team: other, begun: 'steal', stoppage: false }; }
     return { team: other, begun: 'inbound', stoppage: true };
   }
   if (ended.how === 'foul') {
@@ -116,7 +117,7 @@ function finish(state, team, ended) {
   const from = ((state.shotFrom ??= [{}, {}])[team][`${ended.from ?? 'other'} ${ended.look.zone}`] ??= 0);
   state.shotFrom[team][`${ended.from ?? 'other'} ${ended.look.zone}`] = from + 1;
   const { look } = ended, shooter = look.shooter, result = shoot(state, look, { drive: !!ended.drive, post: ended.from === 'post' });
-  if (result.result === 'made' && ended.fed && rand(state) < QUICK.assist[ended.fed.how]) note(state, ended.fed.by, 'ast');
+  if (result.result === 'made' && ended.fed && rand(state) < QUICK.assist[ended.fed.how] * assistShare(state, ended.fed.by)) note(state, ended.fed.by, 'ast');
   if (result.fouled) {
     // A fouled shot that missed is not a field-goal attempt (the rules' count): the attempt shoot() noted is taken back.
     if (result.result !== 'made') { note(state, shooter, 'fga', -1); if (look.value === 3) note(state, shooter, 'tpa', -1); }
