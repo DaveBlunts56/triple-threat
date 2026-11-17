@@ -150,15 +150,16 @@ export function armsFor(name, t, toward = 1) {
   return { ...(signs[name] ?? { right: down, left: down }), fist: false, s };
 }
 
-// The mock advertisements on the boards. Every name is invented.
+// The mock advertisements on the boards. Every name is invented. (The home team's own is added in its arena: see
+// arena.js.)
 export const ADS = Object.freeze([
   { words: 'SUGAR-SODA!', back: '#d8232a', ink: '#fff6d8' }, { words: 'VOLT ENERGY', back: '#0b0b0d', ink: '#d7ff2f' },
   { words: 'PIXEL PIZZA', back: '#f5a623', ink: '#3a1d00' }, { words: 'NIMBUS AIR', back: '#e9f2fb', ink: '#0e4c92' },
   { words: 'COMET SNEAKERS', back: '#1b1f3b', ink: '#ff7a59' }, { words: 'BYTE BANK', back: '#0f5132', ink: '#eafff3' },
-  { words: 'TRIPLE THREAT', back: '#0e2a66', ink: '#f2f5f8' }, { words: 'HARBOR CITY WAVES', back: '#f2f5f8', ink: '#0e2a66' },
-  { words: 'RED ROCK SCORPIONS', back: '#7a1414', ink: '#f2f5f8' },
+  { words: 'TRIPLE THREAT', back: '#0e2a66', ink: '#f2f5f8' },
 ]);
 // every: seconds a board shows one advertisement before it changes.
 export const AD = Object.freeze({ every: 9 });
-// Which advertisement board `board` shows at `time` seconds: neighbours differ, and each board works through them all.
-export const adAt = (board, time) => (board * 2 + Math.floor(time / AD.every)) % ADS.length;
+// Which of `count` advertisements board `board` shows at `time` seconds: neighbours differ, and each board works
+// through them all.
+export const adAt = (board, time, count = ADS.length) => (board * 2 + Math.floor(time / AD.every)) % count;
