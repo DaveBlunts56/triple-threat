@@ -372,6 +372,11 @@ export async function loadPeople(camera) {
     },
     // Whether every player of such a match is made.
     ready: (ids, home = 0) => outfitsOf(ids, home).every(([id, kit]) => TEAMS[id].players.every(p => people.has(keyOf(id, p.number, kit)))),
+    // How many of such a match's players are made: { done, total }.
+    count(ids, home = 0) {
+      const all = outfitsOf(ids, home).flatMap(([id, kit]) => TEAMS[id].players.map(p => keyOf(id, p.number, kit)));
+      return { done: all.filter(key => people.has(key)).length, total: all.length };
+    },
     // A copy of the player numbered `number` of team `id` (its place in TEAMS) in his `where` kit ('home' or 'road'),
     // standing in the idle motion, for a picture of him off the court (see studio.js); or null while he is still being
     // made (asking makes him). Returns { model, mixer, release }: the copy, what moves it, to be moved on each frame,

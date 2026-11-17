@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { periodLabel, clockText, createHud, callText, teamColours, rosterLine, subNote, easeFrame, menuText, keysText, controlsLines, hintLine,
+import { periodLabel, clockText, createHud, callText, teamColours, rosterLine, subNote, easeFrame, menuText, keysText, controlsLines, hintLine, topPerformers, statLine,
   BOX_HEAD, boxRow, boxTotal, lineupRow, periodLines, halfLines, potgLine, RESULT_HEAD, advancedLines } from '../src/render/hud.js';
 import { DEFAULT_PREFS } from '../src/prefs.js';
 import { DEFAULT_KEYS, KEY_ROWS, bind, createKeys } from '../src/keys.js';
@@ -11,6 +11,7 @@ import { MENU, createMenu, menuKey } from '../src/menu.js';
 import { quickMatch } from '../src/sim/quick/engine.js';
 import { surname } from '../src/sim/state.js';
 import { TEAMS } from '../src/sim/teams.js';
+import { gameScore } from '../src/sim/stats.js';
 
 const keys = (menu, ...codes) => codes.forEach(code => menuKey(menu, code));
 
@@ -296,7 +297,7 @@ test('the page has the menu: four rows, both panels, ten players, every key in t
     ...[0, 1].flatMap(t => [0, 1, 2, 3, 4, 5, 6, 7].map(i => `teamPlayer${t}${i}`))]) assert.match(html, new RegExp(`id="${id}"`), id);
   const controls = html.match(/id="menuControls"[\s\S]*?<\/(?:ul|dl|div)>/)[0];
   for (let i = 0; i < 11; i++) for (const id of [`ctlK${i}`, `ctlW${i}`]) assert.match(controls, new RegExp(`id="${id}"`), id);   // a line for each of controlsLines
-  for (let i = 5; i < 9; i++) assert.match(html, new RegExp(`id="menuRow${i}"`));   // room for nine settings
+  for (let i = 5; i < 10; i++) assert.match(html, new RegExp(`id="menuRow${i}"`));   // room for ten settings
   for (let i = 0; i < 19; i++) assert.match(html, new RegExp(`id="keyRow${i}"`));   // the Keys panel
   assert.match(html, /prefers-reduced-motion/);
   assert.doesNotMatch(html, /Press Enter to play</);
@@ -726,4 +727,22 @@ test('Settings can hide the frame rate in the corner and the keys\' line, and sh
   show(true);
   assert.deepEqual([e.backend.hidden, e.controls.hidden], [false, false]);
   assert.equal(menuText({ panel: 'settings' }, MENU.settings.indexOf('info'), 'high', '2k', { ...DEFAULT_PREFS, info: false }), 'FPS and controls: Hidden');
+});
+
+test('a simulated game\'s result names the player of the game and each team\'s two best players, with their lines', () => {
+  const doc = fakeDoc(), hud = createHud(doc), e = doc.els;
+  const result = quickMatch({ seed: 5, size: 5, minutes: 6, style: 'sim', teams: [2, 3] });
+  hud.update(result, 'webgl2', { paused: false, pick: null, quality: 'high', result, menu: createMenu() });
+  assert.match(e.simPotg.textContent, /^PLAYER OF THE GAME · .+ · \d+ PTS/);
+  for (const team of [0, 1]) {
+    const rows = topPerformers(result, team), score = row => gameScore(result.rosters[team][row].stats);
+    assert.equal(rows.length, 2);
+    assert.ok(result.rosters[team].every((p, row) => rows.includes(row) || score(row) <= score(rows[1])), 'a better line is left out');
+    assert.ok(score(rows[0]) >= score(rows[1]));
+    assert.equal(e[`simTop${team}0c0`].textContent, result.teams[team].abbr);
+    assert.equal(e[`simTop${team}0c1`].textContent, result.rosters[team][rows[0]].name);
+    assert.match(e[`simTop${team}0c2`].textContent, /^\d+ PTS · \d+ REB · \d+ AST( · \d+ (BLK|STL|3PM))* · \d+\/\d+ FG$/);
+  }
+  const big = { stats: { pts: 30, reb: 12, ast: 4, blk: 3, stl: 1, tpm: 5, fgm: 11, fga: 19 } };
+  assert.equal(statLine(big), '30 PTS · 12 REB · 4 AST · 3 BLK · 5 3PM · 11/19 FG');
 });

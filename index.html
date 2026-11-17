@@ -178,6 +178,14 @@
   #simResult caption { font: 800 1.8vmin/1.6 system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #ffd257; text-align: left; }
   #simResult th { color: #aeb6bf; font-weight: 700; padding: 0 .6vmin; }
   #simResult td { padding: 0 .6vmin; text-align: right; white-space: nowrap; }
+  #simTop { display: flex; flex-direction: column; align-items: center; gap: .6vmin; padding: 1vmin 2vmin; border-radius: 1vmin;
+            background: rgba(255, 210, 87, .08); border: 1px solid rgba(255, 210, 87, .35); }
+  #simResult #simPotg { font: 800 2.1vmin/1.3 system-ui, sans-serif; color: #ffd257; letter-spacing: .04em; }
+  #simTop table { font: 600 1.8vmin/1.5 system-ui, sans-serif; }
+  #simTop caption { text-align: center; }
+  #simTop td:first-child { color: #aeb6bf; font-weight: 800; }
+  #simTop td:nth-child(2) { text-align: left; color: #fff; font-weight: 800; }
+  #simTop td:last-child { text-align: left; }
   #simResult td:first-child { text-align: left; }
   #simResult tr.total td { color: #ffd257; border-top: 1px solid rgba(255, 255, 255, .25); }
   #boxScore tr.total td { border-top: 1px solid #6f7781; color: #ffd257; }
@@ -225,6 +233,16 @@
   #playList::before { content: 'CALL A PLAY'; display: block; padding: 2px 14px 6px; font-size: 11px; letter-spacing: .14em; color: #ffd257; }
   #playList li { padding: 5px 14px; white-space: nowrap; }
   #backend { right: 12px; }
+  /* The loading screen (src/render/loading.js): up from the start, over everything, until the game can be played. */
+  #loading { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vmin;
+             background: radial-gradient(circle at 50% 45%, rgba(20, 28, 44, .92), rgba(5, 7, 12, .97)); }
+  #loading[hidden] { display: none; }
+  #loading .spin { width: 7vmin; height: 7vmin; border-radius: 50%; border: .9vmin solid rgba(255, 255, 255, .15); border-top-color: #ffd257;
+                   animation: spin .9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loadingText { margin: 0; font: 800 3vmin/1.2 system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+  #loading .bar { width: min(60vw, 420px); height: 1.2vmin; min-height: 6px; border-radius: 99px; background: rgba(255, 255, 255, .15); overflow: hidden; }
+  #loadingBar { display: block; width: 0; height: 100%; background: #ffd257; transition: width .2s; }
   section.screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
                    background: rgba(0, 0, 0, .78); text-align: center; }
   section.screen[hidden] { display: none; }
@@ -340,6 +358,7 @@
 </script>
 </head>
 <body>
+<div id="loading"><div class="spin" aria-hidden="true"></div><p id="loadingText">Loading…</p><div class="bar"><i id="loadingBar"></i></div></div>
 <canvas id="court"></canvas>
 
 <div id="hud">
@@ -550,6 +569,15 @@
   <p id="simTitle"></p>
   <p class="score" id="simScore0"></p>
   <p class="score" id="simScore1"></p>
+  <div id="simTop">
+  <p id="simPotg"></p>
+  <table><caption>Top performers</caption>
+    <tr id="simTop00"><td id="simTop00c0"></td><td id="simTop00c1"></td><td id="simTop00c2"></td></tr>
+    <tr id="simTop01"><td id="simTop01c0"></td><td id="simTop01c1"></td><td id="simTop01c2"></td></tr>
+    <tr id="simTop10"><td id="simTop10c0"></td><td id="simTop10c1"></td><td id="simTop10c2"></td></tr>
+    <tr id="simTop11"><td id="simTop11c0"></td><td id="simTop11c1"></td><td id="simTop11c2"></td></tr>
+  </table>
+  </div>
   <div class="tables">
   <table><caption id="simTeam0"></caption>
     <tr><th></th><th>MIN</th><th>PTS</th><th>FG</th><th>3P</th><th>FT</th><th>OREB</th><th>DREB</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TOV</th><th>PF</th><th>+/-</th></tr>
