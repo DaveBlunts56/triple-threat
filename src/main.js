@@ -12,7 +12,7 @@ import { createHud, easeFrame } from './render/hud.js';
 import { createQuality, autoQuality, stepQuality } from './render/quality.js';
 import { createKeyboard, steer } from './input.js';
 import { createPauseMenu, inPlay, pauseKey, pauseHasRow, pausePoint, quitToMenu, setPaused } from './pause.js';
-import { createMenu, matchTeams, menuKey, menuPoint, menuHasRow, resultKey, startFromMenu } from './menu.js';
+import { createMenu, matchTeams, menuKey, menuPoint, menuHasRow, pickableSelect, resultKey, startFromMenu } from './menu.js';
 import { createStudio } from './render/studio.js';
 import { createPlayList, playListKey } from './playlist.js';
 import { createLife, stepLife } from './render/life.js';
@@ -32,11 +32,15 @@ const newMatch = (size, teams = [0, 1]) => createMatch(Date.now() % 1e6, size, t
 const MENU_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyR', 'Enter', 'Space', 'Escape', 'Backspace']);   // R: Team Select's random teams
 const MENU_ONCE = new Set(['Enter', 'Space', 'Escape', 'Backspace', 'KeyR']);   // a held one counts once; the bar keys may repeat
 
-const chosen = matchTeams(readPrefs(storageOf()).select);   // the teams Team Select had last time
+// The dev teams (the Waves and the Scorpions) may be picked only on a link ending #dev.
+const devLink = () => window.location.hash === '#dev';
+const chosen = matchTeams(pickableSelect(readPrefs(storageOf()).select, devLink()));   // the teams Team Select had last time
 const view = await createScene(document.getElementById('court'), chosen.teams, chosen.home);
 if (view) {
-  // The generated players. If their files are missing or broken the match is still playable, with capsules.
-  const people = await loadPeople(view.camera).catch(error => { console.warn('Players could not be loaded; using capsules.', error); return null; });
+  // The generated players, and those of the two teams Team Select had. If their files are missing or broken the
+  // match is still playable, with capsules.
+  const people = await loadPeople(view.camera).then(async made => { await made.prepare(chosen.teams); return made; })
+    .catch(error => { console.warn('Players could not be loaded; using capsules.', error); return null; });
   const actors = createActors(view.scene, people);
   const studio = createStudio(view.renderer, people, view.scene.environment);   // Team Select's picture
   const hud = createHud(document);
@@ -48,11 +52,14 @@ if (view) {
   if (prefs.quality) { quality.level = prefs.quality; quality.settled = true; }   // a level you chose is yours: the game leaves it alone
   // pick: the roster row chosen first on the pause screen. quality: the level the game is drawn at, one of QUALITY.order.
   // meter: the shot meter and where its top is on the page, or null. menu: the start menu. pauseMenu: the pause menu.
+  // loading: Exhibition was chosen and the two teams' players are still being made (see start).
   // camera: '2k', behind the team with the ball, or 'broadcast', the sideline view. mode: the match on is 'play' (yours)
   // or 'watch' (nobody's). result: a simulated game shown over the menu, or null.
-  const game = { state: newMatch(prefs.size, chosen.teams), paused: false, pick: null, fps: 60, quality: quality.level, camera: prefs.camera, meter: null, menu: createMenu(prefs),
-    pauseMenu: createPauseMenu(), playList: createPlayList(), keys, prefs, show: {}, mode: 'play', result: null };
+  const game = { state: newMatch(prefs.size, chosen.teams), paused: false, pick: null, fps: 60, quality: quality.level, camera: prefs.camera, meter: null, menu: createMenu(prefs, devLink()),
+    pauseMenu: createPauseMenu(), playList: createPlayList(), keys, prefs, show: {}, mode: 'play', result: null, loading: false };
   globalThis.game = game;   // handle for poking at the match from the browser console
+  // Adding #dev to the link, or taking it off, shows or hides the dev teams at once.
+  window.addEventListener('hashchange', () => { game.menu.dev = devLink(); game.menu.select = pickableSelect(game.menu.select, game.menu.dev); });
 
   // The broadcast: big moments, the commentator, the panels. It only watches.
   const broadcast = createBroadcast();
@@ -104,7 +111,12 @@ if (view) {
   // chose Play is already held when it is dropped.
   // Between the teams Team Select has: yours against the computer ('play'), on your camera, with your controller on a
   // side; the computer against itself ('watch'), from the sideline, with it in the middle. In the home team's arena.
-  const start = () => {
+  // It waits for the two teams' players to be made (see people.prepare), with the menu up and its keys shut.
+  const start = async () => {
+    if (game.loading) return;   // already on its way
+    game.loading = true;
+    await people?.prepare(matchTeams(game.menu.select).teams).catch(error => console.warn(error));
+    game.loading = false;
     game.mode = startFromMenu(game, keyboard, newMatch);
     view.setTeams(game.state.ids, game.state.home);
     game.camera = game.mode === 'watch' ? 'broadcast' : prefs.camera;
@@ -112,12 +124,15 @@ if (view) {
   };
   // A match waiting to begin between the teams Team Select has, for the menu (its Teams panel shows them).
   const waiting = size => newMatch(size, matchTeams(game.menu.select).teams);
-  // Simulate: a whole game by the fast engine, Simulation with its sliders, at Simulate's quarters and the menu's mode.
+  // Simulate: a whole game by the fast engine, Simulation with its sliders, at Simulate's quarters and the menu's mode,
+  // between the teams Team Select has, the away team first.
   const simulate = () => {
-    game.result = quickMatch({ seed: Date.now() % 1e6, size: game.menu.size, minutes: game.menu.simulate.minutes, style: 'sim', sliders: game.menu.sliders.sim });
+    const { away, home } = game.menu.select;
+    game.result = quickMatch({ seed: Date.now() % 1e6, size: game.menu.size, minutes: game.menu.simulate.minutes, style: 'sim', sliders: game.menu.sliders.sim, teams: [away, home] });
   };
   // A key on the start menu, or a click on a row (as Enter).
   const onMenu = code => {
+    if (game.loading) return;
     const asked = menuKey(game.menu, code, keys);
     if (asked === 'exhibition') start();
     else if (asked === 'select') game.state = waiting(game.menu.size);
@@ -288,7 +303,11 @@ if (view) {
     else view.follow(state.ball, attackSign(state.possession));
     view.watch(state);
     if (state.phase === 'start' && game.menu.panel === 'teamSelect' && !game.result) studio.render(game.menu.select, elapsed);   // the two teams' stars
-    else view.render();
+    else {
+      // On the menu, the waiting match's players not made yet (its teams just chosen) come on as they are made.
+      if (people && state.phase === 'start' && !people.ready(state.ids)) people.prepare(state.ids);
+      view.render();
+    }
     // Where the feet of the player you control are on the page, for his name; nothing before and after a match.
     const me = drawn.players[drawn.controlled];
     game.feet = inPlay(state) && !shown ? view.toScreen(me.x, 0, me.z) : null;

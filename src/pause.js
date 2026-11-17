@@ -3,7 +3,7 @@ import { nextDifficulty } from './sim/tuning.js';
 import { DEFAULT_KEYS, KEY_ROWS, keysPanelKey } from './keys.js';
 import { PAGE_ROWS } from './menu.js';
 
-const ROWS = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8'];   // one key for each of a team's eight
+const ROWS = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9', 'Digit0'];   // one key for each of a team's players: ten at most
 
 // The rows of each panel of the pause menu that has rows. Substitutions, the box score and Controls have none.
 export const PAUSE = Object.freeze({
@@ -44,7 +44,7 @@ function flipAutoSubs(game) {
 
 // A key pressed while paused. Returns 'resume', 'quality', 'camera', 'keys' (the keys were changed) or 'quit' when the
 // page has something to do, else null. `keys` is the table the Keys panel changes.
-// In Substitutions, 1 to 8 pick two of your players to swap at the next stoppage and A is the automatic switch.
+// In Substitutions, 1 to 9 and 0 pick two of your players to swap at the next stoppage and A is the automatic switch.
 export function pauseKey(game, code, keys = { ...DEFAULT_KEYS }) {
   const menu = game.pauseMenu;
   if (menu.panel === 'keys') {
@@ -55,7 +55,7 @@ export function pauseKey(game, code, keys = { ...DEFAULT_KEYS }) {
   const rows = pauseRows(menu);
   const back = () => { menu.panel = 'main'; menu.row = menu.from; game.pick = null; };
   if (menu.panel === 'subs') {
-    const row = ROWS.indexOf(code);
+    const at = ROWS.indexOf(code), row = at < game.state.rosters[0].length ? at : -1;   // a key past the roster does nothing
     if (code === 'KeyA') flipAutoSubs(game);
     else if (row >= 0 && game.pick === null) game.pick = row;
     else if (row >= 0) { if (game.pick !== row) queueSub(game.state, 0, game.pick, row); game.pick = null; }

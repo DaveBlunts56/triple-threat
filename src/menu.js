@@ -4,7 +4,7 @@ import { setLength } from './sim/state.js';
 import { SLIDERS, defaultSliders, setStyle } from './sim/styles.js';
 import { DEFAULT_KEYS, KEY_ROWS, keysPanelKey } from './keys.js';
 import { DEFAULT_PREFS } from './prefs.js';
-import { TEAMS } from './sim/teams.js';
+import { pickable } from './sim/teams.js';
 
 const SLIDER_ROWS = Object.freeze([...SLIDERS.map(s => s.key), 'reset']);
 export const MENU = Object.freeze({
@@ -16,13 +16,14 @@ export const MENU = Object.freeze({
   keys: KEY_ROWS,
 });
 
-// size: the mode chosen: 3 for 3 on 3, 5 for 5 on 5. select: the Team Select screen's choice, { away, home, side }:
-// the two teams by id, and the side your controller is on ('away', 'home', or 'none' to watch). difficulty: the level chosen, one of DIFFICULTY.order. play, watch: the style and
+// size: the mode chosen: 3 for 3 on 3, 5 for 5 on 5. dev: the dev teams may be picked (the link ends #dev). select:
+// the Team Select screen's choice, { away, home, side }: the two teams by id, and the side your controller is on
+// ('away', 'home', or 'none' to watch). difficulty: the level chosen, one of DIFFICULTY.order. play, watch: the style and
 // quarter length each starts at; simulate: Simulate's quarter length; sliders: each style's nine
 // (see prefs.js). listening: on the Keys panel, the next key pressed goes on the highlighted action. trail: the panels
 // a panel inside Settings was opened from, with their rows, for Esc. Every choice starts as `prefs` has it: what was
 // saved the last time.
-export const createMenu = (prefs = DEFAULT_PREFS) => ({ panel: 'main', row: 0, autoSubs: prefs.autoSubs, size: prefs.size, select: { ...prefs.select },
+export const createMenu = (prefs = DEFAULT_PREFS, dev = false) => ({ panel: 'main', row: 0, autoSubs: prefs.autoSubs, size: prefs.size, dev, select: pickableSelect({ ...prefs.select }, dev),
   difficulty: prefs.difficulty, play: { ...prefs.play }, watch: { ...prefs.watch }, simulate: { ...prefs.simulate },
   sliders: { arcade: { ...prefs.sliders.arcade }, sim: { ...prefs.sliders.sim } }, from: 0, trail: [], listening: false });
 
@@ -58,16 +59,25 @@ export function matchTeams({ away, home, side }) {
   return { teams: [away, home], home: 1, mode: side === 'away' ? 'play' : 'watch' };
 }
 
-// The controller's places, left to right, and the team after (`way` 1) or before (-1) team `id` in TEAMS, round the end.
+// The controller's places, left to right, and the team after (`way` 1) or before (-1) team `id` among those that may
+// be picked (`ids`), round the end.
 const SIDES = Object.freeze(['away', 'none', 'home']);
-const stepTeam = (id, way) => (id + way + TEAMS.length) % TEAMS.length;
+const stepTeam = (ids, id, way) => ids[(Math.max(0, ids.indexOf(id)) + way + ids.length) % ids.length];
+
+// A Team Select choice with the teams it may hold (`dev`: the dev teams too): one that names a team it may not is
+// given the first two that it may, in the same places.
+export function pickableSelect(select, dev = false) {
+  const ids = pickable(dev);
+  if (ids.includes(select.away) && ids.includes(select.home) && select.away !== select.home) return select;
+  return { ...select, away: ids[1], home: ids[0] };
+}
 
 // One key on the Team Select screen. ← → move your controller between the away side, the middle (to watch) and the
 // home side. ↑ ↓ change the team on your controller's side, or the away team's when you watch: a team the other side
 // has changes places with it. R picks two teams at random (`random`: 0 to 1). Enter or Space start the match; Esc or
 // Backspace go back to the main list. Returns 'exhibition' to start, 'select' when the choice changed, else null.
 function selectKey(menu, code, random) {
-  const select = menu.select, way = { ArrowLeft: -1, KeyA: -1, ArrowRight: 1, KeyD: 1 }[code], step = { ArrowUp: -1, KeyW: -1, ArrowDown: 1, KeyS: 1 }[code];
+  const select = menu.select, ids = pickable(menu.dev), way = { ArrowLeft: -1, KeyA: -1, ArrowRight: 1, KeyD: 1 }[code], step = { ArrowUp: -1, KeyW: -1, ArrowDown: 1, KeyS: 1 }[code];
   if (way) {
     const at = Math.min(SIDES.length - 1, Math.max(0, SIDES.indexOf(select.side) + way));
     if (SIDES[at] === select.side) return null;
@@ -76,13 +86,14 @@ function selectKey(menu, code, random) {
   }
   if (step) {
     const mine = select.side === 'home' ? 'home' : 'away', other = mine === 'home' ? 'away' : 'home', was = select[mine];
-    select[mine] = stepTeam(was, step);
+    select[mine] = stepTeam(ids, was, step);
     if (select[mine] === select[other]) select[other] = was;
     return 'select';
   }
-  if (code === 'KeyR' && TEAMS.length > 1) {
-    select.away = Math.floor(random() * TEAMS.length) % TEAMS.length;
-    select.home = (select.away + 1 + Math.floor(random() * (TEAMS.length - 1))) % TEAMS.length;
+  if (code === 'KeyR' && ids.length > 1) {
+    const a = Math.floor(random() * ids.length) % ids.length;
+    select.away = ids[a];
+    select.home = ids[(a + 1 + Math.floor(random() * (ids.length - 1))) % ids.length];
     return 'select';
   }
   if (code === 'Enter' || code === 'Space') return 'exhibition';

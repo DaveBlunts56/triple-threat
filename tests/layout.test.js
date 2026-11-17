@@ -68,6 +68,8 @@ test('the boards carry only the game\'s own words, and the scoreboard says the s
 
 import { upperSeats } from '../src/render/layout.js';
 import { ARENAS, LOGOS, arenaOf } from '../src/render/arenas.js';
+import { TEAMS } from '../src/sim/teams.js';
+import { existsSync } from 'node:fs';
 import { boardWords } from '../src/render/videoboard.js';
 
 test('the stands have aisles: no seat stands on a stair, and every stand is crossed by some', () => {
@@ -98,14 +100,32 @@ test('nothing of the upper deck or the near side\'s building comes between the c
   for (const from of cameras) for (const to of sights) for (const box of things) assert.ok(!blocks(box, from, to), JSON.stringify(box));
 });
 
-test('the home arena is the Waves\' Tidewater Arena, all of it invented, and both teams have a mark', () => {
+test('the home arena is the Waves\' Tidewater Arena, all of it invented, and every team has a mark', () => {
   const look = arenaOf();
   assert.equal(look, ARENAS.tidewater);
   assert.equal(look.team, 0);
   assert.equal(look.name, 'TIDEWATER ARENA');
-  assert.equal(LOGOS.length, 2);
-  for (const logo of LOGOS) assert.ok(logo.paths.length >= 2 && /^#/.test(logo.disc));
+  assert.equal(LOGOS.length, TEAMS.length);
+  // The dev teams' marks are drawn here; the league's are pictures, each in the repository, on a disc of its colour.
+  for (const logo of LOGOS.slice(0, 2)) assert.ok(logo.paths.length >= 2 && /^#/.test(logo.disc));
+  for (const [id, logo] of LOGOS.entries()) if (id >= 2) {
+    assert.ok(existsSync(new URL(`../${logo.image}`, import.meta.url)), logo.image);
+    assert.equal(logo.disc, TEAMS[id].colour);
+  }
   assert.ok(look.banners.length >= 3);
+});
+
+test('a league team\'s home is its own arena by name and city, in its colours, with its own banners; each is made once', () => {
+  const look = arenaOf(2), team = TEAMS[2];
+  assert.deepEqual([look.team, look.name, look.city], [2, 'EMPIRE SQUARE GARDEN', 'NEW YORK']);
+  assert.equal(arenaOf(2), look);
+  for (const key of Object.keys(ARENAS.tidewater.colour)) assert.ok(key in look.colour, key);
+  assert.deepEqual([look.colour.lane, look.colour.accent], [team.colour, team.secondary]);
+  assert.ok(look.banners.length >= 3 && look.banners.every(b => b.top.includes(team.nickname.toUpperCase())));
+  assert.ok(['wave', 'angle'].includes(look.trusses));
+  const names = TEAMS.map((t, id) => arenaOf(id).name);
+  assert.equal(new Set(names).size, TEAMS.length, 'fourteen arenas, all different');
+  assert.equal(arenaOf(99), ARENAS.tidewater, 'a team there is not plays at Tidewater');
 });
 
 test('the Scorpions\' home is Red Rock Pavilion: sandstone and rust, a sunset glow, a folded roof, their own court and banners', () => {

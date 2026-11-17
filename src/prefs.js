@@ -13,7 +13,7 @@ export const PREFS_KEY = 'tripleThreat.settings.v1';
 // play, watch: the style and quarter length each starts at (Play on Arcade's 3 minutes, as before; Watch on
 // Simulation's 12). simulate: Simulate's quarter length (it is always Simulation). sliders: each style's nine.
 const f = Object.freeze;
-export const DEFAULT_PREFS = f({ quality: null, camera: '2k', difficulty: 'allstar', size: 3, select: f({ away: 1, home: 0, side: 'home' }),
+export const DEFAULT_PREFS = f({ quality: null, camera: '2k', difficulty: 'allstar', size: 3, select: f({ away: 3, home: 2, side: 'home' }),
   autoSubs: true, commentary: 'voice', replays: true, sound: 'full', keys: f({}),
   play: f({ style: 'arcade', minutes: 3 }), watch: f({ style: 'sim', minutes: 12 }), simulate: f({ minutes: 12 }),
   sliders: f({ arcade: f(defaultSliders()), sim: f(defaultSliders()) }) });

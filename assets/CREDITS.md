@@ -113,3 +113,7 @@ From **Freesound**, each CC0. Freesound gives its original files only to signed-
 | `groan.mp3` | crowd oh, disappointed (mrrap4food) | <https://freesound.org/people/mrrap4food/sounds/619007/> | `groan` |
 
 A sixteenth recording was fetched and is not used: "small crowd gasp shock surprise" (HowardV, <https://freesound.org/people/HowardV/sounds/264376/>), which measured loud from end to end and could not be told for a gasp without hearing it.
+
+## The league's logos
+
+`assets/logos/*.png`: the twelve league teams' logos, supplied with the league's team files by the project's owner and cut from their logo grid by `tools/league/logos.py`. Parodies, kept as given while they are a work in progress.

@@ -155,7 +155,7 @@ export function menuText(menu, row, quality, camera = '2k', prefs = DEFAULT_PREF
 const PAUSE_WORDS = { resume: 'Resume', subs: 'Substitutions', box: 'Box score', controls: 'Controls', settings: 'Settings', quit: 'Quit to main menu', keys: 'Keys',
   stay: 'No, keep playing', leave: 'Yes, quit' };
 const PAUSE_HINTS = { main: '↑ ↓ choose · Enter select · Esc resume', settings: '↑ ↓ choose · Enter change · Esc back',
-  subs: '1 to 8 swap two players · A automatic substitutions · Esc back', controls: 'Esc back', box: 'Esc back', quit: '↑ ↓ choose · Enter select · Esc back',
+  subs: 'swap two players · A automatic substitutions · Esc back', controls: 'Esc back', box: 'Esc back', quit: '↑ ↓ choose · Enter select · Esc back',
   keys: '↑ ↓ choose · Enter change · Esc back' };
 const TAG_SLOTS = 10;     // tag0 to tag9 on the page: one under each player
 const PLAY_SLOTS = 10;    // playRow0 to playRow9 on the page
@@ -209,7 +209,8 @@ export function advancedLines(state) {
     both('Offensive rebound %', (x, y) => pct(orbPct(x, y))), both('Free-throw rate', x => ftRate(x).toFixed(3)), both('Three-point rate', x => threeRate(x).toFixed(3)),
   ];
 }
-const RESULT_ROWS = 9;   // simBox{t}r0 to r8 on the page: eight players and the team
+const ROSTER_SLOTS = 10;   // a team's players on the page: ten at most (a dev team has eight)
+const RESULT_ROWS = ROSTER_SLOTS + 1;   // simBox{t}r0 to r10 and box{t}r0 to r10: the players, then the team
 
 // A starter's line on the line-ups panel: position, name (the team's star marked), what he is for, and his overall.
 export function lineupRow(state, team, slot) {
@@ -365,14 +366,17 @@ export function createHud(doc) {
           });
           classed('selectPads', `pads at-${side}`);
           hide('selectWatch', side !== 'none');
-          set('selectHint', MENU_HINTS.teamSelect);
+          set('selectHint', ui.loading ? 'Loading the players…' : MENU_HINTS.teamSelect);   // see main.js's start
         }
         hide('menuTeams', menu.panel !== 'teams');
         hide('menuControls', menu.panel !== 'controls');
         set('menuHint', menu.listening ? LISTENING_HINT : MENU_HINTS[menu.panel]);
         state.rosters.forEach((roster, team) => {
           set(`teamName${team}`, state.teams[team].name);
-          roster.forEach((_, row) => set(`teamPlayer${team}${row}`, teamLine(state, team, row)));
+          for (let row = 0; row < ROSTER_SLOTS; row++) {
+            hide(`teamPlayer${team}${row}`, row >= roster.length);
+            if (row < roster.length) set(`teamPlayer${team}${row}`, teamLine(state, team, row));
+          }
         });
       }
 
@@ -392,7 +396,9 @@ export function createHud(doc) {
         hide('pauseSubs', pause.panel !== 'subs');
         hide('pauseControls', pause.panel !== 'controls');
         hide('pauseAsk', pause.panel !== 'quit');
-        set('pauseHint', pause.listening ? LISTENING_HINT : PAUSE_HINTS[pause.panel]);
+        // Substitutions: the number keys of your roster's rows, 1 to 8, or 1 to 9 and 0 for ten.
+        const mine = state.rosters[0].length, numbers = mine > 9 ? '1 to 9 and 0' : `1 to ${mine}`;
+        set('pauseHint', pause.listening ? LISTENING_HINT : pause.panel === 'subs' ? `${numbers} ${PAUSE_HINTS.subs}` : PAUSE_HINTS[pause.panel]);
         const extra = state.quarter > CLOCK.quarters;
         hide('pbOtHead', !extra);
         for (const team of [0, 1]) {
@@ -463,9 +469,13 @@ export function createHud(doc) {
           set(`simScore${team}`, resultScore(result, team));
           set(`simTeam${team}`, result.teams[team].name);
           set(`simAdvHead${team}`, result.teams[team].abbr);
+          // Each player, then the team's line right under the last of them; the rows past it are hidden.
+          const n = result.rosters[team].length;
           for (let row = 0; row < RESULT_ROWS; row++) {
-            const n = result.rosters[team].length;
-            const cells = row < n ? resultRow(result, team, row) : row === n ? resultTotal(result, team) : RESULT_HEAD.map(() => '');
+            hide(`simBox${team}row${row}`, row > n);
+            classed(`simBox${team}row${row}`, row === n ? 'total' : '');
+            if (row > n) continue;
+            const cells = row < n ? resultRow(result, team, row) : resultTotal(result, team);
             cells.forEach((cell, col) => set(`simBox${team}r${row}c${col}`, cell));
           }
         }
@@ -478,8 +488,12 @@ export function createHud(doc) {
       hide('boxScore', !box);
       if (box) for (const team of [0, 1]) {
         set(`boxTeam${team}`, state.teams[team].name);
-        for (let row = 0; row <= state.rosters[team].length; row++) {
-          const cells = row < state.rosters[team].length ? boxRow(state, team, row) : boxTotal(state, team);
+        const n = state.rosters[team].length;
+        for (let row = 0; row < RESULT_ROWS; row++) {
+          hide(`box${team}row${row}`, row > n);
+          classed(`box${team}row${row}`, row === n ? 'total' : '');
+          if (row > n) continue;
+          const cells = row < n ? boxRow(state, team, row) : boxTotal(state, team);
           cells.forEach((cell, col) => set(`box${team}r${row}c${col}`, cell));
         }
       }
@@ -540,6 +554,7 @@ export function createHud(doc) {
         set(`roster${row}`, rosterLine(state, row, ui.pick === row));
         bar(`rosterEnergy${row}`, person.energy);
       });
+      for (const row of [8, 9]) hide(`rosterRow${row}`, row >= state.rosters[0].length);   // a dev team has eight
       set('subNote', subNote(state));
 
       if (state.phase === 'final') {

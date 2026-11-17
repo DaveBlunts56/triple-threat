@@ -13,8 +13,9 @@ test('with no storage, or nothing saved, the settings are the defaults', () => {
 test('saved settings come back, and what was not saved is the default', () => {
   const prefs = readPrefs(box('{"difficulty":"legend","camera":"broadcast","size":5,"select":{"away":0,"home":1,"side":"none"},"quality":"low","watch":{"style":"arcade","minutes":5}}'));
   assert.deepEqual(prefs, { ...plainDefaults, difficulty: 'legend', camera: 'broadcast', size: 5, select: { away: 0, home: 1, side: 'none' }, quality: 'low', watch: { style: 'arcade', minutes: 5 } });
-  for (const bad of ['{"away":0,"home":0,"side":"home"}', '{"away":0,"home":9,"side":"home"}', '{"away":0,"home":1,"side":"left"}'])
-    assert.deepEqual(readPrefs(box(`{"select":${bad}}`)).select, { away: 1, home: 0, side: 'home' }, `${bad}: a team twice, a team there is not, or no such side`);
+  for (const bad of ['{"away":0,"home":0,"side":"home"}', '{"away":0,"home":99,"side":"home"}', '{"away":0,"home":1,"side":"left"}'])
+    assert.deepEqual(readPrefs(box(`{"select":${bad}}`)).select, { away: 3, home: 2, side: 'home' }, `${bad}: a team twice, a team there is not, or no such side`);
+  assert.deepEqual(DEFAULT_PREFS.select, { away: 3, home: 2, side: 'home' });   // Boston at New York, you playing New York
 });
 
 test('Play, Watch and Simulate start where the spec says: Play on Arcade\'s 3 minutes, Watch on Simulation\'s 12, Simulate on 12', () => {

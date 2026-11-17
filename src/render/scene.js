@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { pixelRatioFor, prefersWebGL } from './quality.js';
 import { createLight } from './light.js';
 import { createFloor } from './floor.js';
-import { arenaOf } from './arenas.js';
+import { arenaOf, loadLogos } from './arenas.js';
 import { createArena } from './arena.js';
 import { createSideline } from './sideline.js';
 import { createRefs } from './refs.js';
@@ -62,6 +62,7 @@ export async function createScene(canvas, ids = [0, 1], home = 0) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0b0d12);
 
+  await loadLogos();   // the league's marks are pictures, painted into the court, the boards and the scorebug
   const floor = await createFloor(scene, arenaOf(ids[home]));
   let arena = createArena(scene, arenaOf(ids[home]), ids[1 - home]), builtFor = `${ids[home]}-${ids[1 - home]}`;
   const sideline = createSideline(scene, ids), refs = createRefs(scene);

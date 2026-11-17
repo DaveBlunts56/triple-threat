@@ -230,12 +230,17 @@ test('Team Select shows each side\'s city, nickname and overall in its colours, 
   const show = () => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
   menuKey(menu, 'Enter'); show();
   assert.deepEqual([e.selCity0.textContent, e.selName0.textContent, e.selCity1.textContent, e.selName1.textContent],
-    ['Red Rock', 'Scorpions', 'Harbor City', 'Waves']);
+    ['Boston', 'Shamrocks', 'New York', 'Empire']);
   assert.match(e.selOvr0.textContent, /^OVR \d\d$/);
-  assert.deepEqual([e.selName1.style.color, e.selTeam0.style.borderColor, e.selectPads.className, e.selectWatch.hidden], ['#a9c8ff', '#ff5a5a', 'pads at-home', true]);
-  assert.equal(e.announce.textContent, 'Away: Red Rock Scorpions. Home: Harbor City Waves. You play Harbor City Waves.');
+  const [boston, newYork] = [teamColours(TEAMS[3]), teamColours(TEAMS[2])];
+  assert.deepEqual([e.selName1.style.color, e.selTeam0.style.borderColor, e.selectPads.className, e.selectWatch.hidden], [newYork.ink, boston.bar, 'pads at-home', true]);
+  assert.equal(e.announce.textContent, 'Away: Boston Shamrocks. Home: New York Empire. You play New York Empire.');
   keys(menu, 'ArrowLeft'); show();
-  assert.deepEqual([e.selectPads.className, e.selectWatch.hidden, e.announce.textContent], ['pads at-none', false, 'Away: Red Rock Scorpions. Home: Harbor City Waves. You watch.']);
+  assert.deepEqual([e.selectPads.className, e.selectWatch.hidden, e.announce.textContent], ['pads at-none', false, 'Away: Boston Shamrocks. Home: New York Empire. You watch.']);
+  // On a link ending #dev, the Waves at home to the Scorpions, in their own colours.
+  const dev = createMenu({ ...DEFAULT_PREFS, select: { away: 1, home: 0, side: 'home' } }, true);
+  menuKey(dev, 'Enter'); hud.update(s, 'webgl2', { paused: false, pick: null, menu: dev, quality: 'high' });
+  assert.deepEqual([e.selName0.textContent, e.selName1.textContent, e.selName1.style.color, e.selTeam0.style.borderColor], ['Scorpions', 'Waves', '#a9c8ff', '#ff5a5a']);
   assert.ok(!readFileSync(new URL('../index.html', import.meta.url), 'utf8').match(/id="screenSelect"[^>]*>/)[0].includes('aria-live'));
 });
 
@@ -311,8 +316,8 @@ test('the surname of the player you control is drawn under him, where the page i
 });
 
 // A paused match and what draws it.
-function pausedHud() {
-  const doc = fakeDoc(), hud = createHud(doc), s = createMatch();
+function pausedHud(teams = [0, 1]) {
+  const doc = fakeDoc(), hud = createHud(doc), s = createMatch(1, 3, teams);
   s.phase = 'live';
   const game = { state: s, paused: true, pick: null, pauseMenu: createPauseMenu(), quality: 'high' };
   return { e: doc.els, s, game, show: () => hud.update(s, 'webgl2', game), choose: (...codes) => codes.forEach(code => pauseKey(game, code)) };
@@ -343,6 +348,10 @@ test('Substitutions and Controls open in place of the buttons, and opening one i
   assert.deepEqual([e.pauseSubs.hidden, e.boxScore.hidden, e.pauseHint.textContent, e.announce.textContent], [true, false, 'Esc back', 'Box score']);
   choose('Escape', 'ArrowDown', 'Enter'); show();
   assert.deepEqual([e.boxScore.hidden, e.pauseControls.hidden, e.pauseHint.textContent, e.announce.textContent], [true, false, 'Esc back', 'Controls']);
+  // A team of ten swaps with 1 to 9 and 0.
+  const league = pausedHud([2, 3]);
+  league.choose('ArrowDown', 'Enter'); league.show();
+  assert.equal(league.e.pauseHint.textContent, '1 to 9 and 0 swap two players · A automatic substitutions · Esc back');
 });
 
 test('Settings shows each setting with its value, and Quit asks before leaving', () => {
