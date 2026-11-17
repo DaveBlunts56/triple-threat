@@ -165,6 +165,7 @@ export const AI = f({
   closeFor: 0.7,          // seconds after his man catches the ball that he closes out at a sprint
   boards: 2,              // how many of the defence go for a rebound once they have boxed out: those nearest the rim
   boxFor: 0.9, boxGap: 0.7,   // seconds a defender boxes out when a shot goes up, and how far from his man he stands, toward the hoop
+  crashOff: 1.6, crashSide: 1.8,   // where a man crashing the glass on a team-mate's shot heads: metres out from the rim, and at most this far to its side
   helpFrom: 8,            // a handler with a clear lane this near the hoop draws a helper
   helpAt: 1.6,            // metres in front of the rim the helper stands
   helpFor: 1,             // seconds he stays once he has come
@@ -241,12 +242,14 @@ export const cpuLevelOf = state => ((state.humans ?? [0]).length ? levelOf(state
 // The end of a period and of a game. closing: the last seconds of the game in which everyone hustles, if it is close.
 // hurry: the last seconds in which the team behind shoots early and the team ahead uses the clock. close: a lead of
 // this many points or fewer is within reach. foulUnder, foulOver: the team behind fouls on purpose with this much left,
-// and no longer with less than the second. hurryClock: the shot clock at which a team in a hurry shoots. milkClock:
+// and no longer with less than the second; foulUnder by how far behind it is (its index: 1 to 8 points), as a team
+// further behind must start sooner to have the possessions it needs (down three it defends, for the tying three: 0).
+// hurryClock: the shot clock at which a team in a hurry shoots. milkClock:
 // the shot clock a team ahead waits for. heave: with less than this left a player far from the hoop throws it up
 // rather than run nearer. pressGap: metres an on-ball defender stands off when pressing. run: unanswered points that
 // make a coach call a timeout. tired: his five's mean energy below which he calls one. clutch, clutchLead: with
 // this many seconds left in the game and the lead this small either way, the ball goes to the star.
-export const LATE = f({ closing: 60, hurry: 45, close: 8, foulUnder: 24, foulOver: 1.5, hurryClock: 12, milkClock: 6, heave: 1.3, pressGap: 1, run: 8, tired: 0.4, clutch: 12, clutchLead: 3 });
+export const LATE = f({ closing: 60, hurry: 45, close: 8, foulUnder: f([0, 24, 24, 0, 30, 45, 45, 60, 60]), foulOver: 1.5, hurryClock: 12, milkClock: 6, heave: 1.3, pressGap: 1, run: 8, tired: 0.4, clutch: 12, clutchLead: 3 });
 
 // How long a match is. minutes: the quarter lengths you can choose. For each, fouls: the personal fouls a player
 // fouls out on, and bonus: the team foul in a quarter from which every foul is shot. The shortest is the game's

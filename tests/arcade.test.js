@@ -8,6 +8,9 @@ import { shotCases } from './shotcases.js';
 
 const fixture = name => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url)));
 
+// arcade-tuning.json: the numbers as Stage 0 left them, changed since only on purpose: in overhaul Stage 1 (the owner chose
+// the smarter AI for both styles) AI.crashOff and AI.crashSide, where a man crashing the glass on a team-mate's shot
+// heads, and LATE.foulUnder, now by how far behind a team is.
 test('Arcade\'s numbers are today\'s', () => {
   const numbers = JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(tuning).filter(([, v]) => typeof v !== 'function'))));
   const was = fixture('arcade-tuning.json');

@@ -3,7 +3,7 @@
 // and his fouls, in both engines.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MOOD, TRAITS, traitsOf, restOf, moodOf, feel, feelShot, feelSteal, settle, lean, moodSkill, foulLean, heatBetween, playedOf, clutchFor } from '../src/sim/mood.js';
+import { MOOD, TRAITS, traitsOf, restOf, moodOf, feel, feelShot, feelSteal, settle, lean, moodSkill, foulLean, heatBetween, playedOf, clutchFor, scorePull } from '../src/sim/mood.js';
 import { situation } from '../src/sim/late.js';
 import { createMatch, setLength, personOf } from '../src/sim/state.js';
 import { setStyle, STYLES } from '../src/sim/styles.js';
@@ -153,4 +153,17 @@ test('the broadcast hears a rivalry and a rattled player, and says them; a face 
   assert.equal(faceWants(player, {}, { mood: { confidence: 0, frustration: 0.7 }, defending: true }).effort, true, 'a frustrated defender grimaces');
   assert.equal(faceWants(player, {}, { mood: { confidence: -0.7, frustration: 0 }, dead: true }).dejected, true, 'a man whose confidence is gone hangs his head');
   assert.deepEqual(faceWants(player, {}), { effort: false, shout: false, dejected: false });
+});
+
+test('the score pulls: from eight points a team ahead eases off and the one behind pushes, fully at twenty, in a shot\'s skill', () => {
+  const s = match(10), p = s.players.find(q => q.team === 0), person = personOf(s, p);
+  const pull = (lead, team = 0) => { s.score = [100 + lead, 100]; return scorePull(s, team); };
+  assert.deepEqual([pull(0), pull(8), pull(-8)], [0, 0, 0]);
+  assert.ok(pull(14) < 0 && pull(-14) > 0 && Math.abs(pull(14) + pull(-14)) < 1e-9 && pull(14) === -pull(14, 1));
+  assert.deepEqual([pull(20), pull(40), pull(-30)], [-MOOD.lead.ease, -MOOD.lead.ease, MOOD.lead.push]);
+  person.mood = { confidence: restOf(person.traits), frustration: 0, at: playedOf(s) };
+  s.score = [130, 100];
+  assert.ok(Math.abs(moodSkill(s, p) + MOOD.lead.ease) < 1e-9, 'a shot by the team twenty and more ahead');
+  setStyle(s, 'sim', undefined, { ...STYLES, sim: { ...STYLES.sim, 'mood.strength': 0 } });
+  assert.equal(moodSkill(s, p), 0, 'nothing at the style\'s strength 0');
 });

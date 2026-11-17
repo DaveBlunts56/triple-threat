@@ -90,3 +90,11 @@ test('a player file that lacks someone on a roster is noticed', () => {
   assert.deepEqual(missingPeople(all), []);
   assert.deepEqual(missingPeople(all.filter(name => name !== 'player-1-33')), ['player-1-33']);
 });
+
+test('in a paced style (Simulation) a walk may slow further, so the feet keep to the ground as he starts, stops and shuffles; Arcade\'s floor is as it was', () => {
+  const at = (speed, look) => legMotion({ ...still, vx: speed }, gaits, 'walk', look).rate;
+  assert.equal(at(0.5, null), MOTION.minRate);
+  assert.ok(Math.abs(at(0.5, { paced: true }) - Math.max(MOTION.paced.minRate, 0.5 / gaits.walk)) < 1e-9 && MOTION.paced.minRate < MOTION.minRate);
+  assert.ok(Math.abs(at(1.2, { paced: true }) - 1.2 / gaits.walk) < 1e-9, 'above both floors, the same');
+  assert.ok(MOTION.paced.minRateStep < MOTION.minRateStep);
+});

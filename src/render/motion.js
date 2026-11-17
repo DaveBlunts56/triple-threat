@@ -1,4 +1,5 @@
 // Which motion a player shows, worked out from the match alone. No Three.js here, so it can be tested without a browser.
+import { styled } from '../sim/styles.js';
 import { BALL, FINISH, PLAYER, SHOT, MOVES } from '../sim/tuning.js';
 import { finishHand } from '../sim/finish.js';
 import { isJumper, onFloor } from '../sim/state.js';
@@ -17,7 +18,8 @@ import { manOf } from '../sim/matchups.js';
 // handSide: how far to one side of the way he faces a defender must be before the ball goes to the other hand.
 // handStick: seconds a dribbling hand is kept before it may change again. guardFar: how far past guardDist a defender
 // who is guarding goes on guarding. sideStick: degrees past the edge of a guarding step that he keeps the step he is
-// in. minRateStep: the limit that stands in for minRate on a side-step, which is one long bound.
+// in. minRateStep: the limit that stands in for minRate on a side-step, which is one long bound. paced: the two in a
+// paced style (Simulation), where the feet keep to the ground more closely.
 // quick: the one-off moves, which come in over fadeIn seconds and leave over fadeOut.
 // apart: the share of a cycle between where one person's standing motions start and where the next person's do.
 // drift: how much slower or faster than made the slowest and the fastest of the ten play them.
@@ -41,7 +43,7 @@ export const MOTION = Object.freeze({
     'crossover', 'crossoverLeft', 'betweenLegs', 'betweenLegsLeft', 'behindBack', 'behindBackLeft',
     'finishGather', 'finishGatherLeft', 'dunk', 'dunkLeft', 'layup', 'layupLeft', 'windmill', 'windmillLeft']),
   apart: 0.618, drift: 0.08,
-  handStick: 0.4, guardFar: 0.4, sideStick: 10, minRateStep: 0.35,
+  handStick: 0.4, guardFar: 0.4, sideStick: 10, minRateStep: 0.35, paced: Object.freeze({ minRate: 0.4, minRateStep: 0.25 }),
   dribbleHold: 0.55, handSwitch: 0.2, freeThrowSet: 0.45,
   turnRate: 900, leanForward: 12, leanSide: 10, leanEase: 0.15, headYaw: 70, headPitch: 30, headEase: 8, eye: 1.7,
   chestDribble: 30, chestMade: 15, chestLow: 45,
@@ -197,6 +199,7 @@ export function legLook(state, player, marks) {
     moving: !!player.move,   // in a move: he is carried across his line or back from it, without turning
     crouch: state.ball.holder === player.id && !player.inbounder && (player.held || dribbling),
     landed: marks.land[player.id],
+    paced: styled(state, 'move.pacing') === 'gaits',   // a style whose players keep to their gaits (Simulation): see legMotion
   };
 }
 
@@ -242,7 +245,9 @@ export function legMotion(player, gaits, last = null, look = null) {
   // pace of a step-back is a slide.
   if (look?.moving && clip === 'backpedal') return { clip: 'stance', rate: 1 };
   if (look?.moving) return { clip, rate: Math.min(MOTION.maxRateMove, speed / gaits[clip]) };
-  const slowest = SIDE_STEPS.includes(clip) ? MOTION.minRateStep : MOTION.minRate;
+  // In a paced style (Simulation) a clip may slow further, so that the feet keep to the ground as he starts, stops and
+  // shuffles: what slipped most was a walk or a side-step at its slowest, faster than the ground he covered.
+  const slowest = SIDE_STEPS.includes(clip) ? (look?.paced ? MOTION.paced.minRateStep : MOTION.minRateStep) : look?.paced ? MOTION.paced.minRate : MOTION.minRate;
   return { clip, rate: Math.min(MOTION.maxRate, Math.max(slowest, speed / gaits[clip])) };
 }
 

@@ -58,7 +58,10 @@ export const MOOD = f({
   // (`rival`, at full heat). skill: the rating points his confidence is worth on a shot at its fullest. clutch: those
   // the clutch trait is worth at its ends, when the game is on the line. foul: how much more often a fully frustrated
   // defender's contact is a foul.
-  lean: f({ self: 0.12, share: 0.06, rival: 0.08 }), skill: 2.5, clutch: 5, foul: 0.5,
+  lean: f({ self: 0.08, share: 0.06, rival: 0.08 }), skill: 1.5, clutch: 5, foul: 0.5,
+  // The score's pull (see scorePull): from `from` points ahead a team eases off and the one behind pushes, by up to
+  // `ease` and `push` rating points on a shot at `full` points; games between equal sides spread as the league's do.
+  lead: f({ from: 8, full: 20, ease: 5, push: 5 }),
   // Rivalries: the heat a basket on him adds, a big one (a three or a dunk), a block and a steal; an answer (the other
   // one getting the better this time) counts `answer` times over, the same one again only `again` times; heat cools by
   // half in `half` seconds of play. At `at`, the two are rivals, and what happens between them moves them up to twice
@@ -204,7 +207,15 @@ export function moodSkill(state, player) {
   if (!k) return 0;
   const person = personOf(state, player), { confidence } = moodOf(state, person);
   const clutch = person.traits && clutchFor(state, player.team) ? (person.traits.clutch - 0.5) * 2 * MOOD.clutch : 0;
-  return k * (MOOD.skill * (confidence - restOf(person.traits ?? { swagger: 0.5 })) + clutch);
+  return k * (MOOD.skill * (confidence - restOf(person.traits ?? { swagger: 0.5 })) + clutch + scorePull(state, player.team));
+}
+
+// The score's pull: a team well ahead eases off and one well behind pushes, from MOOD.lead.from points to its full at
+// MOOD.lead.full; in rating points on a shot, less for the team ahead, more for the one behind.
+export function scorePull(state, team) {
+  const lead = state.score[team] - state.score[1 - team], { from, full, ease, push } = MOOD.lead;
+  const share = Math.min(1, Math.max(0, (Math.abs(lead) - from) / (full - from)));
+  return share === 0 ? 0 : lead > 0 ? -ease * share : push * share;
 }
 
 // How much more often a defender's contact is a foul, by his frustration.

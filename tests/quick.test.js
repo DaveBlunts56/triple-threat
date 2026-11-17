@@ -283,3 +283,22 @@ test('three a side: games end, the box scores add up, and the pace is believable
   const pace = poss / 60;
   assert.ok(pace >= 60 && pace <= 110, `${pace.toFixed(1)} possessions a team per 48 minutes`);
 });
+
+test('a team fouling on purpose grabs the ball at once, before it is brought up, with the man who has the most fouls to give', () => {
+  let fouls = 0;
+  for (let seed = 1; seed <= 200; seed++) {
+    const s = createMatch(seed, 5); setLength(s, 12); setStyle(s, 'sim'); s.humans = [];
+    let startClock = null, before = null, already = false;
+    simulate(s, (st, what, info) => {
+      if (what === 'start') { startClock = st.gameClock; already = situation(st, 1 - info.team).foul; before = st.players.filter(p => p.team !== info.team).map(p => personOf(st, p).fouls); }
+      if (what === 'end' && info.ended.how === 'foul' && info.ended.on_purpose) {
+        fouls++;
+        // Fouling from the start of the possession: at once (the window may also open while the ball is brought up).
+        if (already) assert.ok(startClock - st.gameClock <= 3 + 1e-9, `seed ${seed}: ${(startClock - st.gameClock).toFixed(2)} s to foul on purpose`);
+        const by = st.players.filter(p => p.team !== info.team).indexOf(info.ended.by);
+        assert.equal(before[by], Math.min(...before), `seed ${seed}: fouled by a man with ${before[by]} fouls when one had ${Math.min(...before)}`);
+      }
+    });
+  }
+  assert.ok(fouls > 30, `${fouls} fouls on purpose in 200 games`);
+});

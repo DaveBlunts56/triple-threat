@@ -4,7 +4,8 @@ import { attackSign, onFloor, personOf } from './state.js';
 
 // How things stand for `team`. lead: its points ahead (behind if negative). clock: the seconds it has to shoot in,
 // by the shot clock or the period's, whichever is less. hustle: the last minute of a close game: everyone sprints.
-// hurry: behind late: shoot early, and wait for no play. milk: ahead late: use the clock. press: behind late and
+// hurry: behind late: shoot early, and wait for no play (but down one or two with no more than a shot clock left, a
+// team plays for the last shot, as a team level does, so as not to leave the other side time to answer). milk: ahead late: use the clock. press: behind late and
 // within reach: pick up all over the court, and tight. foul: behind, within reach, and the other team could run the
 // clock out: foul the ball to stop it. clutch: the game is on the line: the ball goes to the star.
 export function situation(state, team) {
@@ -14,10 +15,10 @@ export function situation(state, team) {
   return {
     lead, clock: Math.min(state.shotClock, left),
     hustle: last && left <= LATE.closing && near,
-    hurry: late && lead < 0,
+    hurry: late && lead < 0 && !(left <= CLOCK.shot && lead >= -2),   // down one or two with the last possession: it plays for the last shot
     milk: late && lead > 0,
     press: late && lead < 0 && near,
-    foul: last && lead < 0 && lead !== -3 && near && left <= LATE.foulUnder && left > LATE.foulOver,   // down three, it defends and looks for the tying three
+    foul: last && lead < 0 && near && left <= (LATE.foulUnder[-lead] ?? 0) && left > LATE.foulOver,   // down three, it defends and looks for the tying three
     clutch: last && left <= LATE.clutch && Math.abs(lead) <= LATE.clutchLead,
     three: last && left <= CLOCK.shot && lead === -3,   // down three with a shot clock's time left or less: only a three ties
   };

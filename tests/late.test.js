@@ -269,3 +269,12 @@ test('a shot of yours that is not green goes in less often at Superstar and less
   assert.ok(chance('legend', 5) > chance('allstar', 5) && chance('allstar', 5) > chance('rookie', 5));
   assert.ok(Math.abs(chance('legend', 5) / chance('allstar', 5) - DIFFICULTY.levels.legend.cpuMake) < 1e-9);
 });
+
+test('the team behind starts fouling sooner the further behind it is, never down three; down one or two at the last possession it plays for the last shot', () => {
+  const sit = (left, score, team = 0) => situation(scene({ left, score }), team);
+  // Down 1-2 from 24 s, 4 from 30 s, 5-6 from 45 s, 7-8 from a minute; down three it defends; not before.
+  const fouls = [[24, 2], [25, 2], [30, 4], [31, 4], [45, 6], [46, 6], [60, 8], [61, 8], [20, 3], [50, 3]].map(([left, down]) => sit(left, [10, 10 + down]).foul);
+  assert.deepEqual(fouls, [true, false, true, false, true, false, true, false, false, false]);
+  // Down one or two with a shot clock's time or less: no hurry, it plays for the last shot, as a team level does.
+  assert.deepEqual([sit(20, [10, 11]).hurry, sit(20, [10, 12]).hurry, sit(20, [10, 14]).hurry, sit(40, [10, 12]).hurry], [false, false, true, true]);
+});
