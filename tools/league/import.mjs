@@ -78,6 +78,33 @@ const AGGRESSIVE = /aggressive|physical/i;
 // A uniform's colours, "jersey / trim", with White as #ffffff.
 const uniform = text => { const [jersey, trim] = text.split('/').map(s => s.trim()).map(c => (/^white$/i.test(c) ? '#ffffff' : c.toLowerCase())); return { jersey, trim }; };
 
+// The road uniforms the uniform sheets show differently from the teams file: theirs are used (Black as #000000).
+const ROAD = { NYE: 'secondary', DET: 'secondary', SAS: 'secondary', DAL: 'secondary' };
+
+// How far apart two colours are (0 to about 441), and how light one is (0 to 1).
+const rgb = hex => hex.slice(1).match(/../g).map(h => parseInt(h, 16));
+export const apart = (a, b) => Math.hypot(...rgb(a).map((v, i) => v - rgb(b)[i]));
+const light = hex => { const [r, g, b] = rgb(hex); return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255; };
+
+// A kit as it is painted: the jersey's colour, the trim's (side panels, bindings), and the lettering's and its
+// outline's, each from the team's colours. The lettering is the trim on white (the darkest colour when the trim is too
+// light to read) and white on a colour (the darkest on a light one). Its outline is the first of the trim and the
+// team's colours that stands out from it, and is not the jersey's.
+export function kitOf(jersey, trim, palette) {
+  const darkest = [...palette].sort((a, b) => light(a) - light(b))[0];
+  const letters = jersey === '#ffffff' ? (light(trim) < 0.65 ? trim : darkest) : light(jersey) < 0.65 ? '#ffffff' : darkest;
+  const choices = [trim, ...palette].filter(c => c !== letters && c !== jersey);
+  return { jersey, trim, letters, outline: choices.find(c => apart(c, letters) >= 120) ?? choices[0] ?? trim };
+}
+
+// A team's home and road kits (see kitOf): home in white with its trim, road as the file or the sheets have it.
+function uniforms(t) {
+  const palette = [t.secondary_hex, t.accent_hex, t.primary_hex].map(c => c.toLowerCase());
+  const home = uniform(t.home_uniform), file = uniform(t.away_uniform);
+  const road = ROAD[t.team_id] ? { jersey: palette[0], trim: t.primary_hex.toLowerCase() } : file;
+  return { home: kitOf('#ffffff', home.trim, palette), road: kitOf(road.jersey, road.trim, palette) };
+}
+
 // The league, from the folder of CSV files: one entry a team, in East then West order as the files list them.
 export function league(folder) {
   const read = name => readCsv(readFileSync(join(folder, name), 'utf8'));
@@ -97,7 +124,7 @@ export function league(folder) {
       conference: t.conference.startsWith('East') ? 'East' : 'West',
       playbook: PLAYBOOK[t.offensive_scheme] ?? 'balanced', defence: DEFENCE[t.defensive_scheme] ?? 'standard', coach: AGGRESSIVE.test(coach?.coach_archetype ?? '') ? 'aggressive' : 'steady',
       coachName: t.head_coach, colour: t.primary_hex.toLowerCase(), secondary: t.secondary_hex.toLowerCase(), accent: t.accent_hex.toLowerCase(),
-      uniforms: { home: uniform(t.home_uniform), road: uniform(t.away_uniform), alternate: uniform(t.alternate_uniform) },
+      uniforms: uniforms(t),
       arena: t.team_id.toLowerCase(),
       venue: { name: arena?.arena_name ?? t.arena, short: arena?.arena_short_name ?? t.arena, state: arena?.state ?? '', notes: arena?.arena_design_notes ?? '' },
       logo: { image: `assets/logos/${t.team_id.toLowerCase()}.png`, disc: t.primary_hex.toLowerCase(), rim: '#ffffff' },

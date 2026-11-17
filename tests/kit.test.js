@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { kitOps, heightOps, kitColours, paintKit, normalFromHeight, gearColour, KIT } from '../src/render/kit.js';
+import { kitOps, heightOps, kitColours, kitName, paintKit, normalFromHeight, gearColour, KIT } from '../src/render/kit.js';
+import { TEAMS } from '../src/sim/teams.js';
+import { apart } from '../tools/league/import.mjs';
 import { ROSTER } from '../src/sim/tuning.js';
 
 const recorder = () => {
@@ -17,14 +19,14 @@ test('a jersey: team colour, white bindings, darker side panels piped in white, 
   for (const team of [0, 1]) {
     const ops = kitOps('jersey', 23, team);
     assert.equal(ops[0].fill, 'team');
-    assert.equal(ops.find(o => o.rect && inside(centre(o.rect), KIT.layout.trim)).fill, 'trim');
+    assert.equal(ops.find(o => o.rect && inside(centre(o.rect), KIT.layout.trim)).fill, 'binding');
     const sides = ops.filter(o => o.fill === 'panel');
     assert.equal(sides.length, 4, 'a side panel at each side edge of the front and of the back');
     for (const o of sides) assert.ok(KIT.sides.at.some(x => o.rect[0] <= x + 1e-9 && o.rect[0] + o.rect[2] >= x - 1e-9), `a side panel at ${o.rect[0]} is at no side edge`);
-    const piping = ops.filter(o => o.rect && o.fill === 'trim' && o.rect[2] <= KIT.piping + 1e-9);
+    const piping = ops.filter(o => o.rect && o.fill === 'piping' && o.rect[2] <= KIT.piping + 1e-9);
     assert.equal(piping.length, 4, 'a white line down the inner edge of each side panel');
     const numbers = ops.filter(o => o.text === '23');
-    assert.deepEqual(numbers.map(o => [o.at[0], o.fill, o.outline]), [[0.25, 'trim', 'panel'], [0.75, 'trim', 'panel']]);
+    assert.deepEqual(numbers.map(o => [o.at[0], o.fill, o.outline]), [[0.25, 'letters', 'outline'], [0.75, 'letters', 'outline']]);
     const letters = ops.filter(o => o.text && o.text !== '23');
     assert.equal(letters.map(o => o.text).join(''), word(team));
     // Arched: the middle letters higher up the chest than the ends, turned out from the middle; all above the number.
@@ -34,7 +36,7 @@ test('a jersey: team colour, white bindings, darker side panels piped in white, 
     assert.ok(across <= KIT.name.widest + 1e-9, `${word(team)} spans ${across.toFixed(3)} of the picture`);
     assert.ok(mid.at[1] < first.at[1] && mid.at[1] < last.at[1], 'the name is not arched');
     assert.ok(first.angle < 0 && last.angle > 0 && Math.abs(first.angle + last.angle) < 1e-9, 'its ends do not turn outward evenly');
-    assert.ok(letters.every(o => o.at[1] + o.height / 2 < numbers[0].at[1] - numbers[0].height / 2 && o.outline === 'panel'), 'the name runs into the number');
+    assert.ok(letters.every(o => o.at[1] + o.height / 2 < numbers[0].at[1] - numbers[0].height / 2 && o.outline === 'outline'), 'the name runs into the number');
     for (const o of [...letters, ...numbers]) {
       assert.ok(inside(o.at[1] - o.height / 2, KIT.layout.main) && inside(o.at[1] + o.height / 2, KIT.layout.main), `${o.text} leaves the main panels`);
       const halfWidth = (o.height * KIT.digit * o.text.length) / 2;
@@ -49,7 +51,7 @@ test('shorts carry white bindings and wide darker stripes down their sides, pipe
   const stripes = ops.filter(o => o.rect && o.rect[3] > 0.5 && o.fill === 'panel');
   assert.equal(stripes.length, 4);
   assert.ok(stripes.every(o => o.rect[2] >= KIT.sides.shorts - 1e-9));
-  assert.equal(ops.filter(o => o.rect && o.fill === 'trim' && o.rect[2] <= KIT.piping + 1e-9).length, 4);
+  assert.equal(ops.filter(o => o.rect && o.fill === 'piping' && o.rect[2] <= KIT.piping + 1e-9).length, 4);
 });
 
 test('every region is painted edge to edge, a little past its own edges', () => {
@@ -59,10 +61,35 @@ test('every region is painted edge to edge, a little past its own edges', () => 
   }
 });
 
-test('the colours: the team\'s, white, and the team\'s darkened for the side panels', () => {
+test('a dev team\'s one kit: the team\'s colour, white, and the team\'s darkened for the side panels and round the lettering', () => {
   const c = kitColours(1);
-  assert.deepEqual([c.team, c.trim, c.high, c.low], [KIT.team[1], '#ffffff', '#ffffff', '#000000']);
+  assert.deepEqual([c.team, c.piping, c.binding, c.letters, c.high, c.low], [KIT.team[1], '#ffffff', '#ffffff', '#ffffff', '#ffffff', '#000000']);
   assert.equal(c.panel, `rgb(${[0xd8, 0x3a, 0x3a].map(v => Math.round(v * KIT.shade)).join(', ')})`);
+  assert.equal(c.outline, c.panel);
+  assert.deepEqual(kitColours(1, 'home'), c, 'it has no home and road uniforms: the same either way');
+  assert.deepEqual([kitName(0, 0, 0), kitName(1, 1, 0)], ['own', 'own']);
+});
+
+test('a league team wears its home whites at home and its road colours away, its trim on the panels and bindings', () => {
+  assert.deepEqual([kitName(2, 0, 0), kitName(2, 1, 0), kitName(3, 0, 1), kitName(3, 1, 1)], ['home', 'road', 'road', 'home']);
+  const ny = TEAMS[2], home = kitColours(2, 'home'), road = kitColours(2, 'road');
+  assert.deepEqual([home.team, home.panel, home.binding, home.piping], ['#ffffff', ny.uniforms.home.trim, ny.uniforms.home.trim, '#ffffff']);
+  assert.deepEqual([home.letters, home.outline], [ny.uniforms.home.letters, ny.uniforms.home.outline]);
+  assert.deepEqual([road.team, road.panel, road.letters], [ny.uniforms.road.jersey, ny.uniforms.road.trim, '#ffffff']);
+  // As the uniform sheets show them: New York, Detroit and Dallas in blue away, San Antonio in black.
+  assert.deepEqual([2, 6, 11, 13].map(id => TEAMS[id].uniforms.road.jersey), ['#1d428a', '#1d42ba', '#000000', '#002b5e']);
+});
+
+test('every league kit can be told from the other side\'s whites, and its lettering read on it', () => {
+  for (const team of TEAMS.filter(t => t.uniforms)) {
+    const { home, road } = team.uniforms;
+    assert.equal(home.jersey, '#ffffff', team.key);
+    assert.ok(apart(road.jersey, '#ffffff') > 200, `${team.key}: road ${road.jersey}`);
+    for (const [kit, k] of [['home', home], ['road', road]]) {
+      assert.ok(apart(k.letters, k.jersey) > 150, `${team.key} ${kit}: ${k.letters} on ${k.jersey}`);
+      assert.notEqual(k.outline, k.letters, `${team.key} ${kit}`);
+    }
+  }
 });
 
 test('painting puts the colours, the letters and the numbers where the layout says, in pixels, each outlined before it is filled', () => {
@@ -72,7 +99,7 @@ test('painting puts the colours, the letters and the numbers where the layout sa
   const texts = c.calls.filter(call => call[0] === 'text'), outlines = c.calls.filter(call => call[0] === 'outline');
   assert.equal(texts.length, word(1).length + 2);
   assert.deepEqual(outlines.map(o => o[2]), texts.map(t => t[2]), 'each is outlined, in the same order');
-  assert.ok(outlines.every(o => o[1] === kitColours(1).panel) && texts.every(t => t[1] === KIT.trim));
+  assert.ok(outlines.every(o => o[1] === kitColours(1).outline) && texts.every(t => t[1] === kitColours(1).letters));
   const placed = c.calls.filter(call => call[0] === 'at'), numbers = placed.slice(-2);
   assert.deepEqual(numbers.map(([, x, y]) => [x, y]), [[KIT.chest.at[0] * 512, KIT.chest.at[1] * 512], [KIT.back.at[0] * 512, KIT.back.at[1] * 512]]);
   const chest = texts.at(-2);

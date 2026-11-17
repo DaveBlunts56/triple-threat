@@ -39,7 +39,7 @@ const view = await createScene(document.getElementById('court'), chosen.teams, c
 if (view) {
   // The generated players, and those of the two teams Team Select had. If their files are missing or broken the
   // match is still playable, with capsules.
-  const people = await loadPeople(view.camera).then(async made => { await made.prepare(chosen.teams); return made; })
+  const people = await loadPeople(view.camera).then(async made => { await made.prepare(chosen.teams, chosen.home); return made; })
     .catch(error => { console.warn('Players could not be loaded; using capsules.', error); return null; });
   const actors = createActors(view.scene, people);
   const studio = createStudio(view.renderer, people, view.scene.environment);   // Team Select's picture
@@ -55,7 +55,7 @@ if (view) {
   // loading: Exhibition was chosen and the two teams' players are still being made (see start).
   // camera: '2k', behind the team with the ball, or 'broadcast', the sideline view. mode: the match on is 'play' (yours)
   // or 'watch' (nobody's). result: a simulated game shown over the menu, or null.
-  const game = { state: newMatch(prefs.size, chosen.teams), paused: false, pick: null, fps: 60, quality: quality.level, camera: prefs.camera, meter: null, menu: createMenu(prefs, devLink()),
+  const game = { state: Object.assign(newMatch(prefs.size, chosen.teams), { home: chosen.home }), paused: false, pick: null, fps: 60, quality: quality.level, camera: prefs.camera, meter: null, menu: createMenu(prefs, devLink()),
     pauseMenu: createPauseMenu(), playList: createPlayList(), keys, prefs, show: {}, mode: 'play', result: null, loading: false };
   globalThis.game = game;   // handle for poking at the match from the browser console
   // Adding #dev to the link, or taking it off, shows or hides the dev teams at once.
@@ -115,7 +115,8 @@ if (view) {
   const start = async () => {
     if (game.loading) return;   // already on its way
     game.loading = true;
-    await people?.prepare(matchTeams(game.menu.select).teams).catch(error => console.warn(error));
+    const pick = matchTeams(game.menu.select);
+    await people?.prepare(pick.teams, pick.home).catch(error => console.warn(error));
     game.loading = false;
     game.mode = startFromMenu(game, keyboard, newMatch);
     view.setTeams(game.state.ids, game.state.home);
@@ -123,7 +124,7 @@ if (view) {
     view.setCamera(game.camera);
   };
   // A match waiting to begin between the teams Team Select has, for the menu (its Teams panel shows them).
-  const waiting = size => newMatch(size, matchTeams(game.menu.select).teams);
+  const waiting = size => { const pick = matchTeams(game.menu.select); return Object.assign(newMatch(size, pick.teams), { home: pick.home }); };
   // Simulate: a whole game by the fast engine, Simulation with its sliders, at Simulate's quarters and the menu's mode,
   // between the teams Team Select has, the away team first.
   const simulate = () => {
@@ -305,7 +306,7 @@ if (view) {
     if (state.phase === 'start' && game.menu.panel === 'teamSelect' && !game.result) studio.render(game.menu.select, elapsed);   // the two teams' stars
     else {
       // On the menu, the waiting match's players not made yet (its teams just chosen) come on as they are made.
-      if (people && state.phase === 'start' && !people.ready(state.ids)) people.prepare(state.ids);
+      if (people && state.phase === 'start' && !people.ready(state.ids, state.home)) people.prepare(state.ids, state.home);
       view.render();
     }
     // Where the feet of the player you control are on the page, for his name; nothing before and after a match.
