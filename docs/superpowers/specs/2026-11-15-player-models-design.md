@@ -292,3 +292,29 @@ showed two photographs of the era for reference (looked at only; nothing of them
 - **Fabric:** glossy: roughness 0.42 for the jersey's open mesh (a coarser knit), 0.38 for the satin shorts.
 - **Budgets:** near 35,000-42,000 triangles, far 13,000 (from 15,000, to keep the file at 34.5 MB). Frame times were
   not re-measured after this change.
+
+## 15. Kit as it is worn today (after the owner's review, 2026-11-17)
+
+The owner found the jerseys did not look right, showed two photographs of today's league for reference (looked at
+only; nothing of them is in the game or the repo), and chose: a modern cut, matte cloth with a soft sheen, the trim,
+the chest lettering, the shorts' trim and the socks redone, and the city on the road colours with the nickname on the
+home whites. It reverses section 14's cut and fabric.
+
+- **Cut (tools/blender/kit.py):** the jersey 8% loose at the chest (17%), 6% at the hem (10%), still tucked; the
+  shorts 10% loose at the hips (16%), flaring to 30% at the hem (55%), ending 4 cm above the knee joint (6 cm below).
+  The cloth is 3 mm thick (6 mm) and draped lighter and softer.
+- **Bindings:** each strip now faces out, as the cloth does, whichever way round its edge loop was walked; one walked
+  the other way faced in and was thickened down into the cloth, under its surface, so the cloth showed through it in
+  patches (the "torn" collar and arm holes). It stands 4 mm off the cloth along both its edges (1.5 to 3 mm before),
+  after its smoothing every point of it is lifted back to that height wherever the cloth has come nearer, and it
+  reaches 0.5 mm past the cloth's edge (2 mm), so that a hem's binding does not hang below it. Cloth over the
+  bindings' outward faces: 1-4% of a jersey's (13-23% before), up to 7% of the shorts', the rest where a binding's
+  edge just touches the cloth, at the bottom of the arm holes, on the straps and where a loop meets itself; a test
+  holds it at 8% or less.
+- **Paint (src/render/kit.js), at run time:** the chest word bigger, on a stronger arch across most of the chest;
+  piping in a colour that stands out from both the panels and the cloth; the shorts' side stripes nearly twice as
+  wide, with a trim line round each leg above the hem; white or black crew socks (repainted over the sock's corner of
+  the shoes' picture); and no clear pixels next to a binding in any garment picture (they frayed the far model).
+- **Fabric:** matte, roughness 0.8 for the jersey and 0.74 for the shorts, with a soft sheen on Ultra.
+- **Left as they were:** a small notch where each hem's binding meets itself near the inseam, and a little flap of the
+  jersey at the bottom of the arm hole (both there before).
