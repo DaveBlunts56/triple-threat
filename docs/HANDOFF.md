@@ -11,6 +11,13 @@ Every agent that works on Triple Threat adds an entry here at the end of each ta
 
 ---
 
+## 2026-11-18 · Codex · `codex/player-tracking-fouls` · awaiting merge
+
+- Loose-ball fouls and illegal screens now have scoreboard labels, broadcast commentary and crowd foul reactions. The rules already emitted both calls and the HUD had no labels for them. The new HUD also gives an unknown call a generic whistle label.
+- All 120 league players use their own measured shooting, drive, pass and minutes inputs in both engines. Data coverage is 114 from 2025–26, one from 2024–25 and five from an early 2026–27 snapshot. The source export, fallback choices and formulas are in [Player tracking profiles](PLAYER-TRACKING.md).
+- Before and after standard reports matched. Arcade points/PPP/seconds were −3.7%/−3.0%/+0.8% at 3v3 and −3.1%/−3.2%/−0.2% at 5v5. Simulation 3D/fast per 48 were 96.9/100.6 possessions, 117.2/115.0 points, 87.3/88.6 FGA, 34.6/36.3 3PA, 24.6/23.6 FTA and 14.2/14.8 turnovers. Star usage was 21.9–32.7%. Twelve paired league-roster fixtures averaged 114.54/113.42 points per team before and 115.75/112.96 after.
+- Both builds passed. The full suite returned 1,301 passes, zero failures, one speed skip and one existing TODO. Final focused checks included the additional tracking test and both foul labels. The isolated 10 ms quick-engine guard measured 11.88 ms on main and 11.15 ms on the branch. A live browser foul and physical Chromebook gameplay remain unverified.
+
 ## 2026-11-18 · Codex · `codex/myleague-views` · awaiting merge
 
 - Rebuilt Roster with selectable player cards and 120 WebP portraits rendered from the existing Triple Threat GLBs. Schedule now uses selectable home, away and off days with contextual Play, Watch, Simulate and Simulate Through actions. League → Playoffs and the season archive show a connected bracket with seeds, series wins and the champion.

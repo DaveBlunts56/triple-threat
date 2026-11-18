@@ -1,3 +1,4 @@
+import { PLAYER_TRACKING } from './player-tracking.js';
 import { BALL, CLOCK, FOUL, LINEUP, MATCH, TIP } from './tuning.js';
 import { TEAMS } from './teams.js';
 import { iqOf, tendenciesOf } from './tendencies.js';
@@ -170,7 +171,12 @@ export function createMatch(seed = 1, size = 3, teams = [0, 1]) {
   // who he is (his traits) and how he feels, fresh for the match (see mood.js).
   sidesOf(teams).forEach((side, t) => side.players.forEach((p, row) => {
     const person = state.rosters[t][row];
-    person.tend = tendenciesOf(person, p.tendencies);
+    const tracking = PLAYER_TRACKING[side.key + '/' + p.number];
+    person.tend = tendenciesOf(person, p.tendencies, tracking);
+    if (tracking) {
+      person.rotationMinutes = tracking.minutes;
+      person.rotationWeight = 0.25 * tracking.trackedMinutes / (tracking.trackedMinutes + 360);
+    }
     person.iq = iqOf(person, p.iq);
     person.traits = traitsOf(person, p.traits);
     person.mood = freshMood(person.traits);

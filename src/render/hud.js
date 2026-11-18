@@ -1,3 +1,4 @@
+import { FOUL_LABELS } from '../sim/fouls.js';
 import { CLOCK, DIFFICULTY, ROSTER } from '../sim/tuning.js';
 import { ACTION_WORDS, DEFAULT_KEYS, KEY_ROWS, keyLabel } from '../keys.js';
 import { personOf, surname } from '../sim/state.js';
@@ -34,7 +35,7 @@ const CALLS = {
   travel: 'Travelling', doubleDribble: 'Double dribble', backcourt: 'Backcourt violation',
   eightSeconds: '8 seconds', threeSeconds: '3 seconds', fiveSeconds: '5 seconds',
   shotClock: 'Shot clock violation', out: 'Out of bounds',
-  reach: 'Reach-in foul', block: 'Blocking foul', shooting: 'Shooting foul', charge: 'Charge',
+  ...FOUL_LABELS,
   timeout: 'Timeout',
 };
 const SHOTS = ['', 'One shot', 'Two shots', 'Three shots'];
@@ -44,7 +45,7 @@ const SHOTS = ['', 'One shot', 'Two shots', 'Three shots'];
 export function callText(call, state = null) {
   if (call.kind === 'timeout') return `Timeout, ${state ? state.teams[call.team].name : ROSTER.teams[call.team]}. ${call.ball === 0 ? 'Your ball' : "Opponent's ball"}`;
   const who = call.name ? `${surname(call)} (${call.number})` : call.number;
-  const what = CALLS[call.kind] + (call.number === null ? '' : ` on ${who}`);
+  const what = (Object.hasOwn(CALLS, call.kind) ? CALLS[call.kind] : 'Whistle') + (call.number === null ? '' : ` on ${who}`);
   return `${what}. ${call.shots ? SHOTS[call.shots] : call.ball === 0 ? 'Your ball' : "Opponent's ball"}`;
 }
 

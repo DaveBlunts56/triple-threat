@@ -11,7 +11,7 @@ import { overall } from './overall.js';
 
 const clamp01 = v => Math.min(1, Math.max(0, v));
 
-export function tendenciesOf(person, own = {}) {
+export function tendenciesOf(person, own = {}, tracking = null) {
   const prior = ROLES[person.role] ?? ROLES['Role player'], r = person.ratings;
   // Where he likes to shoot from: his role's leaning, weighted by how well he shoots from each place.
   const weight = { rim: prior.diet.rim * (r.inside / 70) ** 3, mid: prior.diet.mid * (r.mid / 70) ** 3, three: prior.diet.three * (r.three / 70) ** 3 };
@@ -28,6 +28,17 @@ export function tendenciesOf(person, own = {}) {
     help: clamp01(prior.help + (r.defence - 70) / 200),
     foul: prior.foul,
   };
+  if (tracking) {
+    // Small samples lean toward the player's existing basketball role.
+    const driveWeight = 0.6 * tracking.trackedMinutes / (tracking.trackedMinutes + 360);
+    const passWeight = 0.55 * tracking.drives / (tracking.drives + 100);
+    const shotWeight = 0.65 * tracking.attempts / (tracking.attempts + 160);
+    tend.drive += (clamp01(tracking.drives36 / 25) - tend.drive) * driveWeight;
+    // A pass share on drives is one signal about his preference, alongside passing in other situations.
+    tend.passFirst += (tracking.pass - tend.passFirst) * passWeight;
+    const observed = { rim: tracking.rim, three: tracking.three, mid: Math.max(0, 1 - tracking.rim - tracking.three) };
+    for (const zone of ['rim', 'mid', 'three']) tend.diet[zone] += (observed[zone] - tend.diet[zone]) * shotWeight;
+  }
   return { ...tend, ...own, diet: { ...tend.diet, ...own.diet } };
 }
 

@@ -197,6 +197,10 @@ test('whistles, free throws, a timeout and the end of a period are happenings', 
   const heard = watchStep(watch, s);
   assert.deepEqual(kinds(heard), ['foul', 'freeThrow']);
   assert.deepEqual([heard[0].fouler, heard[0].shots, heard[1].name], ['Mercer', 2, 'Cross']);
+  for (const kind of ['looseBall', 'illegalScreen']) {
+    s.call = { kind, team: 1, ball: 0, number: 5, name: 'Kai Mercer', shots: 0 };
+    assert.deepEqual(watchStep(watch, s).map(h => [h.kind, h.what]), [['foul', kind]]);
+  }
   s.call = { kind: 'timeout', team: 1, ball: 0, number: null, shots: 0 };
   assert.deepEqual(kinds(watchStep(watch, s)), ['timeout']);
   s.call = { kind: 'out', team: 0, ball: 1, number: null, shots: 0 };

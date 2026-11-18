@@ -1,3 +1,4 @@
+import { isFoulCall } from '../sim/fouls.js';
 // What the people round the court do, worked out from the match alone: the crowd's mood, and where the referees stand
 // and what they signal. Plain logic, no Three.js, so it can be tested without a browser. The home team is the match's
 // `home` (0 when it says none).
@@ -5,7 +6,6 @@ import { CLOCK, COURT } from '../sim/tuning.js';
 import { attackSign } from '../sim/state.js';
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
-const FOULS = ['reach', 'block', 'shooting', 'charge'];
 
 // cheer, cheerThree: seconds a team's fans are on their feet after it scores, and after a three. boo: seconds the home
 // fans boo a foul called on their team. blowout: the lead at which fans start to leave in the last period. leaveMost:
@@ -35,7 +35,7 @@ export function stepLife(life, state, dt, heard = []) {
     life.cheer[team] = Math.max(0, life.cheer[team] - dt);
   }
   // A foul on the home team is a bad call to the home crowd, whatever it was; one on the visitors gets a cheer.
-  if (state.call && state.call !== life.seen.call && FOULS.includes(state.call.kind)) {
+  if (state.call && state.call !== life.seen.call && isFoulCall(state.call.kind)) {
     if (state.call.team === home) life.boo = LIFE.boo; else life.cheer[home] = Math.max(life.cheer[home], LIFE.cheer / 2);
   }
   life.seen.call = state.call;

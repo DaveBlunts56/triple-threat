@@ -83,7 +83,10 @@ export function rotationPlan(state, team) {
   const key = `${state.quarterLength}|${state.rosters[team].map(p => p.name).join()}`;
   if (state.plans?.[team]?.key === key) return state.plans[team].plan;   // the same for the whole match
   const roster = state.rosters[team], size = state.size, total = 4 * state.quarterLength * size;
-  const shares = roster.map((p, row) => (row < size ? 35 + (overall(p) - 84) / 3 : [25, 24, 16, 10, 8][row - size] ?? 6));
+  const shares = roster.map((p, row) => {
+    const prior = row < size ? 35 + (overall(p) - 84) / 3 : [25, 24, 16, 10, 8][row - size] ?? 6;
+    return p.rotationWeight ? prior + (p.rotationMinutes - prior) * p.rotationWeight : prior;
+  });
   const sum = shares.reduce((a, b) => a + b, 0), plan = shares.map(share => (share / sum) * total);
   (state.plans ??= [null, null])[team] = { key, plan };
   return plan;
