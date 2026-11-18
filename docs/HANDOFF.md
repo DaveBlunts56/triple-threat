@@ -11,6 +11,14 @@ Every agent that works on Triple Threat adds an entry here at the end of each ta
 
 ---
 
+## 2026-11-18 · Codex · `codex/franchise-scorers` · awaiting merge
+
+- MyLeague accents use the managed club's primary color. The main menu omits the standalone Simulate and Teams choices. Exhibition team selection and franchise simulation remain available.
+- Franchise receivers use their preferred shot range and defender position to attack the near paint, probe an elbow or create space along the arc. A regression test follows three players with different diets from the same catch. [Film notes and measured scoring shares](SCORER-READS.md).
+- Against main, all four standard gate reports matched. Arcade deviations (points, PPP, seconds) were −3.7%, −3.0%, +0.8% at 3v3 and −3.1%, −3.2%, −0.2% at 5v5. Simulation 3D/fast per 48 were 96.9/100.6 possessions, 117.2/115.0 points, 87.3/88.6 shots, 34.6/36.3 threes attempted, 24.6/23.6 free throws attempted and 14.2/14.8 turnovers. Star usage was 21.9–32.7%.
+- Twelve paired franchise fixtures, one per managed club, averaged 112.1 points per team on main and 114.5 on the branch in 3D, against 113.4 in the fast engine. Both builds passed. The suite had 1,298 passes, zero failures, one load-related speed skip (passed alone) and one existing TODO.
+- Reviewed sampled footage from three videos. Visual feel in a live browser match and physical Chromebook performance remain unverified.
+
 ## 2026-11-17 · Codex · `codex/franchise-hub` · awaiting merge
 
 - Rebuilt the franchise dashboard around the owner's blueprint. Six navigation tabs, weekly advancement, a three-story spotlight, team jersey graphic, matchup, standings, results and local fan reactions use the current save.

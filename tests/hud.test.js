@@ -216,14 +216,14 @@ test('the start menu shows its rows with the bar on the selected one, and announ
   const doc = fakeDoc(), hud = createHud(doc), s = createMatch(), e = doc.els, menu = createMenu();
   const show = () => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
   show();
-  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(i => e[`menuRow${i}`].textContent), ['Exhibition', 'Tutorial', 'Simulate', 'MyLeague', 'Mode: 3 on 3', 'Teams', 'Controls', 'Settings']);
-  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(i => e[`menuRow${i}`].ariaSelected), ['true', 'false', 'false', 'false', 'false', 'false', 'false', 'false']);
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map(i => e[`menuRow${i}`].textContent), ['Exhibition', 'Tutorial', 'MyLeague', 'Mode: 3 on 3', 'Controls', 'Settings']);
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map(i => e[`menuRow${i}`].ariaSelected), ['true', 'false', 'false', 'false', 'false', 'false']);
   assert.deepEqual([e.menuTeams.hidden, e.menuControls.hidden, e.menuHint.textContent, e.announce.textContent],
     [true, true, '↑ ↓ choose · Enter select', 'Exhibition']);
-  keys(menu, 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown'); show();
-  assert.deepEqual([e.menuRow0.ariaSelected, e.menuRow4.ariaSelected, e.announce.textContent], ['false', 'true', 'Mode: 3 on 3']);
+  keys(menu, 'ArrowDown', 'ArrowDown', 'ArrowDown'); show();
+  assert.deepEqual([e.menuRow0.ariaSelected, e.menuRow3.ariaSelected, e.announce.textContent], ['false', 'true', 'Mode: 3 on 3']);
   menuKey(menu, 'Enter'); show();                                                       // the mode changes, and says so
-  assert.deepEqual([e.menuRow4.textContent, e.announce.textContent], ['Mode: 5 on 5', 'Mode: 5 on 5']);
+  assert.deepEqual([e.menuRow3.textContent, e.announce.textContent], ['Mode: 5 on 5', 'Mode: 5 on 5']);
 });
 
 test('Team Select shows each side\'s city, nickname and overall in its colours, where your controller is, and says the choice', () => {
@@ -250,10 +250,10 @@ test('the Teams panel lists both teams by overall, name and role, with each team
   let said = '', writes = 0;                                                            // the live region counts what is written to it
   e.announce = { hidden: false, style: {}, get textContent() { return said; }, set textContent(v) { said = v; writes++; } };
   const show = () => hud.update(s, 'webgl2', { paused: false, pick: null, menu, quality: 'high' });
-  menu.row = MENU.main.indexOf('teams'); show();
-  assert.equal(e.announce.textContent, 'Teams');
+  show();
+  assert.equal(e.announce.textContent, 'Exhibition');
   const moved = writes;
-  menuKey(menu, 'Enter'); show();
+  menu.panel = 'teams'; show();
   assert.deepEqual([e.menuTeams.hidden, e.menuControls.hidden, e.menuHint.textContent, e.announce.textContent], [false, true, 'Esc back', 'Teams']);
   assert.equal(writes, moved + 1, 'opening the panel is announced, though in the same words as the bar');
   assert.ok([0, 1, 2, 3, 4, 5, 6].every(i => e[`menuRow${i}`].hidden));
@@ -263,7 +263,7 @@ test('the Teams panel lists both teams by overall, name and role, with each team
   for (const team of [0, 1]) assert.equal([0, 1, 2, 3, 4, 5, 6, 7].filter(row => e[`teamPlayer${team}${row}`].textContent.includes('★')).length, 1, 'one star a team');
   assert.equal(e.teamPlayer10.textContent, '89 · Kai Mercer ★ · Shot creator');
   menuKey(menu, 'Escape'); show();
-  assert.deepEqual([e.menuTeams.hidden, e.announce.textContent, writes], [true, 'Teams', moved + 2]);   // closing it too
+  assert.deepEqual([e.menuTeams.hidden, e.announce.textContent, writes], [true, 'Exhibition', moved + 2]);   // closing it too
   show();
   assert.equal(writes, moved + 2);                                                      // and only on the frame the panel changes
 });

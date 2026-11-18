@@ -8,7 +8,7 @@ import { pickable } from './sim/teams.js';
 
 const SLIDER_ROWS = Object.freeze([...SLIDERS.map(s => s.key), 'reset']);
 export const MENU = Object.freeze({
-  main: ['exhibition', 'tutorial', 'simulate', 'myleague', 'mode', 'teams', 'controls', 'settings'],
+  main: ['exhibition', 'tutorial', 'myleague', 'mode', 'controls', 'settings'],
   teamSelect: [],   // a screen of its own (see selectKey), with no rows
   settings: ['graphics', 'autoSubs', 'camera', 'difficulty', 'styles', 'commentary', 'replays', 'sound', 'keys'],
   graphics: ['quality', 'renderer', 'info'],
