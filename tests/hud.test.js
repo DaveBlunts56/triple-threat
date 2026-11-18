@@ -63,6 +63,8 @@ test('calls read as a sentence and say what follows', () => {
   assert.equal(callText(call('shooting', 0, { number: 7, name: 'Theo Marsh', shots: 1 })), 'Shooting foul on Marsh (7). One shot');
   assert.equal(callText(call('shooting', 0, { number: 7, name: 'Theo Marsh', shots: 3 })), 'Shooting foul on Marsh (7). Three shots');
   assert.equal(callText(call('charge', 0, { number: 4, name: 'Jalen Cross' })), "Charge on Cross (4). Opponent's ball");
+  assert.equal(callText(call('looseBall', 1, { number: 8, shots: 2 })), 'Loose-ball foul on 8. Two shots');
+  assert.equal(callText(call('illegalScreen', 0, { number: 7 })), "Illegal screen on 7. Opponent's ball");
   assert.equal(callText(call('reach', 1, { number: 8 })), 'Reach-in foul on 8. Your ball');   // a number with no name
 });
 

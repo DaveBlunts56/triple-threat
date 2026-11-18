@@ -5,6 +5,13 @@ import { screenerOn } from './plays.js';
 import { manOf } from './matchups.js';
 import { feelFoul, foulLean } from './mood.js';
 
+export const FOUL_LABELS = Object.freeze({
+  reach: 'Reach-in foul', block: 'Blocking foul', shooting: 'Shooting foul', charge: 'Charge',
+  looseBall: 'Loose-ball foul', illegalScreen: 'Illegal screen',
+});
+
+export const isFoulCall = kind => Object.hasOwn(FOUL_LABELS, kind);
+
 // The share of the style's chance that a defender's contact is a foul: one in foul trouble plays softer (the style's
 // careful: with two fouls to give, and with one; Arcade's are 1), one frustrated plays harder (see mood.js foulLean).
 function softer(state, id) {

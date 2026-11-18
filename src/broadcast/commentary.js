@@ -5,7 +5,7 @@ import { teamLine } from '../sim/stats.js';
 
 const VIOLATIONS = { travel: 'Travelling', doubleDribble: 'Double dribble', backcourt: 'Backcourt violation', eightSeconds: 'Eight seconds',
   threeSeconds: 'Three seconds in the key', shotClock: 'Shot-clock violation', fiveSeconds: 'Five seconds on the inbound' };
-const FOUL_WORDS = { shooting: 'on the shot', reach: 'for reaching in', block: 'for blocking', charge: 'for charging' };
+const FOUL_WORDS = { shooting: 'on the shot', reach: 'for reaching in', block: 'for blocking', charge: 'for charging', looseBall: 'on the loose ball', illegalScreen: 'for an illegal screen' };
 const ORDINAL = ['first', 'second', 'third', 'fourth'];
 
 // Each kind's wordings. {name}: the player. {team}: his team, {other}: the other. {play}, {pts}, {n}, {off}, {what},

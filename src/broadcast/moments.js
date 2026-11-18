@@ -1,3 +1,4 @@
+import { isFoulCall } from '../sim/fouls.js';
 // Watching the match for what a broadcast would mark: the big moments, and the plain happenings a commentator calls.
 // It only reads the match; nothing here changes it.
 import { CLOCK } from '../sim/tuning.js';
@@ -23,7 +24,6 @@ export const KINDS = Object.freeze(['winner', 'buzzer', 'ankle', 'block', 'andOn
   'heatingUp', 'run', 'comeback', 'rivalry', 'perfect']);
 export const STARS = new Set(['winner', 'buzzer', 'ankle', 'block', 'andOne', 'poster']);
 
-const FOULS = ['shooting', 'reach', 'block', 'charge'];
 const surname = person => person.name.split(' ').pop();
 const late = (state, clock, within) => state.quarter >= CLOCK.quarters && clock <= within;
 // The run a team is credited with: 8, then every 4 more. 0 below 8.
@@ -113,7 +113,7 @@ export function watchStep(watch, state, events = null) {
   const call = now.call;
   if (call && call !== was.call) {
     if (call.kind === 'timeout') plain('timeout', call.team, null, { left: [...state.timeouts] });
-    else if (FOULS.includes(call.kind)) plain('foul', call.team, null, { what: call.kind, fouler: call.name ? call.name.split(' ').pop() : null, shots: call.shots });
+    else if (isFoulCall(call.kind)) plain('foul', call.team, null, { what: call.kind, fouler: call.name ? call.name.split(' ').pop() : null, shots: call.shots });
     else plain(call.kind === 'out' ? 'out' : 'violation', call.team, null, { what: call.kind });
   }
   if (now.freeThrow && now.freeThrow !== was.freeThrow) { const shooter = state.players[now.freeThrow.shooter]; plain('freeThrow', shooter.team, shooter.person, { shots: now.freeThrow.total }); }
