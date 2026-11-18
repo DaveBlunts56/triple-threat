@@ -8,6 +8,7 @@ export function franchiseScreen(dialog, launch) {
   const content = dialog.querySelector('main'), status = dialog.querySelector('[role=status]'), stop = dialog.querySelector('[data-stop]');
   let slot = null, tab = 'Overview', archived = 0, busy = false, cancel = false, pending = null;
   let finalWrite = null;
+  const selection = {};
   const say = message => { status.textContent = message; };
   async function draw() {
     dialog.style.setProperty('--club', slot ? clubs[slot.league.team].colour : '#4fa1e6');
@@ -16,7 +17,7 @@ export function franchiseScreen(dialog, launch) {
       content.innerHTML = library(await listSlots());
     } else {
       const past = tab === 'History' && slot.league.history.length ? await readArchive(slot, archived) : null;
-      content.innerHTML = dashboard(slot.league, tab, archived, past);
+      content.innerHTML = dashboard(slot.league, tab, archived, past, selection);
     }
     if (pending) content.insertAdjacentHTML('afterbegin', '<div class="hub-buttons"><button data-action="retry">Retry saving final score</button><button data-action="recover">Save game to a new slot</button></div>');
   }
@@ -35,6 +36,7 @@ export function franchiseScreen(dialog, launch) {
   async function create(data) {
     const id = crypto.randomUUID(), revision = await writeSlot(id, 0, data);
     slot = { id, revision, league: { ...data, history: data.history.map(archiveSummary) } }; pending = null; tab = 'Overview'; archived = 0;
+    delete selection.day; delete selection.player;
     await draw();
   }
   async function persist(next) {
@@ -61,6 +63,7 @@ export function franchiseScreen(dialog, launch) {
     const target = league.season.fixtures.slice(league.season.cursor).find(f => involved(f, league.team));
     const single = ['play', 'watch', 'simGame'].includes(action);
     if (single && !target) { runner.close(); throw new Error('No team game is scheduled.'); }
+    delete selection.day;
     cancel = false; stop.disabled = false; stop.hidden = false;
     try {
       for (let f = nextFixture(slot.league); f && !cancel && f.day <= day; f = nextFixture(slot.league)) {
@@ -106,7 +109,7 @@ export function franchiseScreen(dialog, launch) {
       setTimeout(() => URL.revokeObjectURL(url), 3000); return;
     }
     if (key === 'nextSeason') {
-      const next = draft(); nextSeason(next); await persist(next); await draw(); return;
+      const next = draft(); nextSeason(next); await persist(next); delete selection.day; await draw(); return;
     }
     await advance(key);
   }
@@ -114,6 +117,14 @@ export function franchiseScreen(dialog, launch) {
   content.addEventListener('click', e => {
     const b = e.target.closest('button');
     if (!b) return;
+    if (b.dataset.through) return run(() => advance('date', Number(b.dataset.through)));
+    if (b.dataset.day || b.dataset.player) {
+      const key = b.dataset.day ? 'day' : 'player', value = Number(b.dataset[key]);
+      return run(async () => {
+        selection[key] = value;
+        await draw();
+      }).then(() => content.querySelector(`button[data-${key}="${value}"][aria-pressed=true]`)?.focus({ preventScroll: true }));
+    }
     if (b.dataset.direction) return run(async () => {
       const next = draft();
       next.staff[next.team].direction = b.dataset.direction;
@@ -133,6 +144,7 @@ export function franchiseScreen(dialog, launch) {
         throw error;
       }
       tab = 'Overview'; archived = 0;
+      delete selection.day; delete selection.player;
       if (pending?.slot !== slot.id) pending = null;
       await draw();
     });
@@ -140,8 +152,7 @@ export function franchiseScreen(dialog, launch) {
   content.addEventListener('submit', e => {
     e.preventDefault();
     const form = new FormData(e.target);
-    if (e.target.id === 'ml-date') run(() => advance('date', Number(form.get('day'))));
-    else run(() => {
+    if (e.target.id === 'ml-create') run(() => {
       const setup = Object.fromEntries(form);
       for (const k of ['size', 'games', 'minutes', 'bestOf']) setup[k] = Number(setup[k]);
       setup.seed = setup.seed === '' ? crypto.getRandomValues(new Uint32Array(1))[0] : Number(setup.seed);

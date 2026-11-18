@@ -167,3 +167,17 @@ test('a founding save migrates scoring, confidence and rivalries without changin
     [pair.split('|').map(id => ids.get(id)).sort().join('|'), { ...e, by: ids.get(e.by) }]));
   assert.deepEqual(validateSave(old), league);
 });
+
+test('the calendar only offers Play on the next team game and shows finals on played dates', () => {
+  const league = make();
+  const teamGames = league.season.fixtures.filter(f => [f.home, f.away].includes(league.team));
+  const [next, later] = teamGames;
+  assert.match(dashboard(league, 'Calendar'), /data-action="play"/);
+  const future = dashboard(league, 'Calendar', 0, null, { day: later.day });
+  assert.doesNotMatch(future, /data-action="play"/);
+  assert.match(future, new RegExp('data-through="' + later.day + '"'));
+  while (league.season.cursor <= next.id) recordGame(league, simulateFixture(league));
+  const completed = dashboard(league, 'Calendar', 0, null, { day: next.day });
+  assert.match(completed, /· Final/);
+  assert.doesNotMatch(completed, /data-action="play"|data-through=/);
+});

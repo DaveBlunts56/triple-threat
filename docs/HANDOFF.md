@@ -11,6 +11,13 @@ Every agent that works on Triple Threat adds an entry here at the end of each ta
 
 ---
 
+## 2026-11-18 · Codex · `codex/myleague-views` · awaiting merge
+
+- Rebuilt Roster with selectable player cards and 120 WebP portraits rendered from the existing Triple Threat GLBs. Schedule now uses selectable home, away and off days with contextual Play, Watch, Simulate and Simulate Through actions. League → Playoffs and the season archive show a connected bracket with seeds, series wins and the champion.
+- Arcade 30-seed deviations (points, PPP, seconds) were −3.7%/−3.0%/+0.8% at 3v3 and −3.1%/−3.2%/−0.2% at 5v5. Simulation 3D/fast per 48 were 96.9/100.6 possessions, 117.2/115.0 points, 87.3/88.6 shots, 34.6/36.3 three attempts, 24.6/23.6 free throws attempted and 14.2/14.8 turnovers. These reports matched main. Star usage was 21.9–32.7%.
+- Both builds passed. The two-worker full suite recorded 1,301 passes, zero failures, one speed skip and one existing TODO. Default parallel load tripped the replay-copy timing check, which passed alone. The 10 ms quick-engine guard skipped in the suite and missed when run alone on both main (10.28 ms) and the branch (10.36–11.32 ms).
+- Firefox verified player selection and calendar simulation through the franchise controller, and layouts were inspected at 390 and 1280 px. A live 3D match started from the calendar and a physical Chromebook remain unverified.
+
 ## 2026-11-18 · Codex · `codex/dynamic-universe` · awaiting merge
 
 - Milestone 2 adds saved player identities, age, potential, offseason skill development and coaching decisions. Roster exposes development, starters and the owner's Compete/Develop choice. League shows all twelve plans. Both engines use the franchise roster and coach. Existing saves and separate archives translate their statistical and rivalry keys.
