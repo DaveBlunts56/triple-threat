@@ -107,10 +107,10 @@ test('the existing 3D step engine plays a road fixture from tip to final and map
   assert.ok(report.teamOnly[1] >= 2);
   recordGame(extra, report);
   validateSave(extra);
-  assert.equal(l.season.stats[away + '/' + s.rosters[0][0].number].pts, s.rosters[0][0].stats.pts);
+  assert.equal(l.season.stats[s.rosters[0][0].careerId].pts, s.rosters[0][0].stats.pts);
   validateSave(copy(l));
   const rematch = fixtureMatch(l, { ...f, home: away, away: f.home });
-  assert.equal(rematch.rosters[0][0].mood.confidence, l.moods[away + '/' + s.rosters[0][0].number].confidence);
+  assert.equal(rematch.rosters[0][0].mood.confidence, l.moods[s.rosters[0][0].careerId].confidence);
   assert.ok(Object.keys(rematch.rivals).length > 0);
 });
 
@@ -134,4 +134,36 @@ test('franchise names are rendered as text and each view reads actual league dat
     assert.ok(!html.includes('undefined') && !html.includes('<A & B>'));
   }
   assert.match(library([{ name: l.name, team: l.team, id: 'a', year: 1 }]), /&lt;A &amp; B&gt;/);
+});
+
+test('offseason development repeats on reload, ages every player and reaches the match roster', () => {
+  const league = make();
+  while (nextFixture(league)) recordGame(league, simulateFixture(league));
+  const replay = copy(league), before = copy(league.careers);
+  nextSeason(league);
+  nextSeason(replay);
+  assert.deepEqual(league, replay);
+  const careers = Object.entries(league.careers);
+  assert.equal(careers.length, 120);
+  assert.ok(careers.every(([id,p]) => p.age === before[id].age + 1));
+  assert.ok(careers.some(([,p]) => p.change > 0));
+  assert.ok(careers.some(([,p]) => p.change < 0));
+  const state = fixtureMatch(league);
+  for (const p of state.rosters.flat()) assert.deepEqual(p.ratings, league.careers[p.careerId].ratings);
+  validateSave(copy(league));
+});
+
+test('a founding save migrates scoring, confidence and rivalries without changing the pending fixture', () => {
+  const league = make();
+  recordGame(league, simulateFixture(league));
+  const old = copy(league), ids = new Map();
+  for (const t of Object.values(clubs)) t.players.forEach((p,i) => ids.set(league.staff[t.key].ids[i], t.key + '/' + p.number));
+  const convert = obj => Object.fromEntries(Object.entries(obj).map(([id,v]) => [ids.get(id),v]));
+  old.version = 1;
+  delete old.staff; delete old.careers;
+  old.season.stats = convert(old.season.stats);
+  old.moods = convert(old.moods);
+  old.rivals = Object.fromEntries(Object.entries(old.rivals).map(([pair,e]) =>
+    [pair.split('|').map(id => ids.get(id)).sort().join('|'), { ...e, by: ids.get(e.by) }]));
+  assert.deepEqual(validateSave(old), league);
 });

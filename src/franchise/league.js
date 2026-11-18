@@ -7,6 +7,8 @@ import { emptyLine, STAT_KEYS } from '../sim/stats.js';
 import { simulate } from '../sim/quick/engine.js';
 import { advanceBracket, clubs, lengths, nextSeed, schedule } from './calendar.js';
 
+import { seedCareers, develop, starters } from './development.js';
+
 function freshSeason(league, year) {
   const seed = nextSeed(league);
   return { year, seed, cursor: 0, fixtures: schedule(seed, league.games), round: 0, series: [], champion: null, stats: {}, postseason: {} };
@@ -17,32 +19,44 @@ export function createLeague({ name, team, seed, games = 14, minutes = 12, size 
       ![3, 5].includes(size) || ![1, 3, 5, 7].includes(bestOf) || !['sim', 'arcade'].includes(style) ||
       !Number.isInteger(seed) || seed < 0 || seed > 0xffffffff || typeof name !== 'string' || !name.trim() || name.trim().length > 60)
     throw new Error('Choose a valid franchise name, seed and setup.');
-  const league = { version: 1, name: name.trim(), team, initialSeed: seed, seed, games, minutes, size, bestOf, style, history: [], moods: {}, rivals: {} };
+  const league = { version: 2, name: name.trim(), team, initialSeed: seed, seed, games, minutes, size, bestOf, style, history: [], moods: {}, rivals: {} };
+  seedCareers(league);
   league.season = freshSeason(league, 1);
   return league;
 }
 
 export function nextSeason(league) {
   if (!league.season.champion) throw new Error('Finish the playoffs first.');
+  develop(league);
   league.history.push(league.season);
   league.season = freshSeason(league, league.season.year + 1);
 }
 
 export const nextFixture = league => league.season.fixtures[league.season.cursor];
 export const involved = (f, team) => f.home === team || f.away === team;
-const playerKey = (club, row) => club + '/' + clubs[club].players[row].number;
+
 
 export function fixtureMatch(league, fixture = nextFixture(league)) {
   // The existing controls give the human side zero, including when their team is on the road.
   const keys = fixture.away === league.team ? [fixture.away, fixture.home] : [fixture.home, fixture.away];
-  const state = createMatch(fixture.seed, league.size, keys.map(key => TEAMS.indexOf(clubs[key])));
+  const state = createMatch(fixture.seed, league.size, keys.map(key => {
+    const club = clubs[key], staff = league.staff[key];
+    return { ...club, coach: staff.coach, playbook: staff.playbook, players: club.players.map((p,i) =>
+      ({ ...p, ratings: league.careers[staff.ids[i]].ratings })) };
+  }));
+  state.ids = keys.map(key => TEAMS.indexOf(clubs[key]));
+  keys.forEach((key,side) => {
+    const lineup = starters(league, key);
+    for (const p of state.players) if (p.team === side) p.person = lineup[p.slot];
+  });
   state.home = keys.indexOf(fixture.home);
   state.humans = [];
   setLength(state, league.minutes);
   setStyle(state, league.style);
   const local = {};
   keys.forEach((key, side) => state.rosters[side].forEach((person, row) => {
-    const id = playerKey(key, row);
+    const id = league.staff[key].ids[row];
+    person.careerId = id;
     local[id] = side + ':' + row;
     if (league.moods[id]) person.mood = { ...league.moods[id], at: 0 };
   }));
@@ -60,7 +74,7 @@ export function gameReport(state) {
   const sides = [state.home, 1 - state.home];
   const keyOf = local => {
     const [side, row] = local.split(':').map(Number);
-    return playerKey(state.teams[side].key, row);
+    return state.rosters[side][row].careerId;
   };
   const rivals = Object.entries(state.rivals).map(([pair, e]) => [
     pair.split('|').map(keyOf).sort().join('|'), keyOf(e.by), e.heat * 0.5 ** (Math.max(0, playedOf(state) - e.at) / MOOD.rival.half)
@@ -97,7 +111,7 @@ export function recordGame(league, result) {
   if (involved(f, league.team)) season.lastBox = { id: f.id, score: result.score, teamOnly: result.teamOnly, box: result.box };
   const stats = f.series === undefined ? season.stats : season.postseason;
   result.teams.forEach((team, side) => result.box[side].forEach((p, row) => {
-    const id = playerKey(team, row);
+    const id = league.staff[team].ids[row];
     const line = stats[id] ??= { ...emptyLine(), gp: 0, secs: 0, high: 0 };
     for (const k of STAT_KEYS) line[k] += p[k];
     line.gp += Number(p.secs > 0);

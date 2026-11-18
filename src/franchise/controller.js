@@ -114,6 +114,11 @@ export function franchiseScreen(dialog, launch) {
   content.addEventListener('click', e => {
     const b = e.target.closest('button');
     if (!b) return;
+    if (b.dataset.direction) return run(async () => {
+      const next = draft();
+      next.staff[next.team].direction = b.dataset.direction;
+      await persist(next); await draw();
+    });
     if (b.dataset.action) run(() => action(b.dataset.action));
     else if (b.dataset.tab) run(async () => { tab = b.dataset.tab; await draw(); content.querySelector('[aria-pressed=true]')?.focus(); });
     else if (b.dataset.backup) run(async () => create(await previousCheckpoint(b.dataset.backup)));

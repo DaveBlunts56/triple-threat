@@ -11,6 +11,13 @@ Every agent that works on Triple Threat adds an entry here at the end of each ta
 
 ---
 
+## 2026-11-18 · Codex · `codex/dynamic-universe` · awaiting merge
+
+- Milestone 2 adds saved player identities, age, potential, offseason skill development and coaching decisions. Roster exposes development, starters and the owner's Compete/Develop choice. League shows all twelve plans. Both engines use the franchise roster and coach. Existing saves and separate archives translate their statistical and rivalry keys.
+- Three matched seeds over ten seasons each produced 3,031 dynamic fixtures and 3,037 fixed-roster fixtures. Across 30 titles the most successful team won seven versus nine, repeat titles were six versus five, and shooting was 46.84% versus 46.13%. All exported universes validated.
+- Standard reports matched the baseline. Arcade points/PPP/seconds deviations were −3.7%/−3.0%/+0.8% (3v3) and −3.1%/−3.2%/−0.2% (5v5). Simulation 3D/fast per 48: 96.9/100.6 possessions, 117.2/115.0 points, 87.3/88.6 shots, 34.6/36.3 three attempts, 24.6/23.6 free throws attempted and 14.2/14.8 turnovers. Star usage 21.9–32.7%.
+- Both builds passed. Full suite: 1,300 passed, zero failures, one timing check skipped under load (passed alone), one existing TODO. Firefox exercised franchise creation, changing priority, saving and reopening through the dialog. A physical Chromebook and a full browser match with a developed roster remain unverified.
+
 ## 2026-11-18 · Codex · `codex/franchise-scorers` · awaiting merge
 
 - MyLeague accents use the managed club's primary color. The main menu omits the standalone Simulate and Teams choices. Exhibition team selection and franchise simulation remain available.

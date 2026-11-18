@@ -2,12 +2,51 @@
 // Import always creates a new slot. Two tabs that open the same revision cannot overwrite one another.
 import { clubs, advanceBracket, nextSeed, schedule } from './calendar.js';
 import { checkBox, createLeague, involved } from './league.js';
+import { careerId, directions, seedCareers } from './development.js';
+import { KEYS } from '../sim/overall.js';
+import { PLAYBOOKS, COACHES } from '../sim/teams.js';
 import { STAT_KEYS } from '../sim/stats.js';
 
 const valid = condition => { if (!condition) throw new Error('The franchise save contains inconsistent data.'); };
 const unsigned = n => Number.isSafeInteger(n) && n >= 0;
 const dictionary = obj => obj && typeof obj === 'object' && !Array.isArray(obj);
-const playerIds = new Set(Object.values(clubs).flatMap(t => t.players.map(p => t.key + '/' + p.number)));
+const legacyIds = new Map(Object.values(clubs).flatMap(t => t.players.map(p => [t.key + '/' + p.number, careerId(p)])));
+const playerIds = new Set(legacyIds.values());
+
+function translate(id) {
+  valid(legacyIds.has(id));
+  return legacyIds.get(id);
+}
+
+function migrateSeason(season) {
+  for (const field of ['stats','postseason']) {
+    if (season[field]) season[field] = Object.fromEntries(Object.entries(season[field]).map(([id,line]) => [translate(id), line]));
+  }
+}
+
+function migrate(data) {
+  for (const season of [...data.history, data.season]) migrateSeason(season);
+  data.moods = Object.fromEntries(Object.entries(data.moods).map(([id,m]) => [translate(id),m]));
+  data.rivals = Object.fromEntries(Object.entries(data.rivals).map(([pair,e]) =>
+    [pair.split('|').map(translate).sort().join('|'), { ...e, by: translate(e.by) }]));
+  seedCareers(data);
+  data.version = 2;
+}
+
+function checkCareers(data) {
+  valid(dictionary(data.careers) && Object.keys(data.careers).length === playerIds.size && dictionary(data.staff));
+  for (const id of playerIds) {
+    const p = data.careers[id];
+    valid(p && unsigned(p.age) && p.age >= 19 && p.age <= 34 + data.season.year &&
+      Number.isFinite(p.potential) && p.potential >= 0 && p.potential <= 1 && Number.isInteger(p.change) &&
+      KEYS.every(k => Number.isInteger(p.ratings?.[k]) && p.ratings[k] >= 0 && p.ratings[k] <= 100));
+  }
+  for (const club of Object.values(clubs)) {
+    const staff = data.staff[club.key];
+    valid(staff && directions.includes(staff.direction) && Object.hasOwn(PLAYBOOKS,staff.playbook) && Object.hasOwn(COACHES,staff.coach) &&
+      Array.isArray(staff.ids) && staff.ids.length === club.players.length && club.players.every((p,i) => staff.ids[i] === careerId(p)));
+  }
+}
 
 function checkStats(stats) {
   valid(dictionary(stats));
@@ -52,14 +91,16 @@ function validateSeason(league, season, year, seed) {
       points[f.away] += f.score[1] - (f.teamOnly?.[1] ?? 0);
     }
     for (const [team, sum] of Object.entries(points)) {
-      valid(clubs[team].players.reduce((n, p) => n + (stats[team + '/' + p.number]?.pts ?? 0), 0) === sum);
+      valid(clubs[team].players.reduce((n, p) => n + (stats[careerId(p)]?.pts ?? 0), 0) === sum);
     }
   }
 }
 
 function checkUniverse(data, allowSummaries) {
-  if (data?.version !== 1) throw new Error('This MyLeague save version is unsupported.');
+  if (data?.version === 1) migrate(data);
+  if (data?.version !== 2) throw new Error('This MyLeague save version is unsupported.');
   createLeague({ ...data, seed: data.initialSeed });
+  checkCareers(data);
   const check = { seed: data.initialSeed };
   valid(Array.isArray(data.history));
   for (const [i, season] of [...data.history, data.season].entries()) {
@@ -118,6 +159,7 @@ export async function loadSlot(id) {
 
 export async function readArchive(slot, index) {
   const season = await read('archives', [slot.id, index + 1]);
+  if (Object.keys(season.stats).some(id => legacyIds.has(id))) migrateSeason(season);
   const rng = { seed: slot.league.initialSeed };
   for (let i = 0; i < index; i++) nextSeed(rng);
   validateSeason(slot.league, season, index + 1, nextSeed(rng));

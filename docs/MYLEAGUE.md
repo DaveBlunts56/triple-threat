@@ -2,8 +2,8 @@
 
 ## Milestones
 
-1. **Playable foundation – ready for owner review.** Create a named slot, choose a team and settings, play, watch or simulate fixtures, check standings and box scores, complete the playoffs, and start the next season. The archive preserves each season. See the handoff for verification and device coverage.
-2. **Dynamic universe.** Give players persistent identities independent of their current club and jersey number. Add ages, uncertain development, coaching and team-building decisions. Measure divergence against the fixed-roster foundation.
+1. **Playable foundation – live.** Create a named slot, choose a team and settings, play, watch or simulate fixtures, check standings and box scores, complete the playoffs, and start the next season. The archive preserves each season. See the handoff for verification and device coverage.
+2. **Dynamic universe – ready for owner review.** Roster shows age, overall, last offseason change and rotation. Choose Compete or Develop for your team. League shows each club’s priority, offense and coaching approach. Starting the next season advances careers and updates coaching plans.
 3. **Front office.** Add roster management, contracts, trades, free agency, scouting and drafts. Preserve the player's face and paint the new club's kit, as the owner requested. The model lookup currently takes a club and jersey number.
 4. **Personality and events.** Extend the confidence and rivalries that already carry between fixtures. Add chemistry, relationships and a shared history of verified basketball events.
 5. **CourtSide and TTN.** Give both applications the same dated event IDs. Build profiles, feeds, articles and analysis from recorded facts.
@@ -18,9 +18,15 @@ The catalogue in `src/sim/teams.js` supplies the twelve league keys and their co
 
 The seed shuffles a round-robin rotation. Each club meets all eleven opponents before the rotation repeats. Opponents alternate venues. For pairs that meet an odd number of times, the calendar distributes the extra home dates along closed walks so every club hosts exactly half its games. A round gives each club one game, with one or two days between regular-season rounds. The league advances in fixture order. Standings sort by win percentage, wins, point differential, points scored and club key. The top four in each conference qualify. A series alternates venues, starting with the higher seed, and ends on the clinching win.
 
-`src/franchise/league.js` accepts only a final for the pending season, fixture, seed and teams. It checks the player lines against the score, keeps regular-season and playoff totals apart, and advances the bracket. It maps match-local rivalry pairs back to club and player number and rebases their clocks for the next meeting. A quit leaves the pending fixture available. The showcase roster is read-only.
+`src/franchise/league.js` accepts only a final for the pending season, fixture, seed and teams. It checks the player lines against the score, keeps regular-season and playoff totals apart, and advances the bracket. It maps match-local rivalry pairs back to persistent career IDs and rebases their clocks for the next meeting. A quit leaves the pending fixture available. The showcase roster is read-only.
 
 The website runs the quick engine in a module worker. The standalone build yields between games. The UI can stop a batch at the next committed game. The main loop skips court rendering while the franchise dialog is open.
+
+## Player development
+
+All franchises begin with the catalogue ratings. The universe seed assigns ages from 19 through 33 and hidden development potential. At the offseason, age, potential, playing time, training priority and seeded variation affect each skill. Both engines use the resulting ratings. Teams retain their opening lineup in year one. In later years coaches compare candidates at each starting position, giving young players an edge in close contests under Develop. CPU clubs weigh their record and the age of their strongest players and choose an offense to suit their core.
+
+Save format 2 keeps career IDs, ratings and staff decisions in the active checkpoint. Old saves receive career IDs and initial ages at migration. Their recorded scores, mood, rivalry and player totals carry forward, including separate archived seasons. Development begins at the next offseason. This milestone keeps the founding 120 players. League renewal through the draft belongs to the front-office work.
 
 ## Saves and checks
 
