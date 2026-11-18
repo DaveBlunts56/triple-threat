@@ -15,9 +15,10 @@ test('in the single file the packed copy is used instead', () => {
 
 const FLOOR = ['assets/floor/wood_floor_diff_2k.jpg', 'assets/floor/wood_floor_nor_gl_2k.jpg', 'assets/floor/wood_floor_rough_2k.jpg'];
 
-test('the game needs the players, the motion, the motion facts, the floor\'s three pictures, every sound, the cloth\'s tiles and the league\'s logos and players', () => {
-  assert.deepEqual([...ASSETS], ['assets/players.glb', 'assets/motion.glb', 'assets/motion.json', ...FLOOR, ...SOUNDS.map(soundPath), ...MAP_FILES, ...LOGO_FILES, ...MODEL_FILES]);
-  for (const path of [...MAP_FILES, ...LOGO_FILES, ...MODEL_FILES]) assert.ok(existsSync(new URL(`../${path}`, import.meta.url)), path);
+test('the game needs the players, the motion, the motion facts, the floor\'s three pictures, every sound, the cloth\'s tiles and the league\'s logos, portraits and players', () => {
+  const portraits = MODEL_FILES.map(file => file.replace('/players/', '/portraits/').replace('.glb', '.webp'));
+  assert.deepEqual([...ASSETS], ['assets/players.glb', 'assets/motion.glb', 'assets/motion.json', ...FLOOR, ...SOUNDS.map(soundPath), ...MAP_FILES, ...LOGO_FILES, ...portraits, ...MODEL_FILES]);
+  for (const path of [...MAP_FILES, ...LOGO_FILES, ...portraits, ...MODEL_FILES]) assert.ok(existsSync(new URL(`../${path}`, import.meta.url)), path);
   assert.equal(LOGO_FILES.length, 12);   // one a team of the league: the dev teams' marks are drawn, not pictures
   assert.equal(MODEL_FILES.length, 120);   // a file for each league player: the dev teams' are all in assets/players.glb
   assert.ok(MODEL_FILES.includes('assets/players/phi-00.glb') && MODEL_FILES.includes('assets/players/phi-0.glb'), '0 and 00 are two players');

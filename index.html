@@ -417,7 +417,7 @@
   #ml .ml-match h2 { font-size: clamp(22px, 4vw, 32px); margin: 3px 0; }
   #ml .ml-logo { width: 62px; height: 62px; object-fit: contain; } #ml .ml-slot img { width: 36px; height: 36px; }
   #ml .ml-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(185px, 100%),1fr)); gap: 12px; margin-bottom: 16px; }
-  #ml nav, #ml footer, #ml .ml-actions, #ml-date { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin: 16px 0; }
+  #ml nav, #ml footer, #ml .ml-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin: 16px 0; }
   #ml nav, #ml footer { border-top: 1px solid #39495d; padding-top: 12px; }
   #ml button, #ml input, #ml select { font: inherit; color: inherit; background: #223145; border: 1px solid #48576b; border-radius: 4px; padding: 7px 12px; }
   #ml label { display: grid; gap: 3px; font-size: 14px; color: #cad5e2; } #ml input, #ml select { min-width: 0; }
@@ -429,7 +429,7 @@
   #ml td:first-child, #ml th:first-child { text-align: left; } #ml th { color: #bdccdc; }
   #ml [role=status]:not(:empty) { padding: 10px; background: #27394d; }
 
-  #ml { --club-edge:color-mix(in srgb,var(--club) 60%,white); width:min(1440px,97vw); max-height:95dvh; background:#080f1c; border:1px solid #7395ab; padding:clamp(12px,1.7vw,28px); scrollbar-gutter:stable; }
+  #ml { color-scheme:dark; --club-edge:color-mix(in srgb,var(--club) 60%,white); width:min(1440px,97vw); max-height:95dvh; background:#080f1c; border:1px solid #7395ab; padding:clamp(12px,1.7vw,28px); scrollbar-gutter:stable; }
   #ml .hub header,#ml .hub nav,#ml .hub-card { background:linear-gradient(125deg,#142337,#09121e 78%); border:1px solid #7291ab; border-radius:9px; }
   #ml .hub header { padding:10px 20px; gap:20px; } #ml .hub h1,#ml .hub-card h2,#ml .tt-brand,#ml .feature h3 { font-family:"Arial Narrow",system-ui,sans-serif; font-weight:900; font-style:italic; text-transform:uppercase; }
   #ml .hub h1 {font-size:clamp(20px,2vw,32px)} #ml .tt-brand {border-left:9px solid var(--club);padding-left:9px;line-height:.85;letter-spacing:-1px;font-size:22px;}
@@ -457,6 +457,92 @@
   .feature:has(#story-0:checked) label[for=story-0]::before,.feature:has(#story-1:checked) label[for=story-1]::before,.feature:has(#story-2:checked) label[for=story-2]::before {background:var(--club-edge)}
   .feature:has(.story-choice:focus-visible) .story-picks {outline:2px solid #ddd}
   @media(prefers-reduced-motion:no-preference){.story-choice:checked + .story {animation:hub-in .18s ease-out}@keyframes hub-in {from {transform:translateY(3px)}to {transform:none}}}
+  #ml .roster-view, #ml .calendar-view { background: #0e1926; }
+  #ml .roster-profile {
+    display:grid; grid-template-columns:clamp(90px,17vw,200px) minmax(0,1fr) auto;
+    gap:clamp(8px,2vw,28px); align-items:center; padding-right:clamp(8px,3vw,40px);
+    margin-bottom:12px; border-bottom:3px solid var(--club);
+    background:linear-gradient(115deg,color-mix(in srgb,var(--club) 48%,#101926),#111e2c 75%);
+  }
+  #ml .roster-profile h3, #ml .calendar-summary h3 {
+    font:italic 900 clamp(20px,3.6vw,48px)/1 "Arial Narrow",system-ui,sans-serif;
+    margin:5px 0; overflow-wrap:anywhere;
+  }
+  .roster-portrait { aspect-ratio:1; background:radial-gradient(ellipse at center,#9aabcd42,transparent 70%); }
+  .roster-portrait img { display:block; width:100%; height:100%; object-fit:contain; }
+  .roster-overall { text-align:center; background:#101926; border:2px solid var(--club-edge); padding:8px; min-width:3.5em; }
+  .roster-overall b { font-size:clamp(22px,4vw,48px); line-height:1; }
+  #ml .roster-view td { padding:3px 8px; }
+  #ml .roster-view td button { text-align:left; width:100%; border:0; background:transparent; font-weight:700; }
+  #ml .roster-view tr:nth-child(even) { background:#ffffff06; }
+  #ml .roster-view tr:has(button[aria-pressed=true]) { background:color-mix(in srgb,var(--club) 36%,#111e2c); }
+  .calendar-summary, .calendar-toolbar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+  .calendar-summary { min-height:90px; padding:12px; border-left:4px solid var(--club); background:#172638; }
+  .calendar-toolbar { margin:12px 0 6px; }
+  .calendar-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
+  #ml .calendar-tile, .calendar-empty { min-height:86px; }
+  #ml .calendar-tile {
+    display:grid; justify-items:center; align-content:center; gap:2px; padding:3px;
+    background:#151f2e; font-variant-numeric:tabular-nums;
+  }
+  #ml .calendar-tile.home { background:color-mix(in srgb,var(--club) 38%,#152335); border-color:var(--club); }
+  #ml .calendar-tile.away { background:#233955; border-color:#526f91; }
+  #ml .calendar-tile[aria-pressed=true] { outline:2px solid var(--club-edge); outline-offset:-2px; }
+  #ml .calendar-tile:focus-visible { outline:3px solid white; }
+  #ml .calendar-tile small { font-size:clamp(9px,1vw,13px); }
+  #ml .calendar-tile .ml-logo { width:28px; height:28px; }
+  .calendar-key { display:inline-flex; align-items:center; gap:6px; margin-right:auto; font-size:13px; }
+  .calendar-key i { width:10px; height:10px; background:var(--club); border-radius:2px; }
+  .calendar-key i:last-of-type { background:#526f91; margin-left:6px; }
+  .bracket-intro { display:flex; justify-content:space-between; gap:12px; margin:12px 0; }
+  .bracket-scroll { overflow-x:auto; border:1px solid #516881; }
+  .bracket-tree {
+    display:grid; grid-template-columns:repeat(2,minmax(150px,1fr)) minmax(150px,1.15fr) repeat(2,minmax(150px,1fr));
+    grid-template-rows:auto repeat(4,70px); gap:0 28px; padding:12px; min-width:830px;
+    background:radial-gradient(ellipse at center,#243754,#0d1725 80%);
+  }
+  #ml .bracket-tree h3 { text-align:center; margin:0 0 12px; font-size:14px; text-transform:uppercase; }
+  .bracket-match { position:relative; align-self:center; z-index:1; border:1px solid #516881; border-radius:6px; overflow:hidden; }
+  .match-0 { grid-area:2/1/4/2; transform:translateY(-24px); }
+  .match-1 { grid-area:4/1/6/2; transform:translateY(24px); }
+  .match-2 { grid-area:2/5/4/6; transform:translateY(-24px); }
+  .match-3 { grid-area:4/5/6/6; transform:translateY(24px); }
+  .match-4 { grid-area:2/2/6/3; }
+  .match-5 { grid-area:2/4/6/5; }
+  .match-6 { grid-area:2/3/6/4; }
+  .bracket-team {
+    display:grid; grid-template-columns:30px minmax(0,1fr) auto; align-items:center; gap:6px; min-height:38px;
+    padding:3px 6px; border-left:3px solid var(--team-ink,#516881);
+    background:color-mix(in srgb,var(--team-ink,#203755) 30%,#152031);
+  }
+  .bracket-team + .bracket-team { border-top:1px solid #516881; }
+  #ml .bracket-team .ml-logo { width:28px; height:28px; }
+  .bracket-team small { font-size:10px; }
+  .bracket-team b { display:block; overflow-wrap:anywhere; font-size:13px; }
+  .bracket-team strong { font-size:19px; }
+  .bracket-team[data-clinched] { box-shadow:inset 0 -2px var(--team-ink); }
+  .bracket-team.waiting { display:flex; color:#bbcede; font-size:12px; }
+  .join { align-self:center; height:188px; position:relative; grid-row:2/6; }
+  .join-east { grid-column:1/3; }
+  .join-west { grid-column:4/6; }
+  .join::before {
+    content:""; position:absolute; inset:0 50% 0 0; border:2px solid #6686a5; border-left:0;
+  }
+  .join-west::before { inset:0 0 0 50%; border-left:2px solid #6686a5; border-right:0; }
+  .join::after { content:""; position:absolute; top:50%; left:50%; right:-28px; border-top:2px solid #6686a5; }
+  .join-west::after { left:-28px; right:50%; }
+  @media(max-width:560px) {
+    #ml .calendar-tile, .calendar-empty { min-height:65px; }
+    #ml .calendar-tile .ml-logo { width:19px; height:19px; }
+    #ml .calendar-tile.home small:last-child, #ml .calendar-tile.away small:last-child { display:none; }
+    #ml .calendar-tile.home b, #ml .calendar-tile.away b { font-size:10px; }
+    #ml .roster-profile {
+      grid-template-columns:82px minmax(0,1fr); gap:4px 10px; padding:0 8px 8px;
+    }
+    .roster-bio { grid-area:1/2/3/3; }
+    .roster-overall { grid-area:2/1/3/2; padding:3px; }
+    #ml .roster-profile p { font-size:12px; }
+  }
 </style>
 <script type="importmap">
 { "imports": {

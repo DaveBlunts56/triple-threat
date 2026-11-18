@@ -55,7 +55,11 @@ test('pack embeds every asset, byte for byte', () => {
   const packed = assetsIn(pack(root));
   assert.deepEqual(Object.keys(packed), [...PACKED]);
   assert.ok(MODEL_FILES.every(path => !(path in packed)), 'a league player\'s model is packed');
-  assert.equal(Object.keys(packed).length, 6 + SOUNDS.length + 6 + 12);   // the models, the motion, the floor, every sound, the cloth's four tiles, the strands and the pores, the league's logos (not its players)
+  assert.equal(Object.keys(packed).length, 6 + SOUNDS.length + 6 + 12 + MODEL_FILES.length);
+  for (const model of MODEL_FILES) {
+    const portrait = model.replace('/players/', '/portraits/').replace('.glb', '.webp');
+    assert.equal(Buffer.from(packed[portrait], 'base64').toString(), `stand-in for ${portrait}`);
+  }
   assert.deepEqual(Buffer.from(packed['assets/players.glb'], 'base64'), bytes);
   assert.deepEqual(Buffer.from(packed['assets/floor/wood_floor_diff_2k.jpg'], 'base64'), bytes);
 });
