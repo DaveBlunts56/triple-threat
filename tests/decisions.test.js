@@ -150,6 +150,26 @@ test('caught open in the corner, a shooter squares up there instead of dribbling
   }
 });
 
+test('franchise receivers read the same wing catch differently according to their shot diet', () => {
+  const target = diet => {
+    const s = scene(1, 8, 2, { clock: 23 });
+    s.fixture = { year: 1, id: 1, seed: 1 };
+    put(s, 0, 6, 5);
+    put(s, 3, 6, 3);
+    put(s, 4, RIM.x, 0);
+    Object.assign(s.players[0].ai, { heldT: 0.1, from: 1 });
+    Object.assign(person(s, 0).tend.diet, diet);
+    const ai = first(s);
+    return [ai.targetX, ai.targetZ];
+  };
+  const rim = target({ rim: 0.7, mid: 0.2, three: 0.1 });
+  const mid = target({ rim: 0.2, mid: 0.7, three: 0.1 });
+  const outside = target({ rim: 0.1, mid: 0.2, three: 0.7 });
+  assert.deepEqual(rim, [RIM.x - AI.layupDist, LANE.halfWidth / 2]);
+  assert.deepEqual(mid, [COURT.halfLength - LANE.depth, LANE.halfWidth]);
+  assert.ok(outside[1] > 5, 'the shooter slides away from the defender along the arc');
+});
+
 test('caught on the wing with nothing on, he squares up there, then works it along the arc on his own side: he never walks it out to the top to pass it on', () => {
   // Nine metres out on the right wing (beyond the arc), his man two metres off toward the hoop; his team-mates are
   // back over half court, so there is nobody to pass to. Player 0, no driver, caught it from player 1, or brought it

@@ -290,6 +290,24 @@ function planWithBall(state, p) {
   // the play says, or else to the top, which his team-mates leave to him.
   const spot = playSpot(state, p);
   const squares = ai.from != null && state.frontcourt && toHoop <= AI.shootRange + AI.catchRoom;
+  // A receiver in a franchise game can work from the catch once the called action has formed.
+  // Read the closeout from this side of the floor. Help in the gap takes the drive away.
+  if (state.fixture && squares && !waits && ai.heldT < AI.passAfter && !ahead) {
+    const side = Math.sign(p.z || p.z - tight.z || 1);
+    const paint = { x: hoop.x - sign * AI.layupDist, z: side * LANE.halfWidth / 2 };
+    if (tend.diet.rim >= Math.max(tend.diet.three, tend.diet.mid) && laneClear(state, p, paint))
+      return goTo(ai, paint, true);
+    if (tend.diet.mid > tend.diet.three && gap <= READ.wide) {
+      const elbow = { x: sign * (COURT.halfLength - LANE.depth), z: side * LANE.halfWidth };
+      if (laneClear(state, p, elbow)) return goTo(ai, elbow);
+    }
+    if (zone === 'three' && room >= READ.wide) return goTo(ai, { x: p.x, z: p.z });
+    if (zone === 'three' && tend.diet.three > tend.diet.mid) {
+      const angle = Math.atan2(p.z, sign * (hoop.x - p.x)) + Math.sign(p.z - tight.z || side) * AI.slotTurn;
+      const arc = { x: hoop.x - sign * toHoop * Math.cos(angle), z: toHoop * Math.sin(angle) };
+      if (laneClear(state, p, arc)) return goTo(ai, arc);
+    }
+  }
   if (squares && !spot) {
     if (ai.heldT < AI.holdTime) return goTo(ai, { x: p.x, z: p.z });
     if (styled(state, 'decide.catchDrive') && tend.drive >= AI.catchDriveAt && zone !== 'three') {
