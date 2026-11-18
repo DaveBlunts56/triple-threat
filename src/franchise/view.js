@@ -62,20 +62,39 @@ function playoffs(season) {
 export function dashboard(league, tab, archived = 0, past = null) {
   const { season, team } = league, club = clubs[team], mine = standings(season).find(s => s.key === team);
   const next = season.fixtures.slice(season.cursor).find(f => involved(f, team));
-  const last = season.fixtures.slice(0, season.cursor).filter(f => involved(f, team)).at(-1);
-  const tabs = ['Overview', 'Calendar', 'Standings', 'Leaders', 'Playoffs', 'History'];
+  const recent = season.fixtures.slice(0, season.cursor).reverse();
+  const teamGames = recent.filter(f => involved(f, team));
+  const rows = standings(season).filter(r => clubs[r.key].conference === club.conference);
+  const views = { Overview: 'Home', Roster: 'Roster', Calendar: 'Schedule', Standings: 'League', Social: 'Social', Settings: 'Settings' };
+  const link = (key, label) => `<button data-tab="${key}">${label}</button>`;
+  const card = (title, content, type = '') => `<section class="hub-card ${type}"><h2>${title}</h2>${content}</section>`;
+  const player = club.players.reduce((best, p) => (season.stats[rosterName(team,p)]?.pts ?? 0) > (season.stats[rosterName(team,best)]?.pts ?? 0) ? p : best);
+  const line = season.stats[rosterName(team, player)];
+  const score = f => `${f.away} ${f.score[1]} · ${f.home} ${f.score[0]}`;
+  const news = recent.length ? recent.slice(0,3).map(f => `<p><small>DAY ${f.day} · FINAL</small>${score(f)}</p>`).join('') : `<p>Season ${season.year} opens with ${league.games} games per club.</p>`;
+  const social = teamGames.length ? teamGames.slice(0,3).map(f => `<p><small>@${club.nickname}Fans · Day ${f.day}</small>${(f.home === team) === (f.score[0] > f.score[1]) ? 'Another one in the win column.' : 'Time to regroup.'} ${score(f)}</p>`).join('') : `<p><small>@${club.nickname}Fans</small>Season ${season.year}. Who leads us in scoring this year?</p>`;
+  const games = next ? '<div class="versus">' + badge(next.home) + '<strong>VS</strong>' + badge(next.away) + '</div><b>' + next.home + ' vs ' + next.away + '</b><small>Day ' + next.day + ' · ' + clubs[next.home].venue.name + '</small><div class="hub-buttons">' + button('play','Play') + button('watch','Watch') + button('simGame','Simulate') + '</div>' : season.champion ? clubs[season.champion].name + ' win the championship.' : button('nextMatchup','Advance to next matchup');
+  const date = season.champion ? button('nextSeason','Start next season') : `<form id="ml-date"><label>Simulate through day<input name="day" type="number" required min="${season.fixtures[season.cursor].day}" value="${season.fixtures[season.cursor].day}"></label><button>Advance</button></form>${button('simSeason','Simulate season')}`;
   let body;
   if (tab === 'Overview') {
-    const opponent = next && clubs[next.home === team ? next.away : next.home];
-    body = `<section class="ml-match"><div>${season.champion ? '<small>Season champion</small><h2>' + clubs[season.champion].name + '</h2>' :
-      next ? '<small>Day ' + next.day + ' · ' + (next.series === undefined ? 'Regular season' : 'Playoffs') + '</small><h2>' + club.nickname + (next.home === team ? ' vs ' : ' at ') + opponent.nickname + '</h2><p>' + clubs[next.home].venue.name + '</p>' :
-      '<h2>League playoffs</h2><p>Advance the bracket to see who plays next.</p>'}</div>${opponent ? badge(opponent.key) : ''}</section>
-      <div class="ml-actions">${next ? '<button class="ml-primary" data-action="play">Play game</button>' + button('watch', 'Watch game') + button('simGame', 'Simulate game') : ''}
-      ${season.champion ? button('nextSeason', 'Start next season') : (next ? '' : button('nextMatchup', 'Advance to next matchup')) + button('simSeason', 'Simulate season')}</div>
-      ${!season.champion ? '<form id="ml-date"><label>Simulate through day <input type="number" required name="day" min="' + season.fixtures[season.cursor].day + '" value="' + season.fixtures[season.cursor].day + '"></label><button>Advance</button></form>' : ''}
-      ${last ? '<p>Last result · ' + last.away + ' ' + last.score[1] + ' at ' + last.home + ' ' + last.score[0] + '</p>' : ''}
-      ${lastBox(season)}<h2>Roster · regular season</h2>${leaders(season, team)}`;
-  } else if (tab === 'Calendar') body = '<h2>Team schedule</h2>' + calendarView(season, team);
+    const stats = ['pts','reb','ast','fgm'].map((k,i) => `<div><small>${['PPG','RPG','APG','FG%'][i]}</small><b>${line?.gp ? (k === 'fgm' ? (line.fga ? 100*line.fgm/line.fga : 0) : line[k]/line.gp).toFixed(1) : '—'}</b></div>`).join('');
+    const stories = [
+      ['Featured player', player.name, player.archetype, club.nickname + ' · ' + player.position],
+      ['Team story', club.nickname, mine.w + ' wins · ' + mine.l + ' losses', club.conference + ' conference'],
+      ['League news', season.champion ? clubs[season.champion].nickname : recent.length ? score(recent[0]) : 'Opening day',
+        season.champion ? 'League champions' : recent.length ? 'Final from ' + clubs[recent[0].home].venue.name : league.games + ' games per club', 'Season ' + season.year]
+    ];
+    const carousel = stories.map(([label,title,summary,kicker],i) => `<input class="story-choice" type="radio" name="feature-story" id="story-${i}" aria-label="${label}" ${i ? '' : 'checked'}><div class="story"><small>${kicker}</small><h3>${title}</h3><p>${summary}</p></div>`).join('');
+    body = `<div class="hub-grid">
+      ${card('Quick actions', (!season.champion ? button('week','Advance week') : button('nextSeason','Next season')) + link('Roster','View roster') + link('Playoffs','Playoff bracket') + link('History','Season archive') + button('saveExit','Save & exit'),'quick')}
+      ${card('Spotlight', `<div class="jersey" aria-hidden="true">${badge(team)}<b>${player.number}</b></div><div class="spotlight">${carousel}</div><div class="statstrip">${stats}</div><div class="story-picks">${stories.map(([label],i)=>`<label title="${label}" for="story-${i}"><span>${label}</span></label>`).join('')}</div>`, 'feature')}
+      ${card('Upcoming game', games,'upcoming')}
+      ${card(club.conference + ' standings', table(['#','Team','W','L'], rows.map((r,i)=>[i+1,r.key,r.w,r.l])), 'rank')}
+      </div><div class="hub-bottom">${card('Recent results',teamGames.length ? teamGames.slice(0,3).map(f => '<p>'+score(f)+'</p>').join('') : '<p>Your first final will appear here.</p>')}${card('League news',news)}${card('Social feed',social)}</div>`;
+  } else if (tab === 'Roster') body = card(club.name, leaders(season,team) + lastBox(season));
+  else if (tab === 'Social') body = card('CourtSide', social) + card('League news',news);
+  else if (tab === 'Settings') body = card('Franchise settings', `<p>${league.games} games · ${league.minutes}-minute quarters · ${league.size} on ${league.size} · Best of ${league.bestOf}</p>` + button('save','Save franchise') + button('export','Export save') + button('library','Franchises') + button('close','Main menu'));
+  else if (tab === 'Calendar') body = card('Team schedule', date + calendarView(season, team));
   else if (tab === 'Standings') body = standingsView(season);
   else if (tab === 'Leaders') body = '<h2>Scoring leaders · regular season</h2>' + leaders(season) + (season.round ? '<h2>Playoff leaders</h2>' + leaders(season, null, true) : '');
   else if (tab === 'Playoffs') body = '<h2>Playoff bracket</h2>' + playoffs(season);
@@ -84,7 +103,8 @@ export function dashboard(league, tab, archived = 0, past = null) {
       `<option value="${i}" ${i === archived ? 'selected' : ''}>Season ${s.year}</option>`).join('')) +
       '<h3>Champion · ' + clubs[past.champion].name + '</h3>' + playoffs(past) + standingsView(past) + leaders(past) : '<p>Completed seasons appear here when the next season begins.</p>');
   }
-  return `<header>${badge(team)}<div><small>MyLeague · Season ${season.year}</small><h1>${escapeText(league.name)}</h1><p>${club.name} · ${mine.w}–${mine.l} · ${club.conference}</p></div></header>
-    <nav aria-label="Franchise views">${tabs.map(t => `<button data-tab="${t}" aria-pressed="${t === tab}">${t}</button>`).join('')}</nav>
-    ${body}<footer>${button('save', 'Save')}${button('export', 'Export save')}${button('library', 'Franchises')}${button('close', 'Main menu')}</footer>`;
+  const leagueViews = ['Standings','Leaders','Playoffs','History'];
+  return `<div class="hub"><header><strong class="tt-brand">TRIPLE<br>THREAT</strong><div><h1>MyLeague</h1><small>${escapeText(league.name)} · Season ${season.year}</small></div><div class="club-id">${badge(team)}<b>${club.nickname} · ${mine.w}–${mine.l}</b></div></header>
+    <nav aria-label="Franchise views">${Object.entries(views).map(([key,label]) => `<button data-tab="${key}" aria-pressed="${key === tab || key === 'Standings' && leagueViews.includes(tab)}">${label}</button>`).join('')}</nav>
+    ${leagueViews.includes(tab) ? '<div class="hub-buttons">'+leagueViews.map(k=>link(k,k)).join('')+'</div>' : ''}${body}</div>`;
 }

@@ -11,6 +11,13 @@ Every agent that works on Triple Threat adds an entry here at the end of each ta
 
 ---
 
+## 2026-11-17 · Codex · `codex/franchise-hub` · awaiting merge
+
+- Rebuilt the franchise dashboard around the owner's blueprint. Six navigation tabs, weekly advancement, a three-story spotlight, team jersey graphic, matchup, standings, results and local fan reactions use the current save.
+- Checked Firefox layouts at 1280 and 390 pixels wide. Both builds passed. Parallel test runs were interrupted under load. The full single-process run passed 1,298 tests with zero failures and one existing TODO.
+- Arcade points/PPP/seconds deviations were −3.7%/−3.0%/+0.8% for 3v3 and −3.1%/−3.2%/−0.2% for 5v5. Simulation scored 117.2 points per 48 versus 115.0 fast, and star usage ranged from 21.9% to 32.7%.
+- Physical Chromebook performance and a browser playthrough of the new controls remain unverified. Trades and free agency remain scheduled for the front-office milestone.
+
 ## 2026-11-17 · Codex · `codex/myleague` · awaiting merge
 
 - **Milestone 1.** Create a named slot with any league team. Play, watch or simulate a seeded season, track standings and box scores, finish a best-of series and archive the year. Opponents alternate venues. Both engines share the fixture, final score, confidence and rivalries. Website simulation runs in a worker. IndexedDB keeps revisions, a recovery checkpoint and immutable season archives. [Architecture, defaults and roadmap](MYLEAGUE.md).
